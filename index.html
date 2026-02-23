@@ -148,21 +148,32 @@
   }
 
   /* --- 導覽控制 --- */
-  function showPage(pageId) {
-    document.getElementById('main-nav').style.display = 'none';
-    document.getElementById('content-area').style.display = 'block';
-    document.querySelectorAll('.page-section').forEach(p => p.style.display = 'none');
-    document.getElementById('page-' + pageId).style.display = 'block';
-    if(pageId === 'ATTENDANCE') initAttendancePage();
-    if(pageId === 'MEMBERS') refreshMemberTable();
-    if(pageId === 'STATS') initStatsPage();
+/* --- 修正版導覽控制 --- */
+function showPage(pageId) {
+  // 隱藏主選單，顯示內容區
+  document.getElementById('main-nav').style.display = 'none';
+  document.getElementById('content-area').style.display = 'block';
+  
+  // 隱藏所有分頁，只顯示目標分頁
+  document.querySelectorAll('.page-section').forEach(p => p.style.display = 'none');
+  const targetPage = document.getElementById('page-' + pageId);
+  if (targetPage) {
+    targetPage.style.display = 'block';
+  } else {
+    console.error("找不到頁面 ID: page-" + pageId);
   }
 
-  function goHome() {
-    stopScanning();
-    document.getElementById('main-nav').style.display = 'block';
-    document.getElementById('content-area').style.display = 'none';
-  }
+  // 根據頁面執行初始化
+  if (pageId === 'ATTENDANCE') initAttendancePage(); // 注意：這裡名稱要對齊
+  if (pageId === 'MEMBERS') refreshMemberTable();
+  if (pageId === 'STATS') initStatsPage();
+}
+
+function goHome() {
+  if (typeof stopScanning === "function") stopScanning();
+  document.getElementById('main-nav').style.display = 'block';
+  document.getElementById('content-area').style.display = 'none';
+}
 
   /* --- 🎤 點名系統邏輯 --- */
   let currentAttType = '台語';
@@ -180,21 +191,53 @@
     if(res.status === "success") renderAttendanceList(res.activeList, res.nfMale, res.nfFemale);
   }
 
-  function renderAttendanceList(list, nm, nf) {
-    const body = document.getElementById('attendanceListBody');
-    body.innerHTML = list.map(m => `
-      <div class="att-item ${m.isSubmitted?'submitted':(m.isChecked?'selected':'')}" onclick="handleCheck('${m.name}', ${!m.isChecked})">
-        <div class="att-name">${m.name}</div>
-        <small style="color:${m.gender==='男'?'#0d6efd':'#dc3545'}">${m.gender}</small>
-      </div>
-    `).join('');
-    document.getElementById('presentCount').innerText = list.filter(m=>m.isSubmitted).length + nm + nf;
+// 修改渲染邏輯，確保 onclick 指向正確的函式
+function renderAttendanceList(list, nm, nf) {
+  const body = document.getElementById('attendanceListBody');
+  if (!list || list.length === 0) {
+    body.innerHTML = '<div class="text-center p-5 text-muted">目前無名單</div>';
+    return;
   }
 
-  async function handleCheck(name, state) {
-    await callGAS('syncClickToServer', { name, isChecked: state, type: currentAttType, userId: attUserId });
-    switchType(currentAttType);
-  }
+  body.innerHTML = list.map(m => {
+    const isChecked = m.isChecked;
+    const isSubmitted = m.isSubmitted;
+    const isLocked = (m.isChecked && m.operatorId && m.operatorId !== attUserId);
+    
+    let statusClass = isSubmitted ? 'submitted' : (isChecked ? 'selected' : '');
+    if (isLocked) statusClass = 'locked';
+
+    return `
+      <div class="att-item ${statusClass}" onclick="handleMemberClick(this, '${m.name}')">
+        <div class="att-name">${m.name}</div>
+        <div class="att-info">
+          <b class="gender-text" style="color:${m.gender==='男'?'#007bff':'#e64980'}">${m.gender}</b>
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  // 更新出席人數計數
+  const submittedCount = list.filter(m => m.isSubmitted).length;
+  document.getElementById('presentCount').innerText = submittedCount + Number(nm) + Number(nf);
+}
+
+// 修正點擊函式
+async function handleMemberClick(element, name) {
+  // 如果已經送出或被鎖定，就不給點 (除非你想做撤銷邏輯)
+  if (element.classList.contains('submitted') || element.classList.contains('locked')) return;
+
+  const isNowChecked = !element.classList.contains('selected');
+  element.classList.toggle('selected');
+  
+  // 🚀 即時透過 API 同步到 Google 暫存區
+  await callGAS('syncClickToServer', { 
+    name: name, 
+    isChecked: isNowChecked, 
+    type: currentAttType, 
+    userId: attUserId 
+  });
+}
 
   async function submitAttendance() {
     const checked = document.querySelectorAll('.att-item.selected');
