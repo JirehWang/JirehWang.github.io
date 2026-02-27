@@ -1,77 +1,84 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>教會服事系統管理</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-  <style>
-    body { background-color: #f4f7f6; padding: 20px; font-family: "Microsoft JhengHei", sans-serif; }
-    .card-custom { max-width: 1000px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-    .hidden { display: none; }
-    .grid-input { width: 100%; border: none; background: transparent; padding: 8px; text-align: center; outline: none; font-size: 14px; }
-    .grid-input:focus { background: #e8f0fe; font-weight: bold; }
-    td { border: 1px solid #ddd; padding: 0 !important; }
-    .table-responsive { max-height: 70vh; overflow: auto; border: 1px solid #dee2e6; }
-    thead th { position: sticky; top: 0; background: #212529; color: white; z-index: 5; }
-    #globalLoading { position: fixed; top: 20px; right: 20px; background: #ffc107; padding: 10px 20px; border-radius: 8px; font-weight: bold; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
-  </style>
-</head>
-<body>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>教會服事系統管理</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+      body { background-color: #f4f7f6; padding: 20px; font-family: "Microsoft JhengHei", sans-serif; }
+      .card-custom { max-width: 1000px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+      .hidden { display: none; }
+      .grid-input { width: 100%; border: none; background: transparent; padding: 8px; text-align: center; outline: none; font-size: 14px; }
+      .grid-input:focus { background: #e8f0fe; font-weight: bold; }
+      td { border: 1px solid #ddd; padding: 0 !important; }
+      .table-responsive { max-height: 70vh; overflow: auto; border: 1px solid #dee2e6; }
+      thead th { position: sticky; top: 0; background: #212529; color: white; z-index: 5; }
+      #globalLoading { position: fixed; top: 20px; right: 20px; background: #ffc107; padding: 10px 20px; border-radius: 8px; font-weight: bold; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+    </style>
+  </head>
+  <body>
 
-  <div id="globalLoading" class="hidden">⏳ 系統連線中...</div>
+    <div id="globalLoading" class="hidden">⏳ 系統連線中...</div>
 
-  <div class="container-fluid">
-    <div id="adminMain" class="card-custom hidden" style="max-width: 600px;">
-      <h3 class="text-center mb-4 text-primary">教會服事系統管理</h3>
-      <div id="groupButtons" class="d-grid gap-2"></div>
-      <hr>
-      <button class="btn btn-primary w-100" onclick="showSection('createSection')">➕ 建立新分頁</button>
-    </div>
+    <div class="container-fluid">
+      
+      <div id="adminMain" class="card-custom hidden" style="max-width: 600px;">
+        <h3 class="text-center mb-4 text-primary">教會服事系統管理</h3>
+        <div id="groupButtons" class="d-grid gap-2"></div>
+        <hr>
+        <button class="btn btn-primary w-100" onclick="showSection('createSection')">➕ 建立新分頁</button>
+      </div>
 
-    <div id="createSection" class="card-custom hidden" style="max-width: 600px;">
-      <h4>建立新分頁</h4>
-      <form id="createGroupForm">
-        <div class="mb-3"><input id="newId" class="form-control" placeholder="ID (例: worship)" required></div>
-        <div class="mb-3"><input id="newName" class="form-control" placeholder="名稱" required></div>
-        <div class="mb-3"><select id="templateSelect" class="form-select" required></select></div>
-        <button type="submit" class="btn btn-success w-100">建立</button>
-        <button type="button" class="btn btn-link w-100" onclick="showSection('adminMain')">取消</button>
-      </form>
-    </div>
+      <div id="createSection" class="card-custom hidden" style="max-width: 600px;">
+        <h4>建立新分頁</h4>
+        <form id="createGroupForm">
+          <div class="mb-3"><input id="newId" class="form-control" placeholder="ID (例: worship)" required></div>
+          <div class="mb-3"><input id="newName" class="form-control" placeholder="名稱" required></div>
+          <div class="mb-3"><select id="templateSelect" class="form-select" required></select></div>
+          <button type="submit" class="btn btn-success w-100">建立</button>
+          <button type="button" class="btn btn-link w-100" onclick="showSection('adminMain')">取消</button>
+        </form>
+      </div>
 
-    <div id="reportSection" class="card-custom hidden">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4 id="groupTitle" class="text-primary m-0">載入中...</h4>
-        <div>
-          <button class="btn btn-primary" onclick="saveData()">💾 儲存變更</button>
-          <button class="btn btn-outline-secondary ms-2" onclick="goToHome()">回主頁</button>
+      <div id="reportSection" class="card-custom hidden">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h4 id="groupTitle" class="text-primary m-0">載入中...</h4>
+          <div>
+            <button class="btn btn-primary" onclick="saveData()">💾 儲存變更</button>
+            <button class="btn btn-outline-secondary ms-2" onclick="goToHome()">回主頁</button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-bordered table-sm mb-0">
+            <thead id="tableHead"></thead>
+            <tbody id="tableBody"></tbody>
+          </table>
         </div>
       </div>
-      <div class="table-responsive">
-        <table class="table table-bordered table-sm mb-0">
-          <thead id="tableHead"></thead>
-          <tbody id="tableBody"></tbody>
-        </table>
-      </div>
+      
     </div>
-  </div>
 
 <script>
-  // ★ 重要：請確認使用您最新的「AKfycbx...」這個網址
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_U9nKJrRMR1-xzbbtuaq08lePLgAQ2wnDRrCeHdy9jNhh/exec"; 
-
-  const urlParams = new URLSearchParams(window.location.search);
+  // ==========================================
+  // ⚠️ 請將下方網址替換為您 GAS 部署的 Web App URL
+  // ==========================================
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbwVZyD_r_LCawhDwfWNqbiagpiU0GksI_Wm3DcD2SLcYJZ5aO_QpQBiHRUzblJYfkL9/exec"; 
+  
+const urlParams = new URLSearchParams(window.location.search);
   const currentId = urlParams.get('id');
   let activeGroupName = "";
 
   const showLoading = () => document.getElementById('globalLoading').classList.remove('hidden');
   const hideLoading = () => document.getElementById('globalLoading').classList.add('hidden');
 
+  // --- API 呼叫工具 ---
   async function fetchAPI(action, params = {}) {
     let url = new URL(GAS_URL);
     url.searchParams.append('action', action);
-    for (let key in params) { url.searchParams.append(key, params[key]); }
+    for (let key in params) {
+      url.searchParams.append(key, params[key]);
+    }
     const response = await fetch(url);
     const result = await response.json();
     if (result.status !== 'success') throw new Error(result.message);
@@ -101,8 +108,11 @@
         renderMatrix(data);
       }
     } catch (err) {
-      alert("載入錯誤：" + err.message);
-    } finally { hideLoading(); }
+      alert("載入發生錯誤：" + err.message);
+      if(currentId) document.getElementById('groupTitle').innerText = "錯誤: " + err.message;
+    } finally {
+      hideLoading();
+    }
   };
 
   function renderMatrix(data) {
@@ -116,16 +126,22 @@
       const tr = document.createElement('tr');
       row.forEach((cell, cIdx) => {
         const el = document.createElement(rIdx === 0 ? 'th' : 'td');
+        
+        // ★ 強化 1: 第一列直接變純文字標題，不給編輯
         if (rIdx === 0) {
           el.innerText = cell;
-          el.style.backgroundColor = '#212529';
+          el.style.backgroundColor = '#212529'; // 確保深色背景
           el.style.color = 'white';
         } else {
+          // 其他列產生輸入框
           const input = document.createElement('input');
           input.className = "grid-input";
           input.value = cell;
+          
+          // 紀錄座標，為了方向鍵與貼上功能做準備
           input.dataset.r = rIdx;
           input.dataset.c = cIdx;
+          
           el.appendChild(input);
         }
         tr.appendChild(el);
@@ -134,29 +150,61 @@
     });
   }
 
-  // 方向鍵與貼上邏輯保持...
+  // ★ 強化 2: 方向鍵導航功能
   document.addEventListener('keydown', function(e) {
     if (!e.target.classList.contains('grid-input')) return;
-    let r = parseInt(e.target.dataset.r), c = parseInt(e.target.dataset.c);
-    if (e.key === 'ArrowUp') r--; else if (e.key === 'ArrowDown') r++;
-    else if (e.key === 'ArrowLeft') c--; else if (e.key === 'ArrowRight') c++;
-    else return;
-    let next = document.querySelector(`.grid-input[data-r="${r}"][data-c="${c}"]`);
-    if (next) { next.focus(); if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); next.select(); } }
+    
+    let r = parseInt(e.target.dataset.r);
+    let c = parseInt(e.target.dataset.c);
+    
+    if (e.key === 'ArrowUp') r--;
+    else if (e.key === 'ArrowDown') r++;
+    else if (e.key === 'ArrowLeft') c--;
+    else if (e.key === 'ArrowRight') c++;
+    else return; // 非方向鍵則不處理
+
+    // 尋找目標輸入框並轉移焦點
+    let nextInput = document.querySelector(`.grid-input[data-r="${r}"][data-c="${c}"]`);
+    if (nextInput) {
+      nextInput.focus();
+      // 在格子內左右移動時，如果有文字，可以選擇不阻止預設行為讓游標可以移動
+      // 但如果是上下移動，我們強迫選取整格，體驗更像 Excel
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault(); 
+        nextInput.select();
+      }
+    }
   });
 
+  // ★ 強化 3: 智慧批量貼上功能
   document.addEventListener('paste', function(e) {
     if (!e.target.classList.contains('grid-input')) return;
+    
+    // 取得剪貼簿裡的文字
     let pasteData = (e.clipboardData || window.clipboardData).getData('text');
+    
+    // 如果只有單純一個詞（沒有換行也沒有 Tab），就用預設貼上就好
     if (!pasteData.includes('\t') && !pasteData.includes('\n')) return;
-    e.preventDefault();
+
+    e.preventDefault(); // 阻止原本只貼在同一格的行為
+
+    // Excel 複製出來的資料，列與列用 \n 分隔，欄與欄用 \t 分隔
     let rows = pasteData.split(/\r?\n/);
-    if (rows[rows.length - 1] === "") rows.pop();
-    let startR = parseInt(e.target.dataset.r), startC = parseInt(e.target.dataset.c);
+    if (rows[rows.length - 1] === "") rows.pop(); // 移除 Excel 結尾多餘的空行
+
+    let startR = parseInt(e.target.dataset.r);
+    let startC = parseInt(e.target.dataset.c);
+
+    // 依序填入儲存格
     rows.forEach((rowStr, i) => {
-      rowStr.split('\t').forEach((cellVal, j) => {
-        let target = document.querySelector(`.grid-input[data-r="${startR + i}"][data-c="${startC + j}"]`);
-        if (target) target.value = cellVal.trim();
+      let cells = rowStr.split('\t');
+      cells.forEach((cellVal, j) => {
+        let targetInput = document.querySelector(`.grid-input[data-r="${startR + i}"][data-c="${startC + j}"]`);
+        if (targetInput) {
+          targetInput.value = cellVal.trim();
+          targetInput.style.backgroundColor = "#e8f0fe"; // 給個貼上成功的小提示色
+          setTimeout(() => targetInput.style.backgroundColor = "transparent", 1000);
+        }
       });
     });
   });
@@ -165,20 +213,30 @@
     const btn = document.querySelector('.btn-primary');
     btn.disabled = true; btn.innerText = "⏳...";
     showLoading();
+    
     const matrix = [];
+    
+    // 抓取標題列
     const headRow = [];
     document.querySelectorAll('#tableHead th').forEach(th => headRow.push(th.innerText));
     matrix.push(headRow);
+
+    // 抓取內容列
     document.querySelectorAll('#tableBody tr').forEach(tr => {
       const rowData = [];
       tr.querySelectorAll('input').forEach(i => rowData.push(i.value));
       matrix.push(rowData);
     });
+
     try {
       const res = await postAPI('saveSheetData', { groupName: activeGroupName, matrix: matrix });
       alert(res.message);
-    } catch (err) { alert("儲存錯誤: " + err.message); }
-    finally { btn.disabled = false; btn.innerText = "💾 儲存變更"; hideLoading(); }
+    } catch (err) {
+      alert("儲存錯誤: " + err.message);
+    } finally {
+      btn.disabled = false; btn.innerText = "💾 儲存變更";
+      hideLoading();
+    }
   }
 
   function showSection(id) {
@@ -186,28 +244,47 @@
     document.getElementById(id).classList.remove('hidden');
   }
 
-  function goToHome() { window.location.href = window.location.href.split('?')[0]; }
+  function goToHome() { 
+    window.location.href = window.location.href.split('?')[0]; 
+  }
 
   async function loadAdminData() {
     try {
-      const [groups, templates] = await Promise.all([fetchAPI('getGroups'), fetchAPI('getTemplates')]);
+      const [groups, templates] = await Promise.all([
+        fetchAPI('getGroups'),
+        fetchAPI('getTemplates')
+      ]);
+
       const div = document.getElementById('groupButtons');
-      div.innerHTML = groups.map(g => `<a href="${window.location.href.split('?')[0]}?id=${g.id}" class="btn btn-outline-primary text-start">➔ ${g.name}</a>`).join('');
+      const base = window.location.href.split('?')[0];
+      div.innerHTML = groups.map(g => `<a href="${base}?id=${g.id}" class="btn btn-outline-primary text-start">➔ ${g.name}</a>`).join('');
+      
       document.getElementById('templateSelect').innerHTML = '<option value="" disabled selected>選擇模板</option>' + templates.map(t=>`<option>${t}</option>`).join('');
-    } catch (err) { alert("載入失敗：" + err.message); }
+    } catch (err) {
+      alert("載入選單失敗：" + err.message);
+    }
   }
 
   document.getElementById('createGroupForm').onsubmit = async function(e) {
-    e.preventDefault(); showLoading();
+    e.preventDefault();
+    showLoading();
+    const btn = this.querySelector('button[type="submit"]');
+    btn.disabled = true;
+
     try {
-      await postAPI('createGroup', {
+      const res = await postAPI('createGroup', {
         id: document.getElementById('newId').value,
         name: document.getElementById('newName').value,
         template: document.getElementById('templateSelect').value
       });
+      alert(res.message);
       location.reload();
-    } catch (err) { alert(err.message); hideLoading(); }
+    } catch (err) {
+      alert("建立失敗：" + err.message);
+      btn.disabled = false;
+      hideLoading();
+    }
   };
 </script>
-</body>
+  </body>
 </html>
