@@ -3,258 +3,267 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>教會事工管理系統 - 維護後台</title>
+  <title>教會服事系統管理</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
   <style>
     body { background-color: #f4f7f6; padding: 20px; font-family: "Microsoft JhengHei", sans-serif; user-select: none; }
-    .card-custom { max-width: 1200px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    .card-custom { max-width: 1000px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
     .hidden { display: none; }
     
-    /* 表格樣式優化 */
-    .table-responsive { max-height: 75vh; overflow: auto; border: 1px solid #dee2e6; position: relative; background: #fff; }
+    /* Excel 網格優化 */
+    .table-responsive { max-height: 70vh; overflow: auto; border: 1px solid #dee2e6; background: #fff; }
     table { border-collapse: separate; border-spacing: 0; width: 100%; }
+    thead th { position: sticky; top: 0; background: #212529 !important; color: white; z-index: 10; padding: 10px; text-align: center; border: 1px solid #373b3e; }
+    td { border: 1px solid #ddd; padding: 0 !important; height: 38px; min-width: 120px; }
     
-    /* 標題列固定且清晰 */
-    thead th { 
-      position: sticky; top: 0; background: #212529 !important; color: white; 
-      z-index: 10; padding: 12px; text-align: center; border: 1px solid #373b3e;
-    }
+    .grid-input { width: 100%; height: 100%; border: none; background: transparent; padding: 8px; text-align: center; outline: none; font-size: 14px; cursor: cell; }
     
-    /* 儲存格與輸入框 */
-    td { border: 1px solid #dee2e6; padding: 0 !important; height: 38px; min-width: 120px; }
-    .grid-input { 
-      width: 100%; height: 100%; border: none; background: transparent; 
-      padding: 8px; text-align: center; outline: none; font-size: 14px; cursor: cell;
-    }
-    
-    /* ★ Excel 選取範圍效果 */
+    /* 選取效果 */
     .grid-input.selected { background-color: rgba(13, 110, 253, 0.12) !important; }
     .grid-input.active-cell { box-shadow: inset 0 0 0 2px #0d6efd !important; background: white !important; cursor: text; }
     
-    #globalLoading { position: fixed; top: 20px; right: 20px; background: #ffc107; padding: 10px 20px; border-radius: 8px; font-weight: bold; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    #globalLoading { position: fixed; top: 20px; right: 20px; background: #ffc107; padding: 10px 20px; border-radius: 8px; font-weight: bold; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
   </style>
 </head>
 <body>
 
-  <div id="globalLoading" class="hidden">⏳ 處理中...</div>
+  <div id="globalLoading" class="hidden">⏳ 系統連線中...</div>
 
   <div class="container-fluid">
-    <div id="reportSection" class="card-custom">
+    
+    <div id="adminMain" class="card-custom hidden" style="max-width: 600px;">
+      <h3 class="text-center mb-4 text-primary">教會服事系統管理</h3>
+      <div id="groupButtons" class="d-grid gap-2"></div>
+      <hr>
+      <button class="btn btn-primary w-100" onclick="showSection('createSection')">➕ 建立新分頁</button>
+    </div>
+
+    <div id="createSection" class="card-custom hidden" style="max-width: 600px;">
+      <h4>建立新分頁</h4>
+      <form id="createGroupForm">
+        <div class="mb-3"><input id="newId" class="form-control" placeholder="ID (例: worship)" required></div>
+        <div class="mb-3"><input id="newName" class="form-control" placeholder="名稱" required></div>
+        <div class="mb-3"><select id="templateSelect" class="form-select" required></select></div>
+        <button type="submit" class="btn btn-success w-100">建立</button>
+        <button type="button" class="btn btn-link w-100" onclick="showSection('adminMain')">取消</button>
+      </form>
+    </div>
+
+    <div id="reportSection" class="card-custom hidden">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-          <h4 id="groupTitle" class="text-primary m-0 d-inline-block">正在連線至 GAS API...</h4>
-          <span class="badge bg-secondary ms-2">維護模式</span>
-        </div>
+        <h4 id="groupTitle" class="text-primary m-0">載入中...</h4>
         <div>
           <button class="btn btn-primary" onclick="saveData()">💾 儲存變更</button>
-          <button class="btn btn-outline-secondary ms-2" onclick="location.href='index.html'">回選單</button>
+          <button class="btn btn-outline-secondary ms-2" onclick="goToHome()">回主頁</button>
         </div>
       </div>
-      
-      <div class="table-responsive" id="tableContainer">
+      <div class="table-responsive">
         <table>
           <thead id="tableHead"></thead>
           <tbody id="tableBody"></tbody>
         </table>
       </div>
-      
-      <div class="mt-3 text-muted small">
-        操作提示：拖曳滑鼠可<b>多選</b>｜按 Delete <b>批次刪除</b>｜Ctrl+V <b>範圍貼上</b>｜雙擊進入<b>打字編輯</b>
-      </div>
+      <div class="mt-2 text-muted small">💡 提示：滑鼠拖曳可多選｜Delete 批次刪除｜Ctrl+V 範圍貼上｜方向鍵移動</div>
     </div>
+    
   </div>
 
 <script>
   const GAS_URL = "https://script.google.com/macros/s/AKfycbvVZyD_r_LCawhDwfWNqbiagpiU0GksI_Wm3DcD2SLcYJZ5aO_QpQBiHRUzblJYfkL9/exec"; 
-  const currentId = new URLSearchParams(window.location.search).get('id');
+  const urlParams = new URLSearchParams(window.location.search);
+  const currentId = urlParams.get('id');
   let activeGroupName = "";
   
-  // 選取狀態管理
+  // 選取管理
   let isMouseDown = false;
   let startCell = {r: null, c: null};
   let endCell = {r: null, c: null};
 
-  window.onload = async () => {
-    if (!currentId) {
-      document.getElementById('groupTitle').innerText = "請由管理入口進入";
-      return;
-    }
-    await loadTableData();
-  };
+  const showLoading = () => document.getElementById('globalLoading').classList.remove('hidden');
+  const hideLoading = () => document.getElementById('globalLoading').classList.add('hidden');
 
-  async function loadTableData() {
-    toggleLoading(true);
-    try {
-      const res = await fetch(`${GAS_URL}?action=getPageConfig&id=${currentId}`);
-      const json = await res.json();
-      if (json.status === "success") {
-        renderMatrix(json.data);
-      } else {
-        alert("讀取失敗：" + json.message);
-      }
-    } catch (e) {
-      alert("連線失敗：" + e.message);
-    }
-    toggleLoading(false);
+  async function fetchAPI(action, params = {}) {
+    let url = new URL(GAS_URL);
+    url.searchParams.append('action', action);
+    for (let key in params) { url.searchParams.append(key, params[key]); }
+    const response = await fetch(url);
+    const result = await response.json();
+    if (result.status !== 'success') throw new Error(result.message);
+    return result.data;
   }
+
+  async function postAPI(action, payload) {
+    const response = await fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: action, data: payload })
+    });
+    const result = await response.json();
+    if (result.status !== 'success') throw new Error(result.message);
+    return result;
+  }
+
+  window.onload = async () => {
+    showLoading();
+    try {
+      if (!currentId) {
+        showSection('adminMain');
+        await loadAdminData();
+      } else {
+        showSection('reportSection');
+        const data = await fetchAPI('getPageConfig', { id: currentId });
+        renderMatrix(data);
+      }
+    } catch (err) {
+      alert("載入錯誤：" + err.message);
+    } finally { hideLoading(); }
+  };
 
   function renderMatrix(data) {
     activeGroupName = data.groupName;
     document.getElementById('groupTitle').innerText = data.groupName;
     const thead = document.getElementById('tableHead');
     const tbody = document.getElementById('tableBody');
-    
-    // 渲染標題列 (固定)
     thead.innerHTML = `<tr>${data.matrix[0].map(h => `<th>${h}</th>`).join('')}</tr>`;
     
-    // 渲染資料列 (1-base)
     tbody.innerHTML = data.matrix.slice(1).map((row, rIdx) => {
-      const r = rIdx + 1;
+      const realR = rIdx + 1;
       return `<tr>${row.map((cell, cIdx) => `
         <td>
-          <input class="grid-input" value="${cell}" 
-                 readonly data-r="${r}" data-c="${cIdx}"
-                 onmousedown="cellMouseDown(event)" 
-                 onmouseenter="cellMouseEnter(event)"
-                 ondblclick="cellDblClick(event)">
+          <input class="grid-input" value="${cell}" readonly 
+                 data-r="${realR}" data-c="${cIdx}"
+                 onmousedown="doMouseDown(event)" 
+                 onmouseenter="doMouseEnter(event)"
+                 ondblclick="doDblClick(event)">
         </td>`).join('')}</tr>`;
     }).join('');
   }
 
-  // --- Excel 範圍選取邏輯 ---
-  function cellMouseDown(e) {
+  // --- Excel 手感邏輯 ---
+  function doMouseDown(e) {
     isMouseDown = true;
-    const r = parseInt(e.target.dataset.r);
-    const c = parseInt(e.target.dataset.c);
-    startCell = {r, c};
-    endCell = {r, c};
-    clearSelectionStyles();
+    startCell = { r: parseInt(e.target.dataset.r), c: parseInt(e.target.dataset.c) };
+    endCell = { ...startCell };
+    clearSelection();
     e.target.classList.add('selected', 'active-cell');
   }
 
-  function cellMouseEnter(e) {
+  function doMouseEnter(e) {
     if (!isMouseDown) return;
-    const r = parseInt(e.target.dataset.r);
-    const c = parseInt(e.target.dataset.c);
-    endCell = {r, c};
-    drawSelection();
+    endCell = { r: parseInt(e.target.dataset.r), c: parseInt(e.target.dataset.c) };
+    updateSelection();
   }
 
   window.onmouseup = () => { isMouseDown = false; };
 
-  function drawSelection() {
-    clearSelectionStyles();
+  function updateSelection() {
+    clearSelection();
     const minR = Math.min(startCell.r, endCell.r);
     const maxR = Math.max(startCell.r, endCell.r);
     const minC = Math.min(startCell.c, endCell.c);
     const maxC = Math.max(startCell.c, endCell.c);
-
     document.querySelectorAll('.grid-input').forEach(el => {
-      const r = parseInt(el.dataset.r);
-      const c = parseInt(el.dataset.c);
-      if (r >= minR && r <= maxR && c >= minC && c <= maxC) {
-        el.classList.add('selected');
-      }
+      const r = parseInt(el.dataset.r), c = parseInt(el.dataset.c);
+      if (r >= minR && r <= maxR && c >= minC && c <= maxC) el.classList.add('selected');
     });
   }
 
-  function clearSelectionStyles() {
+  function clearSelection() {
     document.querySelectorAll('.grid-input').forEach(el => {
       el.classList.remove('selected', 'active-cell');
       el.readOnly = true;
     });
   }
 
-  function cellDblClick(e) {
+  function doDblClick(e) {
     e.target.readOnly = false;
     e.target.focus();
     e.target.classList.add('active-cell');
   }
 
-  // --- 鍵盤操作 (Delete, Copy, Paste) ---
+  // 鍵盤監聽
   document.addEventListener('keydown', (e) => {
     const active = document.activeElement;
-    const isEditing = active.classList.contains('grid-input') && !active.readOnly;
-    if (isEditing) return; 
+    if (active.classList.contains('grid-input') && !active.readOnly) return; 
 
     const selected = document.querySelectorAll('.grid-input.selected');
-
     if (e.key === 'Delete' || e.key === 'Backspace') {
       selected.forEach(el => el.value = "");
       e.preventDefault();
     }
-
-    if (e.ctrlKey && e.key === 'c') {
-      copySelectionToTSV(selected);
-      e.preventDefault();
+    
+    // 方向鍵導航
+    if (e.key.startsWith('Arrow') && selected.length > 0) {
+      let r = startCell.r, c = startCell.c;
+      if (e.key === 'ArrowUp') r--; else if (e.key === 'ArrowDown') r++;
+      else if (e.key === 'ArrowLeft') c--; else if (e.key === 'ArrowRight') c++;
+      const next = document.querySelector(`.grid-input[data-r="${r}"][data-c="${c}"]`);
+      if (next) {
+        e.preventDefault();
+        startCell = {r, c}; endCell = {r, c};
+        clearSelection();
+        next.classList.add('selected', 'active-cell');
+        next.focus();
+      }
     }
   });
 
-  function copySelectionToTSV(elements) {
-    if (elements.length === 0) return;
-    const minR = Math.min(...Array.from(elements).map(el => el.dataset.r));
-    const maxR = Math.max(...Array.from(elements).map(el => el.dataset.r));
-    const minC = Math.min(...Array.from(elements).map(el => el.dataset.c));
-    const maxC = Math.max(...Array.from(elements).map(el => el.dataset.c));
-
-    let tsv = "";
-    for (let r = minR; r <= maxR; r++) {
-      let rowData = [];
-      for (let c = minC; c <= maxC; c++) {
-        const el = document.querySelector(`.grid-input[data-r="${r}"][data-c="${c}"]`);
-        rowData.push(el ? el.value : "");
-      }
-      tsv += rowData.join('\t') + "\n";
-    }
-    navigator.clipboard.writeText(tsv);
-  }
-
+  // 智慧貼上
   document.addEventListener('paste', (e) => {
     const active = document.activeElement;
     if (!active.classList.contains('grid-input')) return;
-
     const text = (e.clipboardData || window.clipboardData).getData('text');
+    if (!text.includes('\t') && !text.includes('\n')) return;
+    e.preventDefault();
     const rows = text.split(/\r?\n/).filter(line => line.length > 0);
-    const startR = parseInt(active.dataset.r);
-    const startC = parseInt(active.dataset.c);
-
+    const startR = parseInt(active.dataset.r), startC = parseInt(active.dataset.c);
     rows.forEach((row, i) => {
-      const cols = row.split('\t');
-      cols.forEach((val, j) => {
+      row.split('\t').forEach((val, j) => {
         const target = document.querySelector(`.grid-input[data-r="${startR + i}"][data-c="${startC + j}"]`);
         if (target) target.value = val;
       });
     });
-    e.preventDefault();
   });
 
   async function saveData() {
-    toggleLoading(true);
-    const matrix = [];
-    // 抓標題
-    matrix.push(Array.from(document.querySelectorAll('#tableHead th')).map(th => th.innerText));
-    // 抓資料
+    const btn = document.querySelector('.btn-primary');
+    btn.disabled = true; showLoading();
+    const matrix = [Array.from(document.querySelectorAll('#tableHead th')).map(th => th.innerText)];
     document.querySelectorAll('#tableBody tr').forEach(tr => {
-      matrix.push(Array.from(tr.querySelectorAll('input')).map(input => input.value));
+      matrix.push(Array.from(tr.querySelectorAll('input')).map(i => i.value));
     });
-
     try {
-      const response = await fetch(GAS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: "saveSheetData", data: { groupName: activeGroupName, matrix: matrix } })
-      });
-      const res = await response.json();
-      alert(res.message || "儲存成功！已更新至雲端看板。");
-    } catch (e) {
-      alert("儲存失敗：" + e.message);
-    }
-    toggleLoading(false);
+      const res = await postAPI('saveSheetData', { groupName: activeGroupName, matrix: matrix });
+      alert(res.message);
+    } catch (err) { alert("錯誤: " + err.message); }
+    finally { btn.disabled = false; hideLoading(); }
   }
 
-  function toggleLoading(show) {
-    document.getElementById('globalLoading').classList.toggle('hidden', !show);
+  function showSection(id) {
+    document.querySelectorAll('.card-custom').forEach(el => el.classList.add('hidden'));
+    document.getElementById(id).classList.remove('hidden');
   }
+
+  function goToHome() { window.location.href = window.location.href.split('?')[0]; }
+
+  async function loadAdminData() {
+    const [groups, templates] = await Promise.all([fetchAPI('getGroups'), fetchAPI('getTemplates')]);
+    const div = document.getElementById('groupButtons');
+    div.innerHTML = groups.map(g => `<a href="${window.location.href.split('?')[0]}?id=${g.id}" class="btn btn-outline-primary text-start">➔ ${g.name}</a>`).join('');
+    document.getElementById('templateSelect').innerHTML = '<option value="" disabled selected>選擇模板</option>' + templates.map(t=>`<option>${t}</option>`).join('');
+  }
+
+  document.getElementById('createGroupForm').onsubmit = async function(e) {
+    e.preventDefault(); showLoading();
+    try {
+      await postAPI('createGroup', {
+        id: document.getElementById('newId').value,
+        name: document.getElementById('newName').value,
+        template: document.getElementById('templateSelect').value
+      });
+      location.reload();
+    } catch (err) { alert(err.message); hideLoading(); }
+  };
 </script>
 </body>
 </html>
