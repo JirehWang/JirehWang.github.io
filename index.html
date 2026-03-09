@@ -103,7 +103,6 @@
       rows[rIdx] = { cells };
     });
 
-    // 初始化 Spreadsheet
     xs = x_spreadsheet('#spreadsheet-container', {
       showToolbar: true,
       row: { len: 100 },
@@ -114,53 +113,49 @@
       }
     }).loadData([{ name: data.groupName, rows: rows }]);
 
-    // ★ 核心修復：全情境貼上監聽器
-    // 使用 capture: true 確保優先於插件內部的監聽器
+    // ★ 終極無敵橋接器：徹底解決 x-spreadsheet 原生貼上缺陷
     document.addEventListener('paste', (e) => {
       const text = (e.clipboardData || window.clipboardData).getData('text/plain');
       if (!text) return;
 
-      const activeEl = document.activeElement;
-      // 偵測目前是否在「編輯模式」(雙擊狀態下會出現 textarea)
-      const isEditing = activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT';
+      // 精準判斷：尋找 x-spreadsheet 真正的「可見編輯器」
+      const editorDiv = document.querySelector('.x-spreadsheet-editor');
+      // 如果編輯器存在且正在顯示(不是隱藏狀態)，代表您是真的「雙擊」進去打字了
+      const isActuallyEditing = editorDiv && window.getComputedStyle(editorDiv).display !== 'none';
 
-      // 只要目前不是編輯模式，就強制由我們處理外部貼上
-      if (!isEditing) {
-        // 1. 攔截原生的貼上行為
+      // 只要沒有雙擊進入編輯模式，我們就全面接管，無視它原生的 Bug
+      if (!isActuallyEditing) {
         e.preventDefault();
         e.stopImmediatePropagation();
 
-        // 2. 拆分行：先處理換行符號
+        // 1. 安全拆分行數
         let rowsData = text.split(/\r?\n/);
-        
-        // ★ 關鍵修復：只有在最後一行是「真正空的」情況下才移除 (通常是 Sheets 結尾的換行產生的)
-        // 如果複製的是單行且沒有結尾換行，rowsData.length 會是 1，此處就不會動作
-        if (rowsData.length > 1 && rowsData[rowsData.length - 1] === "") {
-          rowsData.pop();
+        // 移除 Excel/Sheets 複製時結尾多出來的空字串，但不傷及真正的最後一行
+        if (rowsData.length > 0 && rowsData[rowsData.length - 1] === "") {
+          rowsData.pop(); 
         }
 
-        // 3. 取得目前選取的座標 (ri: 行, ci: 欄)
-        // 如果沒有選中任何格，則預設從 0,0 開始
-        const cellPos = xs.rebaseCell();
-        const ri = cellPos ? cellPos.ri : 0;
-        const ci = cellPos ? cellPos.ci : 0;
+        // 2. 獲取目前選取格子的座標 (透過 xs 內部狀態安全獲取)
+        let ri = 0, ci = 0;
+        if (xs && xs.sheet && xs.sheet.selector) {
+          ri = xs.sheet.selector.ri;
+          ci = xs.sheet.selector.ci;
+        }
 
-        // 4. 逐行逐列填入
+        // 3. 暴力注入資料核心
         rowsData.forEach((rowStr, i) => {
           const cols = rowStr.split('\t');
           cols.forEach((val, j) => {
-            // 清除引號並填入內容
             let cleanVal = val.replace(/^"|"$/g, '').replace(/""/g, '"');
             xs.cellText(ri + i, ci + j, cleanVal);
           });
         });
 
-        // 5. 重新渲染畫面以顯示新資料
+        // 4. 一次性重新渲染
         xs.reRender();
-        console.log(`✅ 已同步貼入 ${rowsData.length} 行資料`);
+        console.log(`✅ 成功接管！已完美貼入 ${rowsData.length} 行資料。`);
       }
-      // 若 isEditing 為 true，則不處理，讓瀏覽器預設的貼上行為(貼入 textarea)執行
-    }, true); 
+    }, true); // Capture 模式最高優先
 
     x_spreadsheet.locale('zh-cn');
   }
