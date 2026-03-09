@@ -97,64 +97,57 @@ function initSpreadsheet(data) {
     activeGroupName = data.groupName;
     document.getElementById('groupTitle').innerText = data.groupName;
     
-    // 1. 將 GAS 傳來的 Matrix 轉換為 x-spreadsheet 格式
     const rows = {};
     data.matrix.forEach((rowData, rIdx) => {
       const cells = {};
-      rowData.forEach((val, cIdx) => {
-        cells[cIdx] = { text: val || "" };
-      });
+      rowData.forEach((val, cIdx) => { cells[cIdx] = { text: val || "" }; });
       rows[rIdx] = { cells };
     });
 
-    // 2. 初始化實例 (設定 100列 x 26欄)
     xs = x_spreadsheet('#spreadsheet-container', {
       showToolbar: true,
+      row: { len: 100 },
+      col: { len: 26 },
       view: {
         height: () => document.getElementById('spreadsheet-container').offsetHeight,
         width: () => document.getElementById('spreadsheet-container').offsetWidth,
-      },
-      row: {
-        len: 100, 
-        height: 30,
-      },
-      col: {
-        len: 26,
-        width: 100,
       }
-    }).loadData([{
-      name: data.groupName,
-      rows: rows
-    }]);
+    }).loadData([{ name: data.groupName, rows: rows }]);
 
-    // 3. ★ 核心修復：外部剪貼簿橋接器
-    // 攔截貼上事件，確保外部 Excel 資料優先於插件內部緩存
+    // ★ 實現「雙向同步感」的關鍵：優先使用系統剪貼簿
     document.addEventListener('paste', (e) => {
-      const text = (e.clipboardData || window.clipboardData).getData('text');
+      // 1. 抓取系統剪貼簿的純文字（從 Google Sheets 來的 TSV 資料）
+      const text = (e.clipboardData || window.clipboardData).getData('text/plain');
       if (!text) return;
 
-      // 檢查是否為外部表格資料 (通常包含 Tab 或 換行)
+      // 2. 判斷是否為表格格式（包含跳格鍵或換行）
       if (text.includes('\t') || text.includes('\n')) {
-        e.stopPropagation(); // 阻止 x-spreadsheet 內建的貼上邏輯
-        
-        const rowsData = text.split(/\r?\n/).filter(line => line.length > 0);
-        // 取得當前選取的起始格子 (ri = Row Index, ci = Column Index)
-        const { ri, ci } = xs.rebaseCell(); 
+        // 強制停止插件內部的「單向」貼上邏輯
+        e.preventDefault();
+        e.stopPropagation();
+
+        const rowsData = text.split(/\r?\n/);
+        const { ri, ci } = xs.rebaseCell(); // 獲取目前點選的起點
 
         rowsData.forEach((rowStr, i) => {
+          // 處理最後一行可能出現的空行
+          if (!rowStr && i === rowsData.length - 1) return;
+
           const cols = rowStr.split('\t');
           cols.forEach((val, j) => {
-            // 強制寫入文字並重新渲染該格
-            xs.cellText(ri + i, ci + j, val.trim());
+            // 清理引號並強制注入插件 Data 核心
+            let cleanVal = val.replace(/^"|"$/g, '').replace(/""/g, '"');
+            
+            // 使用底層方法：這會繞過所有內部快取，直接改寫格子內容
+            xs.cellText(ri + i, ci + j, cleanVal);
           });
         });
         
-        xs.reRender(); // 批量更新後一次性刷新畫面
-        console.log("已強制注入外部剪貼簿資料");
+        xs.reRender(); // 重新渲染畫面
+        console.log("🔄 系統剪貼簿已成功覆蓋內部緩衝區 (雙向同步完成)");
       }
-    }, true); // 使用 Capture 模式確保最優先處理
+    }, true); // Capture 模式確保比插件內建邏輯更早觸發
 
-    // 4. 設定語法為簡體中文 (最接近的語系)
     x_spreadsheet.locale('zh-cn');
   }
   // --- ★ 優化後的儲存：對齊擴張後的範圍 ---
