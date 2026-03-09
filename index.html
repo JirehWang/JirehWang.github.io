@@ -114,38 +114,34 @@ function initSpreadsheet(data) {
       }
     }).loadData([{ name: data.groupName, rows: rows }]);
 
-    // ★ 智慧同步橋接器
-    const container = document.getElementById('spreadsheet-container');
-    container.addEventListener('paste', (e) => {
-      const systemText = (e.clipboardData || window.clipboardData).getData('text/plain');
+    // ★ 強力雙向橋接器 (掛在 document 確保最高優先權)
+    document.addEventListener('paste', (e) => {
+      const text = (e.clipboardData || window.clipboardData).getData('text/plain');
       
-      // 檢查是否包含表格特徵 (Tab 或 換行)
-      const isTableData = systemText && (systemText.includes('\t') || systemText.includes('\n'));
-      
-      if (isTableData) {
-        // 我們這裡不使用 stopPropagation，而是透過判斷來決定是否「截胡」
-        // 如果偵測到外部 TSV 格式，我們手動注入資料
-        const rowsData = systemText.split(/\r?\n/);
-        const { ri, ci } = xs.rebaseCell();
+      // 判斷是否為「外部表格」：Google Sheets 複製出來的特徵是含有 Tab (\t)
+      if (text && text.includes('\t')) {
+        // 1. 既然是外部資料，我們直接接管，不讓 x-spreadsheet 處理
+        e.preventDefault();
+        e.stopImmediatePropagation(); 
 
-        // 只有當確定是從外部進來的資料時，才執行強制覆寫
-        // 這樣可以保留內部複製時的格式 (如果有的話)
+        const { ri, ci } = xs.rebaseCell(); // 取得當前選中的格子起點
+        const rowsData = text.split(/\r?\n/);
+
         rowsData.forEach((rowStr, i) => {
-          if (!rowStr && i === rowsData.length - 1) return;
+          if (!rowStr && i === rowsData.length - 1) return; // 略過結尾空行
           const cols = rowStr.split('\t');
           cols.forEach((val, j) => {
-            let cleanVal = val.replace(/^"|"$/g, '').replace(/""/g, '"');
-            xs.cellText(ri + i, ci + j, cleanVal);
+            let cleanVal = val.replace(/^"|"$/g, '').replace(/""/g, '"'); // 清理引號
+            xs.cellText(ri + i, ci + j, cleanVal); // 注入資料
           });
         });
 
         xs.reRender();
-        console.log("🔄 智慧同步：已將系統資料同步至表格");
-        
-        // 如果我們已經處理了資料，就阻止插件再次處理 (防止重複貼上)
-        e.preventDefault();
-      }
-    });
+        console.log("⚡ 外部 TSV 資料已強制同步至內部網格");
+      } 
+      // 如果「不含 Tab」，代表是單格文字或內部簡單複製
+      // 我們什麼都不做，讓事件自然流向 x-spreadsheet 內部邏輯處理
+    }, true); // ★ 關鍵：這裡必須是 true (Capture 模式)
 
     x_spreadsheet.locale('zh-cn');
   }
