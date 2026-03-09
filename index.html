@@ -46,7 +46,7 @@
       <div class="toolbar">
         <div>
           <h4 id="groupTitle" class="text-primary m-0 d-inline">載入中...</h4>
-          <span class="ms-3 text-muted small">修改後請務必點擊右側「儲存變更」按鈕</span>
+          <span class="ms-3 text-muted small">修改後請務必點擊右側「儲存變更」</span>
         </div>
         <div>
           <button class="btn btn-primary btn-lg px-4" onclick="saveData()">💾 儲存變更</button>
@@ -92,8 +92,7 @@
     finally { hideLoading(); }
   };
 
-// --- ★ 優化後的初始化：擴張邊界 ---
-function initSpreadsheet(data) {
+  function initSpreadsheet(data) {
     activeGroupName = data.groupName;
     document.getElementById('groupTitle').innerText = data.groupName;
     
@@ -114,38 +113,45 @@ function initSpreadsheet(data) {
       }
     }).loadData([{ name: data.groupName, rows: rows }]);
 
-    // ★ 強力雙向橋接器 (掛在 document 確保最高優先權)
+    // ★ 終極修復：處理單行失效與末行失蹤問題
     document.addEventListener('paste', (e) => {
       const text = (e.clipboardData || window.clipboardData).getData('text/plain');
-      
-      // 判斷是否為「外部表格」：Google Sheets 複製出來的特徵是含有 Tab (\t)
-      if (text && text.includes('\t')) {
-        // 1. 既然是外部資料，我們直接接管，不讓 x-spreadsheet 處理
-        e.preventDefault();
-        e.stopImmediatePropagation(); 
+      if (!text) return;
 
-        const { ri, ci } = xs.rebaseCell(); // 取得當前選中的格子起點
-        const rowsData = text.split(/\r?\n/);
+      const activeEl = document.activeElement;
+      // 判斷是否正在格子裡打字 (x-spreadsheet 編輯時會產生一個隱藏的 textarea)
+      const isEditing = activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT';
+
+      // 只要不是正在「編輯模式」，就強行橋接系統剪貼簿
+      if (!isEditing) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        // 拆分行，並移除由 Excel/Sheets 結尾換行產生的多餘空元素
+        let rowsData = text.split(/\r?\n/);
+        if (rowsData.length > 0 && rowsData[rowsData.length - 1] === "") {
+          rowsData.pop(); 
+        }
+
+        const { ri, ci } = xs.rebaseCell(); // 取得藍框選取的起點
 
         rowsData.forEach((rowStr, i) => {
-          if (!rowStr && i === rowsData.length - 1) return; // 略過結尾空行
           const cols = rowStr.split('\t');
           cols.forEach((val, j) => {
-            let cleanVal = val.replace(/^"|"$/g, '').replace(/""/g, '"'); // 清理引號
-            xs.cellText(ri + i, ci + j, cleanVal); // 注入資料
+            // 清理引號
+            let cleanVal = val.replace(/^"|"$/g, '').replace(/""/g, '"');
+            xs.cellText(ri + i, ci + j, cleanVal);
           });
         });
 
         xs.reRender();
-        console.log("⚡ 外部 TSV 資料已強制同步至內部網格");
-      } 
-      // 如果「不含 Tab」，代表是單格文字或內部簡單複製
-      // 我們什麼都不做，讓事件自然流向 x-spreadsheet 內部邏輯處理
-    }, true); // ★ 關鍵：這裡必須是 true (Capture 模式)
+        console.log(`✅ 已強制同步外部資料：${rowsData.length} 行`);
+      }
+    }, true); // 使用 Capture 模式確保最高優先權
 
     x_spreadsheet.locale('zh-cn');
   }
-  // --- ★ 優化後的儲存：對齊擴張後的範圍 ---
+
   async function saveData() {
     showLoading();
     const btn = document.querySelector('.btn-primary');
@@ -154,9 +160,6 @@ function initSpreadsheet(data) {
     try {
       const sheetData = xs.getData()[0];
       const matrix = [];
-      
-      // 這裡的迴圈範圍必須與上面的 len 對齊 (100x26)
-      // 這樣才能確保「貼在遠處」的資料也能被存進 Google Sheets
       for (let r = 0; r < 100; r++) {
         const rowData = [];
         for (let c = 0; c < 26; c++) {
@@ -166,16 +169,14 @@ function initSpreadsheet(data) {
         matrix.push(rowData);
       }
 
-      const response = await fetch(GAS_URL, {
+      await fetch(GAS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: "saveSheetData", data: { groupName: activeGroupName, matrix: matrix } })
       });
       
-      const res = await response.json();
       alert("✅ 儲存成功！");
       location.reload(); 
-
     } catch (e) {
       alert("儲存失敗，請檢查網路連線");
     } finally {
@@ -183,6 +184,7 @@ function initSpreadsheet(data) {
       hideLoading();
     }
   }
+
   async function loadAdminData() {
     try {
       const [groups, templates] = await Promise.all([fetchAPI('getGroups'), fetchAPI('getTemplates')]);
@@ -190,7 +192,7 @@ function initSpreadsheet(data) {
       const base = window.location.href.split('?')[0];
       div.innerHTML = groups.map(g => `<a href="${base}?id=${g.id}" class="btn btn-outline-primary text-start">➔ ${g.name}</a>`).join('');
       document.getElementById('templateSelect').innerHTML = '<option value="" disabled selected>選擇模板</option>' + templates.map(t=>`<option value="${t}">${t}</option>`).join('');
-    } catch (err) { alert("讀取選單失敗"); }
+    } catch (err) { alert("讀取清單失敗"); }
   }
 
   function showSection(id) {
