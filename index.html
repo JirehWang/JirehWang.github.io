@@ -114,39 +114,38 @@ function initSpreadsheet(data) {
       }
     }).loadData([{ name: data.groupName, rows: rows }]);
 
-    // ★ 實現「雙向同步感」的關鍵：優先使用系統剪貼簿
-    document.addEventListener('paste', (e) => {
-      // 1. 抓取系統剪貼簿的純文字（從 Google Sheets 來的 TSV 資料）
-      const text = (e.clipboardData || window.clipboardData).getData('text/plain');
-      if (!text) return;
+    // ★ 智慧同步橋接器
+    const container = document.getElementById('spreadsheet-container');
+    container.addEventListener('paste', (e) => {
+      const systemText = (e.clipboardData || window.clipboardData).getData('text/plain');
+      
+      // 檢查是否包含表格特徵 (Tab 或 換行)
+      const isTableData = systemText && (systemText.includes('\t') || systemText.includes('\n'));
+      
+      if (isTableData) {
+        // 我們這裡不使用 stopPropagation，而是透過判斷來決定是否「截胡」
+        // 如果偵測到外部 TSV 格式，我們手動注入資料
+        const rowsData = systemText.split(/\r?\n/);
+        const { ri, ci } = xs.rebaseCell();
 
-      // 2. 判斷是否為表格格式（包含跳格鍵或換行）
-      if (text.includes('\t') || text.includes('\n')) {
-        // 強制停止插件內部的「單向」貼上邏輯
-        e.preventDefault();
-        e.stopPropagation();
-
-        const rowsData = text.split(/\r?\n/);
-        const { ri, ci } = xs.rebaseCell(); // 獲取目前點選的起點
-
+        // 只有當確定是從外部進來的資料時，才執行強制覆寫
+        // 這樣可以保留內部複製時的格式 (如果有的話)
         rowsData.forEach((rowStr, i) => {
-          // 處理最後一行可能出現的空行
           if (!rowStr && i === rowsData.length - 1) return;
-
           const cols = rowStr.split('\t');
           cols.forEach((val, j) => {
-            // 清理引號並強制注入插件 Data 核心
             let cleanVal = val.replace(/^"|"$/g, '').replace(/""/g, '"');
-            
-            // 使用底層方法：這會繞過所有內部快取，直接改寫格子內容
             xs.cellText(ri + i, ci + j, cleanVal);
           });
         });
+
+        xs.reRender();
+        console.log("🔄 智慧同步：已將系統資料同步至表格");
         
-        xs.reRender(); // 重新渲染畫面
-        console.log("🔄 系統剪貼簿已成功覆蓋內部緩衝區 (雙向同步完成)");
+        // 如果我們已經處理了資料，就阻止插件再次處理 (防止重複貼上)
+        e.preventDefault();
       }
-    }, true); // Capture 模式確保比插件內建邏輯更早觸發
+    });
 
     x_spreadsheet.locale('zh-cn');
   }
