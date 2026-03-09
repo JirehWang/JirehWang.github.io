@@ -103,6 +103,7 @@
       rows[rIdx] = { cells };
     });
 
+    // 初始化 Spreadsheet
     xs = x_spreadsheet('#spreadsheet-container', {
       showToolbar: true,
       row: { len: 100 },
@@ -113,45 +114,56 @@
       }
     }).loadData([{ name: data.groupName, rows: rows }]);
 
-    // ★ 終極修復：處理單行失效與末行失蹤問題
+    // ★ 核心修復：全情境貼上監聽器
+    // 使用 capture: true 確保優先於插件內部的監聽器
     document.addEventListener('paste', (e) => {
       const text = (e.clipboardData || window.clipboardData).getData('text/plain');
       if (!text) return;
 
       const activeEl = document.activeElement;
-      // 判斷是否正在格子裡打字 (x-spreadsheet 編輯時會產生一個隱藏的 textarea)
+      // 偵測目前是否在「編輯模式」(雙擊狀態下會出現 textarea)
       const isEditing = activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT';
 
-      // 只要不是正在「編輯模式」，就強行橋接系統剪貼簿
+      // 只要目前不是編輯模式，就強制由我們處理外部貼上
       if (!isEditing) {
+        // 1. 攔截原生的貼上行為
         e.preventDefault();
         e.stopImmediatePropagation();
 
-        // 拆分行，並移除由 Excel/Sheets 結尾換行產生的多餘空元素
+        // 2. 拆分行：先處理換行符號
         let rowsData = text.split(/\r?\n/);
-        if (rowsData.length > 0 && rowsData[rowsData.length - 1] === "") {
-          rowsData.pop(); 
+        
+        // ★ 關鍵修復：只有在最後一行是「真正空的」情況下才移除 (通常是 Sheets 結尾的換行產生的)
+        // 如果複製的是單行且沒有結尾換行，rowsData.length 會是 1，此處就不會動作
+        if (rowsData.length > 1 && rowsData[rowsData.length - 1] === "") {
+          rowsData.pop();
         }
 
-        const { ri, ci } = xs.rebaseCell(); // 取得藍框選取的起點
+        // 3. 取得目前選取的座標 (ri: 行, ci: 欄)
+        // 如果沒有選中任何格，則預設從 0,0 開始
+        const cellPos = xs.rebaseCell();
+        const ri = cellPos ? cellPos.ri : 0;
+        const ci = cellPos ? cellPos.ci : 0;
 
+        // 4. 逐行逐列填入
         rowsData.forEach((rowStr, i) => {
           const cols = rowStr.split('\t');
           cols.forEach((val, j) => {
-            // 清理引號
+            // 清除引號並填入內容
             let cleanVal = val.replace(/^"|"$/g, '').replace(/""/g, '"');
             xs.cellText(ri + i, ci + j, cleanVal);
           });
         });
 
+        // 5. 重新渲染畫面以顯示新資料
         xs.reRender();
-        console.log(`✅ 已強制同步外部資料：${rowsData.length} 行`);
+        console.log(`✅ 已同步貼入 ${rowsData.length} 行資料`);
       }
-    }, true); // 使用 Capture 模式確保最高優先權
+      // 若 isEditing 為 true，則不處理，讓瀏覽器預設的貼上行為(貼入 textarea)執行
+    }, true); 
 
     x_spreadsheet.locale('zh-cn');
   }
-
   async function saveData() {
     showLoading();
     const btn = document.querySelector('.btn-primary');
