@@ -93,10 +93,11 @@
   };
 
 // --- ★ 優化後的初始化：擴張邊界 ---
-  function initSpreadsheet(data) {
+function initSpreadsheet(data) {
     activeGroupName = data.groupName;
     document.getElementById('groupTitle').innerText = data.groupName;
     
+    // 1. 將 GAS 傳來的 Matrix 轉換為 x-spreadsheet 格式
     const rows = {};
     data.matrix.forEach((rowData, rIdx) => {
       const cells = {};
@@ -106,20 +107,19 @@
       rows[rIdx] = { cells };
     });
 
-    // 建立實例
+    // 2. 初始化實例 (設定 100列 x 26欄)
     xs = x_spreadsheet('#spreadsheet-container', {
       showToolbar: true,
       view: {
         height: () => document.getElementById('spreadsheet-container').offsetHeight,
         width: () => document.getElementById('spreadsheet-container').offsetWidth,
       },
-      // ★ 擴張網格，確保貼上時有足夠空間
       row: {
-        len: 100, // 擴展到 100 列
+        len: 100, 
         height: 30,
       },
       col: {
-        len: 26,  // 擴展到 Z 欄
+        len: 26,
         width: 100,
       }
     }).loadData([{
@@ -127,9 +127,36 @@
       rows: rows
     }]);
 
+    // 3. ★ 核心修復：外部剪貼簿橋接器
+    // 攔截貼上事件，確保外部 Excel 資料優先於插件內部緩存
+    document.addEventListener('paste', (e) => {
+      const text = (e.clipboardData || window.clipboardData).getData('text');
+      if (!text) return;
+
+      // 檢查是否為外部表格資料 (通常包含 Tab 或 換行)
+      if (text.includes('\t') || text.includes('\n')) {
+        e.stopPropagation(); // 阻止 x-spreadsheet 內建的貼上邏輯
+        
+        const rowsData = text.split(/\r?\n/).filter(line => line.length > 0);
+        // 取得當前選取的起始格子 (ri = Row Index, ci = Column Index)
+        const { ri, ci } = xs.rebaseCell(); 
+
+        rowsData.forEach((rowStr, i) => {
+          const cols = rowStr.split('\t');
+          cols.forEach((val, j) => {
+            // 強制寫入文字並重新渲染該格
+            xs.cellText(ri + i, ci + j, val.trim());
+          });
+        });
+        
+        xs.reRender(); // 批量更新後一次性刷新畫面
+        console.log("已強制注入外部剪貼簿資料");
+      }
+    }, true); // 使用 Capture 模式確保最優先處理
+
+    // 4. 設定語法為簡體中文 (最接近的語系)
     x_spreadsheet.locale('zh-cn');
   }
-
   // --- ★ 優化後的儲存：對齊擴張後的範圍 ---
   async function saveData() {
     showLoading();
