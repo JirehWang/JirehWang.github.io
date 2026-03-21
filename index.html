@@ -221,10 +221,133 @@
     });
     console.log("✅ 智慧合併完成！");
   }
-  // --- 其他功能 (略) ---
-  async function saveData() { /* ... 同前 ... */ }
-  async function loadAdminData() { /* ... 同前 ... */ }
-  function showSection(id) { document.querySelectorAll('.card-custom').forEach(el => el.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
+// ==========================================
+  // 💾 儲存與管理邏輯
+  // ==========================================
+
+  // 1. 儲存變更至 Google Sheet
+  async function saveData() {
+    console.log("🚀 開始執行儲存流程...");
+    showLoading("💾 儲存資料中...");
+    
+    const btn = document.querySelector('.btn-primary');
+    if (btn) btn.disabled = true;
+
+    try {
+      if (!activeGroupName) throw new Error("找不到目前的分頁名稱，請重新整理頁面。");
+
+      const matrix = [];
+      // 🌟 使用全域存儲的正確標題作為第一列
+      matrix.push(currentTableHeaders);
+      
+      // 收集表格資料
+      const rows = document.querySelectorAll('#tableBody tr');
+      rows.forEach(tr => {
+        const rowValues = Array.from(tr.querySelectorAll('input')).map(input => input.value);
+        // 只要這一列不是全空的，就放進矩陣
+        if (rowValues.some(v => v.trim() !== "")) {
+          matrix.push(rowValues);
+        }
+      });
+
+      // 補齊到 50 列，確保能蓋掉舊資料
+      while(matrix.length <= 50) { 
+        matrix.push(Array(currentTableHeaders.length).fill("")); 
+      }
+
+      const response = await fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ 
+          action: "saveSheetData", 
+          data: { groupName: activeGroupName, matrix: matrix } 
+        })
+      });
+
+      const resJson = await response.json();
+      if (resJson.status === 'success') {
+        alert("✅ 儲存成功！");
+        // 清除變更底色
+        document.querySelectorAll('.grid-input').forEach(el => el.style.backgroundColor = 'transparent');
+      } else {
+        throw new Error(resJson.message);
+      }
+
+    } catch (e) {
+      console.error("❌ 儲存失敗:", e);
+      alert("儲存失敗：" + e.message);
+    } finally {
+      if (btn) btn.disabled = false;
+      hideLoading();
+    }
+  }
+
+  // 2. 載入後台首頁資料 (清單與模板)
+  async function loadAdminData() {
+    try {
+      const [groups, templates] = await Promise.all([
+        fetchAPI('getGroups'), 
+        fetchAPI('getTemplates')
+      ]);
+      
+      const div = document.getElementById('groupButtons');
+      const base = window.location.href.split('?')[0];
+      
+      // 生成各小組按鈕
+      div.innerHTML = groups.map(g => 
+        `<a href="${base}?id=${g.id}" class="btn btn-outline-primary text-start">➔ ${g.name}</a>`
+      ).join('');
+      
+      // 生成模板下拉選單
+      document.getElementById('templateSelect').innerHTML = 
+        '<option value="" disabled selected>請選擇一個模板...</option>' + 
+        templates.map(t => `<option value="${t}">${t}</option>`).join('');
+        
+    } catch (err) {
+      console.error("載入後台失敗:", err);
+      document.getElementById('groupButtons').innerHTML = '<p class="text-danger">載入失敗，請檢查網路</p>';
+    }
+  }
+
+  // 3. 切換顯示區塊 (UI 輔助)
+  function showSection(id) {
+    document.querySelectorAll('.card-custom').forEach(el => el.classList.add('hidden'));
+    document.getElementById(id).classList.remove('hidden');
+  }
+
+  // 4. 建立新分頁的表單監聽
+  document.getElementById('createGroupForm').onsubmit = async function(e) {
+    e.preventDefault(); 
+    showLoading("➕ 正在建立新分頁...");
+    try {
+      const payload = {
+        action: "createGroup",
+        data: {
+          id: document.getElementById('newId').value,
+          name: document.getElementById('newName').value,
+          template: document.getElementById('templateSelect').value
+        }
+      };
+      
+      const response = await fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+      
+      const res = await response.json();
+      if (res.status === 'success') {
+        alert("✅ 建立成功！");
+        location.reload(); // 重新整理回首頁
+      } else {
+        throw new Error(res.message);
+      }
+    } catch (err) {
+      alert("建立失敗：" + err.message);
+    } finally {
+      hideLoading();
+    }
+  };
 </script>
 </body>
 </html>
