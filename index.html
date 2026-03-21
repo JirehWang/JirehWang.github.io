@@ -167,34 +167,64 @@
     }
   }
 
-  function fillTableWithData(parsedRows) {
-    console.log("📌 開始填入表格，標題清單:", currentTableHeaders);
+function fillTableWithData(parsedRows, headers) {
+    console.log("📌 開始執行智慧合併填入...");
     const tableRows = document.querySelectorAll('#tableBody tr');
-    let startIdx = 0;
-
-    // 找第一個日期是空的列
-    for (let i = 0; i < tableRows.length; i++) {
-      if (tableRows[i].querySelectorAll('input')[0].value.trim() === "") {
-        startIdx = i; break;
-      }
+    
+    // 1. 找出「日期」欄位的索引位置
+    const dateColIdx = headers.indexOf("日期");
+    if (dateColIdx === -1) {
+      alert("表格中找不到「日期」欄位，無法進行精準比對更新。");
+      return;
     }
 
-    parsedRows.forEach((rowData, i) => {
-      const targetRow = tableRows[startIdx + i];
-      if (!targetRow) return;
-      const inputs = targetRow.querySelectorAll('input');
-
-      currentTableHeaders.forEach((header, colIdx) => {
-        // 💡 這裡做「模糊對比」：拿 AI 的 Key 去對標題
-        const value = rowData[header]; 
-        if (value) {
-          inputs[colIdx].value = value;
-          inputs[colIdx].style.backgroundColor = "#e8f4f8";
-        }
-      });
+    // 2. 建立現有表格的日期索引 map: { "2026-03-22": rowElement }
+    const dateMap = {};
+    tableRows.forEach(tr => {
+      const dateVal = tr.querySelectorAll('input')[dateColIdx].value.trim();
+      if (dateVal) {
+        dateMap[dateVal] = tr;
+      }
     });
-  }
 
+    // 3. 開始處理 AI 解析出的每一列
+    parsedRows.forEach(rowData => {
+      const aiDate = rowData["日期"];
+      let targetRow = dateMap[aiDate]; // 嘗試尋找相同日期的列
+
+      // 4. 如果找不到相同日期，則尋找第一個完全空白的列作為新列填入
+      if (!targetRow) {
+        for (let i = 0; i < tableRows.length; i++) {
+          const firstInput = tableRows[i].querySelectorAll('input')[0];
+          if (firstInput.value.trim() === "") {
+            targetRow = tableRows[i];
+            break;
+          }
+        }
+      }
+
+      // 5. 進行資料填入 (核心規則：非空才覆蓋)
+      if (targetRow) {
+        const inputs = targetRow.querySelectorAll('input');
+        headers.forEach((header, colIdx) => {
+          const newValue = rowData[header];
+          
+          // ✨ 規則：AI 判斷出來有值才更新；如果是空白或沒抓到，保留原本內容
+          if (newValue !== undefined && newValue !== null && String(newValue).trim() !== "") {
+            const oldValue = inputs[colIdx].value.trim();
+            
+            // 只有內容真的不同時才更新，並標註底色
+            if (oldValue !== String(newValue).trim()) {
+              inputs[colIdx].value = newValue;
+              inputs[colIdx].style.backgroundColor = "#fff3cd"; // 用稍微不同的顏色(淡橘)表示「已更新」
+            }
+          }
+        });
+      }
+    });
+    
+    console.log("✅ 智慧合併完成！");
+  }
   // --- 其他功能 (略) ---
   async function saveData() { /* ... 同前 ... */ }
   async function loadAdminData() { /* ... 同前 ... */ }
