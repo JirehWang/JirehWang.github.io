@@ -119,6 +119,7 @@
   }
 
   // --- AI 核心 ---
+// --- AI 核心 ---
   async function processAI() {
     console.log("🚀 processAI 觸發");
     const rawText = document.getElementById('aiRawText').value.trim();
@@ -129,18 +130,15 @@
 
     try {
       // 1. 取得 GAS 設定
-      console.log("1. 取得 AI Config...");
       const configRes = await fetch(`${GAS_URL}?action=getAIConfig`);
       const config = await configRes.json();
       if (config.status !== 'success') throw new Error(config.message);
 
-      // 2. 準備 Prompt
+      // 2. 準備 Prompt (使用全域變數 currentTableHeaders)
       const headerStr = currentTableHeaders.join(", ");
       const finalPrompt = config.data.promptTemplate.replace(/\{\{HEADERS\}\}/g, headerStr);
-      console.log("2. 提示詞準備完成，目前對應標題:", headerStr);
 
       // 3. 呼叫 Gemini
-      console.log("3. 呼叫 Gemini API...");
       const geminiRes = await fetch(config.data.url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -155,8 +153,8 @@
       const parsedData = JSON.parse(aiText);
       console.log("4. AI 回傳資料成功:", parsedData);
 
-      // 4. 填入表格
-      fillTableWithData(parsedData);
+      // 🌟 修正點：直接呼叫，不再傳入 headers 參數
+      fillTableWithData(parsedData); 
       document.getElementById('aiStatus').innerText = "✅ 解析完成！";
 
     } catch (err) {
@@ -167,32 +165,34 @@
     }
   }
 
-function fillTableWithData(parsedRows, headers) {
+  // 🌟 智慧填入邏輯：修正參數錯誤並使用全域標頭
+  function fillTableWithData(parsedRows) {
     console.log("📌 開始執行智慧合併填入...");
     const tableRows = document.querySelectorAll('#tableBody tr');
     
-    // 1. 找出「日期」欄位的索引位置
-    const dateColIdx = headers.indexOf("日期");
+    // 1. 🌟 改用全域變數 currentTableHeaders 找出「日期」索引
+    const dateColIdx = currentTableHeaders.indexOf("日期");
     if (dateColIdx === -1) {
-      alert("表格中找不到「日期」欄位，無法進行精準比對更新。");
+      alert("表格中找不到「日期」欄位，無法進行精準比對。");
       return;
     }
 
-    // 2. 建立現有表格的日期索引 map: { "2026-03-22": rowElement }
+    // 2. 建立現有表格的日期索引 map
     const dateMap = {};
     tableRows.forEach(tr => {
-      const dateVal = tr.querySelectorAll('input')[dateColIdx].value.trim();
+      const inputs = tr.querySelectorAll('input');
+      const dateVal = inputs[dateColIdx].value.trim();
       if (dateVal) {
         dateMap[dateVal] = tr;
       }
     });
 
-    // 3. 開始處理 AI 解析出的每一列
+    // 3. 處理 AI 解析結果
     parsedRows.forEach(rowData => {
       const aiDate = rowData["日期"];
-      let targetRow = dateMap[aiDate]; // 嘗試尋找相同日期的列
+      let targetRow = dateMap[aiDate]; 
 
-      // 4. 如果找不到相同日期，則尋找第一個完全空白的列作為新列填入
+      // 4. 找不到日期則找首個空白列
       if (!targetRow) {
         for (let i = 0; i < tableRows.length; i++) {
           const firstInput = tableRows[i].querySelectorAll('input')[0];
@@ -203,26 +203,22 @@ function fillTableWithData(parsedRows, headers) {
         }
       }
 
-      // 5. 進行資料填入 (核心規則：非空才覆蓋)
+      // 5. 資料填入規則：非空才覆蓋
       if (targetRow) {
         const inputs = targetRow.querySelectorAll('input');
-        headers.forEach((header, colIdx) => {
+        currentTableHeaders.forEach((header, colIdx) => {
           const newValue = rowData[header];
           
-          // ✨ 規則：AI 判斷出來有值才更新；如果是空白或沒抓到，保留原本內容
           if (newValue !== undefined && newValue !== null && String(newValue).trim() !== "") {
             const oldValue = inputs[colIdx].value.trim();
-            
-            // 只有內容真的不同時才更新，並標註底色
             if (oldValue !== String(newValue).trim()) {
               inputs[colIdx].value = newValue;
-              inputs[colIdx].style.backgroundColor = "#fff3cd"; // 用稍微不同的顏色(淡橘)表示「已更新」
+              inputs[colIdx].style.backgroundColor = "#fff3cd"; // 更新背景色
             }
           }
         });
       }
     });
-    
     console.log("✅ 智慧合併完成！");
   }
   // --- 其他功能 (略) ---
