@@ -242,32 +242,48 @@
       hideLoading();
     }
   }
-  function fillTableWithData(parsedRows, headers) {
+function fillTableWithData(parsedRows, headers) {
+    console.log("📍 目前表格標題:", headers);
+    console.log("🤖 AI 解析結果:", parsedRows);
+
+    if (!parsedRows || parsedRows.length === 0) {
+      alert("AI 似乎沒解析出任何資料，請檢查貼上的文字內容。");
+      return;
+    }
+
     const tableRows = document.querySelectorAll('#tableBody tr');
     let currentRowIdx = 0;
 
+    // 尋找第一個「真的空白」的行作為起點
     for (let i = 0; i < tableRows.length; i++) {
       const inputs = Array.from(tableRows[i].querySelectorAll('input'));
-      if (inputs.every(input => input.value.trim() === "")) {
+      // 只要該行第一個格子是空的，我們就當作起點 (通常是日期)
+      if (inputs[0].value.trim() === "") {
         currentRowIdx = i;
         break;
       }
     }
 
-    parsedRows.forEach(rowData => {
+    parsedRows.forEach((rowData, index) => {
       if (currentRowIdx >= tableRows.length) return; 
       
       const inputs = tableRows[currentRowIdx].querySelectorAll('input');
+      
       headers.forEach((header, colIdx) => {
-        if (rowData[header] !== undefined && rowData[header] !== "") {
-          inputs[colIdx].value = rowData[header];
+        // 💡 強化對應：自動修剪空格，並嘗試多種可能的 Key
+        const cleanHeader = header.trim();
+        const value = rowData[cleanHeader];
+
+        if (value !== undefined && value !== null && value !== "") {
+          inputs[colIdx].value = value;
           inputs[colIdx].style.backgroundColor = "#e8f4f8"; 
         }
       });
       currentRowIdx++;
     });
+    
+    console.log("✅ 填入完成，起始行索引：", currentRowIdx - parsedRows.length);
   }
-
   // ==========================================
   // 💾 儲存與管理邏輯
   // ==========================================
