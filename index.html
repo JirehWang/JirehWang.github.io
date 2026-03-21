@@ -4,19 +4,20 @@
   <meta name="robots" content="noindex, nofollow">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>教會服事管理系統 - 偵錯模式</title>
+  <title>教會服事管理系統</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
   <style>
     body { background-color: #f4f7f6; padding: 20px; font-family: "Microsoft JhengHei", sans-serif; }
     .card-custom { max-width: 1200px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
     .hidden { display: none !important; }
     #globalLoading { position: fixed; top: 20px; right: 20px; background: #ffc107; padding: 10px 20px; border-radius: 8px; font-weight: bold; z-index: 1000; }
-    .table-responsive { max-height: 60vh; overflow: auto; border: 1px solid #dee2e6; background: #fff; }
+    .table-responsive { max-height: 60vh; overflow: auto; border: 1px solid #dee2e6; background: #fff; border-radius: 6px; }
     table { width: 100%; min-width: 1000px; border-collapse: separate; border-spacing: 0; }
-    thead th { position: sticky; top: 0; background: #212529 !important; color: white; padding: 12px; text-align: center; }
+    thead th { position: sticky; top: 0; background: #212529 !important; color: white; padding: 12px; text-align: center; border: 1px solid #373b3e; white-space: nowrap; font-size: 14px; }
     tbody td { border: 1px solid #ddd; padding: 0 !important; height: 40px; }
-    .grid-input { width: 100%; height: 100%; border: none; padding: 8px; text-align: center; }
-    .ai-box { background: linear-gradient(135deg, #f0f7ff 0%, #e6f3ff 100%); border: 1px solid #b8daff; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+    .grid-input { width: 100%; height: 100%; border: none; background: transparent; padding: 8px 12px; text-align: center; outline: none; font-size: 14px; transition: all 0.2s; }
+    .grid-input:focus { background-color: #f8f9fa; box-shadow: inset 0 0 0 2px #0d6efd; }
+    .ai-box { background: linear-gradient(135deg, #f0f7ff 0%, #e6f3ff 100%); border: 1px solid #b8daff; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
   </style>
 </head>
 <body>
@@ -24,89 +25,95 @@
   <div id="globalLoading" class="hidden">⏳ 系統處理中...</div>
 
   <div class="container-fluid">
-    <div id="adminMain" class="card-custom hidden">
-      <h3 class="text-center mb-4">教會服事系統管理</h3>
-      <div id="groupButtons" class="d-grid gap-2"></div>
+    <div id="adminMain" class="card-custom hidden" style="max-width: 600px;">
+      <h3 class="text-center mb-4 text-primary">教會服事系統管理</h3>
+      <div id="groupButtons" class="d-grid gap-2">
+        <p class="text-center text-muted">正在載入清單...</p>
+      </div>
+      <hr>
+      <button class="btn btn-primary w-100" onclick="showSection('createSection')">➕ 建立新分頁</button>
+    </div>
+
+    <div id="createSection" class="card-custom hidden" style="max-width: 600px;">
+      <h4>建立新分頁</h4>
+      <form id="createGroupForm">
+        <div class="mb-3"><input id="newId" class="form-control" placeholder="ID (例: worship)" required></div>
+        <div class="mb-3"><input id="newName" class="form-control" placeholder="名稱" required></div>
+        <div class="mb-3"><select id="templateSelect" class="form-select" required></select></div>
+        <button type="submit" class="btn btn-success w-100">確認建立</button>
+        <button type="button" class="btn btn-link w-100" onclick="showSection('adminMain')">取消</button>
+      </form>
     </div>
 
     <div id="reportSection" class="card-custom hidden">
-      <div class="toolbar d-flex justify-content-between mb-3">
+      <div class="toolbar d-flex justify-content-between align-items-center mb-3">
         <div>
-          <h4 id="groupTitle" class="d-inline text-primary">載入中...</h4>
-          <button class="btn btn-sm btn-outline-secondary ms-3" onclick="debugCheck()">🔍 檢查系統狀態</button>
+          <h4 id="groupTitle" class="text-primary m-0 d-inline">載入中...</h4>
+          <span class="ms-3 text-muted small">支援鍵盤移動</span>
         </div>
-        <button class="btn btn-primary" onclick="saveData()">💾 儲存變更</button>
+        <button class="btn btn-primary btn-lg px-4" onclick="saveData()">💾 儲存變更</button>
       </div>
 
       <div class="ai-box shadow-sm">
-        <textarea id="aiRawText" class="form-control mb-2" rows="3" placeholder="請貼上排班文字..."></textarea>
-        <button class="btn btn-success w-100" onclick="processAI()">🤖 啟動 AI 解析填入</button>
-        <div id="aiStatus" class="form-text mt-1 text-muted">提示：若沒反應，請按 F12 檢查 Console</div>
+        <h6 class="text-primary fw-bold mb-2">✨ AI 智慧排班小幫手</h6>
+        <div class="row g-2 align-items-end">
+          <div class="col-md-10"><textarea id="aiRawText" class="form-control" rows="2" placeholder="貼上排班文字..."></textarea></div>
+          <div class="col-md-2 d-grid"><button class="btn btn-primary" onclick="processAI()">🤖 解析填入</button></div>
+        </div>
+        <div id="aiStatus" class="form-text text-muted mt-1">系統將按日期比對，若原本已有資料則保留。</div>
       </div>
 
       <div class="table-responsive">
-        <table id="mainTable">
-          <thead id="tableHead"></thead>
-          <tbody id="tableBody"></tbody>
-        </table>
+        <table id="mainTable"><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table>
       </div>
     </div>
   </div>
 
 <script>
-  // --- 基礎設定 ---
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_U9nKJrRMR1-xzbbtuaq08lePLgAQ2wnDRrCeHdy9jNhh/exec";
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_U9nKJrRMR1-xzbbtuaq08lePLgAQ2wnDRrCeHdy9jNhh/exec"; 
   const currentId = new URLSearchParams(window.location.search).get('id');
   let activeGroupName = "";
-  let currentTableHeaders = []; // 儲存正確標題
+  let currentTableHeaders = [];
 
-  console.log("✅ 腳本已載入，目前 ID:", currentId);
-
-  const showLoading = (msg) => { document.getElementById('globalLoading').innerText = msg; document.getElementById('globalLoading').classList.remove('hidden'); };
+  const showLoading = (msg) => { const el = document.getElementById('globalLoading'); el.innerText = msg; el.classList.remove('hidden'); };
   const hideLoading = () => document.getElementById('globalLoading').classList.add('hidden');
 
-  function debugCheck() {
-    console.log("--- 🔍 系統診斷 ---");
-    console.log("目前分頁 ID:", currentId);
-    console.log("目前標題陣列:", currentTableHeaders);
-    alert("目前標題是：" + (currentTableHeaders.join(", ") || "空的！請重新整理"));
+  async function fetchAPI(action, params = {}) {
+    let url = new URL(GAS_URL);
+    url.searchParams.append('action', action);
+    for (let key in params) { url.searchParams.append(key, params[key]); }
+    const response = await fetch(url);
+    const result = await response.json();
+    if (result.status !== 'success') throw new Error(result.message);
+    return result.data;
   }
 
-  // --- 初始化 ---
   window.onload = async () => {
-    if (!currentId) {
-      showSection('adminMain');
-      await loadAdminData();
-    } else {
-      showSection('reportSection');
-      await refreshData();
-    }
+    if (!currentId) { showSection('adminMain'); await loadAdminData(); } 
+    else { showSection('reportSection'); try { const data = await fetchAPI('getPageConfig', { id: currentId }); renderTable(data); } catch(e){alert(e.message);} }
   };
 
-  async function refreshData() {
-    showLoading("⏳ 讀取資料中...");
+  async function loadAdminData() {
     try {
-      const response = await fetch(`${GAS_URL}?action=getPageConfig&id=${currentId}`);
-      const result = await response.json();
-      if (result.status === 'success') {
-        renderTable(result.data);
-      }
-    } catch (e) { console.error("初始化失敗", e); }
-    finally { hideLoading(); }
+      showLoading("⏳ 載入清單中...");
+      const [groups, templates] = await Promise.all([fetchAPI('getGroups'), fetchAPI('getTemplates')]);
+      const div = document.getElementById('groupButtons');
+      const base = window.location.href.split('?')[0];
+      div.innerHTML = groups.map(g => `<a href="${base}?id=${g.id}" class="btn btn-outline-primary text-start">➔ ${g.name}</a>`).join('');
+      document.getElementById('templateSelect').innerHTML = '<option value="" disabled selected>選擇模板</option>' + templates.map(t=>`<option value="${t}">${t}</option>`).join('');
+    } catch (err) {
+      console.error(err);
+      document.getElementById('groupButtons').innerHTML = '<p class="text-danger">載入失敗，請確認 Config 與 模板名稱 分頁是否有資料。</p>';
+    } finally { hideLoading(); }
   }
 
   function renderTable(data) {
     activeGroupName = data.groupName;
     document.getElementById('groupTitle').innerText = data.groupName;
-    
-    // 🌟 從資料核心抓取標題
     currentTableHeaders = data.matrix[0].map(h => h.toString().trim());
-    console.log("📍 已儲存標題:", currentTableHeaders);
-
     document.getElementById('tableHead').innerHTML = `<tr>${currentTableHeaders.map(h => `<th>${h}</th>`).join('')}</tr>`;
-    
-    let html = "";
     const rows = data.matrix.slice(1);
+    let html = "";
     for (let i = 0; i < 50; i++) {
       const rowData = rows[i] || Array(currentTableHeaders.length).fill("");
       html += `<tr>`;
@@ -118,236 +125,98 @@
     document.getElementById('tableBody').innerHTML = html;
   }
 
-  // --- AI 核心 ---
-// --- AI 核心 ---
   async function processAI() {
-    console.log("🚀 processAI 觸發");
     const rawText = document.getElementById('aiRawText').value.trim();
     if (!rawText) return alert("請貼上文字");
-
-    showLoading("🤖 AI 正在努力...");
-    document.getElementById('aiStatus').innerText = "連線中...";
-
+    showLoading("🤖 AI 正在分析比對...");
     try {
-      // 1. 取得 GAS 設定
-      const configRes = await fetch(`${GAS_URL}?action=getAIConfig`);
+      const configRes = await fetch(GAS_URL + "?action=getAIConfig");
       const config = await configRes.json();
-      if (config.status !== 'success') throw new Error(config.message);
-
-      // 2. 準備 Prompt (使用全域變數 currentTableHeaders)
-      const headerStr = currentTableHeaders.join(", ");
-      const finalPrompt = config.data.promptTemplate.replace(/\{\{HEADERS\}\}/g, headerStr);
-
-      // 3. 呼叫 Gemini
+      const finalPrompt = config.data.promptTemplate.replace(/\{\{HEADERS\}\}/g, currentTableHeaders.join(", "));
       const geminiRes = await fetch(config.data.url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: finalPrompt + "\n\n資料文字：\n" + rawText }] }] })
+        body: JSON.stringify({ contents: [{ parts: [{ text: finalPrompt + "\n\n文字：\n" + rawText }] }] })
       });
-      const geminiJson = await geminiRes.json();
-      if (geminiJson.error) throw new Error(geminiJson.error.message);
-
-      let aiText = geminiJson.candidates[0].content.parts[0].text;
-      aiText = aiText.replace(/```json/gi, "").replace(/```/g, "").trim();
-      
-      const parsedData = JSON.parse(aiText);
-      console.log("4. AI 回傳資料成功:", parsedData);
-
-      // 🌟 修正點：直接呼叫，不再傳入 headers 參數
-      fillTableWithData(parsedData); 
-      document.getElementById('aiStatus').innerText = "✅ 解析完成！";
-
-    } catch (err) {
-      console.error("❌ 錯誤:", err);
-      alert("解析失敗: " + err.message);
-    } finally {
-      hideLoading();
-    }
+      const res = await geminiRes.json();
+      let aiText = res.candidates[0].content.parts[0].text.replace(/```json/gi, "").replace(/```/g, "").trim();
+      fillTableWithData(JSON.parse(aiText));
+      document.getElementById('aiStatus').innerText = "✅ 解析更新完成！";
+    } catch (err) { alert("解析失敗：" + err.message); }
+    finally { hideLoading(); }
   }
 
-  // 🌟 智慧填入邏輯：修正參數錯誤並使用全域標頭
   function fillTableWithData(parsedRows) {
-    console.log("📌 開始執行智慧合併填入...");
     const tableRows = document.querySelectorAll('#tableBody tr');
-    
-    // 1. 🌟 改用全域變數 currentTableHeaders 找出「日期」索引
     const dateColIdx = currentTableHeaders.indexOf("日期");
-    if (dateColIdx === -1) {
-      alert("表格中找不到「日期」欄位，無法進行精準比對。");
-      return;
-    }
-
-    // 2. 建立現有表格的日期索引 map
     const dateMap = {};
-    tableRows.forEach(tr => {
-      const inputs = tr.querySelectorAll('input');
-      const dateVal = inputs[dateColIdx].value.trim();
-      if (dateVal) {
-        dateMap[dateVal] = tr;
-      }
-    });
+    tableRows.forEach(tr => { const d = tr.querySelectorAll('input')[dateColIdx]?.value.trim(); if(d) dateMap[d] = tr; });
 
-    // 3. 處理 AI 解析結果
     parsedRows.forEach(rowData => {
-      const aiDate = rowData["日期"];
-      let targetRow = dateMap[aiDate]; 
-
-      // 4. 找不到日期則找首個空白列
+      let targetRow = dateMap[rowData["日期"]];
       if (!targetRow) {
-        for (let i = 0; i < tableRows.length; i++) {
-          const firstInput = tableRows[i].querySelectorAll('input')[0];
-          if (firstInput.value.trim() === "") {
-            targetRow = tableRows[i];
-            break;
-          }
-        }
+        for (let tr of tableRows) { if (tr.querySelectorAll('input')[0].value.trim() === "") { targetRow = tr; break; } }
       }
-
-      // 5. 資料填入規則：非空才覆蓋
       if (targetRow) {
         const inputs = targetRow.querySelectorAll('input');
         currentTableHeaders.forEach((header, colIdx) => {
-          const newValue = rowData[header];
-          
-          if (newValue !== undefined && newValue !== null && String(newValue).trim() !== "") {
-            const oldValue = inputs[colIdx].value.trim();
-            if (oldValue !== String(newValue).trim()) {
-              inputs[colIdx].value = newValue;
-              inputs[colIdx].style.backgroundColor = "#fff3cd"; // 更新背景色
-            }
+          const val = rowData[header];
+          if (val && val !== "") {
+            inputs[colIdx].value = val;
+            inputs[colIdx].style.backgroundColor = "#fff3cd";
           }
         });
       }
     });
-    console.log("✅ 智慧合併完成！");
   }
-// ==========================================
-  // 💾 儲存與管理邏輯
-  // ==========================================
 
-  // 1. 儲存變更至 Google Sheet
   async function saveData() {
-    console.log("🚀 開始執行儲存流程...");
-    showLoading("💾 儲存資料中...");
-    
-    const btn = document.querySelector('.btn-primary');
-    if (btn) btn.disabled = true;
-
+    showLoading("💾 儲存中...");
     try {
-      if (!activeGroupName) throw new Error("找不到目前的分頁名稱，請重新整理頁面。");
-
-      const matrix = [];
-      // 🌟 使用全域存儲的正確標題作為第一列
-      matrix.push(currentTableHeaders);
-      
-      // 收集表格資料
-      const rows = document.querySelectorAll('#tableBody tr');
-      rows.forEach(tr => {
-        const rowValues = Array.from(tr.querySelectorAll('input')).map(input => input.value);
-        // 只要這一列不是全空的，就放進矩陣
-        if (rowValues.some(v => v.trim() !== "")) {
-          matrix.push(rowValues);
-        }
+      const matrix = [currentTableHeaders];
+      document.querySelectorAll('#tableBody tr').forEach(tr => {
+        const row = Array.from(tr.querySelectorAll('input')).map(i => i.value);
+        if (row.some(v => v.trim() !== "")) matrix.push(row);
       });
-
-      // 補齊到 50 列，確保能蓋掉舊資料
-      while(matrix.length <= 50) { 
-        matrix.push(Array(currentTableHeaders.length).fill("")); 
-      }
-
-      const response = await fetch(GAS_URL, {
+      while(matrix.length <= 50) matrix.push(Array(currentTableHeaders.length).fill(""));
+      await fetch(GAS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ 
-          action: "saveSheetData", 
-          data: { groupName: activeGroupName, matrix: matrix } 
-        })
+        body: JSON.stringify({ action: "saveSheetData", data: { groupName: activeGroupName, matrix: matrix } })
       });
-
-      const resJson = await response.json();
-      if (resJson.status === 'success') {
-        alert("✅ 儲存成功！");
-        // 清除變更底色
-        document.querySelectorAll('.grid-input').forEach(el => el.style.backgroundColor = 'transparent');
-      } else {
-        throw new Error(resJson.message);
-      }
-
-    } catch (e) {
-      console.error("❌ 儲存失敗:", e);
-      alert("儲存失敗：" + e.message);
-    } finally {
-      if (btn) btn.disabled = false;
-      hideLoading();
-    }
+      alert("✅ 儲存成功！");
+      document.querySelectorAll('.grid-input').forEach(i => i.style.backgroundColor = 'transparent');
+    } catch (e) { alert("儲存失敗"); }
+    finally { hideLoading(); }
   }
 
-  // 2. 載入後台首頁資料 (清單與模板)
   async function loadAdminData() {
     try {
-      const [groups, templates] = await Promise.all([
-        fetchAPI('getGroups'), 
-        fetchAPI('getTemplates')
-      ]);
-      
+      const [groups, templates] = await Promise.all([fetchAPI('getGroups'), fetchAPI('getTemplates')]);
       const div = document.getElementById('groupButtons');
-      const base = window.location.href.split('?')[0];
-      
-      // 生成各小組按鈕
-      div.innerHTML = groups.map(g => 
-        `<a href="${base}?id=${g.id}" class="btn btn-outline-primary text-start">➔ ${g.name}</a>`
-      ).join('');
-      
-      // 生成模板下拉選單
-      document.getElementById('templateSelect').innerHTML = 
-        '<option value="" disabled selected>請選擇一個模板...</option>' + 
-        templates.map(t => `<option value="${t}">${t}</option>`).join('');
-        
+      div.innerHTML = groups.map(g => `<a href="${window.location.href.split('?')[0]}?id=${g.id}" class="btn btn-outline-primary text-start">➔ ${g.name}</a>`).join('');
+      document.getElementById('templateSelect').innerHTML = '<option value="" disabled selected>選擇模板</option>' + templates.map(t=>`<option value="${t}">${t}</option>`).join('');
     } catch (err) {
-      console.error("載入後台失敗:", err);
-      document.getElementById('groupButtons').innerHTML = '<p class="text-danger">載入失敗，請檢查網路</p>';
+      document.getElementById('groupButtons').innerHTML = '<p class="text-danger">載入清單失敗，請檢查 Config/模板名稱 頁面。</p>';
     }
   }
 
-  // 3. 切換顯示區塊 (UI 輔助)
   function showSection(id) {
     document.querySelectorAll('.card-custom').forEach(el => el.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
   }
 
-  // 4. 建立新分頁的表單監聽
-  document.getElementById('createGroupForm').onsubmit = async function(e) {
-    e.preventDefault(); 
-    showLoading("➕ 正在建立新分頁...");
-    try {
-      const payload = {
-        action: "createGroup",
-        data: {
-          id: document.getElementById('newId').value,
-          name: document.getElementById('newName').value,
-          template: document.getElementById('templateSelect').value
-        }
-      };
-      
-      const response = await fetch(GAS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload)
-      });
-      
-      const res = await response.json();
-      if (res.status === 'success') {
-        alert("✅ 建立成功！");
-        location.reload(); // 重新整理回首頁
-      } else {
-        throw new Error(res.message);
-      }
-    } catch (err) {
-      alert("建立失敗：" + err.message);
-    } finally {
-      hideLoading();
-    }
-  };
+  // 🛡️ 安全繫結，防止因為元素不存在而當機
+  const createForm = document.getElementById('createGroupForm');
+  if (createForm) {
+    createForm.onsubmit = async function(e) {
+      e.preventDefault(); showLoading("建立中...");
+      try {
+        await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "createGroup", data: { id: document.getElementById('newId').value, name: document.getElementById('newName').value, template: document.getElementById('templateSelect').value } }) });
+        location.reload();
+      } catch (e) { alert("失敗"); } finally { hideLoading(); }
+    };
+  }
 </script>
 </body>
 </html>
