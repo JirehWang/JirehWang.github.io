@@ -173,18 +173,20 @@
   // ==========================================
   // ✨ 新版 AI 呼叫邏輯 (前端直接對接 Gemini)
   // ==========================================
+// ✨ 新版 AI 呼叫邏輯 (前端直接對接 Gemini，並從後端取得動態提示詞)
   async function processAI() {
     const rawText = document.getElementById('aiRawText').value.trim();
     if (!rawText) return alert("請先貼上文字內容喔！");
 
-    showLoading("🤖 正在取得系統授權...");
+    showLoading("🤖 正在取得系統授權與核心設定...");
     document.getElementById('aiStatus').innerText = "準備中...";
 
     try {
-      // 1. 抓取表頭
+      // 1. 抓取表頭並組裝成字串 (例: "日期, 主理, 司琴")
       const headers = Array.from(document.querySelectorAll('#tableHead th')).map(th => th.innerText);
+      const headerString = headers.join(", ");
 
-      // 2. 向 GAS 請求 AI 通行證 (這一步極快，不佔用太多 GAS 秒數)
+      // 2. 向 GAS 請求 AI 通行證與提示詞模板
       let aiConfigUrl = new URL(GAS_URL);
       aiConfigUrl.searchParams.append('action', 'getAIConfig');
       const configRes = await fetch(aiConfigUrl);
@@ -195,26 +197,13 @@
       }
 
       const geminiUrl = configJson.data.url;
+      const promptTemplate = configJson.data.promptTemplate;
 
-      // 3. 準備提示詞 (將邏輯全移至前端)
-      const systemPrompt = 
-          "你是一位專業的教會行政助理。請將使用者貼上的排班文字解析，並嚴格對應到以下的 Google Sheet 表頭欄位清單：[" + headers.join(", ") + "]。\n\n" +
-          "【資料特性與解析規則】：\n" +
-          "1. 格式多樣性：貼上的內容可能是從試算表複製的「表格資料」(帶有 Tab 或空格)，也可能是全部黏在一起的「純文字」，請自動適應。\n" +
-          "2. 忽略標題：原始文字第一行若為欄位標題，請自動忽略，專注解析下方排班資料。\n" +
-          "3. 💡 語意映射 (Semantic Mapping) 與對應：\n" +
-          "   各小組或聚會的稱呼習慣不同，請將文字內容聰明地對應到你收到的表頭清單中：\n" +
-          "   - 【話語/講員類】：文字中的「主理」、「話語」、「分享」、「講員」意義相同，請找出表頭中最接近的欄位來填入該人名。\n" +
-          "   - 【主題/內容類】：文字中的「主題」、「題目」、「聚會內容」意義相同，請找出表頭中最接近的欄位來填寫。\n" +
-          "   - 【其他服事】：如「破冰」、「敬拜」、「經文」等。若是表格，請依欄位順序對應；若是純文字，請依語意拆解人名。\n" +
-          "4. 暫停聚會處理：若標示「暫停聚會」，請保留日期，並將「本週暫停聚會」寫入主題或內容欄位，所有「人員」的服事欄位必須留空 (\"\")。\n" +
-          "5. 找不到資訊的欄位，請一律填入空字串 \"\"。\n\n" +
-          "【嚴格輸出格式 (非常重要)】：\n" +
-          "❗️你輸出的 JSON 屬性名稱 (Key) 必須【100% 完全等於】表頭清單 [" + headers.join(", ") + "] 中的名稱！絕對不可以自行創造表頭清單上沒有的名稱，否則系統會當機。\n" +
-          "請只回傳「純 JSON 陣列 (Array)」，禁止輸出 Markdown 語法 (如 ```json)、禁止任何解釋文字。";
+      // 3. 準備提示詞 (將後端傳來的模板中的 {{HEADERS}} 替換成真正的表頭)
+      const finalSystemPrompt = promptTemplate.replace(/\{\{HEADERS\}\}/g, headerString);
 
       const payload = {
-        contents: [{ parts: [{ text: systemPrompt + "\n\n要解析的文字：\n" + rawText }] }]
+        contents: [{ parts: [{ text: finalSystemPrompt + "\n\n要解析的文字：\n" + rawText }] }]
       };
 
       showLoading("🤖 AI 正在您的瀏覽器中努力解析...");
@@ -253,7 +242,6 @@
       hideLoading();
     }
   }
-
   function fillTableWithData(parsedRows, headers) {
     const tableRows = document.querySelectorAll('#tableBody tr');
     let currentRowIdx = 0;
