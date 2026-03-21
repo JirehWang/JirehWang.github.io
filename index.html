@@ -23,7 +23,6 @@
     .grid-input { width: 100%; height: 100%; border: none; background: transparent; padding: 8px 12px; text-align: center; outline: none; font-size: 14px; transition: all 0.2s; }
     .grid-input:focus { box-shadow: inset 0 0 0 2px #0d6efd; background-color: #f8f9fa; }
     
-    /* AI 區塊樣式 */
     .ai-box { background: linear-gradient(135deg, #f0f7ff 0%, #e6f3ff 100%); border: 1px solid #b8daff; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
   </style>
 </head>
@@ -34,11 +33,8 @@
   <div class="container-fluid">
     <div id="adminMain" class="card-custom hidden" style="max-width: 600px;">
       <h3 class="text-center mb-4 text-primary">教會服事系統管理</h3>
-      <div id="groupButtons" class="d-grid gap-2">
-        <p class="text-center text-muted">正在載入清單...</p>
-      </div>
-      <hr>
-      <button class="btn btn-primary w-100" onclick="showSection('createSection')">➕ 建立新分頁</button>
+      <div id="groupButtons" class="d-grid gap-2"><p class="text-center text-muted">正在載入清單...</p></div>
+      <hr><button class="btn btn-primary w-100" onclick="showSection('createSection')">➕ 建立新分頁</button>
     </div>
 
     <div id="createSection" class="card-custom hidden" style="max-width: 600px;">
@@ -58,9 +54,7 @@
           <h4 id="groupTitle" class="text-primary m-0 d-inline">載入中...</h4>
           <span class="ms-3 text-muted small">支援鍵盤方向鍵移動</span>
         </div>
-        <div>
-          <button class="btn btn-primary btn-lg px-4" onclick="saveData()">💾 儲存變更</button>
-        </div>
+        <div><button class="btn btn-primary btn-lg px-4" onclick="saveData()">💾 儲存變更</button></div>
       </div>
 
       <div class="ai-box shadow-sm">
@@ -69,11 +63,9 @@
           <div class="col-md-10">
             <textarea id="aiRawText" class="form-control" rows="2" placeholder="請貼上對話紀錄或文字稿..."></textarea>
           </div>
-          <div class="col-md-2 d-grid">
-            <button class="btn btn-primary" onclick="processAI()">🤖 解析填入</button>
-          </div>
+          <div class="col-md-2 d-grid"><button class="btn btn-primary" onclick="processAI()">🤖 解析填入</button></div>
         </div>
-        <div id="aiStatus" class="form-text text-muted mt-1">貼上文字後點擊按鈕，AI 會自動辨識並填入下方對應的空欄位。</div>
+        <div id="aiStatus" class="form-text text-muted mt-1">貼上文字後點擊按鈕，AI 會自動辨識並填入空欄位。</div>
       </div>
 
       <div class="table-responsive">
@@ -86,12 +78,10 @@
   </div>
 
 <script>
-  // ==========================================
-  // ⚙️ 系統與 API 設定區
-  // ==========================================
   const GAS_URL = "https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_U9nKJrRMR1-xzbbtuaq08lePLgAQ2wnDRrCeHdy9jNhh/exec"; 
   const currentId = new URLSearchParams(window.location.search).get('id');
   let activeGroupName = "";
+  let currentTableHeaders = []; // 🌟 重要：全域存放標題，解決抓不到標頭的問題
 
   const showLoading = (msg = "⏳ 系統連線中...") => { 
     const el = document.getElementById('globalLoading');
@@ -110,20 +100,11 @@
     return result.data;
   }
 
-  // ==========================================
-  // 🚀 頁面初始化與表格渲染
-  // ==========================================
   window.onload = async () => {
     showLoading();
     try {
-      if (!currentId) {
-        showSection('adminMain');
-        await loadAdminData();
-      } else {
-        showSection('reportSection');
-        const data = await fetchAPI('getPageConfig', { id: currentId });
-        renderTable(data);
-      }
+      if (!currentId) { showSection('adminMain'); await loadAdminData(); } 
+      else { showSection('reportSection'); const data = await fetchAPI('getPageConfig', { id: currentId }); renderTable(data); }
     } catch (err) { alert("系統初始化失敗：" + err.message); }
     finally { hideLoading(); }
   };
@@ -131,22 +112,20 @@
   function renderTable(data) {
     activeGroupName = data.groupName;
     document.getElementById('groupTitle').innerText = data.groupName;
-    
     const thead = document.getElementById('tableHead');
     const tbody = document.getElementById('tableBody');
     
-    const headers = data.matrix[0];
-    thead.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+    // 🌟 核心修正：直接使用後端傳來的標題，不再從 DOM 抓取
+    currentTableHeaders = data.matrix[0].map(h => h.toString().trim());
+    thead.innerHTML = `<tr>${currentTableHeaders.map(h => `<th>${h}</th>`).join('')}</tr>`;
     
     const rows = data.matrix.slice(1);
     let tbodyHTML = "";
-
     for (let i = 0; i < 50; i++) {
-      const rowData = rows[i] || Array(headers.length).fill("");
+      const rowData = rows[i] || Array(currentTableHeaders.length).fill("");
       tbodyHTML += `<tr>`;
-      for (let j = 0; j < headers.length; j++) {
-        const val = rowData[j] || "";
-        tbodyHTML += `<td><input type="text" class="grid-input" data-r="${i}" data-c="${j}" value="${val}" onkeydown="handleKeyMove(event)"></td>`;
+      for (let j = 0; j < currentTableHeaders.length; j++) {
+        tbodyHTML += `<td><input type="text" class="grid-input" data-r="${i}" data-c="${j}" value="${rowData[j] || ""}" onkeydown="handleKeyMove(event)"></td>`;
       }
       tbodyHTML += `</tr>`;
     }
@@ -158,58 +137,33 @@
     const r = parseInt(input.dataset.r);
     const c = parseInt(input.dataset.c);
     let targetEl = null;
-
     if (e.key === 'ArrowDown' || e.key === 'Enter') targetEl = document.querySelector(`.grid-input[data-r="${r+1}"][data-c="${c}"]`);
     else if (e.key === 'ArrowUp') targetEl = document.querySelector(`.grid-input[data-r="${r-1}"][data-c="${c}"]`);
     else if (e.key === 'ArrowRight' && input.selectionStart === input.value.length) targetEl = document.querySelector(`.grid-input[data-r="${r}"][data-c="${c+1}"]`);
     else if (e.key === 'ArrowLeft' && input.selectionStart === 0) targetEl = document.querySelector(`.grid-input[data-r="${r}"][data-c="${c-1}"]`);
-
-    if (targetEl) {
-      e.preventDefault();
-      targetEl.focus();
-    }
+    if (targetEl) { e.preventDefault(); targetEl.focus(); }
   }
 
-  // ==========================================
-  // ✨ 新版 AI 呼叫邏輯 (前端直接對接 Gemini)
-  // ==========================================
-// ✨ 新版 AI 呼叫邏輯 (前端直接對接 Gemini，並從後端取得動態提示詞)
   async function processAI() {
     const rawText = document.getElementById('aiRawText').value.trim();
     if (!rawText) return alert("請先貼上文字內容喔！");
 
-    showLoading("🤖 正在取得系統授權與核心設定...");
-    document.getElementById('aiStatus').innerText = "準備中...";
+    showLoading("🤖 正在授權並解析...");
+    document.getElementById('aiStatus').innerText = "AI 思考中...";
 
     try {
-      // 1. 抓取表頭並組裝成字串 (例: "日期, 主理, 司琴")
-      const headers = Array.from(document.querySelectorAll('#tableHead th')).map(th => th.innerText);
-      const headerString = headers.join(", ");
+      // 🌟 使用正確存儲的標題字串
+      const headerString = currentTableHeaders.join(", ");
 
-      // 2. 向 GAS 請求 AI 通行證與提示詞模板
-      let aiConfigUrl = new URL(GAS_URL);
-      aiConfigUrl.searchParams.append('action', 'getAIConfig');
-      const configRes = await fetch(aiConfigUrl);
+      const configRes = await fetch(GAS_URL + "?action=getAIConfig");
       const configJson = await configRes.json();
-
-      if (configJson.status !== 'success') {
-        throw new Error(configJson.message || "取得 AI 授權失敗");
-      }
+      if (configJson.status !== 'success') throw new Error(configJson.message);
 
       const geminiUrl = configJson.data.url;
-      const promptTemplate = configJson.data.promptTemplate;
+      const finalSystemPrompt = configJson.data.promptTemplate.replace(/\{\{HEADERS\}\}/g, headerString);
 
-      // 3. 準備提示詞 (將後端傳來的模板中的 {{HEADERS}} 替換成真正的表頭)
-      const finalSystemPrompt = promptTemplate.replace(/\{\{HEADERS\}\}/g, headerString);
+      const payload = { contents: [{ parts: [{ text: finalSystemPrompt + "\n\n要解析的文字：\n" + rawText }] }] };
 
-      const payload = {
-        contents: [{ parts: [{ text: finalSystemPrompt + "\n\n要解析的文字：\n" + rawText }] }]
-      };
-
-      showLoading("🤖 AI 正在您的瀏覽器中努力解析...");
-      document.getElementById('aiStatus').innerText = "解析中，請稍候...";
-
-      // 4. 🔥 前端直接呼叫 Gemini (不吃 GAS 秒數)
       const geminiRes = await fetch(geminiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -217,109 +171,66 @@
       });
 
       const json = await geminiRes.json();
-
-      if (json.error) {
-        throw new Error("AI 伺服器錯誤: " + json.error.message);
-      }
+      if (json.error) throw new Error(json.error.message);
 
       let aiText = json.candidates[0].content.parts[0].text;
-      
-      // 清理 Markdown
       aiText = aiText.replace(/```json/gi, "").replace(/```/g, "").trim();
-      
       const parsedData = JSON.parse(aiText);
 
-      // 5. 填入表格
-      fillTableWithData(parsedData, headers);
+      fillTableWithData(parsedData, currentTableHeaders);
 
-      document.getElementById('aiStatus').innerText = "✅ 解析完成！已自動填入表格。";
+      document.getElementById('aiStatus').innerText = "✅ 解析完成！";
       document.getElementById('aiRawText').value = ""; 
 
-    } catch (err) {
-      console.error(err);
-      document.getElementById('aiStatus').innerText = "❌ 解析失敗：" + err.message;
-    } finally {
-      hideLoading();
-    }
+    } catch (err) { alert("解析失敗：" + err.message); }
+    finally { hideLoading(); }
   }
-function fillTableWithData(parsedRows, headers) {
-    console.log("📍 目前表格標題:", headers);
-    console.log("🤖 AI 解析結果:", parsedRows);
 
-    if (!parsedRows || parsedRows.length === 0) {
-      alert("AI 似乎沒解析出任何資料，請檢查貼上的文字內容。");
-      return;
-    }
-
+  function fillTableWithData(parsedRows, headers) {
     const tableRows = document.querySelectorAll('#tableBody tr');
     let currentRowIdx = 0;
 
-    // 尋找第一個「真的空白」的行作為起點
+    // 尋找第一個日期欄位為空的列開始填寫
     for (let i = 0; i < tableRows.length; i++) {
-      const inputs = Array.from(tableRows[i].querySelectorAll('input'));
-      // 只要該行第一個格子是空的，我們就當作起點 (通常是日期)
-      if (inputs[0].value.trim() === "") {
+      if (tableRows[i].querySelectorAll('input')[0].value.trim() === "") {
         currentRowIdx = i;
         break;
       }
     }
 
-    parsedRows.forEach((rowData, index) => {
+    parsedRows.forEach(rowData => {
       if (currentRowIdx >= tableRows.length) return; 
-      
       const inputs = tableRows[currentRowIdx].querySelectorAll('input');
-      
       headers.forEach((header, colIdx) => {
-        // 💡 強化對應：自動修剪空格，並嘗試多種可能的 Key
-        const cleanHeader = header.trim();
-        const value = rowData[cleanHeader];
-
-        if (value !== undefined && value !== null && value !== "") {
-          inputs[colIdx].value = value;
+        const val = rowData[header];
+        if (val !== undefined && val !== null && val !== "") {
+          inputs[colIdx].value = val;
           inputs[colIdx].style.backgroundColor = "#e8f4f8"; 
         }
       });
       currentRowIdx++;
     });
-    
-    console.log("✅ 填入完成，起始行索引：", currentRowIdx - parsedRows.length);
   }
-  // ==========================================
-  // 💾 儲存與管理邏輯
-  // ==========================================
+
   async function saveData() {
     showLoading("💾 儲存資料中...");
-    const btn = document.querySelector('.btn-primary');
-    btn.disabled = true;
-
     try {
-      const matrix = [];
-      const headers = Array.from(document.querySelectorAll('#tableHead th')).map(th => th.innerText);
-      matrix.push(headers);
-      
+      const matrix = [currentTableHeaders];
       document.querySelectorAll('#tableBody tr').forEach(tr => {
         const rowData = Array.from(tr.querySelectorAll('input')).map(input => input.value);
-        if (rowData.some(val => val.trim() !== "")) {
-          matrix.push(rowData);
-        }
+        if (rowData.some(v => v.trim() !== "")) matrix.push(rowData);
       });
-
-      while(matrix.length <= 50) { matrix.push(Array(headers.length).fill("")); }
+      while(matrix.length <= 50) matrix.push(Array(currentTableHeaders.length).fill(""));
 
       await fetch(GAS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: "saveSheetData", data: { groupName: activeGroupName, matrix: matrix } })
       });
-      
       alert("✅ 儲存成功！");
       document.querySelectorAll('.grid-input').forEach(el => el.style.backgroundColor = 'transparent');
-    } catch (e) {
-      alert("儲存失敗，請檢查網路連線");
-    } finally {
-      btn.disabled = false;
-      hideLoading();
-    }
+    } catch (e) { alert("儲存失敗"); }
+    finally { hideLoading(); }
   }
 
   async function loadAdminData() {
@@ -329,7 +240,7 @@ function fillTableWithData(parsedRows, headers) {
       const base = window.location.href.split('?')[0];
       div.innerHTML = groups.map(g => `<a href="${base}?id=${g.id}" class="btn btn-outline-primary text-start">➔ ${g.name}</a>`).join('');
       document.getElementById('templateSelect').innerHTML = '<option value="" disabled selected>選擇模板</option>' + templates.map(t=>`<option value="${t}">${t}</option>`).join('');
-    } catch (err) { alert("讀取清單失敗"); }
+    } catch (err) {}
   }
 
   function showSection(id) {
