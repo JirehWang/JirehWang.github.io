@@ -12,22 +12,27 @@
     .hidden { display: none !important; }
     #globalLoading { position: fixed; top: 20px; right: 20px; background: #ffc107; padding: 10px 20px; border-radius: 8px; font-weight: bold; z-index: 1000; }
     
-    /* 🌟 首頁網格與卡片設計 */
-    #adminMain { max-width: 1100px; } /* 擴大儀表板寬度 */
-    .group-card { transition: transform 0.2s, box-shadow: 0.2s; border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-    .group-card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.1) !important; }
-    .status-badge { font-size: 0.75rem; padding: 4px 8px; border-radius: 20px; }
-    .search-box { margin-bottom: 2rem; border-radius: 30px; padding-left: 20px; border: 2px solid #e0e0e0; transition: border-color 0.3s; }
+    /* 🌟 儀表板分區與搜尋樣式 */
+    #adminMain { max-width: 1150px; }
+    .category-header { 
+      color: #2c3e50; font-weight: 800; padding: 15px 0 10px 0; margin-top: 2rem;
+      border-bottom: 3px solid #dee2e6; display: flex; align-items: center; width: 100%;
+    }
+    .category-badge { font-size: 0.9rem; margin-left: 12px; background: #f8f9fa; color: #6c757d; border: 1px solid #dee2e6; border-radius: 20px; padding: 2px 12px; }
+    
+    .group-card { transition: transform 0.2s, box-shadow: 0.2s; border: none; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    .group-card:hover { transform: translateY(-5px); box-shadow: 0 8px 25px rgba(0,0,0,0.12) !important; }
+    .search-box { margin-bottom: 1rem; border-radius: 30px; padding-left: 20px; border: 2px solid #ced4da; }
     .search-box:focus { border-color: #0d6efd; box-shadow: none; }
     
     /* 表格編輯區樣式 */
     .table-responsive { max-height: 65vh; overflow: auto; border: 1px solid #dee2e6; background: #fff; border-radius: 6px; }
     table { width: auto; min-width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
-    thead th { position: sticky; top: 0; background: #212529 !important; color: white; padding: 12px; text-align: center; border: 1px solid #373b3e; white-space: nowrap; font-size: 14px; z-index: 10; overflow: hidden; text-overflow: ellipsis; }
+    thead th { position: sticky; top: 0; background: #212529 !important; color: white; padding: 12px; text-align: center; border: 1px solid #373b3e; z-index: 10; font-size: 14px; }
     .resizer { position: absolute; right: 0; top: 0; width: 6px; height: 100%; cursor: col-resize; user-select: none; background-color: transparent; }
     .resizer:hover, .resizing { background-color: #0d6efd; width: 3px; }
     tbody td { border: 1px solid #ddd; padding: 0 !important; height: 40px; }
-    .grid-input { width: 100%; height: 100%; border: none; background: transparent; padding: 8px 12px; text-align: center; outline: none; font-size: 14px; transition: background-color 0.2s; overflow: hidden; text-overflow: ellipsis; }
+    .grid-input { width: 100%; height: 100%; border: none; background: transparent; padding: 8px 12px; text-align: center; outline: none; font-size: 14px; }
     .grid-input:focus { background-color: #f8f9fa; box-shadow: inset 0 0 0 2px #0d6efd; }
     .ai-box { background: linear-gradient(135deg, #f0f7ff 0%, #e6f3ff 100%); border: 1px solid #b8daff; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
   </style>
@@ -40,16 +45,16 @@
     <div id="adminMain" class="card-custom hidden">
       <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="text-primary fw-bold m-0">教會服事系統儀表板</h3>
-        <button class="btn btn-primary px-4" onclick="showSection('createSection')">➕ 建立新分頁</button>
+        <button class="btn btn-primary px-4 shadow-sm" onclick="showSection('createSection')">➕ 建立新分頁</button>
       </div>
 
-      <div class="position-relative">
-        <input type="text" id="groupSearch" class="form-control form-control-lg search-box" 
-               placeholder="輸入關鍵字搜尋小組名稱或 ID..." onkeyup="filterGroups()">
+      <div class="mb-4">
+        <input type="text" id="groupSearch" class="form-control form-control-lg search-box shadow-sm" 
+               placeholder="🔍 搜尋名稱、ID 或分類屬性..." onkeyup="filterGroups()">
       </div>
 
       <div id="groupButtons" class="row g-4">
-        <p class="text-center text-muted">正在載入小組清單...</p>
+        <p class="text-center text-muted">正在載入並分類小組清單...</p>
       </div>
     </div>
 
@@ -57,15 +62,15 @@
       <h4 class="fw-bold mb-4">建立新排班表</h4>
       <form id="createGroupForm">
         <div class="mb-3">
-          <label class="form-label text-muted small fw-bold">ID (用於網址參數)</label>
+          <label class="form-label text-muted small fw-bold">ID (網址參數)</label>
           <input id="newId" class="form-control" placeholder="例如: VN01" required>
         </div>
         <div class="mb-3">
-          <label class="form-label text-muted small fw-bold">小組名稱</label>
+          <label class="form-label text-muted small fw-bold">名稱 (分頁顯示)</label>
           <input id="newName" class="form-control" placeholder="例如: 葡萄樹A組" required>
         </div>
         <div class="mb-3">
-          <label class="form-label text-muted small fw-bold">選擇模板</label>
+          <label class="form-label text-muted small fw-bold">分類屬性 (選擇模板)</label>
           <select id="templateSelect" class="form-select" required></select>
         </div>
         <div class="d-flex gap-2">
@@ -79,7 +84,7 @@
       <div class="toolbar d-flex justify-content-between align-items-center mb-3">
         <div>
           <button class="btn btn-sm btn-outline-secondary me-3" onclick="location.reload()">⬅ 返回儀表板</button>
-          <h4 id="groupTitle" class="text-primary m-0 d-inline align-middle">載入中...</h4>
+          <h4 id="groupTitle" class="text-primary m-0 d-inline align-middle fw-bold">載入中...</h4>
         </div>
         <button class="btn btn-primary btn-lg px-5 shadow" onclick="saveData()">💾 儲存變更</button>
       </div>
@@ -90,19 +95,17 @@
           <div class="col-md-10"><textarea id="aiRawText" class="form-control" rows="2" placeholder="在此貼上排班文字內容..."></textarea></div>
           <div class="col-md-2 d-grid"><button class="btn btn-primary" onclick="processAI()">🤖 解析填入</button></div>
         </div>
-        <div id="aiStatus" class="form-text text-muted mt-1">系統將按日期比對，不覆蓋空白欄位。</div>
+        <div id="aiStatus" class="form-text text-muted mt-1">AI 將根據後端安全指令執行，並按日期自動比對。</div>
       </div>
 
       <div class="table-responsive">
-        <table id="mainTable">
-          <thead id="tableHead"></thead>
-          <tbody id="tableBody"></tbody>
-        </table>
+        <table id="mainTable"><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table>
       </div>
     </div>
   </div>
 
 <script>
+  // 🔗 您的 GAS 網址
   const GAS_URL = "https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_U9nKJrRMR1-xzbbtuaq08lePLgAQ2wnDRrCeHdy9jNhh/exec"; 
   const currentId = new URLSearchParams(window.location.search).get('id');
   let activeGroupName = "";
@@ -126,63 +129,98 @@
     else { showSection('reportSection'); try { const data = await fetchAPI('getPageConfig', { id: currentId }); renderTable(data); } catch(e){alert(e.message);} }
   };
 
-  // 🌟 升級後的網格儀表板載入
+  // 🌟 核心：按模板分類載入儀表板
   async function loadAdminData() {
     try {
-      showLoading("⏳ 載入儀表板中...");
+      showLoading("⏳ 正在按分類整理資料...");
       const [groups, templates] = await Promise.all([fetchAPI('getGroups'), fetchAPI('getTemplates')]);
       const div = document.getElementById('groupButtons');
       const base = window.location.href.split('?')[0];
       
-      div.innerHTML = groups.map(g => {
-        const isEnabled = g.status !== "停用"; 
-        const badgeClass = isEnabled ? "bg-success" : "bg-secondary";
-        const btnClass = isEnabled ? "btn-outline-danger" : "btn-outline-success";
-        const btnText = isEnabled ? "設為停用" : "啟用";
-        const opacity = isEnabled ? "1" : "0.6";
-        
-        return `
-          <div class="col-12 col-md-6 col-lg-4 group-item" data-search="${g.name} ${g.id}">
-            <div class="card group-card h-100 border-0 shadow-sm" style="opacity: ${opacity};">
-              <div class="card-body d-flex flex-column">
-                <div class="d-flex justify-content-between align-items-start mb-3">
-                  <span class="badge status-badge ${badgeClass}">${g.status}</span>
-                  <small class="text-muted fw-bold">${g.id}</small>
-                </div>
-                <h5 class="card-title fw-bold text-dark mb-4">${g.name}</h5>
-                <div class="mt-auto d-flex gap-2">
-                  <a href="${base}?id=${g.id}" class="btn ${isEnabled ? 'btn-primary' : 'btn-secondary disabled'} flex-grow-1">管理</a>
-                  <button class="btn btn-sm ${btnClass}" onclick="toggleStatus('${g.id}', '${g.status}')">${btnText}</button>
-                </div>
-              </div>
+      // 1. 進行分群 (Grouping)
+      const grouped = groups.reduce((acc, g) => {
+        const cat = g.template || "未分類項目";
+        if (!acc[cat]) acc[cat] = [];
+        acc[cat].push(g);
+        return acc;
+      }, {});
+
+      // 2. 生成 HTML
+      let html = "";
+      for (const cat in grouped) {
+        // 分類標題
+        html += `
+          <div class="col-12 category-section" data-cat="${cat}">
+            <div class="category-header">
+              📦 ${cat} <span class="category-badge">${grouped[cat].length}</span>
             </div>
           </div>
         `;
-      }).join('');
+        
+        // 小組卡片
+        html += grouped[cat].map(g => {
+          const isEnabled = g.status !== "停用"; 
+          return `
+            <div class="col-12 col-md-6 col-lg-4 group-item" data-search="${g.name} ${g.id} ${g.template}">
+              <div class="card group-card h-100 border-0 shadow-sm" style="opacity: ${isEnabled ? '1' : '0.6'};">
+                <div class="card-body d-flex flex-column">
+                  <div class="d-flex justify-content-between align-items-start mb-3">
+                    <span class="badge status-badge ${isEnabled ? 'bg-success' : 'bg-secondary'}">${g.status}</span>
+                    <small class="text-muted fw-bold">${g.id}</small>
+                  </div>
+                  <h5 class="card-title fw-bold text-dark mb-4">${g.name}</h5>
+                  <div class="mt-auto d-flex gap-2">
+                    <a href="${base}?id=${g.id}" class="btn ${isEnabled ? 'btn-primary' : 'btn-secondary disabled'} flex-grow-1 shadow-sm">管理</a>
+                    <button class="btn btn-sm ${isEnabled ? 'btn-outline-danger' : 'btn-outline-success'}" 
+                            onclick="toggleStatus('${g.id}', '${g.status}')">${isEnabled ? '停用' : '啟用'}</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
       
-      document.getElementById('templateSelect').innerHTML = '<option value="" disabled selected>選擇模板</option>' + templates.map(t=>`<option value="${t}">${t}</option>`).join('');
+      div.innerHTML = html || '<p class="text-center text-muted">目前尚無資料</p>';
+      
+      // 填充模板下拉選單
+      document.getElementById('templateSelect').innerHTML = '<option value="" disabled selected>選擇模板</option>' + 
+        templates.map(t=>`<option value="${t}">${t}</option>`).join('');
+        
     } catch (err) { 
       document.getElementById('groupButtons').innerHTML = '<p class="text-danger">載入失敗，請確認 Config 資料。</p>'; 
     } finally { hideLoading(); }
   }
 
-  // 🔍 即時搜尋功能
+  // 🔍 搜尋過濾：同時過濾卡片與空的分類標題
   function filterGroups() {
     const val = document.getElementById('groupSearch').value.toLowerCase();
+    
+    // 過濾卡片
     document.querySelectorAll('.group-item').forEach(el => {
       const searchData = el.dataset.search.toLowerCase();
       el.style.display = searchData.includes(val) ? "" : "none";
     });
+
+    // 過濾標題：如果該分類下沒有任何卡片顯示，就隱藏標題
+    document.querySelectorAll('.category-section').forEach(header => {
+      let hasVisible = false;
+      let next = header.nextElementSibling;
+      while (next && next.classList.contains('group-item')) {
+        if (next.style.display !== "none") hasVisible = true;
+        next = next.nextElementSibling;
+      }
+      header.style.display = hasVisible ? "" : "none";
+    });
   }
 
+  // --- 表格渲染與縮放 ---
   function renderTable(data) {
     activeGroupName = data.groupName;
     document.getElementById('groupTitle').innerText = data.groupName;
     currentTableHeaders = data.matrix[0].map(h => h.toString().trim());
-    
     const theadHTML = currentTableHeaders.map(h => `<th style="width: 150px; position: relative;">${h}<div class="resizer"></div></th>`).join('');
     document.getElementById('tableHead').innerHTML = `<tr>${theadHTML}</tr>`;
-    
     const rows = data.matrix.slice(1);
     let html = "";
     for (let i = 0; i < 50; i++) {
@@ -203,9 +241,9 @@
     [].forEach.call(cols, (col) => {
       const resizer = col.querySelector('.resizer');
       if (!resizer) return;
-      let x = 0; let w = 0;
+      let x = 0, w = 0;
       const onMouseDown = (e) => {
-        x = e.clientX; const styles = window.getComputedStyle(col); w = parseInt(styles.width, 10);
+        x = e.clientX; w = parseInt(window.getComputedStyle(col).width, 10);
         document.addEventListener('mousemove', onMouseMove); document.addEventListener('mouseup', onMouseUp);
         resizer.classList.add('resizing');
       };
@@ -215,6 +253,7 @@
     });
   }
 
+  // --- AI 與數據邏輯 ---
   async function processAI() {
     const rawText = document.getElementById('aiRawText').value.trim();
     if (!rawText) return alert("請貼上文字");
@@ -311,7 +350,7 @@
           }) 
         });
         location.reload();
-      } catch (e) { alert("失敗"); } finally { hideLoading(); }
+      } catch (e) { alert("建立失敗"); } finally { hideLoading(); }
     };
   }
 </script>
