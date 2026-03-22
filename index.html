@@ -12,7 +12,7 @@
     .hidden { display: none !important; }
     #globalLoading { position: fixed; top: 20px; right: 20px; background: #ffc107; padding: 10px 20px; border-radius: 8px; font-weight: bold; z-index: 1000; }
     
-    /* 🌟 儀表板優化 */
+    /* 🌟 儀表板樣式優化 */
     #adminMain { max-width: 1150px; }
     .category-header { 
       color: #2c3e50; font-weight: 800; padding: 15px 0 10px 0; margin-top: 1.5rem;
@@ -20,16 +20,20 @@
     }
     .category-badge { font-size: 0.85rem; margin-left: 10px; background: #f8f9fa; color: #6c757d; border: 1px solid #dee2e6; border-radius: 20px; padding: 1px 10px; }
     
-    .group-card { transition: all 0.2s; border: 1px solid #eee; }
+    .group-card { transition: all 0.2s; border: 1px solid #eee; min-height: 100px; }
     .group-card:hover { transform: translateY(-3px); box-shadow: 0 6px 15px rgba(0,0,0,0.08) !important; border-color: #0d6efd; }
     
-    /* 文字點擊區樣式 */
-    .group-link { text-decoration: none !important; color: inherit; display: block; }
+    /* 名稱連結樣式 */
+    .group-link { text-decoration: none !important; color: inherit; display: block; flex-grow: 1; }
     .group-link:hover .card-title { color: #0d6efd !important; }
+    .card-title { font-weight: 700; transition: color 0.2s; margin: 0; }
     
     .search-box { margin-bottom: 1.5rem; border-radius: 30px; padding-left: 20px; border: 2px solid #ced4da; }
     
-    /* 表格編輯區 */
+    /* Switch 開關尺寸微調 */
+    .form-switch .form-check-input { width: 2.5em; height: 1.25em; cursor: pointer; }
+
+    /* 表格編輯區相關 */
     .table-responsive { max-height: 65vh; overflow: auto; border: 1px solid #dee2e6; background: #fff; border-radius: 6px; }
     table { width: auto; min-width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
     thead th { position: sticky; top: 0; background: #212529 !important; color: white; padding: 12px; text-align: center; border: 1px solid #373b3e; z-index: 10; font-size: 14px; }
@@ -53,7 +57,7 @@
       </div>
 
       <input type="text" id="groupSearch" class="form-control search-box shadow-sm" 
-             placeholder="🔍 快速搜尋小組名稱、ID 或分類..." onkeyup="filterGroups()">
+             placeholder="🔍 快速搜尋名稱或分類..." onkeyup="filterGroups()">
 
       <div id="groupButtons" class="row g-3">
         <p class="text-center text-muted">正在載入清單...</p>
@@ -64,11 +68,11 @@
       <h4 class="fw-bold mb-4">建立新排班表</h4>
       <form id="createGroupForm">
         <div class="mb-3">
-          <label class="form-label text-muted small fw-bold">ID (網址參數)</label>
-          <input id="newId" class="form-control" placeholder="例如: VN01" required>
+          <label class="form-label text-muted small fw-bold">ID (網址參數，例如 VN01)</label>
+          <input id="newId" class="form-control" placeholder="系統辨識用 ID" required>
         </div>
         <div class="mb-3">
-          <label class="form-label text-muted small fw-bold">名稱 (分頁顯示)</label>
+          <label class="form-label text-muted small fw-bold">顯示名稱</label>
           <input id="newName" class="form-control" placeholder="例如: 葡萄樹A組" required>
         </div>
         <div class="mb-3">
@@ -93,7 +97,7 @@
 
       <div class="ai-box shadow-sm">
         <div class="row g-2 align-items-center">
-          <div class="col-md-10"><textarea id="aiRawText" class="form-control" rows="2" placeholder="在此貼上排班文字..."></textarea></div>
+          <div class="col-md-10"><textarea id="aiRawText" class="form-control" rows="2" placeholder="在此貼上排班文字內容..."></textarea></div>
           <div class="col-md-2 d-grid"><button class="btn btn-success" onclick="processAI()">🤖 AI 解析</button></div>
         </div>
       </div>
@@ -128,7 +132,7 @@
     else { showSection('reportSection'); try { const data = await fetchAPI('getPageConfig', { id: currentId }); renderTable(data); } catch(e){alert(e.message);} }
   };
 
-// 🌟 標籤跳轉版：點擊 ID 標籤進入管理
+  // 🌟 整合修改：名稱即入口 + Switch 切換開關 (隱藏 ID)
   async function loadAdminData() {
     try {
       showLoading("⏳ 整理儀表板中...");
@@ -150,27 +154,23 @@
         html += grouped[cat].map(g => {
           const isEnabled = g.status !== "停用"; 
           return `
-            <div class="col-12 col-md-4 group-item" data-search="${g.name} ${g.id} ${g.template}">
+            <div class="col-12 col-md-4 group-item" data-search="${g.name} ${g.template}">
               <div class="card group-card h-100 shadow-sm" style="opacity: ${isEnabled ? '1' : '0.5'}; border-left: 5px solid ${isEnabled ? '#0d6efd' : '#ced4da'};">
-                <div class="card-body p-3">
-                  <div class="d-flex justify-content-between align-items-center mb-2">
-                    <a href="${isEnabled ? base + '?id=' + g.id : 'javascript:void(0)'}" 
-                       class="badge ${isEnabled ? 'bg-primary' : 'bg-secondary'} text-decoration-none shadow-sm" 
-                       style="padding: 6px 12px; cursor: ${isEnabled ? 'pointer' : 'not-allowed'}; font-size: 0.85rem;">
-                       ${g.id} <span style="font-size: 0.7rem;">➔</span>
-                    </a>
-                    <span class="badge ${isEnabled ? 'bg-success' : 'bg-secondary'}" style="font-size: 0.7rem;">${g.status}</span>
-                  </div>
+                <div class="card-body p-3 d-flex align-items-center justify-content-between">
                   
-                  <h6 class="fw-bold text-dark m-0 mt-1">${g.name}</h6>
+                  <a href="${isEnabled ? base + '?id=' + g.id : 'javascript:void(0)'}" 
+                     class="group-link" 
+                     style="${isEnabled ? '' : 'pointer-events: none; cursor: default;'}">
+                    <h5 class="card-title ${isEnabled ? 'text-dark' : 'text-muted'}" 
+                        style="${isEnabled ? '' : 'text-decoration: line-through;'}">${g.name}</h5>
+                  </a>
 
-                  <div class="text-end mt-2">
-                    <button class="btn btn-sm ${isEnabled ? 'btn-outline-danger' : 'btn-outline-success'}" 
-                            style="font-size: 0.7rem; padding: 1px 6px; border-radius: 4px;"
-                            onclick="toggleStatus('${g.id}', '${g.status}')">
-                      ${isEnabled ? '停用' : '啟用'}
-                    </button>
+                  <div class="form-check form-switch m-0 ms-3">
+                    <input class="form-check-input" type="checkbox" role="switch" 
+                           ${isEnabled ? 'checked' : ''} 
+                           onchange="toggleStatus('${g.id}', '${g.status}')">
                   </div>
+
                 </div>
               </div>
             </div>
@@ -181,6 +181,7 @@
       document.getElementById('templateSelect').innerHTML = '<option value="" disabled selected>選擇模板</option>' + templates.map(t=>`<option value="${t}">${t}</option>`).join('');
     } catch (err) { div.innerHTML = '<p class="text-danger">載入失敗</p>'; } finally { hideLoading(); }
   }
+
   function filterGroups() {
     const val = document.getElementById('groupSearch').value.toLowerCase();
     document.querySelectorAll('.group-item').forEach(el => {
@@ -246,7 +247,7 @@
       const resJson = await response.json();
       if (resJson.status !== 'success') throw new Error(resJson.message);
       fillTableWithData(resJson.data);
-      document.getElementById('aiStatus').innerText = "✅ 完成！";
+      document.getElementById('aiStatus').innerText = "✅ 解析完成！";
       document.getElementById('aiRawText').value = ""; 
     } catch (err) { alert("解析失敗：" + err.message); } finally { hideLoading(); }
   }
@@ -289,7 +290,7 @@
   }
 
   async function toggleStatus(groupId, currentStatus) {
-    showLoading("🔄 更新中...");
+    showLoading("🔄 更新狀態中...");
     try {
       const response = await fetch(GAS_URL, {
         method: 'POST',
