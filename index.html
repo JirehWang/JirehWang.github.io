@@ -246,17 +246,68 @@
     finally { hideLoading(); }
   }
 
+// 🌟 修改後的載入清單邏輯 (支援狀態顯示與切換)
   async function loadAdminData() {
     try {
       showLoading("⏳ 載入清單中...");
       const [groups, templates] = await Promise.all([fetchAPI('getGroups'), fetchAPI('getTemplates')]);
       const div = document.getElementById('groupButtons');
-      div.innerHTML = groups.map(g => `<a href="${window.location.href.split('?')[0]}?id=${g.id}" class="btn btn-outline-primary text-start">➔ ${g.name}</a>`).join('');
+      const base = window.location.href.split('?')[0];
+      
+      // 重新設計列表 UI：加入啟用/停用標籤與按鈕
+      div.innerHTML = groups.map(g => {
+        const isEnabled = g.status !== "停用"; 
+        const badgeClass = isEnabled ? "bg-success" : "bg-secondary";
+        const btnClass = isEnabled ? "btn-outline-danger" : "btn-outline-success";
+        const btnText = isEnabled ? "設為停用" : "啟用";
+        const opacity = isEnabled ? "1" : "0.5"; // 停用的項目視覺上變淡
+        
+        return `
+          <div class="d-flex justify-content-between align-items-center border rounded p-2 mb-2 shadow-sm" style="opacity: ${opacity}; transition: opacity 0.3s;">
+            <a href="${base}?id=${g.id}" class="text-decoration-none flex-grow-1 fw-bold fs-5 ${isEnabled ? 'text-primary' : 'text-muted'}" style="pointer-events: ${isEnabled ? 'auto' : 'none'};">
+              ➔ ${g.name}
+            </a>
+            <div class="d-flex align-items-center">
+              <span class="badge ${badgeClass} me-3">${g.status}</span>
+              <button class="btn btn-sm ${btnClass}" onclick="toggleStatus('${g.id}', '${g.status}')">${btnText}</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+      
       document.getElementById('templateSelect').innerHTML = '<option value="" disabled selected>選擇模板</option>' + templates.map(t=>`<option value="${t}">${t}</option>`).join('');
-    } catch (err) { document.getElementById('groupButtons').innerHTML = '<p class="text-danger">載入失敗</p>'; }
-    finally { hideLoading(); }
+    } catch (err) { 
+      document.getElementById('groupButtons').innerHTML = '<p class="text-danger">載入失敗</p>'; 
+    } finally { 
+      hideLoading(); 
+    }
   }
 
+  // ✨ 新增：呼叫後端切換狀態的函式
+  async function toggleStatus(groupId, currentStatus) {
+    showLoading("🔄 更新狀態中...");
+    try {
+      const response = await fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ 
+          action: "toggleGroupStatus", 
+          data: { id: groupId, status: currentStatus } 
+        })
+      });
+      const resJson = await response.json();
+      if (resJson.status === 'success') {
+        // 更新成功後，重新載入列表刷新畫面
+        await loadAdminData();
+      } else {
+        throw new Error(resJson.message);
+      }
+    } catch (e) {
+      alert("狀態更新失敗：" + e.message);
+    } finally {
+      hideLoading();
+    }
+  }
   function showSection(id) {
     document.querySelectorAll('.card-custom').forEach(el => el.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
