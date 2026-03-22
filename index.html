@@ -27,9 +27,7 @@
   <div class="container-fluid">
     <div id="adminMain" class="card-custom hidden" style="max-width: 600px;">
       <h3 class="text-center mb-4 text-primary">教會服事系統管理</h3>
-      <div id="groupButtons" class="d-grid gap-2">
-        <p class="text-center text-muted">正在載入清單...</p>
-      </div>
+      <div id="groupButtons" class="d-grid gap-2"><p class="text-center text-muted">正在載入清單...</p></div>
       <hr>
       <button class="btn btn-primary w-100" onclick="showSection('createSection')">➕ 建立新分頁</button>
     </div>
@@ -60,7 +58,7 @@
           <div class="col-md-10"><textarea id="aiRawText" class="form-control" rows="2" placeholder="貼上排班文字..."></textarea></div>
           <div class="col-md-2 d-grid"><button class="btn btn-primary" onclick="processAI()">🤖 解析填入</button></div>
         </div>
-        <div id="aiStatus" class="form-text text-muted mt-1">系統將按日期比對，若原本已有資料則保留。</div>
+        <div id="aiStatus" class="form-text text-muted mt-1">AI 將根據後端安全指令執行，並按日期自動比對更新。</div>
       </div>
 
       <div class="table-responsive">
@@ -102,8 +100,7 @@
       div.innerHTML = groups.map(g => `<a href="${base}?id=${g.id}" class="btn btn-outline-primary text-start">➔ ${g.name}</a>`).join('');
       document.getElementById('templateSelect').innerHTML = '<option value="" disabled selected>選擇模板</option>' + templates.map(t=>`<option value="${t}">${t}</option>`).join('');
     } catch (err) {
-      console.error(err);
-      document.getElementById('groupButtons').innerHTML = '<p class="text-danger">載入失敗，請確認 Config 與 模板名稱 分頁是否有資料。</p>';
+      document.getElementById('groupButtons').innerHTML = '<p class="text-danger">載入失敗，請確認資料設定。</p>';
     } finally { hideLoading(); }
   }
 
@@ -125,25 +122,37 @@
     document.getElementById('tableBody').innerHTML = html;
   }
 
+  // ✨ 修改後的 processAI：將任務交給 GAS 後端
   async function processAI() {
     const rawText = document.getElementById('aiRawText').value.trim();
     if (!rawText) return alert("請貼上文字");
-    showLoading("🤖 AI 正在分析比對...");
+
+    showLoading("🤖 AI 正在後端安全解析中...");
+    document.getElementById('aiStatus').innerText = "連線至安全伺服器...";
+
     try {
-      const configRes = await fetch(GAS_URL + "?action=getAIConfig");
-      const config = await configRes.json();
-      const finalPrompt = config.data.promptTemplate.replace(/\{\{HEADERS\}\}/g, currentTableHeaders.join(", "));
-      const geminiRes = await fetch(config.data.url, {
+      // 直接 POST 給 GAS，不經過本地端呼叫 Gemini
+      const response = await fetch(GAS_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: finalPrompt + "\n\n文字：\n" + rawText }] }] })
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: "parseWithAI",
+          data: { text: rawText, headers: currentTableHeaders }
+        })
       });
-      const res = await geminiRes.json();
-      let aiText = res.candidates[0].content.parts[0].text.replace(/```json/gi, "").replace(/```/g, "").trim();
-      fillTableWithData(JSON.parse(aiText));
-      document.getElementById('aiStatus').innerText = "✅ 解析更新完成！";
-    } catch (err) { alert("解析失敗：" + err.message); }
-    finally { hideLoading(); }
+
+      const resJson = await response.json();
+      if (resJson.status !== 'success') throw new Error(resJson.message);
+
+      // 取得後端算好的資料並填入
+      fillTableWithData(resJson.data);
+      document.getElementById('aiStatus').innerText = "✅ 安全解析更新完成！";
+      document.getElementById('aiRawText').value = ""; 
+
+    } catch (err) { 
+      console.error(err);
+      alert("解析失敗：" + err.message); 
+    } finally { hideLoading(); }
   }
 
   function fillTableWithData(parsedRows) {
@@ -190,29 +199,28 @@
     finally { hideLoading(); }
   }
 
-  async function loadAdminData() {
-    try {
-      const [groups, templates] = await Promise.all([fetchAPI('getGroups'), fetchAPI('getTemplates')]);
-      const div = document.getElementById('groupButtons');
-      div.innerHTML = groups.map(g => `<a href="${window.location.href.split('?')[0]}?id=${g.id}" class="btn btn-outline-primary text-start">➔ ${g.name}</a>`).join('');
-      document.getElementById('templateSelect').innerHTML = '<option value="" disabled selected>選擇模板</option>' + templates.map(t=>`<option value="${t}">${t}</option>`).join('');
-    } catch (err) {
-      document.getElementById('groupButtons').innerHTML = '<p class="text-danger">載入清單失敗，請檢查 Config/模板名稱 頁面。</p>';
-    }
-  }
-
   function showSection(id) {
     document.querySelectorAll('.card-custom').forEach(el => el.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
   }
 
-  // 🛡️ 安全繫結，防止因為元素不存在而當機
   const createForm = document.getElementById('createGroupForm');
   if (createForm) {
     createForm.onsubmit = async function(e) {
       e.preventDefault(); showLoading("建立中...");
       try {
-        await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: "createGroup", data: { id: document.getElementById('newId').value, name: document.getElementById('newName').value, template: document.getElementById('templateSelect').value } }) });
+        await fetch(GAS_URL, { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ 
+            action: "createGroup", 
+            data: { 
+              id: document.getElementById('newId').value, 
+              name: document.getElementById('newName').value, 
+              template: document.getElementById('templateSelect').value 
+            } 
+          }) 
+        });
         location.reload();
       } catch (e) { alert("失敗"); } finally { hideLoading(); }
     };
