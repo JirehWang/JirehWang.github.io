@@ -8,15 +8,37 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
   <style>
     body { background-color: #f4f7f6; padding: 20px; font-family: "Microsoft JhengHei", sans-serif; }
-    .card-custom { max-width: 1200px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    .card-custom { max-width: 1300px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
     .hidden { display: none !important; }
     #globalLoading { position: fixed; top: 20px; right: 20px; background: #ffc107; padding: 10px 20px; border-radius: 8px; font-weight: bold; z-index: 1000; }
-    .table-responsive { max-height: 60vh; overflow: auto; border: 1px solid #dee2e6; background: #fff; border-radius: 6px; }
-    table { width: 100%; min-width: 1000px; border-collapse: separate; border-spacing: 0; }
-    thead th { position: sticky; top: 0; background: #212529 !important; color: white; padding: 12px; text-align: center; border: 1px solid #373b3e; white-space: nowrap; font-size: 14px; }
+    
+    /* 表格容器與調整大小相關樣式 */
+    .table-responsive { max-height: 65vh; overflow: auto; border: 1px solid #dee2e6; background: #fff; border-radius: 6px; }
+    table { width: auto; min-width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; } /* 改為 fixed 才能精準控制寬度 */
+    
+    thead th { 
+      position: sticky; top: 0; background: #212529 !important; color: white; 
+      padding: 12px; text-align: center; border: 1px solid #373b3e; 
+      white-space: nowrap; font-size: 14px; z-index: 10;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+
+    /* 🌟 欄位調整條樣式 */
+    .resizer {
+      position: absolute; right: 0; top: 0; width: 6px; height: 100%;
+      cursor: col-resize; user-select: none; background-color: transparent;
+    }
+    .resizer:hover, .resizing { background-color: #0d6efd; width: 3px; }
+
     tbody td { border: 1px solid #ddd; padding: 0 !important; height: 40px; }
-    .grid-input { width: 100%; height: 100%; border: none; background: transparent; padding: 8px 12px; text-align: center; outline: none; font-size: 14px; transition: all 0.2s; }
+    
+    .grid-input { 
+      width: 100%; height: 100%; border: none; background: transparent; 
+      padding: 8px 12px; text-align: center; outline: none; font-size: 14px; 
+      transition: background-color 0.2s; overflow: hidden; text-overflow: ellipsis;
+    }
     .grid-input:focus { background-color: #f8f9fa; box-shadow: inset 0 0 0 2px #0d6efd; }
+    
     .ai-box { background: linear-gradient(135deg, #f0f7ff 0%, #e6f3ff 100%); border: 1px solid #b8daff; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
   </style>
 </head>
@@ -47,7 +69,7 @@
       <div class="toolbar d-flex justify-content-between align-items-center mb-3">
         <div>
           <h4 id="groupTitle" class="text-primary m-0 d-inline">載入中...</h4>
-          <span class="ms-3 text-muted small">支援鍵盤移動</span>
+          <span class="ms-3 text-muted small">💡 提示：可拖動表頭右側邊界調整寬度</span>
         </div>
         <button class="btn btn-primary btn-lg px-4" onclick="saveData()">💾 儲存變更</button>
       </div>
@@ -58,11 +80,14 @@
           <div class="col-md-10"><textarea id="aiRawText" class="form-control" rows="2" placeholder="貼上排班文字..."></textarea></div>
           <div class="col-md-2 d-grid"><button class="btn btn-primary" onclick="processAI()">🤖 解析填入</button></div>
         </div>
-        <div id="aiStatus" class="form-text text-muted mt-1">AI 將根據後端安全指令執行，並按日期自動比對更新。</div>
+        <div id="aiStatus" class="form-text text-muted mt-1">AI 解析後，內容若過長，您可以手動拉寬欄位查看。</div>
       </div>
 
       <div class="table-responsive">
-        <table id="mainTable"><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table>
+        <table id="mainTable">
+          <thead id="tableHead"></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -91,68 +116,91 @@
     else { showSection('reportSection'); try { const data = await fetchAPI('getPageConfig', { id: currentId }); renderTable(data); } catch(e){alert(e.message);} }
   };
 
-  async function loadAdminData() {
-    try {
-      showLoading("⏳ 載入清單中...");
-      const [groups, templates] = await Promise.all([fetchAPI('getGroups'), fetchAPI('getTemplates')]);
-      const div = document.getElementById('groupButtons');
-      const base = window.location.href.split('?')[0];
-      div.innerHTML = groups.map(g => `<a href="${base}?id=${g.id}" class="btn btn-outline-primary text-start">➔ ${g.name}</a>`).join('');
-      document.getElementById('templateSelect').innerHTML = '<option value="" disabled selected>選擇模板</option>' + templates.map(t=>`<option value="${t}">${t}</option>`).join('');
-    } catch (err) {
-      document.getElementById('groupButtons').innerHTML = '<p class="text-danger">載入失敗，請確認資料設定。</p>';
-    } finally { hideLoading(); }
-  }
-
   function renderTable(data) {
     activeGroupName = data.groupName;
     document.getElementById('groupTitle').innerText = data.groupName;
     currentTableHeaders = data.matrix[0].map(h => h.toString().trim());
-    document.getElementById('tableHead').innerHTML = `<tr>${currentTableHeaders.map(h => `<th>${h}</th>`).join('')}</tr>`;
+    
+    // 🌟 渲染表頭並注入調整大小的「手柄」
+    const theadHTML = currentTableHeaders.map(h => `
+      <th style="width: 150px; position: relative;">
+        ${h}
+        <div class="resizer"></div>
+      </th>
+    `).join('');
+    document.getElementById('tableHead').innerHTML = `<tr>${theadHTML}</tr>`;
+    
     const rows = data.matrix.slice(1);
     let html = "";
     for (let i = 0; i < 50; i++) {
       const rowData = rows[i] || Array(currentTableHeaders.length).fill("");
       html += `<tr>`;
       for (let j = 0; j < currentTableHeaders.length; j++) {
-        html += `<td><input type="text" class="grid-input" data-r="${i}" data-c="${j}" value="${rowData[j] || ""}"></td>`;
+        html += `<td><input type="text" class="grid-input" value="${rowData[j] || ""}" title="${rowData[j] || ""}"></td>`;
       }
       html += `</tr>`;
     }
     document.getElementById('tableBody').innerHTML = html;
+    
+    // 初始化拖曳功能
+    initResizable();
   }
 
-  // ✨ 修改後的 processAI：將任務交給 GAS 後端
+  // 🌟 核心功能：初始化欄位拖曳調整大小
+  function initResizable() {
+    const table = document.getElementById('mainTable');
+    const cols = table.querySelectorAll('th');
+    
+    [].forEach.call(cols, (col) => {
+      const resizer = col.querySelector('.resizer');
+      if (!resizer) return;
+      
+      let x = 0;
+      let w = 0;
+
+      const onMouseDown = (e) => {
+        x = e.clientX;
+        const styles = window.getComputedStyle(col);
+        w = parseInt(styles.width, 10);
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+        resizer.classList.add('resizing');
+      };
+
+      const onMouseMove = (e) => {
+        const dx = e.clientX - x;
+        col.style.width = `${w + dx}px`;
+      };
+
+      const onMouseUp = () => {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        resizer.classList.remove('resizing');
+      };
+
+      resizer.addEventListener('mousedown', onMouseDown);
+    });
+  }
+
+  // --- AI 與儲存邏輯 (維持不變) ---
   async function processAI() {
     const rawText = document.getElementById('aiRawText').value.trim();
     if (!rawText) return alert("請貼上文字");
-
     showLoading("🤖 AI 正在後端安全解析中...");
-    document.getElementById('aiStatus').innerText = "連線至安全伺服器...";
-
     try {
-      // 直接 POST 給 GAS，不經過本地端呼叫 Gemini
       const response = await fetch(GAS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          action: "parseWithAI",
-          data: { text: rawText, headers: currentTableHeaders }
-        })
+        body: JSON.stringify({ action: "parseWithAI", data: { text: rawText, headers: currentTableHeaders } })
       });
-
       const resJson = await response.json();
       if (resJson.status !== 'success') throw new Error(resJson.message);
-
-      // 取得後端算好的資料並填入
       fillTableWithData(resJson.data);
-      document.getElementById('aiStatus').innerText = "✅ 安全解析更新完成！";
+      document.getElementById('aiStatus').innerText = "✅ 解析完成！";
       document.getElementById('aiRawText').value = ""; 
-
-    } catch (err) { 
-      console.error(err);
-      alert("解析失敗：" + err.message); 
-    } finally { hideLoading(); }
+    } catch (err) { alert("解析失敗：" + err.message); }
+    finally { hideLoading(); }
   }
 
   function fillTableWithData(parsedRows) {
@@ -160,7 +208,6 @@
     const dateColIdx = currentTableHeaders.indexOf("日期");
     const dateMap = {};
     tableRows.forEach(tr => { const d = tr.querySelectorAll('input')[dateColIdx]?.value.trim(); if(d) dateMap[d] = tr; });
-
     parsedRows.forEach(rowData => {
       let targetRow = dateMap[rowData["日期"]];
       if (!targetRow) {
@@ -199,6 +246,17 @@
     finally { hideLoading(); }
   }
 
+  async function loadAdminData() {
+    try {
+      showLoading("⏳ 載入清單中...");
+      const [groups, templates] = await Promise.all([fetchAPI('getGroups'), fetchAPI('getTemplates')]);
+      const div = document.getElementById('groupButtons');
+      div.innerHTML = groups.map(g => `<a href="${window.location.href.split('?')[0]}?id=${g.id}" class="btn btn-outline-primary text-start">➔ ${g.name}</a>`).join('');
+      document.getElementById('templateSelect').innerHTML = '<option value="" disabled selected>選擇模板</option>' + templates.map(t=>`<option value="${t}">${t}</option>`).join('');
+    } catch (err) { document.getElementById('groupButtons').innerHTML = '<p class="text-danger">載入失敗</p>'; }
+    finally { hideLoading(); }
+  }
+
   function showSection(id) {
     document.querySelectorAll('.card-custom').forEach(el => el.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
@@ -209,18 +267,7 @@
     createForm.onsubmit = async function(e) {
       e.preventDefault(); showLoading("建立中...");
       try {
-        await fetch(GAS_URL, { 
-          method: 'POST', 
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ 
-            action: "createGroup", 
-            data: { 
-              id: document.getElementById('newId').value, 
-              name: document.getElementById('newName').value, 
-              template: document.getElementById('templateSelect').value 
-            } 
-          }) 
-        });
+        await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: "createGroup", data: { id: document.getElementById('newId').value, name: document.getElementById('newName').value, template: document.getElementById('templateSelect').value } }) });
         location.reload();
       } catch (e) { alert("失敗"); } finally { hideLoading(); }
     };
