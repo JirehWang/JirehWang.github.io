@@ -204,16 +204,38 @@
     currentTableHeaders = data.matrix[0].map(h => h.toString().trim());
     const theadHTML = currentTableHeaders.map(h => `<th style="width: 150px; position: relative;">${h}<div class="resizer"></div></th>`).join('');
     document.getElementById('tableHead').innerHTML = `<tr>${theadHTML}</tr>`;
+    
+    // ✨ 1. 建立名單的 Datalist (下拉選單資料庫)
+    let datalistHTML = "";
+    if (data.members && data.members.length > 0) {
+      datalistHTML = `<datalist id="groupMembers">` + data.members.map(m => `<option value="${m}">`).join('') + `</datalist>`;
+    }
+    
     const rows = data.matrix.slice(1);
-    let html = "";
+    let html = datalistHTML; // 把 datalist 藏在表格結構最上方
+    
+    // 定義哪些欄位需要下拉選單 (用 includes 模糊比對更寬鬆)
+    const dropdownCols = ["破冰", "敬拜", "話語", "分享"]; 
+    
     for (let i = 0; i < 50; i++) {
       const rowData = rows[i] || Array(currentTableHeaders.length).fill("");
       html += `<tr>`;
-      for (let j = 0; j < currentTableHeaders.length; j++) html += `<td><input type="text" class="grid-input" value="${rowData[j] || ""}" title="${rowData[j] || ""}"></td>`;
+      for (let j = 0; j < currentTableHeaders.length; j++) {
+        const header = currentTableHeaders[j] || "";
+        
+        // ✨ 2. 判斷目前這格是否屬於目標欄位
+        const isDropdownCol = (data.members && data.members.length > 0) && dropdownCols.some(c => header.includes(c));
+        // 如果是目標欄位，綁定 list 屬性
+        const listAttr = isDropdownCol ? `list="groupMembers"` : "";
+        
+        html += `<td><input type="text" class="grid-input" data-r="${i}" data-c="${j}" value="${rowData[j] || ""}" title="${rowData[j] || ""}" ${listAttr}></td>`;
+      }
       html += `</tr>`;
     }
     document.getElementById('tableBody').innerHTML = html;
+    
     initResizable();
+    if(typeof initGridInteraction === 'function') initGridInteraction();
   }
 
   function initResizable() {
