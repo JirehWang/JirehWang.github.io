@@ -219,7 +219,15 @@
   function renderTable(data) {
     activeGroupName = data.groupName;
     document.getElementById('groupTitle').innerText = data.groupName;
-    currentTableHeaders = data.matrix[0].map(h => h.toString().trim());
+    
+    // 🌟 核心修正：自動偵測標題數量，把尾巴的空白欄位全部切除
+    let rawHeaders = data.matrix[0].map(h => h.toString().trim());
+    let validColCount = rawHeaders.length;
+    while (validColCount > 0 && rawHeaders[validColCount - 1] === "") {
+      validColCount--;
+    }
+    currentTableHeaders = rawHeaders.slice(0, validColCount);
+
     const theadHTML = currentTableHeaders.map(h => `<th style="width: 150px; position: relative;">${h}<div class="resizer"></div></th>`).join('');
     document.getElementById('tableHead').innerHTML = `<tr>${theadHTML}</tr>`;
     
@@ -234,19 +242,19 @@
     const dropdownCols = ["破冰", "敬拜", "話語", "分享"]; 
     
     for (let i = 0; i < 50; i++) {
-      const rowData = rows[i] || Array(currentTableHeaders.length).fill("");
+      const rowData = rows[i] || [];
       html += `<tr>`;
+      
+      // 🌟 迴圈條件改為 currentTableHeaders.length，標題到哪，格子就畫到哪
       for (let j = 0; j < currentTableHeaders.length; j++) {
         const header = currentTableHeaders[j] || "";
         
         // 判斷是否為需要下拉名單的欄位
         const isDropdownCol = (data.members && data.members.length > 0) && dropdownCols.some(c => header.includes(c));
         
-        // 如果是下拉欄位，給予專屬的 CSS 與 list 屬性
         const listAttr = isDropdownCol ? `list="groupMembers"` : "";
         const extraClass = isDropdownCol ? `datalist-input` : "";
         
-        // 🌟 新增 data-r 與 data-c 供跨欄選取使用
         html += `<td><input type="text" class="grid-input ${extraClass}" data-r="${i}" data-c="${j}" value="${rowData[j] || ""}" title="${rowData[j] || ""}" ${listAttr}></td>`;
       }
       html += `</tr>`;
@@ -254,9 +262,9 @@
     document.getElementById('tableBody').innerHTML = html;
     
     initResizable();
-    initGridInteraction(); // 🌟 重新啟用 Excel 互動功能
+    if(typeof initGridInteraction === 'function') initGridInteraction();
   }
-
+  
   function initResizable() {
     const table = document.getElementById('mainTable');
     const cols = table.querySelectorAll('th');
