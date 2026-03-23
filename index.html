@@ -1,77 +1,20 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
   <meta name="robots" content="noindex, nofollow">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>教會服事管理系統</title>
+  
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-  <style>
-    body { background-color: #f4f7f6; padding: 20px; font-family: "Microsoft JhengHei", sans-serif; }
-    .card-custom { max-width: 1300px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-    .hidden { display: none !important; }
-    #globalLoading { position: fixed; top: 20px; right: 20px; background: #ffc107; padding: 10px 20px; border-radius: 8px; font-weight: bold; z-index: 1000; }
-    
-    /* 🌟 儀表板優化 */
-    #adminMain { max-width: 1150px; }
-    .category-header { 
-      color: #2c3e50; font-weight: 800; padding: 15px 0 10px 0; margin-top: 1.5rem;
-      border-bottom: 2px solid #dee2e6; display: flex; align-items: center; width: 100%;
-    }
-    .category-badge { font-size: 0.85rem; margin-left: 10px; background: #f8f9fa; color: #6c757d; border: 1px solid #dee2e6; border-radius: 20px; padding: 1px 10px; }
-    
-    .group-card { transition: all 0.2s; border: 1px solid #eee; min-height: 100px; }
-    .group-card:hover { transform: translateY(-3px); box-shadow: 0 6px 15px rgba(0,0,0,0.08) !important; border-color: #0d6efd; }
-    
-    /* 文字點擊區樣式 */
-    .group-link { text-decoration: none !important; color: inherit; display: block; flex-grow: 1; }
-    .group-link:hover .card-title { color: #0d6efd !important; }
-    .card-title { font-weight: 700; transition: color 0.2s; margin: 0; }
-    
-    .search-box { margin-bottom: 1.5rem; border-radius: 30px; padding-left: 20px; border: 2px solid #ced4da; }
-    
-    /* Switch 開關尺寸微調 */
-    .form-switch .form-check-input { width: 2.5em; height: 1.25em; cursor: pointer; }
-
-    /* 表格編輯區相關 */
-    .table-responsive { max-height: 65vh; overflow: auto; border: 1px solid #dee2e6; background: #fff; border-radius: 6px; }
-    table { width: auto; min-width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
-    thead th { position: sticky; top: 0; background: #212529 !important; color: white; padding: 12px; text-align: center; border: 1px solid #373b3e; z-index: 10; font-size: 14px; }
-    .resizer { position: absolute; right: 0; top: 0; width: 6px; height: 100%; cursor: col-resize; user-select: none; }
-    .resizer:hover, .resizing { background-color: #0d6efd; width: 3px; }
-    tbody td { border: 1px solid #ddd; padding: 0 !important; height: 40px; }
-    .grid-input { width: 100%; height: 100%; border: none; background: transparent; padding: 8px 12px; text-align: center; outline: none; font-size: 14px; }
-    .grid-input:focus { background-color: #f8f9fa; box-shadow: inset 0 0 0 2px #0d6efd; }
-    .ai-box { background: linear-gradient(135deg, #f0f7ff 0%, #e6f3ff 100%); border: 1px solid #b8daff; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
-    
-    /* 🌟 類 Excel 選取範圍樣式 */
-    .grid-input.selected { 
-      background-color: #dbeafe !important;
-      box-shadow: inset 0 0 0 1px #0d6efd; 
-      color: #000;
-    }
-
-    /* 🌟 偽裝成下拉選單的特殊輸入框 */
-    .datalist-input {
-      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236c757d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>');
-      background-repeat: no-repeat;
-      background-position: right 8px center;
-      background-size: 14px;
-      padding-right: 25px !important;
-      cursor: pointer;
-    }
-    .datalist-input::-webkit-calendar-picker-indicator {
-      opacity: 0;
-      cursor: pointer;
-      width: 20px;
-    }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
   <div id="globalLoading" class="hidden">⏳ 系統處理中...</div>
 
   <div class="container-fluid">
+    
     <div id="adminMain" class="card-custom hidden">
       <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="text-primary fw-bold m-0">教會服事管理系統</h3>
@@ -109,8 +52,18 @@
     </div>
 
     <div id="reportSection" class="card-custom hidden">
-      <div class="toolbar d-flex justify-content-between align-items-center mb-3">
+      <div class="toolbar d-flex flex-wrap justify-content-between align-items-center mb-3 gap-3">
         <h4 id="groupTitle" class="text-primary m-0 fw-bold">載入中...</h4>
+        
+        <div class="d-flex align-items-center gap-2 bg-light p-2 rounded border shadow-sm">
+          <span class="text-muted small fw-bold ms-1">📅 日期區間：</span>
+          <input type="date" id="startDate" class="form-control form-control-sm" style="width: 125px;">
+          <span class="text-muted">~</span>
+          <input type="date" id="endDate" class="form-control form-control-sm" style="width: 125px;">
+          <button class="btn btn-sm btn-secondary" onclick="filterByDate()">篩選</button>
+          <button class="btn btn-sm btn-outline-danger" onclick="clearDateFilter()">清除</button>
+        </div>
+
         <button class="btn btn-primary px-4 shadow" onclick="saveData()">💾 儲存變更</button>
       </div>
 
@@ -127,322 +80,6 @@
     </div>
   </div>
 
-<script>
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_U9nKJrRMR1-xzbbtuaq08lePLgAQ2wnDRrCeHdy9jNhh/exec"; 
-  const currentId = new URLSearchParams(window.location.search).get('id');
-  let activeGroupName = "";
-  let currentTableHeaders = [];
-
-  const showLoading = (msg) => { const el = document.getElementById('globalLoading'); el.innerText = msg; el.classList.remove('hidden'); };
-  const hideLoading = () => document.getElementById('globalLoading').classList.add('hidden');
-
-  async function fetchAPI(action, params = {}) {
-    let url = new URL(GAS_URL);
-    url.searchParams.append('action', action);
-    for (let key in params) url.searchParams.append(key, params[key]);
-    const response = await fetch(url);
-    const result = await response.json();
-    if (result.status !== 'success') throw new Error(result.message);
-    return result.data;
-  }
-
-  window.onload = async () => {
-    if (!currentId) { showSection('adminMain'); await loadAdminData(); } 
-    else { showSection('reportSection'); try { const data = await fetchAPI('getPageConfig', { id: currentId }); renderTable(data); } catch(e){alert(e.message);} }
-  };
-
-  async function loadAdminData() {
-    try {
-      showLoading("⏳ 整理儀表板中...");
-      const [groups, templates] = await Promise.all([fetchAPI('getGroups'), fetchAPI('getTemplates')]);
-      const div = document.getElementById('groupButtons');
-      const base = window.location.href.split('?')[0];
-      
-      const grouped = groups.reduce((acc, g) => {
-        const cat = g.template || "未分類項目";
-        if (!acc[cat]) acc[cat] = [];
-        acc[cat].push(g);
-        return acc;
-      }, {});
-
-      let html = "";
-      for (const cat in grouped) {
-        html += `<div class="col-12 category-section" data-cat="${cat}"><div class="category-header">📦 ${cat} <span class="category-badge">${grouped[cat].length}</span></div></div>`;
-        
-        html += grouped[cat].map(g => {
-          const isEnabled = g.status !== "停用"; 
-          return `
-            <div class="col-12 col-md-4 group-item" data-search="${g.name} ${g.template}">
-              <div class="card group-card h-100 shadow-sm" style="opacity: ${isEnabled ? '1' : '0.5'}; border-left: 5px solid ${isEnabled ? '#0d6efd' : '#ced4da'};">
-                <div class="card-body p-3 d-flex align-items-center justify-content-between">
-                  
-                  <a href="${isEnabled ? base + '?id=' + g.id : 'javascript:void(0)'}" 
-                     class="group-link" 
-                     style="${isEnabled ? '' : 'pointer-events: none; cursor: default;'}">
-                    <h5 class="card-title ${isEnabled ? 'text-dark' : 'text-muted'}" 
-                        style="${isEnabled ? '' : 'text-decoration: line-through;'}">${g.name}</h5>
-                  </a>
-
-                  <div class="form-check form-switch m-0 ms-3">
-                    <input class="form-check-input" type="checkbox" role="switch" 
-                           ${isEnabled ? 'checked' : ''} 
-                           onchange="toggleStatus('${g.id}', '${g.status}')">
-                  </div>
-
-                </div>
-              </div>
-            </div>
-          `;
-        }).join('');
-      }
-      div.innerHTML = html || '<p class="text-center text-muted">目前尚無資料</p>';
-      document.getElementById('templateSelect').innerHTML = '<option value="" disabled selected>選擇模板</option>' + templates.map(t=>`<option value="${t}">${t}</option>`).join('');
-    } catch (err) { div.innerHTML = '<p class="text-danger">載入失敗</p>'; } finally { hideLoading(); }
-  }
-
-  function filterGroups() {
-    const val = document.getElementById('groupSearch').value.toLowerCase();
-    document.querySelectorAll('.group-item').forEach(el => {
-      el.style.display = el.dataset.search.toLowerCase().includes(val) ? "" : "none";
-    });
-    document.querySelectorAll('.category-section').forEach(header => {
-      let hasVisible = false;
-      let next = header.nextElementSibling;
-      while (next && next.classList.contains('group-item')) {
-        if (next.style.display !== "none") hasVisible = true;
-        next = next.nextElementSibling;
-      }
-      header.style.display = hasVisible ? "" : "none";
-    });
-  }
-
-  function renderTable(data) {
-    activeGroupName = data.groupName;
-    document.getElementById('groupTitle').innerText = data.groupName;
-    
-    // 🌟 核心修正：自動偵測標題數量，把尾巴的空白欄位全部切除
-    let rawHeaders = data.matrix[0].map(h => h.toString().trim());
-    let validColCount = rawHeaders.length;
-    while (validColCount > 0 && rawHeaders[validColCount - 1] === "") {
-      validColCount--;
-    }
-    currentTableHeaders = rawHeaders.slice(0, validColCount);
-
-    const theadHTML = currentTableHeaders.map(h => `<th style="width: 150px; position: relative;">${h}<div class="resizer"></div></th>`).join('');
-    document.getElementById('tableHead').innerHTML = `<tr>${theadHTML}</tr>`;
-    
-    // 1. 建立名單的 Datalist
-    let datalistHTML = "";
-    if (data.members && data.members.length > 0) {
-      datalistHTML = `<datalist id="groupMembers">` + data.members.map(m => `<option value="${m}">`).join('') + `</datalist>`;
-    }
-    
-    const rows = data.matrix.slice(1);
-    let html = datalistHTML; 
-    const dropdownCols = ["破冰", "敬拜", "話語", "分享"]; 
-    
-    for (let i = 0; i < 50; i++) {
-      const rowData = rows[i] || [];
-      html += `<tr>`;
-      
-      // 🌟 迴圈條件改為 currentTableHeaders.length，標題到哪，格子就畫到哪
-      for (let j = 0; j < currentTableHeaders.length; j++) {
-        const header = currentTableHeaders[j] || "";
-        
-        // 判斷是否為需要下拉名單的欄位
-        const isDropdownCol = (data.members && data.members.length > 0) && dropdownCols.some(c => header.includes(c));
-        
-        const listAttr = isDropdownCol ? `list="groupMembers"` : "";
-        const extraClass = isDropdownCol ? `datalist-input` : "";
-        
-        html += `<td><input type="text" class="grid-input ${extraClass}" data-r="${i}" data-c="${j}" value="${rowData[j] || ""}" title="${rowData[j] || ""}" ${listAttr}></td>`;
-      }
-      html += `</tr>`;
-    }
-    document.getElementById('tableBody').innerHTML = html;
-    
-    initResizable();
-    if(typeof initGridInteraction === 'function') initGridInteraction();
-  }
-  
-  function initResizable() {
-    const table = document.getElementById('mainTable');
-    const cols = table.querySelectorAll('th');
-    [].forEach.call(cols, (col) => {
-      const resizer = col.querySelector('.resizer');
-      if (!resizer) return;
-      let x = 0, w = 0;
-      const onMouseDown = (e) => {
-        x = e.clientX; w = parseInt(window.getComputedStyle(col).width, 10);
-        document.addEventListener('mousemove', onMouseMove); document.addEventListener('mouseup', onMouseUp);
-        resizer.classList.add('resizing');
-      };
-      const onMouseMove = (e) => { const dx = e.clientX - x; col.style.width = `${w + dx}px`; };
-      const onMouseUp = () => { document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('mouseup', onMouseUp); resizer.classList.remove('resizing'); };
-      resizer.addEventListener('mousedown', onMouseDown);
-    });
-  }
-
-  // 🌟 補回漏掉的類 Excel 網格互動核心 (Shift選取、貼上、清除)
-  function initGridInteraction() {
-    const tbody = document.getElementById('tableBody');
-    let startCell = null;
-
-    tbody.addEventListener('mousedown', (e) => {
-      if (!e.target.classList.contains('grid-input')) return;
-      const r = parseInt(e.target.dataset.r);
-      const c = parseInt(e.target.dataset.c);
-
-      if (e.shiftKey && startCell) {
-        e.preventDefault();
-        clearSelection();
-        const minR = Math.min(startCell.r, r), maxR = Math.max(startCell.r, r);
-        const minC = Math.min(startCell.c, c), maxC = Math.max(startCell.c, c);
-
-        for (let i = minR; i <= maxR; i++) {
-          for (let j = minC; j <= maxC; j++) {
-            const input = document.querySelector(`.grid-input[data-r="${i}"][data-c="${j}"]`);
-            if (input) input.classList.add('selected');
-          }
-        }
-      } else {
-        clearSelection();
-        startCell = { r, c };
-        e.target.classList.add('selected');
-      }
-    });
-
-    function clearSelection() {
-      document.querySelectorAll('.grid-input.selected').forEach(el => el.classList.remove('selected'));
-    }
-
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        const selected = document.querySelectorAll('.grid-input.selected');
-        if (selected.length > 1) { 
-          e.preventDefault();
-          selected.forEach(input => {
-            input.value = "";
-            input.style.backgroundColor = "transparent";
-          });
-        }
-      }
-    });
-
-    tbody.addEventListener('paste', (e) => {
-      const target = e.target;
-      if (!target.classList.contains('grid-input')) return;
-
-      const pasteData = (e.clipboardData || window.clipboardData).getData('text');
-      if (pasteData.includes('\t') || pasteData.includes('\n')) {
-        e.preventDefault(); 
-        clearSelection();
-
-        const startR = parseInt(target.dataset.r);
-        const startC = parseInt(target.dataset.c);
-        
-        const rows = pasteData.split(/\r?\n/);
-        if (rows[rows.length - 1] === "") rows.pop(); 
-
-        for (let i = 0; i < rows.length; i++) {
-          const cols = rows[i].split('\t');
-          for (let j = 0; j < cols.length; j++) {
-            const r = startR + i;
-            const c = startC + j;
-            const input = document.querySelector(`.grid-input[data-r="${r}"][data-c="${c}"]`);
-            if (input) {
-              input.value = cols[j];
-              input.style.backgroundColor = "#fff3cd"; 
-              input.classList.add('selected'); 
-            }
-          }
-        }
-      }
-    });
-  }
-
-  async function processAI() {
-    const rawText = document.getElementById('aiRawText').value.trim();
-    if (!rawText) return alert("請貼上文字");
-    showLoading("🤖 AI 解析中...");
-    try {
-      const response = await fetch(GAS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: "parseWithAI", data: { text: rawText, headers: currentTableHeaders } })
-      });
-      const resJson = await response.json();
-      if (resJson.status !== 'success') throw new Error(resJson.message);
-      fillTableWithData(resJson.data);
-      document.getElementById('aiStatus').innerText = "✅ 解析完成！";
-      document.getElementById('aiRawText').value = ""; 
-    } catch (err) { alert("解析失敗：" + err.message); } finally { hideLoading(); }
-  }
-
-  function fillTableWithData(parsedRows) {
-    const tableRows = document.querySelectorAll('#tableBody tr');
-    const dateColIdx = currentTableHeaders.indexOf("日期");
-    const dateMap = {};
-    tableRows.forEach(tr => { const d = tr.querySelectorAll('input')[dateColIdx]?.value.trim(); if(d) dateMap[d] = tr; });
-    parsedRows.forEach(rowData => {
-      let targetRow = dateMap[rowData["日期"]];
-      if (!targetRow) for (let tr of tableRows) if (tr.querySelectorAll('input')[0].value.trim() === "") { targetRow = tr; break; }
-      if (targetRow) {
-        const inputs = targetRow.querySelectorAll('input');
-        currentTableHeaders.forEach((header, colIdx) => {
-          const val = rowData[header];
-          if (val && val !== "") { inputs[colIdx].value = val; inputs[colIdx].style.backgroundColor = "#fff3cd"; }
-        });
-      }
-    });
-  }
-
-  async function saveData() {
-    showLoading("💾 儲存中...");
-    try {
-      const matrix = [currentTableHeaders];
-      document.querySelectorAll('#tableBody tr').forEach(tr => {
-        const row = Array.from(tr.querySelectorAll('input')).map(i => i.value);
-        if (row.some(v => v.trim() !== "")) matrix.push(row);
-      });
-      while(matrix.length <= 50) matrix.push(Array(currentTableHeaders.length).fill(""));
-      await fetch(GAS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: "saveSheetData", data: { groupName: activeGroupName, matrix: matrix } })
-      });
-      alert("✅ 儲存成功！");
-      document.querySelectorAll('.grid-input').forEach(i => i.style.backgroundColor = 'transparent');
-    } catch (e) { alert("儲存失敗"); } finally { hideLoading(); }
-  }
-
-  async function toggleStatus(groupId, currentStatus) {
-    showLoading("🔄 更新狀態中...");
-    try {
-      const response = await fetch(GAS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: "toggleGroupStatus", data: { id: groupId, status: currentStatus } })
-      });
-      if ((await response.json()).status === 'success') await loadAdminData();
-    } catch (e) { alert("更新失敗"); } finally { hideLoading(); }
-  }
-
-  function showSection(id) {
-    document.querySelectorAll('.card-custom').forEach(el => el.classList.add('hidden'));
-    document.getElementById(id).classList.remove('hidden');
-  }
-
-  const createForm = document.getElementById('createGroupForm');
-  if (createForm) {
-    createForm.onsubmit = async function(e) {
-      e.preventDefault(); showLoading("建立中...");
-      try {
-        await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: "createGroup", data: { id: document.getElementById('newId').value, name: document.getElementById('newName').value, template: document.getElementById('templateSelect').value } }) });
-        location.reload();
-      } catch (e) { alert("失敗"); } finally { hideLoading(); }
-    };
-  }
-</script>
+  <script src="script.js"></script>
 </body>
 </html>
