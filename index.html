@@ -12,7 +12,7 @@
     .hidden { display: none !important; }
     #globalLoading { position: fixed; top: 20px; right: 20px; background: #ffc107; padding: 10px 20px; border-radius: 8px; font-weight: bold; z-index: 1000; }
     
-    /* 🌟 儀表板樣式優化 */
+    /* 🌟 儀表板優化 */
     #adminMain { max-width: 1150px; }
     .category-header { 
       color: #2c3e50; font-weight: 800; padding: 15px 0 10px 0; margin-top: 1.5rem;
@@ -23,7 +23,7 @@
     .group-card { transition: all 0.2s; border: 1px solid #eee; min-height: 100px; }
     .group-card:hover { transform: translateY(-3px); box-shadow: 0 6px 15px rgba(0,0,0,0.08) !important; border-color: #0d6efd; }
     
-    /* 名稱連結樣式 */
+    /* 文字點擊區樣式 */
     .group-link { text-decoration: none !important; color: inherit; display: block; flex-grow: 1; }
     .group-link:hover .card-title { color: #0d6efd !important; }
     .card-title { font-weight: 700; transition: color 0.2s; margin: 0; }
@@ -43,18 +43,23 @@
     .grid-input { width: 100%; height: 100%; border: none; background: transparent; padding: 8px 12px; text-align: center; outline: none; font-size: 14px; }
     .grid-input:focus { background-color: #f8f9fa; box-shadow: inset 0 0 0 2px #0d6efd; }
     .ai-box { background: linear-gradient(135deg, #f0f7ff 0%, #e6f3ff 100%); border: 1px solid #b8daff; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
+    
+    /* 🌟 類 Excel 選取範圍樣式 */
+    .grid-input.selected { 
+      background-color: #dbeafe !important;
+      box-shadow: inset 0 0 0 1px #0d6efd; 
+      color: #000;
+    }
+
     /* 🌟 偽裝成下拉選單的特殊輸入框 */
     .datalist-input {
-      /* 加入一個精緻的灰色向下箭頭 SVG */
       background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236c757d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>');
       background-repeat: no-repeat;
       background-position: right 8px center;
       background-size: 14px;
-      padding-right: 25px !important; /* 避免文字打太長蓋住箭頭 */
+      padding-right: 25px !important;
       cursor: pointer;
     }
-    
-    /* 隱藏瀏覽器原生的醜小箭頭，但保留其點擊展開的功能 */
     .datalist-input::-webkit-calendar-picker-indicator {
       opacity: 0;
       cursor: pointer;
@@ -105,6 +110,7 @@
 
     <div id="reportSection" class="card-custom hidden">
       <div class="toolbar d-flex justify-content-between align-items-center mb-3">
+        <h4 id="groupTitle" class="text-primary m-0 fw-bold">載入中...</h4>
         <button class="btn btn-primary px-4 shadow" onclick="saveData()">💾 儲存變更</button>
       </div>
 
@@ -145,7 +151,6 @@
     else { showSection('reportSection'); try { const data = await fetchAPI('getPageConfig', { id: currentId }); renderTable(data); } catch(e){alert(e.message);} }
   };
 
-  // 🌟 整合修改：名稱即入口 + Switch 切換開關 (隱藏 ID)
   async function loadAdminData() {
     try {
       showLoading("⏳ 整理儀表板中...");
@@ -237,10 +242,11 @@
         // 判斷是否為需要下拉名單的欄位
         const isDropdownCol = (data.members && data.members.length > 0) && dropdownCols.some(c => header.includes(c));
         
-        // ✨ 新增：如果是下拉欄位，除了給 list 屬性外，多給一個 datalist-input 的 class
+        // 如果是下拉欄位，給予專屬的 CSS 與 list 屬性
         const listAttr = isDropdownCol ? `list="groupMembers"` : "";
         const extraClass = isDropdownCol ? `datalist-input` : "";
         
+        // 🌟 新增 data-r 與 data-c 供跨欄選取使用
         html += `<td><input type="text" class="grid-input ${extraClass}" data-r="${i}" data-c="${j}" value="${rowData[j] || ""}" title="${rowData[j] || ""}" ${listAttr}></td>`;
       }
       html += `</tr>`;
@@ -248,9 +254,9 @@
     document.getElementById('tableBody').innerHTML = html;
     
     initResizable();
-    if(typeof initGridInteraction === 'function') initGridInteraction();
+    initGridInteraction(); // 🌟 重新啟用 Excel 互動功能
   }
-  
+
   function initResizable() {
     const table = document.getElementById('mainTable');
     const cols = table.querySelectorAll('th');
@@ -266,6 +272,84 @@
       const onMouseMove = (e) => { const dx = e.clientX - x; col.style.width = `${w + dx}px`; };
       const onMouseUp = () => { document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('mouseup', onMouseUp); resizer.classList.remove('resizing'); };
       resizer.addEventListener('mousedown', onMouseDown);
+    });
+  }
+
+  // 🌟 補回漏掉的類 Excel 網格互動核心 (Shift選取、貼上、清除)
+  function initGridInteraction() {
+    const tbody = document.getElementById('tableBody');
+    let startCell = null;
+
+    tbody.addEventListener('mousedown', (e) => {
+      if (!e.target.classList.contains('grid-input')) return;
+      const r = parseInt(e.target.dataset.r);
+      const c = parseInt(e.target.dataset.c);
+
+      if (e.shiftKey && startCell) {
+        e.preventDefault();
+        clearSelection();
+        const minR = Math.min(startCell.r, r), maxR = Math.max(startCell.r, r);
+        const minC = Math.min(startCell.c, c), maxC = Math.max(startCell.c, c);
+
+        for (let i = minR; i <= maxR; i++) {
+          for (let j = minC; j <= maxC; j++) {
+            const input = document.querySelector(`.grid-input[data-r="${i}"][data-c="${j}"]`);
+            if (input) input.classList.add('selected');
+          }
+        }
+      } else {
+        clearSelection();
+        startCell = { r, c };
+        e.target.classList.add('selected');
+      }
+    });
+
+    function clearSelection() {
+      document.querySelectorAll('.grid-input.selected').forEach(el => el.classList.remove('selected'));
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const selected = document.querySelectorAll('.grid-input.selected');
+        if (selected.length > 1) { 
+          e.preventDefault();
+          selected.forEach(input => {
+            input.value = "";
+            input.style.backgroundColor = "transparent";
+          });
+        }
+      }
+    });
+
+    tbody.addEventListener('paste', (e) => {
+      const target = e.target;
+      if (!target.classList.contains('grid-input')) return;
+
+      const pasteData = (e.clipboardData || window.clipboardData).getData('text');
+      if (pasteData.includes('\t') || pasteData.includes('\n')) {
+        e.preventDefault(); 
+        clearSelection();
+
+        const startR = parseInt(target.dataset.r);
+        const startC = parseInt(target.dataset.c);
+        
+        const rows = pasteData.split(/\r?\n/);
+        if (rows[rows.length - 1] === "") rows.pop(); 
+
+        for (let i = 0; i < rows.length; i++) {
+          const cols = rows[i].split('\t');
+          for (let j = 0; j < cols.length; j++) {
+            const r = startR + i;
+            const c = startC + j;
+            const input = document.querySelector(`.grid-input[data-r="${r}"][data-c="${c}"]`);
+            if (input) {
+              input.value = cols[j];
+              input.style.backgroundColor = "#fff3cd"; 
+              input.classList.add('selected'); 
+            }
+          }
+        }
+      }
     });
   }
 
