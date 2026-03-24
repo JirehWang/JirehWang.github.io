@@ -2,9 +2,8 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_
 const currentId = new URLSearchParams(window.location.search).get('id');
 let activeGroupName = "";
 let currentTableHeaders = [];
-// 🌟 新增：存放目前小組的名單與專屬提示詞
-let currentGroupMembers = []; 
-let currentGroupPrompt = "";  
+let currentGroupMembers = []; // 🌟 存放名單
+let currentGroupPrompt = "";  // 🌟 存放專屬提示詞
 
 const showLoading = (msg) => { const el = document.getElementById('globalLoading'); el.innerText = msg; el.classList.remove('hidden'); };
 const hideLoading = () => document.getElementById('globalLoading').classList.add('hidden');
@@ -89,11 +88,13 @@ function filterGroups() {
   });
 }
 
+// ==========================================
+// 🌟 1. 動態渲染輸入列 (取代傳統 table)
+// ==========================================
 function renderTable(data) {
   activeGroupName = data.groupName;
   document.getElementById('groupTitle').innerText = data.groupName;
   
-  // 🌟 將後端傳來的名單與小組提示詞存起來
   currentGroupMembers = data.members || [];
   currentGroupPrompt = data.groupPrompt || "";
   
@@ -104,138 +105,144 @@ function renderTable(data) {
   }
   currentTableHeaders = rawHeaders.slice(0, validColCount);
 
-  const theadHTML = currentTableHeaders.map(h => `<th style="width: 150px; position: relative;">${h}<div class="resizer"></div></th>`).join('');
-  document.getElementById('tableHead').innerHTML = `<tr>${theadHTML}</tr>`;
-  
   let datalistHTML = "";
-  if (data.members && data.members.length > 0) {
-    datalistHTML = `<datalist id="groupMembers">` + data.members.map(m => `<option value="${m}">`).join('') + `</datalist>`;
+  if (currentGroupMembers.length > 0) {
+    datalistHTML = `<datalist id="groupMembers">` + currentGroupMembers.map(m => `<option value="${m}">`).join('') + `</datalist>`;
   }
+  
+  // 設定 CSS Grid 欄位寬度
+  const gridTemplate = `repeat(${validColCount}, minmax(130px, 1fr)) 40px`;
+  
+  let html = datalistHTML;
+  
+  // 畫出標題列
+  html += `<div class="record-grid-header fw-bold text-muted mb-2 px-1" style="display: grid; grid-template-columns: ${gridTemplate}; gap: 10px;">`;
+  currentTableHeaders.forEach(h => html += `<div>${h}</div>`);
+  html += `<div class="text-center">操作</div></div>`;
+  
+  // 建立資料列容器
+  html += `<div id="rowsContainer" class="d-flex flex-column gap-2">`;
   
   const rows = data.matrix.slice(1);
-  let html = datalistHTML; 
-  const dropdownCols = ["破冰", "敬拜", "話語", "分享"]; 
+  const validRows = rows.filter(r => r.some(cell => cell.toString().trim() !== ""));
   
-  for (let i = 0; i < 50; i++) {
-    const rowData = rows[i] || [];
-    html += `<tr>`;
+  // 如果沒有半筆資料，預設給 3 列空白的
+  if (validRows.length === 0) {
+    validRows.push([], [], []);
+  }
+
+  validRows.forEach((rowData) => {
+    html += createRowHTML(rowData, gridTemplate);
+  });
+  
+  html += `</div>`;
+  
+  // 加入「新增一列」按鈕
+  html += `<button class="btn btn-outline-primary w-100 mt-3 border border-2 border-primary border-opacity-50" style="border-style: dashed !important;" onclick="addNewRow()">➕ 新增一筆空白列</button>`;
+  
+  // 覆蓋容器內容
+  document.getElementById('dynamicFormContainer').innerHTML = html;
+  
+  initGridInteraction();
+}
+
+function createRowHTML(rowData, gridTemplate) {
+  const dropdownCols = ["破冰", "敬拜", "話語", "分享"];
+  if (!gridTemplate) gridTemplate = `repeat(${currentTableHeaders.length}, minmax(130px, 1fr)) 40px`;
+
+  let rowHtml = `<div class="record-row align-items-center" style="display: grid; grid-template-columns: ${gridTemplate}; gap: 10px;">`;
+  
+  currentTableHeaders.forEach((header, cIdx) => {
+    const isDropdownCol = (currentGroupMembers.length > 0) && dropdownCols.some(c => header.includes(c));
+    const listAttr = isDropdownCol ? `list="groupMembers"` : "";
+    const extraClass = isDropdownCol ? `datalist-input` : "";
+    const val = rowData[cIdx] || "";
     
-    for (let j = 0; j < currentTableHeaders.length; j++) {
-      const header = currentTableHeaders[j] || "";
-      const isDropdownCol = (data.members && data.members.length > 0) && dropdownCols.some(c => header.includes(c));
-      
-      const listAttr = isDropdownCol ? `list="groupMembers"` : "";
-      const extraClass = isDropdownCol ? `datalist-input` : "";
-      
-      html += `<td><input type="text" class="grid-input ${extraClass}" data-r="${i}" data-c="${j}" value="${rowData[j] || ""}" title="${rowData[j] || ""}" ${listAttr}></td>`;
-    }
-    html += `</tr>`;
-  }
-  document.getElementById('tableBody').innerHTML = html;
+    rowHtml += `<input type="text" class="grid-input ${extraClass}" data-c="${cIdx}" value="${val}" title="${val}" ${listAttr}>`;
+  });
   
-  initResizable();
-  if(typeof initGridInteraction === 'function') initGridInteraction();
+  rowHtml += `<button class="btn btn-sm btn-outline-danger" onclick="deleteRow(this)" title="刪除此列">✖</button>`;
+  rowHtml += `</div>`;
+  return rowHtml;
 }
 
-function initResizable() {
-  const table = document.getElementById('mainTable');
-  const cols = table.querySelectorAll('th');
-  [].forEach.call(cols, (col) => {
-    const resizer = col.querySelector('.resizer');
-    if (!resizer) return;
-    let x = 0, w = 0;
-    const onMouseDown = (e) => {
-      x = e.clientX; w = parseInt(window.getComputedStyle(col).width, 10);
-      document.addEventListener('mousemove', onMouseMove); document.addEventListener('mouseup', onMouseUp);
-      resizer.classList.add('resizing');
-    };
-    const onMouseMove = (e) => { const dx = e.clientX - x; col.style.width = `${w + dx}px`; };
-    const onMouseUp = () => { document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('mouseup', onMouseUp); resizer.classList.remove('resizing'); };
-    resizer.addEventListener('mousedown', onMouseDown);
-  });
+// ==========================================
+// 🌟 2. 新增與刪除列
+// ==========================================
+function addNewRow() {
+  const container = document.getElementById('rowsContainer');
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = createRowHTML([]);
+  container.appendChild(tempDiv.firstElementChild);
 }
 
-function initGridInteraction() {
-  const tbody = document.getElementById('tableBody');
-  let startCell = null;
-
-  tbody.addEventListener('mousedown', (e) => {
-    if (!e.target.classList.contains('grid-input')) return;
-    const r = parseInt(e.target.dataset.r);
-    const c = parseInt(e.target.dataset.c);
-
-    if (e.shiftKey && startCell) {
-      e.preventDefault();
-      clearSelection();
-      const minR = Math.min(startCell.r, r), maxR = Math.max(startCell.r, r);
-      const minC = Math.min(startCell.c, c), maxC = Math.max(startCell.c, c);
-
-      for (let i = minR; i <= maxR; i++) {
-        for (let j = minC; j <= maxC; j++) {
-          const input = document.querySelector(`.grid-input[data-r="${i}"][data-c="${j}"]`);
-          if (input) input.classList.add('selected');
-        }
-      }
-    } else {
-      clearSelection();
-      startCell = { r, c };
-      e.target.classList.add('selected');
-    }
-  });
-
-  function clearSelection() {
-    document.querySelectorAll('.grid-input.selected').forEach(el => el.classList.remove('selected'));
+function deleteRow(btnElement) {
+  if(confirm("確定要刪除這筆排班資料嗎？")) {
+    btnElement.parentElement.remove();
   }
+}
 
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Delete' || e.key === 'Backspace') {
-      const selected = document.querySelectorAll('.grid-input.selected');
-      if (selected.length > 1) { 
-        e.preventDefault();
-        selected.forEach(input => {
-          input.value = "";
-          input.style.backgroundColor = "transparent";
-        });
-      }
-    }
-  });
+// ==========================================
+// 🌟 3. Excel 貼上支援 (動態擴展)
+// ==========================================
+function initGridInteraction() {
+  const container = document.getElementById('rowsContainer');
 
-  tbody.addEventListener('paste', (e) => {
+  container.addEventListener('paste', (e) => {
     const target = e.target;
     if (!target.classList.contains('grid-input')) return;
 
     const pasteData = (e.clipboardData || window.clipboardData).getData('text');
     if (pasteData.includes('\t') || pasteData.includes('\n')) {
       e.preventDefault(); 
-      clearSelection();
 
-      const startR = parseInt(target.dataset.r);
       const startC = parseInt(target.dataset.c);
+      const currentRowDiv = target.closest('.record-row');
+      let currentRowIndex = Array.from(container.children).indexOf(currentRowDiv);
       
       const rows = pasteData.split(/\r?\n/);
       if (rows[rows.length - 1] === "") rows.pop(); 
 
       for (let i = 0; i < rows.length; i++) {
+        if (currentRowIndex + i >= container.children.length) {
+          addNewRow();
+        }
+        
+        const targetRowDiv = container.children[currentRowIndex + i];
+        const inputs = targetRowDiv.querySelectorAll('.grid-input');
         const cols = rows[i].split('\t');
+        
         for (let j = 0; j < cols.length; j++) {
-          const r = startR + i;
           const c = startC + j;
-          const input = document.querySelector(`.grid-input[data-r="${r}"][data-c="${c}"]`);
-          if (input) {
-            input.value = cols[j];
-            input.style.backgroundColor = "#fff3cd"; 
-            input.classList.add('selected'); 
+          if (c < inputs.length) {
+            inputs[c].value = cols[j];
+            inputs[c].classList.add('highlight');
+            setTimeout(() => inputs[c].classList.remove('highlight'), 2000);
           }
         }
       }
     }
   });
+
+  // 支援刪除鍵一鍵清空選取的格子內容 (若有需要)
+  container.addEventListener('keydown', (e) => {
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      const selected = document.querySelectorAll('.grid-input.selected');
+      if (selected.length > 1) { 
+        e.preventDefault();
+        selected.forEach(input => { input.value = ""; input.style.backgroundColor = "transparent"; });
+      }
+    }
+  });
 }
 
+// ==========================================
+// 🌟 4. 日期區間篩選 (動態列專用版)
+// ==========================================
 function filterByDate() {
   const start = document.getElementById('startDate').value;
   const end = document.getElementById('endDate').value;
-  const tableRows = document.querySelectorAll('#tableBody tr');
+  const recordRows = document.querySelectorAll('.record-row');
   const dateColIdx = currentTableHeaders.findIndex(h => h.includes("日期")); 
 
   if (dateColIdx === -1) {
@@ -245,28 +252,26 @@ function filterByDate() {
 
   let visibleCount = 0;
 
-  tableRows.forEach(tr => {
-    const inputs = tr.querySelectorAll('input');
+  recordRows.forEach(rowDiv => {
+    const inputs = rowDiv.querySelectorAll('.grid-input');
     if (inputs.length === 0) return;
     
     const dateVal = inputs[dateColIdx].value.trim();
-
-    if (!start && !end) {
-      tr.style.display = "";
-      return;
-    }
-
-    if (!dateVal) {
-      tr.style.display = "none";
-      return;
-    }
-
     let show = true;
-    if (start && dateVal < start) show = false;
-    if (end && dateVal > end) show = false;
 
-    tr.style.display = show ? "" : "none";
-    if (show) visibleCount++;
+    if (!start && !end) show = true; 
+    else if (!dateVal) show = false; 
+    else {
+      if (start && dateVal < start) show = false;
+      if (end && dateVal > end) show = false;
+    }
+
+    if (show) {
+      rowDiv.classList.remove('hidden');
+      visibleCount++;
+    } else {
+      rowDiv.classList.add('hidden');
+    }
   });
 
   if (start || end) {
@@ -282,9 +287,12 @@ function filterByDate() {
 function clearDateFilter() {
   document.getElementById('startDate').value = "";
   document.getElementById('endDate').value = "";
-  document.querySelectorAll('#tableBody tr').forEach(tr => tr.style.display = "");
+  document.querySelectorAll('.record-row').forEach(rowDiv => rowDiv.classList.remove('hidden'));
 }
 
+// ==========================================
+// 🌟 5. AI 解析邏輯
+// ==========================================
 async function processAI() {
   const rawText = document.getElementById('aiRawText').value.trim();
   if (!rawText) return alert("請貼上文字");
@@ -298,8 +306,8 @@ async function processAI() {
         data: { 
           text: rawText, 
           headers: currentTableHeaders,
-          members: currentGroupMembers,   // 🌟 傳送名單給 AI
-          groupPrompt: currentGroupPrompt // 🌟 傳送提示詞給 AI
+          members: currentGroupMembers,   
+          groupPrompt: currentGroupPrompt 
         } 
       })
     });
@@ -314,40 +322,79 @@ async function processAI() {
   } finally { hideLoading(); }
 }
 
+// 🌟 動態對應填寫資料 (找不到格子就自動長)
 function fillTableWithData(parsedRows) {
-  const tableRows = document.querySelectorAll('#tableBody tr');
-  const dateColIdx = currentTableHeaders.indexOf("日期");
-  const dateMap = {};
-  tableRows.forEach(tr => { const d = tr.querySelectorAll('input')[dateColIdx]?.value.trim(); if(d) dateMap[d] = tr; });
+  const container = document.getElementById('rowsContainer');
+  const dateColIdx = currentTableHeaders.findIndex(h => h.includes("日期"));
+  
   parsedRows.forEach(rowData => {
-    let targetRow = dateMap[rowData["日期"]];
-    if (!targetRow) for (let tr of tableRows) if (tr.querySelectorAll('input')[0].value.trim() === "") { targetRow = tr; break; }
-    if (targetRow) {
-      const inputs = targetRow.querySelectorAll('input');
-      currentTableHeaders.forEach((header, colIdx) => {
-        const val = rowData[header];
-        if (val && val !== "") { inputs[colIdx].value = val; inputs[colIdx].style.backgroundColor = "#fff3cd"; }
-      });
+    let targetRowDiv = null;
+    
+    // 1. 找相同日期的列
+    const aiDate = rowData["日期"] || rowData[currentTableHeaders[dateColIdx]];
+    if (aiDate && dateColIdx !== -1) {
+      const allRowDivs = container.querySelectorAll('.record-row');
+      for (let rowDiv of allRowDivs) {
+        const dateInput = rowDiv.querySelectorAll('.grid-input')[dateColIdx];
+        if (dateInput && dateInput.value.trim() === aiDate) {
+          targetRowDiv = rowDiv;
+          break;
+        }
+      }
     }
+    
+    // 2. 找空白的列
+    if (!targetRowDiv) {
+      const allRowDivs = container.querySelectorAll('.record-row');
+      for (let rowDiv of allRowDivs) {
+        const inputs = Array.from(rowDiv.querySelectorAll('.grid-input'));
+        if (inputs.every(input => input.value.trim() === "")) {
+          targetRowDiv = rowDiv;
+          break;
+        }
+      }
+    }
+    
+    // 3. 都沒有就新增一列
+    if (!targetRowDiv) {
+      addNewRow();
+      targetRowDiv = container.lastElementChild;
+    }
+    
+    // 填入資料並閃爍黃色光
+    const inputs = targetRowDiv.querySelectorAll('.grid-input');
+    currentTableHeaders.forEach((header, colIdx) => {
+      const val = rowData[header];
+      if (val && val !== "") { 
+        inputs[colIdx].value = val; 
+        inputs[colIdx].classList.add('highlight');
+        setTimeout(() => inputs[colIdx].classList.remove('highlight'), 2000);
+      }
+    });
   });
 }
 
+// ==========================================
+// 🌟 6. 儲存與其他邏輯
+// ==========================================
 async function saveData() {
   showLoading("💾 儲存中...");
   try {
     const matrix = [currentTableHeaders];
-    document.querySelectorAll('#tableBody tr').forEach(tr => {
-      const row = Array.from(tr.querySelectorAll('input')).map(i => i.value);
+    
+    document.querySelectorAll('.record-row').forEach(rowDiv => {
+      const row = Array.from(rowDiv.querySelectorAll('.grid-input')).map(i => i.value);
       if (row.some(v => v.trim() !== "")) matrix.push(row);
     });
+    
     while(matrix.length <= 50) matrix.push(Array(currentTableHeaders.length).fill(""));
+    
     await fetch(GAS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action: "saveSheetData", data: { groupName: activeGroupName, matrix: matrix } })
     });
     alert("✅ 儲存成功！");
-    document.querySelectorAll('.grid-input').forEach(i => i.style.backgroundColor = 'transparent');
   } catch (e) { alert("儲存失敗"); } finally { hideLoading(); }
 }
 
