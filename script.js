@@ -2,8 +2,9 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_
 const currentId = new URLSearchParams(window.location.search).get('id');
 let activeGroupName = "";
 let currentTableHeaders = [];
-let currentGroupMembers = []; // 🌟 存放名單
-let currentGroupPrompt = "";  // 🌟 存放專屬提示詞
+// 🌟 存放目前小組的名單與專屬提示詞
+let currentGroupMembers = []; 
+let currentGroupPrompt = "";  
 
 const showLoading = (msg) => { const el = document.getElementById('globalLoading'); el.innerText = msg; el.classList.remove('hidden'); };
 const hideLoading = () => document.getElementById('globalLoading').classList.add('hidden');
@@ -97,6 +98,10 @@ function renderTable(data) {
   
   currentGroupMembers = data.members || [];
   currentGroupPrompt = data.groupPrompt || "";
+
+  // 🌟 新增：將後端傳來的規則，填入設定文字框中
+  const promptInput = document.getElementById('groupPromptInput');
+  if (promptInput) promptInput.value = currentGroupPrompt;
   
   let rawHeaders = data.matrix[0].map(h => h.toString().trim());
   let validColCount = rawHeaders.length;
@@ -375,7 +380,7 @@ function fillTableWithData(parsedRows) {
 }
 
 // ==========================================
-// 🌟 6. 儲存與其他邏輯
+// 🌟 6. 儲存資料與其他邏輯
 // ==========================================
 async function saveData() {
   showLoading("💾 儲存中...");
@@ -424,4 +429,30 @@ if (createForm) {
       location.reload();
     } catch (e) { alert("失敗"); } finally { hideLoading(); }
   };
+}
+
+// ==========================================
+// 🌟 7. 新增：儲存小組專屬規則
+// ==========================================
+async function saveGroupPrompt() {
+  const newPrompt = document.getElementById('groupPromptInput').value.trim();
+  showLoading("💾 儲存規則中...");
+  try {
+    await fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ 
+        action: "saveGroupPrompt", 
+        data: { id: currentId, prompt: newPrompt } 
+      })
+    });
+    
+    currentGroupPrompt = newPrompt; // 成功後更新全域變數
+    alert("✅ 專屬規則儲存成功！下次 AI 排班將嚴格遵守此規則。");
+    document.getElementById('promptSettings').classList.add('hidden'); // 存完自動收起面板
+  } catch (e) { 
+    alert("儲存失敗：" + e.message); 
+  } finally { 
+    hideLoading(); 
+  }
 }
