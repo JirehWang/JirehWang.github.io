@@ -2,6 +2,9 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_
 const currentId = new URLSearchParams(window.location.search).get('id');
 let activeGroupName = "";
 let currentTableHeaders = [];
+// 🌟 新增：存放目前小組的名單與專屬提示詞
+let currentGroupMembers = []; 
+let currentGroupPrompt = "";  
 
 const showLoading = (msg) => { const el = document.getElementById('globalLoading'); el.innerText = msg; el.classList.remove('hidden'); };
 const hideLoading = () => document.getElementById('globalLoading').classList.add('hidden');
@@ -89,6 +92,10 @@ function filterGroups() {
 function renderTable(data) {
   activeGroupName = data.groupName;
   document.getElementById('groupTitle').innerText = data.groupName;
+  
+  // 🌟 將後端傳來的名單與小組提示詞存起來
+  currentGroupMembers = data.members || [];
+  currentGroupPrompt = data.groupPrompt || "";
   
   let rawHeaders = data.matrix[0].map(h => h.toString().trim());
   let validColCount = rawHeaders.length;
@@ -281,19 +288,30 @@ function clearDateFilter() {
 async function processAI() {
   const rawText = document.getElementById('aiRawText').value.trim();
   if (!rawText) return alert("請貼上文字");
-  showLoading("🤖 AI 解析中...");
+  showLoading("🤖 AI 運算中，請稍候...");
   try {
     const response = await fetch(GAS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: "parseWithAI", data: { text: rawText, headers: currentTableHeaders } })
+      body: JSON.stringify({ 
+        action: "parseWithAI", 
+        data: { 
+          text: rawText, 
+          headers: currentTableHeaders,
+          members: currentGroupMembers,   // 🌟 傳送名單給 AI
+          groupPrompt: currentGroupPrompt // 🌟 傳送提示詞給 AI
+        } 
+      })
     });
     const resJson = await response.json();
     if (resJson.status !== 'success') throw new Error(resJson.message);
     fillTableWithData(resJson.data);
-    document.getElementById('aiStatus').innerText = "✅ 解析完成！";
+    document.getElementById('aiStatus').innerText = "✅ 解析/排班完成！";
     document.getElementById('aiRawText').value = ""; 
-  } catch (err) { alert("解析失敗：" + err.message); } finally { hideLoading(); }
+  } catch (err) { 
+    alert("解析失敗：" + err.message); 
+    document.getElementById('aiStatus').innerText = "❌ 發生錯誤，請重試。";
+  } finally { hideLoading(); }
 }
 
 function fillTableWithData(parsedRows) {
