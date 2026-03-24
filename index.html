@@ -67,16 +67,16 @@
         <button class="btn btn-primary px-4 shadow" onclick="saveData()">💾 儲存變更</button>
       </div>
 
-    <div class="ai-box shadow-sm">
+      <div class="ai-box shadow-sm">
         <div class="row g-2 align-items-center">
           <div class="col-md-10">
-            <textarea id="aiRawText" class="form-control" rows="2" placeholder="在此貼上排班文字內容..."></textarea>
+            <textarea id="aiRawText" class="form-control" rows="3" placeholder="💡 您可以：&#10;1. 【直接貼上】已經打好的排班文字，讓 AI 自動填入。&#10;2. 【對話生成】輸入條件讓 AI 自動排班（例：排第三季每個週五，地點在A區，破冰自動挑，話語分享只排小明和阿華）"></textarea>
           </div>
           <div class="col-md-2 d-grid">
             <button class="btn btn-success" onclick="processAI()">🤖 AI 解析</button>
           </div>
         </div>
-        <div id="aiStatus" class="form-text text-muted mt-2">✨ 貼上文字後點擊解析，系統將自動填入。</div>
+        <div id="aiStatus" class="form-text text-muted mt-2">✨ 貼上排班文字或輸入排班條件後，點擊解析，系統將自動處理。</div>
       </div>
 
       <div class="table-responsive">
