@@ -2,10 +2,12 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_
 const currentId = new URLSearchParams(window.location.search).get('id');
 let activeGroupName = "";
 let currentTableHeaders = [];
+
 // 🌟 存放目前小組的名單與專屬提示詞
-let currentGroupMembers = []; 
+let currentGroupMembers = []; // 全體名單 (給破冰、敬拜)
+let currentCoreMembers = [];  // 🌟 新增：純核心同工名單 (給話語、分享)
 let currentGroupPrompt = "";  
-let currentAutoRoleRules = ""; // 🌟 新增這行：用來存放系統自動權限
+let currentAutoRoleRules = ""; 
 
 const showLoading = (msg) => { const el = document.getElementById('globalLoading'); el.innerText = msg; el.classList.remove('hidden'); };
 const hideLoading = () => document.getElementById('globalLoading').classList.add('hidden');
@@ -98,10 +100,11 @@ function renderTable(data) {
   document.getElementById('groupTitle').innerText = data.groupName;
   
   currentGroupMembers = data.members || [];
+  currentCoreMembers = data.coreMembers || []; // 🌟 接收後端傳來的核心同工名單
   currentGroupPrompt = data.groupPrompt || "";
-  currentAutoRoleRules = data.autoRoleRules || ""; // 🌟 新增這行：接收後端產生的規則
+  currentAutoRoleRules = data.autoRoleRules || ""; 
 
-  // 🌟 新增：將後端傳來的規則，填入設定文字框中
+  // 將後端傳來的規則，填入設定文字框中
   const promptInput = document.getElementById('groupPromptInput');
   if (promptInput) promptInput.value = currentGroupPrompt;
   
@@ -112,9 +115,15 @@ function renderTable(data) {
   }
   currentTableHeaders = rawHeaders.slice(0, validColCount);
 
+  // 🌟 建立兩種不同的下拉選單 (Datalist)
   let datalistHTML = "";
   if (currentGroupMembers.length > 0) {
-    datalistHTML = `<datalist id="groupMembers">` + currentGroupMembers.map(m => `<option value="${m}">`).join('') + `</datalist>`;
+    // 全員選單
+    datalistHTML += `<datalist id="allMembersList">` + currentGroupMembers.map(m => `<option value="${m}">`).join('') + `</datalist>`;
+  }
+  if (currentCoreMembers.length > 0) {
+    // 核心同工專屬選單
+    datalistHTML += `<datalist id="coreMembersList">` + currentCoreMembers.map(m => `<option value="${m}">`).join('') + `</datalist>`;
   }
   
   // 設定 CSS Grid 欄位寬度
@@ -154,17 +163,34 @@ function renderTable(data) {
 }
 
 function createRowHTML(rowData, gridTemplate) {
-  const dropdownCols = ["破冰", "敬拜", "話語", "分享"];
+  // 🌟 定義哪些欄位要吃哪個名單
+  const allDropdownCols = ["破冰", "敬拜"];
+  const coreDropdownCols = ["話語", "分享"]; 
+
   if (!gridTemplate) gridTemplate = `repeat(${currentTableHeaders.length}, minmax(130px, 1fr)) 40px`;
 
   let rowHtml = `<div class="record-row align-items-center" style="display: grid; grid-template-columns: ${gridTemplate}; gap: 10px;">`;
   
   currentTableHeaders.forEach((header, cIdx) => {
-    const isDropdownCol = (currentGroupMembers.length > 0) && dropdownCols.some(c => header.includes(c));
-    const listAttr = isDropdownCol ? `list="groupMembers"` : "";
-    const extraClass = isDropdownCol ? `datalist-input` : "";
-    const val = rowData[cIdx] || "";
+    // 🌟 智慧判斷該用哪一個名單
+    const isAllCol = (currentGroupMembers.length > 0) && allDropdownCols.some(c => header.includes(c));
+    const isCoreCol = (currentCoreMembers.length > 0) && coreDropdownCols.some(c => header.includes(c));
     
+    let listAttr = "";
+    let extraClass = "";
+
+    // 話語分享 -> 只顯示核心同工
+    if (isCoreCol) {
+      listAttr = `list="coreMembersList"`;
+      extraClass = `datalist-input`;
+    } 
+    // 破冰敬拜 -> 顯示所有人(不含小羊)
+    else if (isAllCol) {
+      listAttr = `list="allMembersList"`;
+      extraClass = `datalist-input`;
+    }
+    
+    const val = rowData[cIdx] || "";
     rowHtml += `<input type="text" class="grid-input ${extraClass}" data-c="${cIdx}" value="${val}" title="${val}" ${listAttr}>`;
   });
   
@@ -314,7 +340,6 @@ async function processAI() {
           text: rawText, 
           headers: currentTableHeaders,
           members: currentGroupMembers,   
-          // 🌟 核心修改：將小組長自訂規則與系統自動身分權限合併送出
           groupPrompt: currentGroupPrompt + "\n" + currentAutoRoleRules 
         } 
       })
