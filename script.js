@@ -5,6 +5,7 @@ let currentTableHeaders = [];
 // 🌟 存放目前小組的名單與專屬提示詞
 let currentGroupMembers = []; 
 let currentGroupPrompt = "";  
+let currentAutoRoleRules = ""; // 🌟 新增這行：用來存放系統自動權限
 
 const showLoading = (msg) => { const el = document.getElementById('globalLoading'); el.innerText = msg; el.classList.remove('hidden'); };
 const hideLoading = () => document.getElementById('globalLoading').classList.add('hidden');
@@ -98,6 +99,7 @@ function renderTable(data) {
   
   currentGroupMembers = data.members || [];
   currentGroupPrompt = data.groupPrompt || "";
+  currentAutoRoleRules = data.autoRoleRules || ""; // 🌟 新增這行：接收後端產生的規則
 
   // 🌟 新增：將後端傳來的規則，填入設定文字框中
   const promptInput = document.getElementById('groupPromptInput');
@@ -296,7 +298,7 @@ function clearDateFilter() {
 }
 
 // ==========================================
-// 🌟 5. AI 解析邏輯
+// 🌟 5. AI 解析邏輯 (結合自動權限與自訂提示詞)
 // ==========================================
 async function processAI() {
   const rawText = document.getElementById('aiRawText').value.trim();
@@ -312,7 +314,8 @@ async function processAI() {
           text: rawText, 
           headers: currentTableHeaders,
           members: currentGroupMembers,   
-          groupPrompt: currentGroupPrompt 
+          // 🌟 核心修改：將小組長自訂規則與系統自動身分權限合併送出
+          groupPrompt: currentGroupPrompt + "\n" + currentAutoRoleRules 
         } 
       })
     });
