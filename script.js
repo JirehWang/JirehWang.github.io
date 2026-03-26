@@ -12,6 +12,11 @@ let currentAutoRoleRules = "";
 let isEditorUnlocked = false; 
 let bulletinModalInstance = null;
 
+// 🌟 新增：名單管理相關變數
+const targetTemplates = ["新家人服事表模板", "招待服事表模板", "司會模板", "司琴模板", "愛餐模板"];
+let localCustomMembers = [];
+let currentTemplate = "";
+
 const showLoading = (msg) => { const el = document.getElementById('globalLoading'); el.innerText = msg; el.classList.remove('hidden'); };
 const hideLoading = () => document.getElementById('globalLoading').classList.add('hidden');
 
@@ -124,6 +129,27 @@ function renderTable(data) {
   currentGroupPrompt = data.groupPrompt || "";
   currentAutoRoleRules = data.autoRoleRules || ""; 
 
+  // 🌟 名單管理邏輯：判斷是否為特定模板
+  currentTemplate = data.template || "";
+  localCustomMembers = data.customMembers || [];
+  
+  const memberBtn = document.getElementById('manageMembersBtn');
+  if (memberBtn && targetTemplates.includes(currentTemplate)) {
+    memberBtn.classList.remove('hidden'); // 顯示管理按鈕
+    
+    // 把自訂名單提取成陣列，給下拉選單跟 AI 用
+    currentGroupMembers = localCustomMembers.map(m => m.name);
+    
+    if (currentTemplate === "新家人服事表模板") {
+      // 抓出小家長當作核心同工
+      currentCoreMembers = localCustomMembers.filter(m => m.role === "小家長").map(m => m.name);
+      
+      let parentNames = currentCoreMembers.join(", ");
+      let normalNames = localCustomMembers.filter(m => m.role === "一般同工").map(m => m.name).join(", ");
+      currentAutoRoleRules = `【系統強制權限】：\n小家長 (${parentNames})：可排所有服事。\n一般同工 (${normalNames})：不可排特定帶領服事。`;
+    }
+  }
+
   const promptInput = document.getElementById('groupPromptInput');
   if (promptInput) promptInput.value = currentGroupPrompt;
   
@@ -157,7 +183,8 @@ function renderTable(data) {
 }
 
 function createRowHTML(rowData, gridTemplate) {
-  const allDropdownCols = ["破冰", "敬拜"]; const coreDropdownCols = ["話語", "分享"]; 
+  const allDropdownCols = ["破冰", "敬拜", "招待", "司琴", "司會", "愛餐", "行政", "主理", "服事", "同工", "分享"]; 
+  const coreDropdownCols = ["話語", "領會", "主領", "帶領"]; 
   if (!gridTemplate) gridTemplate = `repeat(${currentTableHeaders.length}, minmax(130px, 1fr)) 40px`;
   let rowHtml = `<div class="record-row align-items-center" style="display: grid; grid-template-columns: ${gridTemplate}; gap: 10px;">`;
   
@@ -166,6 +193,7 @@ function createRowHTML(rowData, gridTemplate) {
     const isCoreCol = (currentCoreMembers.length > 0) && coreDropdownCols.some(c => header.includes(c));
     let listAttr = ""; let extraClass = "";
 
+    // 優先套用核心同工選單
     if (isCoreCol) { listAttr = `list="coreMembersList"`; extraClass = `datalist-input`; } 
     else if (isAllCol) { listAttr = `list="allMembersList"`; extraClass = `datalist-input`; }
     
@@ -300,7 +328,6 @@ function showBulletinBoard() {
     if (row.some(v => v !== "")) matrix.push(row);
   });
 
-// 🌟 核心修改：移除 tr 的背景色，改為加在 th 身上，並啟用 sticky-top 鎖定頂部
   let tableHtml = '<table class="table table-bordered table-hover text-center align-middle m-0" style="min-width: 800px;"><thead><tr>';
   matrix[0].forEach(h => tableHtml += `<th class="bg-light" style="position: sticky; top: 0; z-index: 10; outline: 1px solid #dee2e6;">${h}</th>`);
   tableHtml += '</tr></thead><tbody>';
@@ -314,18 +341,15 @@ function showBulletinBoard() {
 
   if (matrix.length === 1) tableHtml = '<p class="text-center text-muted my-4">目前沒有資料可顯示</p>';
 
-  // 🌟 核心修改：限制表格容器最高只能佔據螢幕的 65%，超過就強制在內部上下滾動
   document.getElementById('bulletinContent').innerHTML = `<div class="table-responsive" style="max-height: 65vh; overflow-y: auto;">${tableHtml}</div>`;
   document.getElementById('bulletinModalLabel').innerText = `📋 ${activeGroupName} - 排班布告欄`;
 
-  // 🌟 動態變更按鈕文字
   const closeBtn = document.getElementById('modalCloseBtn');
   if (isEditorUnlocked) {
     closeBtn.innerText = "✖ 關閉預覽";
     closeBtn.classList.replace('btn-warning', 'btn-secondary');
   }
 
-  // 🌟 強制鎖死背景，不允許點旁邊關閉
   if (!bulletinModalInstance) {
     bulletinModalInstance = new bootstrap.Modal(document.getElementById('bulletinModal'), {
       backdrop: 'static', 
@@ -335,15 +359,12 @@ function showBulletinBoard() {
   bulletinModalInstance.show();
 }
 
-// 🌟 點擊按鈕或打叉叉時的驗證邏輯
 function closeModalOrUnlock() {
   if (isEditorUnlocked) {
-    // 已經解鎖過了，直接關閉
     bulletinModalInstance.hide();
   } else {
-    // 尚未解鎖，要求輸入密碼
     const pwd = prompt(`🔒 編輯需要權限\n請輸入專屬 ID `);
-    if (pwd === null) return; // 按下取消，視窗繼續擋在前面
+    if (pwd === null) return; 
     
     if (pwd.trim() === currentId) {
       isEditorUnlocked = true;
@@ -369,4 +390,66 @@ function downloadExcel() {
 
   const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   XLSX.writeFile(wb, `${activeGroupName}_排班表_${today}.xlsx`);
+}
+
+// ==========================================
+// 🌟 名單管理邏輯 
+// ==========================================
+function openMemberModal() {
+  const roleSelect = document.getElementById('newMemberRole');
+  if (currentTemplate === "新家人服事表模板") {
+    roleSelect.classList.remove('hidden');
+  } else {
+    roleSelect.classList.add('hidden');
+  }
+  renderMemberList();
+  new bootstrap.Modal(document.getElementById('memberModal')).show();
+}
+
+function renderMemberList() {
+  const listEl = document.getElementById('memberList');
+  listEl.innerHTML = localCustomMembers.map((m, idx) => `
+    <li class="list-group-item d-flex justify-content-between align-items-center">
+      <div>
+        <span class="fw-bold">${m.name}</span> 
+        ${currentTemplate === "新家人服事表模板" ? `<span class="badge bg-secondary ms-2">${m.role}</span>` : ''}
+      </div>
+      <button class="btn btn-sm btn-danger" onclick="deleteMember(${idx})">刪除</button>
+    </li>
+  `).join('');
+}
+
+function addMember() {
+  const nameInput = document.getElementById('newMemberName');
+  const roleSelect = document.getElementById('newMemberRole');
+  const name = nameInput.value.trim();
+  const role = roleSelect.value;
+  
+  if (!name) return alert("請輸入姓名！");
+  if (localCustomMembers.find(m => m.name === name)) return alert("此人已在名單中！");
+  
+  localCustomMembers.push({ name: name, role: currentTemplate === "新家人服事表模板" ? role : "一般同工" });
+  nameInput.value = "";
+  renderMemberList();
+}
+
+function deleteMember(idx) {
+  localCustomMembers.splice(idx, 1);
+  renderMemberList();
+}
+
+async function saveMembersToServer() {
+  showLoading("💾 儲存名單中...");
+  try {
+    await fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ 
+        action: "saveGroupMembers", 
+        data: { id: currentId, members: localCustomMembers } 
+      })
+    });
+    alert("✅ 名單儲存成功！將重新載入頁面套用新設定。");
+    location.reload(); 
+  } catch (e) { alert("儲存失敗：" + e.message); } finally { hideLoading(); }
 }
