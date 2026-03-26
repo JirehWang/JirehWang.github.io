@@ -50,18 +50,8 @@
         </div>
       </form>
     </div>
-<div id="publicViewSection" class="card-custom hidden">
-      <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
-        <h3 id="publicViewTitle" class="text-primary fw-bold m-0">載入中...</h3>
-        <div>
-          <button class="btn btn-success shadow-sm fw-bold me-2" onclick="downloadPublicExcel()">📥 下載 Excel</button>
-          <button class="btn btn-outline-secondary shadow-sm" onclick="enterEditMode()">⚙️ 管理員登入</button>
-        </div>
-      </div>
-      <div id="publicViewContent" class="table-responsive shadow-sm border rounded">
-        </div>
-    </div>
-<div id="reportSection" class="card-custom hidden">
+
+    <div id="reportSection" class="card-custom hidden">
       
       <div class="toolbar d-flex flex-wrap justify-content-between align-items-center mb-3 gap-3">
         <h4 id="groupTitle" class="text-primary m-0 fw-bold">載入中...</h4>
@@ -74,8 +64,9 @@
           <button class="btn btn-sm btn-secondary" onclick="filterByDate()">篩選</button>
           <button class="btn btn-sm btn-outline-danger" onclick="clearDateFilter()">清除</button>
         </div>
-                <div class="d-flex gap-2">
-          <button class="btn btn-info text-white shadow shadow-sm fw-bold" onclick="showBulletinBoard()">📋 產生布告欄</button>
+        
+        <div class="d-flex gap-2">
+          <button class="btn btn-info text-white shadow shadow-sm fw-bold" onclick="showBulletinBoard()">📋 預覽布告欄</button>
           <button class="btn btn-primary px-4 shadow shadow-sm" onclick="saveData()">💾 儲存變更</button>
         </div>
 
@@ -101,28 +92,29 @@
             <textarea id="aiRawText" class="form-control" rows="3" placeholder="💡 您可以：&#10;1. 【直接貼上】已經打好的排班文字，讓 AI 自動填入。&#10;2. 【對話生成】輸入條件讓 AI 自動排班（例：排第三季每個週五，地點在A區，破冰自動挑，話語分享只排小明和阿華）"></textarea>
           </div>
           <div class="col-md-2 d-grid">
-            <button class="btn btn-success" onclick="processAI()">🤖 AI 解析</button>
+            <button class="btn btn-success fw-bold" onclick="processAI()">🤖 AI 解析</button>
           </div>
         </div>
         <div id="aiStatus" class="form-text text-muted mt-2">✨ 貼上排班文字或輸入排班條件後，點擊解析，系統將自動處理。</div>
       </div>
 
       <div id="dynamicFormContainer" class="p-3 bg-white border rounded shadow-sm" style="overflow-x: auto; min-height: 300px;">
-        </div>
+      </div>
     </div>
   </div>
+
   <div class="modal fade" id="bulletinModal" tabindex="-1" aria-labelledby="bulletinModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header bg-info text-white">
-          <h5 class="modal-title fw-bold" id="bulletinModalLabel">📋 小組布告欄預覽</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+          <h5 class="modal-title fw-bold" id="bulletinModalLabel">📋 小組布告欄</h5>
+          <button type="button" class="btn-close btn-close-white" onclick="closeModalOrUnlock()" aria-label="Close"></button>
         </div>
         <div class="modal-body" id="bulletinContent">
-          </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-success fw-bold" onclick="downloadExcel()">📥 下載 Excel</button>
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+        </div>
+        <div class="modal-footer d-flex justify-content-between">
+          <button type="button" class="btn btn-success fw-bold shadow-sm" onclick="downloadExcel()">📥 下載 Excel</button>
+          <button type="button" id="modalCloseBtn" class="btn btn-warning fw-bold shadow-sm" onclick="closeModalOrUnlock()">⚙️ 進入編輯 (需輸入 ID)</button>
         </div>
       </div>
     </div>
