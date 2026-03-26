@@ -72,17 +72,20 @@
 
       </div>
 
-      <div class="mb-3">
+      <div class="mb-3 d-flex gap-2">
         <button class="btn btn-sm btn-outline-secondary shadow-sm" onclick="document.getElementById('promptSettings').classList.toggle('hidden')">
           ⚙️ 設定小組專屬 AI 排班規則
         </button>
-        
-        <div id="promptSettings" class="hidden mt-2 p-3 bg-light border border-secondary border-opacity-25 rounded shadow-sm">
-          <label class="form-label small fw-bold text-primary">告訴 AI 這個小組的排班限制</label>
-          <textarea id="groupPromptInput" class="form-control mb-2" rows="2" placeholder="例如：破冰和敬拜必須是同一人、話語分享只能排小明或阿華..."></textarea>
-          <div class="d-flex justify-content-end">
-            <button class="btn btn-sm btn-primary" onclick="saveGroupPrompt()">💾 儲存規則</button>
-          </div>
+        <button id="manageMembersBtn" class="btn btn-sm btn-outline-primary shadow-sm hidden" onclick="openMemberModal()">
+          👥 管理同工名單
+        </button>
+      </div>
+
+      <div id="promptSettings" class="hidden mb-3 p-3 bg-light border border-secondary border-opacity-25 rounded shadow-sm">
+        <label class="form-label small fw-bold text-primary">告訴 AI 這個小組的排班限制</label>
+        <textarea id="groupPromptInput" class="form-control mb-2" rows="2" placeholder="例如：破冰和敬拜必須是同一人、話語分享只能排小明或阿華..."></textarea>
+        <div class="d-flex justify-content-end">
+          <button class="btn btn-sm btn-primary" onclick="saveGroupPrompt()">💾 儲存規則</button>
         </div>
       </div>
 
@@ -103,7 +106,34 @@
     </div>
   </div>
 
-  <div class="modal fade" id="bulletinModal" tabindex="-1" aria-labelledby="bulletinModalLabel" aria-hidden="true">
+  <div class="modal fade" id="memberModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title fw-bold">👥 管理同工名單</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="d-flex gap-2 mb-3">
+            <input type="text" id="newMemberName" class="form-control" placeholder="輸入同工姓名">
+            <select id="newMemberRole" class="form-select w-auto hidden">
+              <option value="一般同工">一般同工</option>
+              <option value="小家長">小家長</option>
+            </select>
+            <button class="btn btn-success fw-bold" onclick="addMember()">新增</button>
+          </div>
+          <ul id="memberList" class="list-group">
+            </ul>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+          <button type="button" class="btn btn-primary fw-bold" onclick="saveMembersToServer()">💾 儲存名單</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="bulletinModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="bulletinModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header bg-info text-white">
