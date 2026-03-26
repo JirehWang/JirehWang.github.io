@@ -50,7 +50,17 @@
         </div>
       </form>
     </div>
-
+<div id="publicViewSection" class="card-custom hidden">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+        <h3 id="publicViewTitle" class="text-primary fw-bold m-0">載入中...</h3>
+        <div>
+          <button class="btn btn-success shadow-sm fw-bold me-2" onclick="downloadPublicExcel()">📥 下載 Excel</button>
+          <button class="btn btn-outline-secondary shadow-sm" onclick="enterEditMode()">⚙️ 管理員登入</button>
+        </div>
+      </div>
+      <div id="publicViewContent" class="table-responsive shadow-sm border rounded">
+        </div>
+    </div>
 <div id="reportSection" class="card-custom hidden">
       
       <div class="toolbar d-flex flex-wrap justify-content-between align-items-center mb-3 gap-3">
