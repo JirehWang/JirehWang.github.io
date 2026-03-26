@@ -340,7 +340,7 @@ function closeModalOrUnlock() {
     bulletinModalInstance.hide();
   } else {
     // 尚未解鎖，要求輸入密碼
-    const pwd = prompt(`🔒 編輯需要權限\n請輸入本小組的專屬 ID 進行解鎖：\n(提示：網址最後面的英文數字)`);
+    const pwd = prompt(`🔒 編輯需要權限\n請輸入專屬 ID `);
     if (pwd === null) return; // 按下取消，視窗繼續擋在前面
     
     if (pwd.trim() === currentId) {
