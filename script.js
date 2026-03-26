@@ -300,8 +300,9 @@ function showBulletinBoard() {
     if (row.some(v => v !== "")) matrix.push(row);
   });
 
-  let tableHtml = '<table class="table table-bordered table-hover text-center align-middle" style="min-width: 800px;"><thead><tr class="table-light">';
-  matrix[0].forEach(h => tableHtml += `<th>${h}</th>`);
+// 🌟 核心修改：移除 tr 的背景色，改為加在 th 身上，並啟用 sticky-top 鎖定頂部
+  let tableHtml = '<table class="table table-bordered table-hover text-center align-middle" style="min-width: 800px;"><thead><tr>';
+  matrix[0].forEach(h => tableHtml += `<th class="sticky-top bg-light" style="z-index: 2; box-shadow: inset 0 -2px 0 #dee2e6;">${h}</th>`);
   tableHtml += '</tr></thead><tbody>';
 
   for (let i = 1; i < matrix.length; i++) {
