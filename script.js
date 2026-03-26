@@ -301,8 +301,8 @@ function showBulletinBoard() {
   });
 
 // 🌟 核心修改：移除 tr 的背景色，改為加在 th 身上，並啟用 sticky-top 鎖定頂部
-  let tableHtml = '<table class="table table-bordered table-hover text-center align-middle" style="min-width: 800px;"><thead><tr>';
-  matrix[0].forEach(h => tableHtml += `<th class="sticky-top bg-light" style="z-index: 2; box-shadow: inset 0 -2px 0 #dee2e6;">${h}</th>`);
+  let tableHtml = '<table class="table table-bordered table-hover text-center align-middle m-0" style="min-width: 800px;"><thead><tr>';
+  matrix[0].forEach(h => tableHtml += `<th class="bg-light" style="position: sticky; top: 0; z-index: 10; outline: 1px solid #dee2e6;">${h}</th>`);
   tableHtml += '</tr></thead><tbody>';
 
   for (let i = 1; i < matrix.length; i++) {
@@ -314,7 +314,8 @@ function showBulletinBoard() {
 
   if (matrix.length === 1) tableHtml = '<p class="text-center text-muted my-4">目前沒有資料可顯示</p>';
 
-  document.getElementById('bulletinContent').innerHTML = `<div class="table-responsive">${tableHtml}</div>`;
+  // 🌟 核心修改：限制表格容器最高只能佔據螢幕的 65%，超過就強制在內部上下滾動
+  document.getElementById('bulletinContent').innerHTML = `<div class="table-responsive" style="max-height: 65vh; overflow-y: auto;">${tableHtml}</div>`;
   document.getElementById('bulletinModalLabel').innerText = `📋 ${activeGroupName} - 排班布告欄`;
 
   // 🌟 動態變更按鈕文字
