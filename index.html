@@ -114,15 +114,17 @@
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <div class="d-flex gap-2 mb-3">
-            <input type="text" id="newMemberName" class="form-control" placeholder="輸入同工姓名">
-            <select id="newMemberRole" class="form-select w-auto hidden">
-              <option value="一般同工">一般同工</option>
-              <option value="小家長">小家長</option>
-            </select>
-            <button class="btn btn-success fw-bold" onclick="addMember()">新增</button>
+          <div class="d-flex gap-2 mb-3 align-items-start">
+            <textarea id="newMemberName" class="form-control" rows="2" placeholder="輸入姓名 (支援批量：可貼上多筆，用換行、空格或逗號隔開)"></textarea>
+            <div class="d-flex flex-column gap-2">
+              <select id="newMemberRole" class="form-select w-auto hidden">
+                <option value="一般同工">一般同工</option>
+                <option value="小家長">小家長</option>
+              </select>
+              <button class="btn btn-success fw-bold h-100" onclick="addMember()">新增</button>
+            </div>
           </div>
-          <ul id="memberList" class="list-group">
+          <ul id="memberList" class="list-group" style="max-height: 40vh; overflow-y: auto;">
             </ul>
         </div>
         <div class="modal-footer">
