@@ -51,10 +51,27 @@
       </form>
     </div>
 
-<div id="reportSection" class="card-custom hidden">
+    <div id="viewSection" class="card-custom hidden">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+        <h3 id="viewTitle" class="text-primary fw-bold m-0">載入中...</h3>
+        <div>
+          <button class="btn btn-success me-2 shadow-sm fw-bold" onclick="downloadExcel()">📥 下載 Excel</button>
+          <button class="btn btn-warning shadow-sm fw-bold" onclick="enterEditMode()">✏️ 進入編輯 (需輸入 ID)</button>
+          <a href="?" class="btn btn-outline-secondary ms-2 shadow-sm fw-bold">🏠 回首頁</a>
+        </div>
+      </div>
+      <div class="table-responsive shadow-sm border rounded">
+        <table class="table table-bordered table-hover text-center align-middle mb-0" id="viewTable">
+          <thead id="viewTableHead" class="table-light"></thead>
+          <tbody id="viewTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="reportSection" class="card-custom hidden">
       
       <div class="toolbar d-flex flex-wrap justify-content-between align-items-center mb-3 gap-3">
-        <h4 id="groupTitle" class="text-primary m-0 fw-bold">載入中...</h4>
+        <h4 id="groupTitle" class="text-primary m-0 fw-bold">編輯模式載入中...</h4>
         
         <div class="d-flex align-items-center gap-2 bg-light p-2 rounded border shadow-sm">
           <span class="text-muted small fw-bold ms-1">📅 日期區間：</span>
@@ -64,11 +81,11 @@
           <button class="btn btn-sm btn-secondary" onclick="filterByDate()">篩選</button>
           <button class="btn btn-sm btn-outline-danger" onclick="clearDateFilter()">清除</button>
         </div>
-                <div class="d-flex gap-2">
-          <button class="btn btn-info text-white shadow shadow-sm fw-bold" onclick="showBulletinBoard()">📋 產生布告欄</button>
-          <button class="btn btn-primary px-4 shadow shadow-sm" onclick="saveData()">💾 儲存變更</button>
+        
+        <div class="d-flex gap-2">
+          <button class="btn btn-outline-secondary shadow-sm fw-bold" onclick="location.reload()">⬅️ 退出編輯</button>
+          <button class="btn btn-primary px-4 shadow-sm fw-bold" onclick="saveData()">💾 儲存變更</button>
         </div>
-
       </div>
 
       <div class="mb-3">
@@ -91,7 +108,7 @@
             <textarea id="aiRawText" class="form-control" rows="3" placeholder="💡 您可以：&#10;1. 【直接貼上】已經打好的排班文字，讓 AI 自動填入。&#10;2. 【對話生成】輸入條件讓 AI 自動排班（例：排第三季每個週五，地點在A區，破冰自動挑，話語分享只排小明和阿華）"></textarea>
           </div>
           <div class="col-md-2 d-grid">
-            <button class="btn btn-success" onclick="processAI()">🤖 AI 解析</button>
+            <button class="btn btn-success fw-bold" onclick="processAI()">🤖 AI 解析</button>
           </div>
         </div>
         <div id="aiStatus" class="form-text text-muted mt-2">✨ 貼上排班文字或輸入排班條件後，點擊解析，系統將自動處理。</div>
@@ -99,22 +116,7 @@
 
       <div id="dynamicFormContainer" class="p-3 bg-white border rounded shadow-sm" style="overflow-x: auto; min-height: 300px;">
         </div>
-    </div>
-  </div>
-  <div class="modal fade" id="bulletinModal" tabindex="-1" aria-labelledby="bulletinModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
-      <div class="modal-content">
-        <div class="modal-header bg-info text-white">
-          <h5 class="modal-title fw-bold" id="bulletinModalLabel">📋 小組布告欄預覽</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body" id="bulletinContent">
-          </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-success fw-bold" onclick="downloadExcel()">📥 下載 Excel</button>
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
-        </div>
-      </div>
+      
     </div>
   </div>
 
@@ -124,4 +126,3 @@
   <script src="script.js"></script>
 </body>
 </html>
-
