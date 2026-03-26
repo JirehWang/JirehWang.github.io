@@ -484,3 +484,68 @@ async function saveGroupPrompt() {
     hideLoading(); 
   }
 }
+// ==========================================
+// 🌟 8. 布告欄與 Excel 下載功能
+// ==========================================
+function showBulletinBoard() {
+  const matrix = [currentTableHeaders];
+  
+  // 1. 蒐集當前畫面上有顯示的資料 (支援日期篩選結果)
+  document.querySelectorAll('.record-row').forEach(rowDiv => {
+    // 如果這列被篩選器隱藏了，就不抓取
+    if (rowDiv.classList.contains('hidden')) return;
+    
+    const row = Array.from(rowDiv.querySelectorAll('.grid-input')).map(i => i.value.trim());
+    // 只要這列不是全空的，就加入陣列
+    if (row.some(v => v !== "")) {
+      matrix.push(row);
+    }
+  });
+
+  // 2. 建立預覽用的 HTML 表格
+  let tableHtml = '<table class="table table-bordered table-hover text-center align-middle" style="min-width: 800px;"><thead><tr>';
+  matrix[0].forEach(h => tableHtml += `<th class="bg-light">${h}</th>`);
+  tableHtml += '</tr></thead><tbody>';
+
+  for (let i = 1; i < matrix.length; i++) {
+    tableHtml += '<tr>';
+    matrix[i].forEach(cell => tableHtml += `<td>${cell || "-"}</td>`); // 沒填的補上 -
+    tableHtml += '</tr>';
+  }
+  tableHtml += '</tbody></table>';
+
+  if (matrix.length === 1) tableHtml = '<p class="text-center text-muted my-4">目前沒有資料可顯示</p>';
+
+  // 3. 塞入 Modal 並顯示
+  document.getElementById('bulletinContent').innerHTML = `<div class="table-responsive">${tableHtml}</div>`;
+  document.getElementById('bulletinModalLabel').innerText = `📋 ${activeGroupName} - 排班布告欄`;
+
+  const bulletinModal = new bootstrap.Modal(document.getElementById('bulletinModal'));
+  bulletinModal.show();
+}
+
+function downloadExcel() {
+  const matrix = [currentTableHeaders];
+  
+  // 一樣只蒐集畫面上顯示的資料
+  document.querySelectorAll('.record-row').forEach(rowDiv => {
+    if (rowDiv.classList.contains('hidden')) return;
+    const row = Array.from(rowDiv.querySelectorAll('.grid-input')).map(i => i.value.trim());
+    if (row.some(v => v !== "")) matrix.push(row);
+  });
+
+  if (matrix.length === 1) return alert("目前沒有資料可以下載！");
+
+  // 使用 SheetJS 轉換資料並產出實體 Excel 檔案
+  const ws = XLSX.utils.aoa_to_sheet(matrix);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "布告欄");
+
+  // 整理檔名 (例如：葡萄樹小組_排班表_20260318.xlsx)
+  const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const filename = `${activeGroupName}_排班表_${today}.xlsx`;
+
+  XLSX.writeFile(wb, filename);
+}
+
+
