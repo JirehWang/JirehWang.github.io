@@ -13,7 +13,7 @@ let isEditorUnlocked = false;
 let bulletinModalInstance = null;
 
 // 🌟 新增：名單管理相關變數
-const targetTemplates = ["新家人服事表模板", "招待模板", "司會模板", "司琴模板", "愛餐模板"];
+const targetTemplates = ["新家人服事表模板", "招待服事表模板", "司會模板", "司琴模板", "愛餐模板"]; // 修正名稱對齊
 let localCustomMembers = [];
 let currentTemplate = "";
 
@@ -159,9 +159,23 @@ function renderTable(data) {
   currentTableHeaders = rawHeaders.slice(0, validColCount);
 
   let datalistHTML = "";
+  // 原本的預設名單
   if (currentGroupMembers.length > 0) datalistHTML += `<datalist id="allMembersList">` + currentGroupMembers.map(m => `<option value="${m}">`).join('') + `</datalist>`;
   if (currentCoreMembers.length > 0) datalistHTML += `<datalist id="coreMembersList">` + currentCoreMembers.map(m => `<option value="${m}">`).join('') + `</datalist>`;
   
+  // 🌟 核心新增：針對特定模板建立專屬的 Datalist 下拉選項
+  if (targetTemplates.includes(currentTemplate)) {
+    if (currentTemplate === "新家人服事表模板") {
+      const normalNames = localCustomMembers.filter(m => m.role === "一般同工").map(m => m.name);
+      const parentNames = localCustomMembers.filter(m => m.role === "小家長").map(m => m.name);
+      datalistHTML += `<datalist id="normalMembersList">` + normalNames.map(m => `<option value="${m}">`).join('') + `</datalist>`;
+      datalistHTML += `<datalist id="parentMembersList">` + parentNames.map(m => `<option value="${m}">`).join('') + `</datalist>`;
+    } else {
+      const customNames = localCustomMembers.map(m => m.name);
+      datalistHTML += `<datalist id="customMembersList">` + customNames.map(m => `<option value="${m}">`).join('') + `</datalist>`;
+    }
+  }
+
   const gridTemplate = `repeat(${validColCount}, minmax(130px, 1fr)) 40px`;
   
   let html = datalistHTML;
@@ -183,19 +197,43 @@ function renderTable(data) {
 }
 
 function createRowHTML(rowData, gridTemplate) {
-  const allDropdownCols = ["破冰", "敬拜", "招待", "司琴", "司會", "愛餐", "行政", "主理", "服事", "同工", "分享"]; 
+  // 一般小組模板用的預設判斷
+  const allDropdownCols = ["破冰", "敬拜", "分享"]; 
   const coreDropdownCols = ["話語", "領會", "主領", "帶領"]; 
+
   if (!gridTemplate) gridTemplate = `repeat(${currentTableHeaders.length}, minmax(130px, 1fr)) 40px`;
   let rowHtml = `<div class="record-row align-items-center" style="display: grid; grid-template-columns: ${gridTemplate}; gap: 10px;">`;
   
   currentTableHeaders.forEach((header, cIdx) => {
-    const isAllCol = (currentGroupMembers.length > 0) && allDropdownCols.some(c => header.includes(c));
-    const isCoreCol = (currentCoreMembers.length > 0) && coreDropdownCols.some(c => header.includes(c));
     let listAttr = ""; let extraClass = "";
 
-    // 優先套用核心同工選單
-    if (isCoreCol) { listAttr = `list="coreMembersList"`; extraClass = `datalist-input`; } 
-    else if (isAllCol) { listAttr = `list="allMembersList"`; extraClass = `datalist-input`; }
+    // 🌟 核心修改：精準匹配各模板的指定欄位，給予專屬的下拉選單
+    if (currentTemplate === "新家人服事表模板" && header.includes("新家人同工")) {
+      listAttr = `list="normalMembersList"`; extraClass = `datalist-input`;
+    } 
+    else if (currentTemplate === "新家人服事表模板" && header.includes("小家長")) {
+      listAttr = `list="parentMembersList"`; extraClass = `datalist-input`;
+    } 
+    else if (currentTemplate === "愛餐模板" && header.includes("小組")) {
+      listAttr = `list="customMembersList"`; extraClass = `datalist-input`;
+    } 
+    else if (currentTemplate === "司琴模板" && header.includes("司琴")) {
+      listAttr = `list="customMembersList"`; extraClass = `datalist-input`;
+    } 
+    else if (currentTemplate === "司會模板" && header.includes("司會")) {
+      listAttr = `list="customMembersList"`; extraClass = `datalist-input`;
+    } 
+    else if (currentTemplate === "招待服事表模板" && header.includes("招待同工")) {
+      listAttr = `list="customMembersList"`; extraClass = `datalist-input`;
+    } 
+    else {
+      // 預設Fallback：如果不是上述特殊模板，就套用原本小組聚會表的邏輯
+      const isAllCol = (currentGroupMembers.length > 0) && allDropdownCols.some(c => header.includes(c));
+      const isCoreCol = (currentCoreMembers.length > 0) && coreDropdownCols.some(c => header.includes(c));
+
+      if (isCoreCol) { listAttr = `list="coreMembersList"`; extraClass = `datalist-input`; } 
+      else if (isAllCol) { listAttr = `list="allMembersList"`; extraClass = `datalist-input`; }
+    }
     
     const val = rowData[cIdx] || "";
     rowHtml += `<input type="text" class="grid-input ${extraClass}" data-c="${cIdx}" value="${val}" title="${val}" ${listAttr}>`;
@@ -393,7 +431,7 @@ function downloadExcel() {
 }
 
 // ==========================================
-// 🌟 名單管理邏輯 
+// 🌟 名單管理邏輯 (支援批量處理)
 // ==========================================
 function openMemberModal() {
   const roleSelect = document.getElementById('newMemberRole');
@@ -422,15 +460,40 @@ function renderMemberList() {
 function addMember() {
   const nameInput = document.getElementById('newMemberName');
   const roleSelect = document.getElementById('newMemberRole');
-  const name = nameInput.value.trim();
+  const rawText = nameInput.value.trim();
   const role = roleSelect.value;
   
-  if (!name) return alert("請輸入姓名！");
-  if (localCustomMembers.find(m => m.name === name)) return alert("此人已在名單中！");
+  if (!rawText) return alert("請輸入姓名！");
   
-  localCustomMembers.push({ name: name, role: currentTemplate === "新家人服事表模板" ? role : "一般同工" });
-  nameInput.value = "";
-  renderMemberList();
+  // 🌟 核心修改：支援換行、中英文逗號、頓號、空格分隔，自動過濾空白
+  const names = rawText.split(/[\n,，、\s]+/).filter(n => n.trim() !== "");
+  
+  let addedCount = 0;
+  let dupCount = 0;
+
+  // 批量處理每一個名字
+  names.forEach(name => {
+    // 防呆：檢查是否已經存在於名單中
+    if (localCustomMembers.find(m => m.name === name)) {
+      dupCount++;
+    } else {
+      localCustomMembers.push({ 
+        name: name, 
+        role: currentTemplate === "新家人服事表模板" ? role : "一般同工" 
+      });
+      addedCount++;
+    }
+  });
+  
+  nameInput.value = ""; // 清空輸入框
+  renderMemberList();   // 重新渲染列表
+  
+  // 給予友善提示
+  if (addedCount > 1) {
+    alert(`✅ 成功批量新增 ${addedCount} 筆名單！` + (dupCount > 0 ? `\n⚠️ 另有 ${dupCount} 筆已存在被自動略過。` : ""));
+  } else if (addedCount === 0 && dupCount > 0) {
+    alert("⚠️ 您輸入的名字都已經在名單中囉！");
+  }
 }
 
 function deleteMember(idx) {
