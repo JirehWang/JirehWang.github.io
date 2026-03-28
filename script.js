@@ -198,7 +198,7 @@ function renderTable(data) {
 
 function createRowHTML(rowData, gridTemplate) {
   // 一般小組模板用的預設判斷
-  const allDropdownCols = ["破冰", "敬拜", "分享"]; 
+  const allDropdownCols = ["破冰", "敬拜", "招待", "司琴", "司會", "愛餐", "行政", "主理", "服事", "同工", "分享"]; 
   const coreDropdownCols = ["話語", "領會", "主領", "帶領"]; 
 
   if (!gridTemplate) gridTemplate = `repeat(${currentTableHeaders.length}, minmax(130px, 1fr)) 40px`;
@@ -206,8 +206,14 @@ function createRowHTML(rowData, gridTemplate) {
   
   currentTableHeaders.forEach((header, cIdx) => {
     let listAttr = ""; let extraClass = "";
+    
+    // 🌟 核心修改：預設為文字輸入，若是日期欄位則改為日曆選擇器
+    let inputType = "text";
+    if (header.includes("日期")) {
+      inputType = "date";
+    }
 
-    // 🌟 核心修改：精準匹配各模板的指定欄位，給予專屬的下拉選單
+    // 精準匹配各模板的指定欄位，給予專屬的下拉選單
     if (currentTemplate === "新家人服事表模板" && header.includes("新家人同工")) {
       listAttr = `list="normalMembersList"`; extraClass = `datalist-input`;
     } 
@@ -227,7 +233,7 @@ function createRowHTML(rowData, gridTemplate) {
       listAttr = `list="customMembersList"`; extraClass = `datalist-input`;
     } 
     else {
-      // 預設Fallback：如果不是上述特殊模板，就套用原本小組聚會表的邏輯
+      // 預設Fallback
       const isAllCol = (currentGroupMembers.length > 0) && allDropdownCols.some(c => header.includes(c));
       const isCoreCol = (currentCoreMembers.length > 0) && coreDropdownCols.some(c => header.includes(c));
 
@@ -236,12 +242,14 @@ function createRowHTML(rowData, gridTemplate) {
     }
     
     const val = rowData[cIdx] || "";
-    rowHtml += `<input type="text" class="grid-input ${extraClass}" data-c="${cIdx}" value="${val}" title="${val}" ${listAttr}>`;
+    // 🌟 將 type="${inputType}" 動態寫入
+    rowHtml += `<input type="${inputType}" class="grid-input ${extraClass}" data-c="${cIdx}" value="${val}" title="${val}" ${listAttr}>`;
   });
   
   rowHtml += `<button class="btn btn-sm btn-outline-danger" onclick="deleteRow(this)" title="刪除此列">✖</button></div>`;
   return rowHtml;
 }
+
 
 function addNewRow() { const container = document.getElementById('rowsContainer'); const tempDiv = document.createElement('div'); tempDiv.innerHTML = createRowHTML([]); container.appendChild(tempDiv.firstElementChild); }
 function deleteRow(btnElement) { if(confirm("確定要刪除這筆排班資料嗎？")) btnElement.parentElement.remove(); }
