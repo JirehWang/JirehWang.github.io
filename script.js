@@ -8,14 +8,14 @@ let currentCoreMembers = [];
 let currentGroupPrompt = "";  
 let currentAutoRoleRules = ""; 
 
-// 🌟 新增：鎖定狀態與 Modal 實體
+// 鎖定狀態與 Modal 實體
 let isEditorUnlocked = false; 
 let bulletinModalInstance = null;
 
-// 🌟 新增：名單管理相關變數
-const targetTemplates = ["新家人服事表模板", "招待模板", "司會模板", "司琴模板", "愛餐模板"]; // 修正名稱對齊
+// 名單與聚會資料變數
 let localCustomMembers = [];
 let currentTemplate = "";
+let currentEventData = { dates: [], names: [], categories: [] }; // 🌟 新增
 
 const showLoading = (msg) => { const el = document.getElementById('globalLoading'); el.innerText = msg; el.classList.remove('hidden'); };
 const hideLoading = () => document.getElementById('globalLoading').classList.add('hidden');
@@ -30,7 +30,6 @@ async function fetchAPI(action, params = {}) {
   return result.data;
 }
 
-// 🌟 核心修改：一進來如果有 ID，直接載入編輯器，然後「馬上用 Modal 蓋住它」！
 window.onload = async () => {
   if (!currentId) { 
     showSection('adminMain'); 
@@ -40,17 +39,11 @@ window.onload = async () => {
     try { 
       const data = await fetchAPI('getPageConfig', { id: currentId }); 
       renderTable(data); 
-      // 載入完畢後，立刻彈出鎖定版布告欄
       showBulletinBoard(); 
-    } catch(e){
-      alert(e.message);
-    } 
+    } catch(e){ alert(e.message); } 
   }
 };
 
-// ==========================================
-// 🌟 系統大廳 (保留超好用的複製連結)
-// ==========================================
 async function loadAdminData() {
   try {
     showLoading("⏳ 整理儀表板中...");
@@ -85,9 +78,7 @@ async function loadAdminData() {
                     <input class="form-check-input" type="checkbox" role="switch" ${isEnabled ? 'checked' : ''} onchange="toggleStatus('${g.id}', '${g.status}')">
                   </div>
                 </div>
-                ${isEnabled ? `
-                  <button class="btn btn-sm btn-outline-success w-100 mt-2 fw-bold" onclick="copyShareLink('${shareUrl}')">🔗 複製分享網址</button>
-                ` : '<p class="text-muted small mt-2 m-0 text-center">已停用</p>'}
+                ${isEnabled ? `<button class="btn btn-sm btn-outline-success w-100 mt-2 fw-bold" onclick="copyShareLink('${shareUrl}')">🔗 複製分享網址</button>` : '<p class="text-muted small mt-2 m-0 text-center">已停用</p>'}
               </div>
             </div>
           </div>
@@ -100,11 +91,7 @@ async function loadAdminData() {
 }
 
 function copyShareLink(url) {
-  navigator.clipboard.writeText(url).then(() => {
-    alert("✅ 專屬網址已複製！您可以直接貼到 LINE 群組給小組員看了。");
-  }).catch(err => {
-    alert("複製失敗，請手動複製此網址：\n" + url);
-  });
+  navigator.clipboard.writeText(url).then(() => { alert("✅ 專屬網址已複製！"); }).catch(err => { alert("複製失敗，請手動複製此網址：\n" + url); });
 }
 
 function filterGroups() {
@@ -117,9 +104,6 @@ function filterGroups() {
   });
 }
 
-// ==========================================
-// 🌟 1. 動態渲染輸入列 
-// ==========================================
 function renderTable(data) {
   activeGroupName = data.groupName;
   document.getElementById('groupTitle').innerText = data.groupName;
@@ -128,22 +112,19 @@ function renderTable(data) {
   currentCoreMembers = data.coreMembers || []; 
   currentGroupPrompt = data.groupPrompt || "";
   currentAutoRoleRules = data.autoRoleRules || ""; 
+  currentEventData = data.eventData || { dates: [], names: [], categories: [] }; // 載入聚會資料
 
-  // 🌟 名單管理邏輯：判斷是否為特定模板
   currentTemplate = data.template || "";
   localCustomMembers = data.customMembers || [];
   
   const memberBtn = document.getElementById('manageMembersBtn');
-  if (memberBtn && targetTemplates.includes(currentTemplate)) {
-    memberBtn.classList.remove('hidden'); // 顯示管理按鈕
+  if (memberBtn && currentTemplate !== "小組聚會表模板") {
+    memberBtn.classList.remove('hidden'); 
     
-    // 把自訂名單提取成陣列，給下拉選單跟 AI 用
     currentGroupMembers = localCustomMembers.map(m => m.name);
     
     if (currentTemplate === "新家人服事表模板") {
-      // 抓出小家長當作核心同工
       currentCoreMembers = localCustomMembers.filter(m => m.role === "小家長").map(m => m.name);
-      
       let parentNames = currentCoreMembers.join(", ");
       let normalNames = localCustomMembers.filter(m => m.role === "一般同工").map(m => m.name).join(", ");
       currentAutoRoleRules = `【系統強制權限】：\n小家長 (${parentNames})：可排所有服事。\n一般同工 (${normalNames})：不可排特定帶領服事。`;
@@ -159,12 +140,16 @@ function renderTable(data) {
   currentTableHeaders = rawHeaders.slice(0, validColCount);
 
   let datalistHTML = "";
-  // 原本的預設名單
   if (currentGroupMembers.length > 0) datalistHTML += `<datalist id="allMembersList">` + currentGroupMembers.map(m => `<option value="${m}">`).join('') + `</datalist>`;
   if (currentCoreMembers.length > 0) datalistHTML += `<datalist id="coreMembersList">` + currentCoreMembers.map(m => `<option value="${m}">`).join('') + `</datalist>`;
   
-  // 🌟 核心新增：針對特定模板建立專屬的 Datalist 下拉選項
-  if (targetTemplates.includes(currentTemplate)) {
+  // 🌟 產生外部聚會資料專屬的下拉清單
+  if (currentEventData.dates.length > 0) datalistHTML += `<datalist id="eventDatesList">` + currentEventData.dates.map(d => `<option value="${d}">`).join('') + `</datalist>`;
+  if (currentEventData.names.length > 0) datalistHTML += `<datalist id="eventNamesList">` + currentEventData.names.map(n => `<option value="${n}">`).join('') + `</datalist>`;
+  if (currentEventData.categories.length > 0) datalistHTML += `<datalist id="eventCategoriesList">` + currentEventData.categories.map(c => `<option value="${c}">`).join('') + `</datalist>`;
+
+  // 產生自訂名單的下拉選項
+  if (currentTemplate !== "小組聚會表模板") {
     if (currentTemplate === "新家人服事表模板") {
       const normalNames = localCustomMembers.filter(m => m.role === "一般同工").map(m => m.name);
       const parentNames = localCustomMembers.filter(m => m.role === "小家長").map(m => m.name);
@@ -197,59 +182,54 @@ function renderTable(data) {
 }
 
 function createRowHTML(rowData, gridTemplate) {
-  // 一般小組模板用的預設判斷
-  const allDropdownCols = ["破冰", "敬拜", "招待", "司琴", "司會", "愛餐", "行政", "主理", "服事", "同工", "分享"]; 
-  const coreDropdownCols = ["話語", "領會", "主領", "帶領"]; 
-
   if (!gridTemplate) gridTemplate = `repeat(${currentTableHeaders.length}, minmax(130px, 1fr)) 40px`;
   let rowHtml = `<div class="record-row align-items-center" style="display: grid; grid-template-columns: ${gridTemplate}; gap: 10px;">`;
   
   currentTableHeaders.forEach((header, cIdx) => {
     let listAttr = ""; let extraClass = "";
     
-    // 🌟 核心修改：預設為文字輸入，若是日期欄位則改為日曆選擇器
+    // 日期預設型態
     let inputType = "text";
-    if (header.includes("日期")) {
-      inputType = "date";
-    }
+    if (header.includes("日期")) inputType = "date";
 
-    // 精準匹配各模板的指定欄位，給予專屬的下拉選單
-    if (currentTemplate === "新家人服事表模板" && header.includes("新家人同工")) {
-      listAttr = `list="normalMembersList"`; extraClass = `datalist-input`;
-    } 
-    else if (currentTemplate === "新家人服事表模板" && header.includes("小家長")) {
-      listAttr = `list="parentMembersList"`; extraClass = `datalist-input`;
-    } 
-    else if (currentTemplate === "愛餐模板" && header.includes("小組")) {
-      listAttr = `list="customMembersList"`; extraClass = `datalist-input`;
-    } 
-    else if (currentTemplate === "司琴模板" && header.includes("司琴")) {
-      listAttr = `list="customMembersList"`; extraClass = `datalist-input`;
-    } 
-    else if (currentTemplate === "司會模板" && header.includes("司會")) {
-      listAttr = `list="customMembersList"`; extraClass = `datalist-input`;
-    } 
-    else if ((currentTemplate === "招待服事表模板" || currentTemplate === "招待模板") && header.includes("招待同工")) {
-      listAttr = `list="customMembersList"`; extraClass = `datalist-input`;
-    } 
+    // 🌟 核心選單對應邏輯
+    if (currentTemplate !== "小組聚會表模板") {
+      // 邏輯一：非小組聚會表之其他模板
+      if (header.includes("日期")) {
+        listAttr = `list="eventDatesList"`; extraClass = `datalist-input`;
+      } else if (header.includes("聚會名稱")) {
+        listAttr = `list="eventNamesList"`; extraClass = `datalist-input`;
+      } else if (header.includes("聚會類別")) {
+        listAttr = `list="eventCategoriesList"`; extraClass = `datalist-input`;
+      } else {
+        // 其餘欄位全部強制作為下拉同工名單
+        if (currentTemplate === "新家人服事表模板" && header.includes("小家長")) {
+          listAttr = `list="parentMembersList"`; extraClass = `datalist-input`;
+        } else if (currentTemplate === "新家人服事表模板" && header.includes("新家人同工")) {
+          listAttr = `list="normalMembersList"`; extraClass = `datalist-input`;
+        } else {
+          listAttr = `list="customMembersList"`; extraClass = `datalist-input`;
+        }
+      }
+    }
     else {
-      // 預設Fallback
-      const isAllCol = (currentGroupMembers.length > 0) && allDropdownCols.some(c => header.includes(c));
-      const isCoreCol = (currentCoreMembers.length > 0) && coreDropdownCols.some(c => header.includes(c));
+      // 邏輯二：小組聚會表模板 (維持舊有邏輯不變)
+      const allDropdownCols = ["破冰", "敬拜", "分享"]; 
+      const coreDropdownCols = ["話語", "領會", "主領", "帶領"]; 
+      const isAllCol = allDropdownCols.some(c => header.includes(c));
+      const isCoreCol = coreDropdownCols.some(c => header.includes(c));
 
       if (isCoreCol) { listAttr = `list="coreMembersList"`; extraClass = `datalist-input`; } 
       else if (isAllCol) { listAttr = `list="allMembersList"`; extraClass = `datalist-input`; }
     }
     
     const val = rowData[cIdx] || "";
-    // 🌟 將 type="${inputType}" 動態寫入
     rowHtml += `<input type="${inputType}" class="grid-input ${extraClass}" data-c="${cIdx}" value="${val}" title="${val}" ${listAttr}>`;
   });
   
   rowHtml += `<button class="btn btn-sm btn-outline-danger" onclick="deleteRow(this)" title="刪除此列">✖</button></div>`;
   return rowHtml;
 }
-
 
 function addNewRow() { const container = document.getElementById('rowsContainer'); const tempDiv = document.createElement('div'); tempDiv.innerHTML = createRowHTML([]); container.appendChild(tempDiv.firstElementChild); }
 function deleteRow(btnElement) { if(confirm("確定要刪除這筆排班資料嗎？")) btnElement.parentElement.remove(); }
@@ -363,9 +343,6 @@ async function saveGroupPrompt() {
   try { await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: "saveGroupPrompt", data: { id: currentId, prompt: newPrompt } }) }); currentGroupPrompt = newPrompt; alert("✅ 專屬規則儲存成功！"); document.getElementById('promptSettings').classList.add('hidden'); } catch (e) { alert("儲存失敗：" + e.message); } finally { hideLoading(); }
 }
 
-// ==========================================
-// 🌟 核心防呆解鎖邏輯：強制彈出布告欄
-// ==========================================
 function showBulletinBoard() {
   const matrix = [currentTableHeaders];
   document.querySelectorAll('.record-row').forEach(rowDiv => {
@@ -438,9 +415,6 @@ function downloadExcel() {
   XLSX.writeFile(wb, `${activeGroupName}_排班表_${today}.xlsx`);
 }
 
-// ==========================================
-// 🌟 名單管理邏輯 (支援批量處理)
-// ==========================================
 function openMemberModal() {
   const roleSelect = document.getElementById('newMemberRole');
   if (currentTemplate === "新家人服事表模板") {
@@ -473,15 +447,11 @@ function addMember() {
   
   if (!rawText) return alert("請輸入姓名！");
   
-  // 🌟 核心修改：支援換行、中英文逗號、頓號、空格分隔，自動過濾空白
   const names = rawText.split(/[\n,，、\s]+/).filter(n => n.trim() !== "");
-  
   let addedCount = 0;
   let dupCount = 0;
 
-  // 批量處理每一個名字
   names.forEach(name => {
-    // 防呆：檢查是否已經存在於名單中
     if (localCustomMembers.find(m => m.name === name)) {
       dupCount++;
     } else {
@@ -493,10 +463,9 @@ function addMember() {
     }
   });
   
-  nameInput.value = ""; // 清空輸入框
-  renderMemberList();   // 重新渲染列表
+  nameInput.value = ""; 
+  renderMemberList();   
   
-  // 給予友善提示
   if (addedCount > 1) {
     alert(`✅ 成功批量新增 ${addedCount} 筆名單！` + (dupCount > 0 ? `\n⚠️ 另有 ${dupCount} 筆已存在被自動略過。` : ""));
   } else if (addedCount === 0 && dupCount > 0) {
