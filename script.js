@@ -13,7 +13,7 @@ let isEditorUnlocked = false;
 let bulletinModalInstance = null;
 
 // 🌟 新增：名單管理相關變數
-const targetTemplates = ["新家人服事表模板", "招待服事表模板", "司會模板", "司琴模板", "愛餐模板"]; // 修正名稱對齊
+const targetTemplates = ["新家人服事表模板", "招待模板", "司會模板", "司琴模板", "愛餐模板"]; // 修正名稱對齊
 let localCustomMembers = [];
 let currentTemplate = "";
 
