@@ -15,7 +15,7 @@ let bulletinModalInstance = null;
 // 名單與聚會資料變數
 let localCustomMembers = [];
 let currentTemplate = "";
-let currentEventData = { dates: [], names: [], categories: [] }; // 🌟 新增
+let currentEventData = { dates: [], names: [], categories: [] };
 
 const showLoading = (msg) => { const el = document.getElementById('globalLoading'); el.innerText = msg; el.classList.remove('hidden'); };
 const hideLoading = () => document.getElementById('globalLoading').classList.add('hidden');
@@ -112,7 +112,7 @@ function renderTable(data) {
   currentCoreMembers = data.coreMembers || []; 
   currentGroupPrompt = data.groupPrompt || "";
   currentAutoRoleRules = data.autoRoleRules || ""; 
-  currentEventData = data.eventData || { dates: [], names: [], categories: [] }; // 載入聚會資料
+  currentEventData = data.eventData || { dates: [], names: [], categories: [] };
 
   currentTemplate = data.template || "";
   localCustomMembers = data.customMembers || [];
@@ -143,10 +143,8 @@ function renderTable(data) {
   if (currentGroupMembers.length > 0) datalistHTML += `<datalist id="allMembersList">` + currentGroupMembers.map(m => `<option value="${m}">`).join('') + `</datalist>`;
   if (currentCoreMembers.length > 0) datalistHTML += `<datalist id="coreMembersList">` + currentCoreMembers.map(m => `<option value="${m}">`).join('') + `</datalist>`;
   
-  // 🌟 產生外部聚會資料專屬的下拉清單
+  // 🌟 只保留外部日期的下拉清單 (移除名稱與類別)
   if (currentEventData.dates.length > 0) datalistHTML += `<datalist id="eventDatesList">` + currentEventData.dates.map(d => `<option value="${d}">`).join('') + `</datalist>`;
-  if (currentEventData.names.length > 0) datalistHTML += `<datalist id="eventNamesList">` + currentEventData.names.map(n => `<option value="${n}">`).join('') + `</datalist>`;
-  if (currentEventData.categories.length > 0) datalistHTML += `<datalist id="eventCategoriesList">` + currentEventData.categories.map(c => `<option value="${c}">`).join('') + `</datalist>`;
 
   // 產生自訂名單的下拉選項
   if (currentTemplate !== "小組聚會表模板") {
@@ -197,10 +195,9 @@ function createRowHTML(rowData, gridTemplate) {
       // 邏輯一：非小組聚會表之其他模板
       if (header.includes("日期")) {
         listAttr = `list="eventDatesList"`; extraClass = `datalist-input`;
-      } else if (header.includes("聚會名稱")) {
-        listAttr = `list="eventNamesList"`; extraClass = `datalist-input`;
-      } else if (header.includes("聚會類別")) {
-        listAttr = `list="eventCategoriesList"`; extraClass = `datalist-input`;
+      } else if (header.includes("聚會名稱") || header.includes("聚會類別")) {
+        // 🌟 聚會名稱、聚會類別直接套用來源，不變成下拉選單
+        listAttr = ""; extraClass = "";
       } else {
         // 其餘欄位全部強制作為下拉同工名單
         if (currentTemplate === "新家人服事表模板" && header.includes("小家長")) {
