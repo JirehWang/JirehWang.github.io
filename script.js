@@ -229,7 +229,7 @@ function createRowHTML(rowData, gridTemplate) {
     else if (currentTemplate === "司會模板" && header.includes("司會")) {
       listAttr = `list="customMembersList"`; extraClass = `datalist-input`;
     } 
-    else if (currentTemplate === "招待服事表模板" && header.includes("招待同工")) {
+    else if ((currentTemplate === "招待服事表模板" || currentTemplate === "招待模板") && header.includes("招待同工")) {
       listAttr = `list="customMembersList"`; extraClass = `datalist-input`;
     } 
     else {
