@@ -15,7 +15,7 @@ let bulletinModalInstance = null;
 // 名單與聚會資料變數
 let localCustomMembers = [];
 let currentTemplate = "";
-let currentEventData = { dates: [], names: [], categories: [] };
+let currentEventData = []; // 接收物件陣列
 
 const showLoading = (msg) => { const el = document.getElementById('globalLoading'); el.innerText = msg; el.classList.remove('hidden'); };
 const hideLoading = () => document.getElementById('globalLoading').classList.add('hidden');
@@ -112,7 +112,7 @@ function renderTable(data) {
   currentCoreMembers = data.coreMembers || []; 
   currentGroupPrompt = data.groupPrompt || "";
   currentAutoRoleRules = data.autoRoleRules || ""; 
-  currentEventData = data.eventData || { dates: [], names: [], categories: [] };
+  currentEventData = data.eventData || []; // 外部聚會物件
 
   currentTemplate = data.template || "";
   localCustomMembers = data.customMembers || [];
@@ -120,7 +120,6 @@ function renderTable(data) {
   const memberBtn = document.getElementById('manageMembersBtn');
   if (memberBtn && currentTemplate !== "小組聚會表模板") {
     memberBtn.classList.remove('hidden'); 
-    
     currentGroupMembers = localCustomMembers.map(m => m.name);
     
     if (currentTemplate === "新家人服事表模板") {
@@ -142,11 +141,7 @@ function renderTable(data) {
   let datalistHTML = "";
   if (currentGroupMembers.length > 0) datalistHTML += `<datalist id="allMembersList">` + currentGroupMembers.map(m => `<option value="${m}">`).join('') + `</datalist>`;
   if (currentCoreMembers.length > 0) datalistHTML += `<datalist id="coreMembersList">` + currentCoreMembers.map(m => `<option value="${m}">`).join('') + `</datalist>`;
-  
-  // 🌟 只保留外部日期的下拉清單 (移除名稱與類別)
-  if (currentEventData.dates.length > 0) datalistHTML += `<datalist id="eventDatesList">` + currentEventData.dates.map(d => `<option value="${d}">`).join('') + `</datalist>`;
 
-  // 產生自訂名單的下拉選項
   if (currentTemplate !== "小組聚會表模板") {
     if (currentTemplate === "新家人服事表模板") {
       const normalNames = localCustomMembers.filter(m => m.role === "一般同工").map(m => m.name);
@@ -167,8 +162,36 @@ function renderTable(data) {
   html += `<div id="rowsContainer" class="d-flex flex-column gap-2">`;
   
   const rows = data.matrix.slice(1);
-  const validRows = rows.filter(r => r.some(cell => cell.toString().trim() !== ""));
-  if (validRows.length === 0) validRows.push([], [], []);
+  let validRows = rows.filter(r => r.some(cell => cell.toString().trim() !== ""));
+
+  // 🌟 核心修改：一進分頁，自動比對並產出「還沒建立」的外部聚會列
+  const dateColIdx = currentTableHeaders.findIndex(h => h.includes("日期"));
+  const nameColIdx = currentTableHeaders.findIndex(h => h.includes("聚會名稱"));
+  const catColIdx = currentTableHeaders.findIndex(h => h.includes("聚會類別"));
+
+  if (dateColIdx !== -1 && currentTemplate !== "小組聚會表模板" && currentEventData.length > 0) {
+    const existingDates = validRows.map(r => r[dateColIdx]);
+
+    currentEventData.forEach(event => {
+      // 如果這個日期還不在表格裡，就自動生出一列並填入前三欄
+      if (!existingDates.includes(event.date)) {
+        let newRow = new Array(validColCount).fill("");
+        newRow[dateColIdx] = event.date;
+        if (nameColIdx !== -1) newRow[nameColIdx] = event.name;
+        if (catColIdx !== -1) newRow[catColIdx] = event.category;
+        validRows.push(newRow);
+      }
+    });
+
+    // 自動依照日期幫表格排好順序，舒舒服服
+    validRows.sort((a, b) => {
+      let dateA = a[dateColIdx] || "9999-99-99";
+      let dateB = b[dateColIdx] || "9999-99-99";
+      return dateA.localeCompare(dateB);
+    });
+  }
+
+  if (validRows.length === 0) validRows.push(new Array(validColCount).fill(""));
 
   validRows.forEach((rowData) => html += createRowHTML(rowData, gridTemplate));
   
@@ -186,17 +209,12 @@ function createRowHTML(rowData, gridTemplate) {
   currentTableHeaders.forEach((header, cIdx) => {
     let listAttr = ""; let extraClass = "";
     
-    // 日期預設型態
     let inputType = "text";
     if (header.includes("日期")) inputType = "date";
 
-    // 🌟 核心選單對應邏輯
     if (currentTemplate !== "小組聚會表模板") {
-      // 邏輯一：非小組聚會表之其他模板
-      if (header.includes("日期")) {
-        listAttr = `list="eventDatesList"`; extraClass = `datalist-input`;
-      } else if (header.includes("聚會名稱") || header.includes("聚會類別")) {
-        // 🌟 聚會名稱、聚會類別直接套用來源，不變成下拉選單
+      if (header.includes("日期") || header.includes("聚會名稱") || header.includes("聚會類別")) {
+        // 🌟 日期、名稱、類別完全排除下拉選單，變成純文字/日期預設輸入框
         listAttr = ""; extraClass = "";
       } else {
         // 其餘欄位全部強制作為下拉同工名單
@@ -210,7 +228,7 @@ function createRowHTML(rowData, gridTemplate) {
       }
     }
     else {
-      // 邏輯二：小組聚會表模板 (維持舊有邏輯不變)
+      // 小組聚會表模板 (維持舊有邏輯不變)
       const allDropdownCols = ["破冰", "敬拜", "分享"]; 
       const coreDropdownCols = ["話語", "領會", "主領", "帶領"]; 
       const isAllCol = allDropdownCols.some(c => header.includes(c));
@@ -289,7 +307,6 @@ async function processAI() {
     document.getElementById('aiStatus').innerText = "✅ 解析/排班完成！"; 
     document.getElementById('aiRawText').value = ""; 
   } catch (err) { 
-    // 🌟 核心修改：攔截並替換伺服器忙線的錯誤訊息
     let errorMsg = err.message;
     if (errorMsg.includes("high demand") || errorMsg.includes("503")) {
       errorMsg = "伺服器忙線中，請稍後再試。";
@@ -303,6 +320,7 @@ async function processAI() {
     hideLoading(); 
   }
 }
+
 function fillTableWithData(parsedRows) {
   const container = document.getElementById('rowsContainer'); const dateColIdx = currentTableHeaders.findIndex(h => h.includes("日期"));
   parsedRows.forEach(rowData => {
