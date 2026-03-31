@@ -285,10 +285,24 @@ async function processAI() {
   try {
     const response = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: "parseWithAI", data: { text: rawText, headers: currentTableHeaders, members: currentGroupMembers, groupPrompt: currentGroupPrompt + "\n" + currentAutoRoleRules } }) });
     const resJson = await response.json(); if (resJson.status !== 'success') throw new Error(resJson.message);
-    fillTableWithData(resJson.data); document.getElementById('aiStatus').innerText = "✅ 解析/排班完成！"; document.getElementById('aiRawText').value = ""; 
-  } catch (err) { alert("解析失敗：" + err.message); document.getElementById('aiStatus').innerText = "❌ 發生錯誤，請重試。"; } finally { hideLoading(); }
+    fillTableWithData(resJson.data); 
+    document.getElementById('aiStatus').innerText = "✅ 解析/排班完成！"; 
+    document.getElementById('aiRawText').value = ""; 
+  } catch (err) { 
+    // 🌟 核心修改：攔截並替換伺服器忙線的錯誤訊息
+    let errorMsg = err.message;
+    if (errorMsg.includes("high demand") || errorMsg.includes("503")) {
+      errorMsg = "伺服器忙線中，請稍後再試。";
+      alert(errorMsg);
+      document.getElementById('aiStatus').innerText = "❌ " + errorMsg;
+    } else {
+      alert("解析失敗：" + errorMsg); 
+      document.getElementById('aiStatus').innerText = "❌ 發生錯誤，請重試。"; 
+    }
+  } finally { 
+    hideLoading(); 
+  }
 }
-
 function fillTableWithData(parsedRows) {
   const container = document.getElementById('rowsContainer'); const dateColIdx = currentTableHeaders.findIndex(h => h.includes("日期"));
   parsedRows.forEach(rowData => {
