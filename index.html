@@ -16,9 +16,13 @@
   <div class="container-fluid">
     
     <div id="adminMain" class="card-custom hidden">
-      <div class="d-flex justify-content-between align-items-center mb-4">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
         <h3 class="text-primary fw-bold m-0">教會服事管理系統</h3>
-        <button class="btn btn-sm btn-primary px-3 shadow-sm" onclick="showSection('createSection')">➕ 建立新分頁</button>
+        <div class="d-flex gap-2">
+          <button class="btn btn-sm btn-outline-success shadow-sm fw-bold" onclick="showAggregatedReport('smallGroup')">📊 小組聚會總表</button>
+          <button class="btn btn-sm btn-outline-info shadow-sm fw-bold" onclick="showAggregatedReport('others')">📊 各項服事總表</button>
+          <button class="btn btn-sm btn-primary shadow-sm" onclick="showSection('createSection')">➕ 建立新分頁</button>
+        </div>
       </div>
 
       <input type="text" id="groupSearch" class="form-control search-box shadow-sm" 
@@ -147,6 +151,23 @@
         <div class="modal-footer d-flex justify-content-between">
           <button type="button" class="btn btn-success fw-bold shadow-sm" onclick="downloadExcel()">📥 下載 Excel</button>
           <button type="button" id="modalCloseBtn" class="btn btn-warning fw-bold shadow-sm" onclick="closeModalOrUnlock()">⚙️ 進入編輯 (需輸入 ID)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="aggregatedReportModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title fw-bold" id="aggregatedReportModalLabel">📊 彙整總表</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="aggregatedReportContent">
+          </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉預覽</button>
+          <button type="button" id="downloadAggregatedBtn" class="btn btn-success fw-bold shadow-sm">📥 下載此總表 Excel</button>
         </div>
       </div>
     </div>
