@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教會近期聚會佈告欄</title>
+    <style>
+        /* 佈告欄專屬的 CSS 風格 (保留您提供的樣式) */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f7fafc;
+            color: #2d3748;
+            margin: 0;
+            padding: 20px;
+        }
+        .board-container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .header h1 {
+            color: #2b6cb0;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        .header p {
+            color: #718096;
+            font-size: 1.1em;
+        }
+        .event-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+        }
+        .event-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            border-top: 5px solid #4299e1;
+        }
+        .event-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+        }
+        .date-badge {
+            background: #ebf8ff;
+            color: #2b6cb0;
+            padding: 15px;
+            text-align: center;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .date-badge .day {
+            font-size: 2em;
+            font-weight: bold;
+            line-height: 1;
+        }
+        .date-badge .ym {
+            font-size: 0.9em;
+            color: #4a5568;
+            margin-top: 5px;
+        }
+        .card-body {
+            padding: 20px;
+        }
+        .group-tag {
+            display: inline-block;
+            background: #edf2f7;
+            color: #4a5568;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 0.75em;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .event-name {
+            font-size: 1.25em;
+            font-weight: bold;
+            color: #2d3748;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .duty-section {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-left: 3px solid #4299e1;
+        }
+        .info-row {
+            margin-bottom: 6px;
+            font-size: 0.95em;
+            line-height: 1.4;
+            display: flex;
+            justify-content: space-between;
+        }
+        .info-label {
+            color: #718096;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+        .info-value {
+            color: #2d3748;
+            font-weight: 500;
+        }
+        .no-data {
+            text-align: center;
+            color: #a0aec0;
+            font-size: 1.2em;
+            padding: 50px;
+            grid-column: 1 / -1;
+        }
+        .admin-link {
+            display: block;
+            text-align: center;
+            margin-top: 40px;
+            color: #718096;
+            text-decoration: none;
+            font-size: 0.9em;
+        }
+        .admin-link:hover { color: #2b6cb0; text-decoration: underline; }
+        
+        /* Loading 動畫 */
+        .spinner {
+            margin: 100px auto;
+            width: 50px;
+            height: 40px;
+            text-align: center;
+            font-size: 10px;
+        }
+        .spinner > div {
+            background-color: #4299e1;
+            height: 100%;
+            width: 6px;
+            display: inline-block;
+            animation: sk-stretchdelay 1.2s infinite ease-in-out;
+        }
+        @keyframes sk-stretchdelay {
+            0%, 40%, 100% { transform: scaleY(0.4); }  
+            20% { transform: scaleY(1.0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="board-container">
+        <div class="header">
+            <h1>⛪ 教會近期服事佈告欄</h1>
+            <p id="dateRangeText">願平安與您同在，正在同步最新雲端資料...</p>
+        </div>
+
+        <div id="boardGrid" class="event-grid">
+            <div class="spinner">
+                <div class="rect1"></div><div class="rect2"></div><div class="rect3"></div><div class="rect4"></div><div class="rect5"></div>
+            </div>
+        </div>
+
+        <a href="index.html" class="admin-link">⚙️ 返回系統管理員介面</a>
+    </div>
+
+    <script>
+        // 🌟 填入您的 GAS 網址
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_U9nKJrRMR1-xzbbtuaq08lePLgAQ2wnDRrCeHdy9jNhh/exec";
+
+        document.addEventListener('DOMContentLoaded', fetchAndRenderBoard);
+
+        async function fetchAndRenderBoard() {
+            const container = document.getElementById('boardGrid');
+            const dateRangeText = document.getElementById('dateRangeText');
+
+            try {
+                // 1. 同時抓取小組與其他服事的所有資料
+                const [smallGroupData, othersData] = await Promise.all([
+                    fetch(`${GAS_URL}?action=getAggregatedReport&type=smallGroup`).then(r => r.json()),
+                    fetch(`${GAS_URL}?action=getAggregatedReport&type=others`).then(r => r.json())
+                ]);
+
+                if (smallGroupData.status !== 'success' || othersData.status !== 'success') throw new Error("資料抓取失敗");
+
+                // 2. 合併資料並轉換成物件格式
+                const allRawData = [...matrixToObjects(smallGroupData.data), ...matrixToObjects(othersData.data)];
+
+                // 3. 處理日期區間：今天 ~ 今天+7天
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const next7Days = new Date();
+                next7Days.setDate(today.getDate() + 7);
+                next7Days.setHours(23, 59, 59, 999);
+
+                dateRangeText.innerText = `📅 顯示區間：${formatDate(today)} ~ ${formatDate(next7Days)}`;
+
+                // 4. 過濾日期並排序
+                const filteredEvents = allRawData.filter(item => {
+                    const itemDate = new Date(item["日期"]);
+                    return itemDate >= today && itemDate <= next7Days;
+                }).sort((a, b) => new Date(a["日期"]) - new Date(b["日期"]));
+
+                if (filteredEvents.length === 0) {
+                    container.innerHTML = '<div class="no-data">✨ 未來 7 天內尚無已排定的聚會資訊</div>';
+                    return;
+                }
+
+                // 5. 渲染 HTML
+                container.innerHTML = filteredEvents.map(event => {
+                    const dateObj = new Date(event["日期"]);
+                    const day = String(dateObj.getDate()).padStart(2, '0');
+                    const yearMonth = `${dateObj.getFullYear()}年 ${dateObj.getMonth() + 1}月`;
+                    const weekDay = ['日', '一', '二', '三', '四', '五', '六'][dateObj.getDay()];
+
+                    // 排除不需要顯示在服事細項的欄位
+                    const excludeFields = ["日期", "分頁名稱", "模板類型", "聚會名稱", "聚會類別", "地點", "經文", "主題"];
+                    
+                    // 抓取服事內容 (有值的才顯示)
+                    const duties = Object.keys(event)
+                        .filter(key => !excludeFields.includes(key) && event[key] && event[key] !== "-")
+                        .map(key => `
+                            <div class="info-row">
+                                <span class="info-label">${key}</span>
+                                <span class="info-value">${event[key]}</span>
+                            </div>
+                        `).join('');
+
+                    return `
+                        <div class="event-card">
+                            <div class="date-badge">
+                                <div class="day">${day}</div>
+                                <div class="ym">${yearMonth} (星期${weekDay})</div>
+                            </div>
+                            <div class="card-body">
+                                <div class="text-center"><span class="group-tag">${event["分頁名稱"]}</span></div>
+                                <div class="event-name">${event["聚會名稱"] || event["主題"] || "常規聚會"}</div>
+                                
+                                <div class="duty-section">
+                                    ${duties || '<div class="text-center text-muted small">一般聚會，無需特別服事</div>'}
+                                </div>
+
+                                ${event["地點"] ? `<div class="info-row small mt-2"><span class="info-label">📍 地點:</span> <span>${event["地點"]}</span></div>` : ''}
+                                ${event["經文"] ? `<div class="info-row small"><span class="info-label">📖 經文:</span> <span>${event["經文"]}</span></div>` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = `<div class="no-data text-danger">⚠️ 連線失敗，請檢查網路或 GAS 網址設定</div>`;
+            }
+        }
+
+        // 工具：將 GAS 的二維陣列轉為物件陣列
+        function matrixToObjects(matrix) {
+            if (!matrix || matrix.length < 2) return [];
+            const headers = matrix[0];
+            return matrix.slice(1).map(row => {
+                let obj = {};
+                headers.forEach((h, i) => obj[h] = row[i]);
+                return obj;
+            });
+        }
+
+        function formatDate(date) {
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        }
+    </script>
+</body>
+</html>
