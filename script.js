@@ -522,3 +522,55 @@ async function saveMembersToServer() {
     location.reload(); 
   } catch (e) { alert("儲存失敗：" + e.message); } finally { hideLoading(); }
 }
+
+// ==========================================
+// 🌟 彙整報表功能 (呼叫後端並渲染)
+// ==========================================
+async function showAggregatedReport(type) {
+  showLoading("📊 彙整資料中，這可能需要幾秒鐘...");
+  try {
+    // 呼叫後端剛剛寫好的 API
+    const matrix = await fetchAPI('getAggregatedReport', { type: type });
+    
+    if (!matrix || matrix.length <= 1) {
+      alert("目前還沒有建立任何資料，或是資料都是空的喔！");
+      return;
+    }
+
+    // 產生預覽表格的 HTML
+    let tableHtml = '<table class="table table-bordered table-hover text-center align-middle m-0" style="min-width: 1200px;"><thead><tr>';
+    matrix[0].forEach(h => tableHtml += `<th class="bg-light" style="position: sticky; top: 0; z-index: 10; outline: 1px solid #dee2e6;">${h}</th>`);
+    tableHtml += '</tr></thead><tbody>';
+
+    for (let i = 1; i < matrix.length; i++) {
+      tableHtml += '<tr>';
+      matrix[i].forEach(cell => tableHtml += `<td>${cell || "-"}</td>`); 
+      tableHtml += '</tr>';
+    }
+    tableHtml += '</tbody></table>';
+
+    // 塞入 Modal 裡面
+    document.getElementById('aggregatedReportContent').innerHTML = `<div class="table-responsive" style="max-height: 65vh; overflow-y: auto;">${tableHtml}</div>`;
+    
+    // 設定標題與下載按鈕的事件
+    const title = type === 'smallGroup' ? '📊 所有小組聚會總表' : '📊 教會各項服事總表';
+    document.getElementById('aggregatedReportModalLabel').innerText = title;
+    document.getElementById('downloadAggregatedBtn').onclick = () => downloadAggregatedExcel(matrix, title);
+
+    // 顯示視窗
+    new bootstrap.Modal(document.getElementById('aggregatedReportModal')).show();
+  } catch (e) {
+    alert("彙整失敗：" + e.message);
+  } finally {
+    hideLoading();
+  }
+}
+
+function downloadAggregatedExcel(matrix, fileName) {
+  const ws = XLSX.utils.aoa_to_sheet(matrix);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "彙整總表");
+
+  const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  XLSX.writeFile(wb, `${fileName}_${today}.xlsx`);
+}
