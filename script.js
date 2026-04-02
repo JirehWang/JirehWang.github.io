@@ -1,4 +1,3 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_U9nKJrRMR1-xzbbtuaq08lePLgAQ2wnDRrCeHdy9jNhh/exec"; 
 const currentId = new URLSearchParams(window.location.search).get('id');
 let activeGroupName = "";
 let currentTableHeaders = [];
@@ -20,13 +19,13 @@ let currentEventData = []; // 接收物件陣列
 const showLoading = (msg) => { const el = document.getElementById('globalLoading'); el.innerText = msg; el.classList.remove('hidden'); };
 const hideLoading = () => document.getElementById('globalLoading').classList.add('hidden');
 
+// 🌟 核心修改：全面改用 config.js 的安全路由
 async function fetchAPI(action, params = {}) {
-  let url = new URL(GAS_URL);
-  url.searchParams.append('action', action);
-  for (let key in params) url.searchParams.append(key, params[key]);
-  const response = await fetch(url);
-  const result = await response.json();
-  if (result.status !== 'success') throw new Error(result.message);
+  if (typeof window.churchAPI !== 'function') {
+    throw new Error("安全路由尚未載入，請確認 config.js 是否正常運作。");
+  }
+  const result = await window.churchAPI(action, params);
+  if (result.status !== 'success') throw new Error(result.message || "發生未知錯誤");
   return result.data;
 }
 
@@ -297,12 +296,19 @@ function filterByDate() {
 
 function clearDateFilter() { document.getElementById('startDate').value = ""; document.getElementById('endDate').value = ""; document.querySelectorAll('.record-row').forEach(rowDiv => rowDiv.classList.remove('hidden')); }
 
+// 🌟 替換直接呼叫 fetch，改用 window.churchAPI
 async function processAI() {
   const rawText = document.getElementById('aiRawText').value.trim(); if (!rawText) return alert("請貼上文字");
   showLoading("🤖 AI 運算中，請稍候...");
   try {
-    const response = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: "parseWithAI", data: { text: rawText, headers: currentTableHeaders, members: currentGroupMembers, groupPrompt: currentGroupPrompt + "\n" + currentAutoRoleRules } }) });
-    const resJson = await response.json(); if (resJson.status !== 'success') throw new Error(resJson.message);
+    const resJson = await window.churchAPI("parseWithAI", { 
+      text: rawText, 
+      headers: currentTableHeaders, 
+      members: currentGroupMembers, 
+      groupPrompt: currentGroupPrompt + "\n" + currentAutoRoleRules 
+    });
+    
+    if (resJson.status !== 'success') throw new Error(resJson.message);
     fillTableWithData(resJson.data); 
     document.getElementById('aiStatus').innerText = "✅ 解析/排班完成！"; 
     document.getElementById('aiRawText').value = ""; 
@@ -335,6 +341,7 @@ function fillTableWithData(parsedRows) {
   });
 }
 
+// 🌟 替換儲存資料功能
 async function saveData() {
   showLoading("💾 儲存中...");
   try {
@@ -344,32 +351,49 @@ async function saveData() {
       if (row.some(v => v.trim() !== "")) matrix.push(row);
     });
     while(matrix.length <= 50) matrix.push(Array(currentTableHeaders.length).fill(""));
-    await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: "saveSheetData", data: { groupName: activeGroupName, matrix: matrix } }) });
+    
+    await window.churchAPI("saveSheetData", { groupName: activeGroupName, matrix: matrix });
+    
     alert("✅ 儲存成功！");
   } catch (e) { alert("儲存失敗"); } finally { hideLoading(); }
 }
 
+// 🌟 替換狀態切換功能
 async function toggleStatus(groupId, currentStatus) {
   showLoading("🔄 更新狀態中...");
   try {
-    const response = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: "toggleGroupStatus", data: { id: groupId, status: currentStatus } }) });
-    if ((await response.json()).status === 'success') await loadAdminData();
+    const result = await window.churchAPI("toggleGroupStatus", { id: groupId, status: currentStatus });
+    if (result.status === 'success') await loadAdminData();
   } catch (e) { alert("更新失敗"); } finally { hideLoading(); }
 }
 
 function showSection(id) { document.querySelectorAll('.card-custom').forEach(el => el.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
 
+// 🌟 替換建立群組功能
 const createForm = document.getElementById('createGroupForm');
 if (createForm) {
   createForm.onsubmit = async function(e) {
     e.preventDefault(); showLoading("建立中...");
-    try { await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: "createGroup", data: { id: document.getElementById('newId').value, name: document.getElementById('newName').value, template: document.getElementById('templateSelect').value } }) }); location.reload(); } catch (e) { alert("失敗"); } finally { hideLoading(); }
+    try { 
+      await window.churchAPI("createGroup", { 
+        id: document.getElementById('newId').value, 
+        name: document.getElementById('newName').value, 
+        template: document.getElementById('templateSelect').value 
+      });
+      location.reload(); 
+    } catch (e) { alert("失敗"); } finally { hideLoading(); }
   };
 }
 
+// 🌟 替換儲存 AI 提示詞功能
 async function saveGroupPrompt() {
   const newPrompt = document.getElementById('groupPromptInput').value.trim(); showLoading("💾 儲存規則中...");
-  try { await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: "saveGroupPrompt", data: { id: currentId, prompt: newPrompt } }) }); currentGroupPrompt = newPrompt; alert("✅ 專屬規則儲存成功！"); document.getElementById('promptSettings').classList.add('hidden'); } catch (e) { alert("儲存失敗：" + e.message); } finally { hideLoading(); }
+  try { 
+    await window.churchAPI("saveGroupPrompt", { id: currentId, prompt: newPrompt });
+    currentGroupPrompt = newPrompt; 
+    alert("✅ 專屬規則儲存成功！"); 
+    document.getElementById('promptSettings').classList.add('hidden'); 
+  } catch (e) { alert("儲存失敗：" + e.message); } finally { hideLoading(); }
 }
 
 function showBulletinBoard() {
@@ -507,17 +531,11 @@ function deleteMember(idx) {
   renderMemberList();
 }
 
+// 🌟 替換儲存同工名單功能
 async function saveMembersToServer() {
   showLoading("💾 儲存名單中...");
   try {
-    await fetch(GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ 
-        action: "saveGroupMembers", 
-        data: { id: currentId, members: localCustomMembers } 
-      })
-    });
+    await window.churchAPI("saveGroupMembers", { id: currentId, members: localCustomMembers });
     alert("✅ 名單儲存成功！將重新載入頁面套用新設定。");
     location.reload(); 
   } catch (e) { alert("儲存失敗：" + e.message); } finally { hideLoading(); }
@@ -529,7 +547,7 @@ async function saveMembersToServer() {
 async function showAggregatedReport(type) {
   showLoading("📊 彙整資料中，這可能需要幾秒鐘...");
   try {
-    // 呼叫後端剛剛寫好的 API
+    // 呼叫後端剛剛寫好的 API (已經串接新的 fetchAPI 邏輯)
     const matrix = await fetchAPI('getAggregatedReport', { type: type });
     
     if (!matrix || matrix.length <= 1) {
