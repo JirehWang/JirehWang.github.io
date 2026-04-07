@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>小組近期聚會佈告欄</title>
-    <script src="https://LKERP.github.io/config.js"></script>
+    <script src="https://LKERP.github.io/config.js?v=3" defer></script>
     <style>
         /* 佈告欄專屬的 CSS 風格 */
         body {
@@ -170,12 +170,19 @@
             const dateRangeText = document.getElementById('dateRangeText');
 
             try {
-                // 🌟 2. 確保大腦已經掛載
-                if (typeof window.churchAPI !== 'function') {
-                    throw new Error("系統安全設定尚未載入，請稍後再試。");
+                // 🌟 修改點 2：加入耐心等待機制，最多等 3 秒讓 config.js 載入完畢
+                let retryCount = 0;
+                while (typeof window.churchAPI !== 'function' && retryCount < 30) {
+                    await new Promise(resolve => setTimeout(resolve, 100)); // 每次等 0.1 秒
+                    retryCount++;
                 }
 
-                // 🌟 3. 改用中央通訊系統，自動帶入 Token 鑰匙！
+                // 🌟 3. 如果等了 3 秒還是沒有，才拋出錯誤
+                if (typeof window.churchAPI !== 'function') {
+                    throw new Error("系統安全設定 (config.js) 連線超時，請檢查網路或強制重新整理 (Ctrl+F5)。");
+                }
+
+                // 改用中央通訊系統，自動帶入 Token 鑰匙！
                 const result = await window.churchAPI('getAggregatedReport', { type: 'smallGroup' });
 
                 if (result.status !== 'success') throw new Error(result.message || "資料抓取失敗");
