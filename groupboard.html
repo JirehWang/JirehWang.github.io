@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>小組近期聚會佈告欄</title>
+    <script src="https://LKERP.github.io/config.js"></script>
     <style>
         /* 佈告欄專屬的 CSS 風格 */
         body {
@@ -149,7 +150,7 @@
     <div class="board-container">
         <div class="header">
             <h1>🌿 小組團契近期聚會佈告欄</h1>
-            <p id="dateRangeText"> 願你們平安，在小組團契裡常存愛的陪伴❤️❤️❤️同步小組最新資料中...</p>
+            <p id="dateRangeText"> 願你們平安，在小組團契裡常存愛的陪伴❤️❤️❤️<br><small>同步小組最新資料中...</small></p>
         </div>
 
         <div id="boardGrid" class="event-grid">
@@ -162,9 +163,6 @@
     </div>
 
     <script>
-        // 🌟 填入您的 GAS 網址
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_U9nKJrRMR1-xzbbtuaq08lePLgAQ2wnDRrCeHdy9jNhh/exec";
-
         document.addEventListener('DOMContentLoaded', fetchAndRenderBoard);
 
         async function fetchAndRenderBoard() {
@@ -172,25 +170,29 @@
             const dateRangeText = document.getElementById('dateRangeText');
 
             try {
-                // 只抓取小組模板的資料 (type=smallGroup)
-                const response = await fetch(`${GAS_URL}?action=getAggregatedReport&type=smallGroup`);
-                const result = await response.json();
+                // 🌟 2. 確保大腦已經掛載
+                if (typeof window.churchAPI !== 'function') {
+                    throw new Error("系統安全設定尚未載入，請稍後再試。");
+                }
 
-                if (result.status !== 'success') throw new Error("資料抓取失敗");
+                // 🌟 3. 改用中央通訊系統，自動帶入 Token 鑰匙！
+                const result = await window.churchAPI('getAggregatedReport', { type: 'smallGroup' });
 
-                // 1. 轉換格式
+                if (result.status !== 'success') throw new Error(result.message || "資料抓取失敗");
+
+                // 轉換格式
                 const allRawData = matrixToObjects(result.data);
 
-                // 2. 處理日期區間：今天 ~ 今天+7天
+                // 處理日期區間：今天 ~ 今天+7天
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
                 const next7Days = new Date();
                 next7Days.setDate(today.getDate() + 7);
                 next7Days.setHours(23, 59, 59, 999);
 
-                dateRangeText.innerText = `📅 小組團契聚會預告：${formatDate(today)} ~ ${formatDate(next7Days)}`;
+                dateRangeText.innerHTML = `願你們平安，在小組團契裡常存愛的陪伴❤️❤️❤️<br>📅 小組團契聚會預告：${formatDate(today)} ~ ${formatDate(next7Days)}`;
 
-                // 3. 過濾與排序
+                // 過濾與排序
                 const filteredEvents = allRawData.filter(item => {
                     const itemDate = new Date(item["日期"]);
                     return itemDate >= today && itemDate <= next7Days;
@@ -201,7 +203,7 @@
                     return;
                 }
 
-                // 4. 渲染
+                // 渲染
                 container.innerHTML = filteredEvents.map(event => {
                     const dateObj = new Date(event["日期"]);
                     const day = String(dateObj.getDate()).padStart(2, '0');
@@ -244,7 +246,7 @@
 
             } catch (err) {
                 console.error(err);
-                container.innerHTML = `<div class="no-data text-danger">⚠️ 連線失敗，請檢查網路或 GAS 網址設定</div>`;
+                container.innerHTML = `<div class="no-data text-danger">⚠️ 連線失敗：${err.message}</div>`;
             }
         }
 
