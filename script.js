@@ -30,8 +30,9 @@ async function fetchAPI(action, params = {}) {
 }
 
 window.onload = async () => {
-  // 🌟 新增：檢查該分頁是否曾經解鎖過 (機制 1: 刷新頁面保持解鎖)
-  if (sessionStorage.getItem(`isUnlocked_${currentId}`) === 'true') {
+  // 🌟 安全降級：改回 sessionStorage (分頁短期記憶)
+  // 只要關閉分頁或瀏覽器，記憶就會銷毀，確保公用電腦的安全！
+  if (currentId && sessionStorage.getItem(`unlocked_${currentId}`) === 'true') {
     isEditorUnlocked = true;
   }
 
@@ -44,7 +45,7 @@ window.onload = async () => {
       const data = await fetchAPI('getPageConfig', { id: currentId }); 
       renderTable(data); 
       
-      // 🌟 修改：如果「未解鎖」，才顯示布告欄 (預覽模式)，已解鎖就直接留在編輯區
+      // 如果未解鎖，才顯示布告欄 (預覽模式)
       if (!isEditorUnlocked) {
         showBulletinBoard(); 
       }
@@ -120,7 +121,7 @@ function renderTable(data) {
   currentCoreMembers = data.coreMembers || []; 
   currentGroupPrompt = data.groupPrompt || "";
   currentAutoRoleRules = data.autoRoleRules || ""; 
-  currentEventData = data.eventData || []; // 外部聚會物件
+  currentEventData = data.eventData || []; 
 
   currentTemplate = data.template || "";
   localCustomMembers = data.customMembers || [];
@@ -172,7 +173,6 @@ function renderTable(data) {
   const rows = data.matrix.slice(1);
   let validRows = rows.filter(r => r.some(cell => cell.toString().trim() !== ""));
 
-  // 🌟 核心修改：一進分頁，自動比對並產出「還沒建立」的外部聚會列
   const dateColIdx = currentTableHeaders.findIndex(h => h.includes("日期"));
   const nameColIdx = currentTableHeaders.findIndex(h => h.includes("聚會名稱"));
   const catColIdx = currentTableHeaders.findIndex(h => h.includes("聚會類別"));
@@ -181,7 +181,6 @@ function renderTable(data) {
     const existingDates = validRows.map(r => r[dateColIdx]);
 
     currentEventData.forEach(event => {
-      // 如果這個日期還不在表格裡，就自動生出一列並填入前三欄
       if (!existingDates.includes(event.date)) {
         let newRow = new Array(validColCount).fill("");
         newRow[dateColIdx] = event.date;
@@ -191,7 +190,6 @@ function renderTable(data) {
       }
     });
 
-    // 自動依照日期幫表格排好順序
     validRows.sort((a, b) => {
       let dateA = a[dateColIdx] || "9999-99-99";
       let dateB = b[dateColIdx] || "9999-99-99";
@@ -204,7 +202,7 @@ function renderTable(data) {
   validRows.forEach((rowData) => html += createRowHTML(rowData, gridTemplate));
   
   html += `</div>`;
-  html += `<button class="btn btn-outline-primary w-100 mt-3 border border-2 border-primary border-opacity-50" style="border-style: dashed !important;" onclick="addNewRow()">➕ 新增一筆空白列</button>`;
+  html += `<button type="button" class="btn btn-outline-primary w-100 mt-3 border border-2 border-primary border-opacity-50" style="border-style: dashed !important;" onclick="addNewRow()">➕ 新增一筆空白列</button>`;
   
   document.getElementById('dynamicFormContainer').innerHTML = html;
   initGridInteraction();
@@ -216,7 +214,6 @@ function createRowHTML(rowData, gridTemplate) {
   
   currentTableHeaders.forEach((header, cIdx) => {
     let listAttr = ""; let extraClass = "";
-    
     let inputType = "text";
     if (header.includes("日期")) inputType = "date";
 
@@ -247,7 +244,7 @@ function createRowHTML(rowData, gridTemplate) {
     rowHtml += `<input type="${inputType}" class="grid-input ${extraClass}" data-c="${cIdx}" value="${val}" title="${val}" ${listAttr}>`;
   });
   
-  rowHtml += `<button class="btn btn-sm btn-outline-danger" onclick="deleteRow(this)" title="刪除此列">✖</button></div>`;
+  rowHtml += `<button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteRow(this)" title="刪除此列">✖</button></div>`;
   return rowHtml;
 }
 
@@ -282,6 +279,7 @@ function initGridInteraction() {
 }
 
 function filterByDate() {
+  if (window.event) window.event.preventDefault(); // 🛡️ 阻擋表單重整
   const start = document.getElementById('startDate').value; const end = document.getElementById('endDate').value;
   const recordRows = document.querySelectorAll('.record-row'); const dateColIdx = currentTableHeaders.findIndex(h => h.includes("日期")); 
   if (dateColIdx === -1) return alert("⚠️ 找不到包含「日期」的欄位。");
@@ -300,9 +298,15 @@ function filterByDate() {
   }
 }
 
-function clearDateFilter() { document.getElementById('startDate').value = ""; document.getElementById('endDate').value = ""; document.querySelectorAll('.record-row').forEach(rowDiv => rowDiv.classList.remove('hidden')); }
+function clearDateFilter() { 
+  if (window.event) window.event.preventDefault(); // 🛡️ 阻擋表單重整
+  document.getElementById('startDate').value = ""; 
+  document.getElementById('endDate').value = ""; 
+  document.querySelectorAll('.record-row').forEach(rowDiv => rowDiv.classList.remove('hidden')); 
+}
 
 async function processAI() {
+  if (window.event) window.event.preventDefault(); // 🛡️ 阻擋表單重整
   const rawText = document.getElementById('aiRawText').value.trim(); if (!rawText) return alert("請貼上文字");
   showLoading("🤖 AI 運算中，請稍候...");
   try {
@@ -345,6 +349,7 @@ function fillTableWithData(parsedRows) {
 }
 
 async function saveData() {
+  if (window.event) window.event.preventDefault(); // 🛡️ 阻擋表單重整
   showLoading("💾 儲存中...");
   try {
     const matrix = [currentTableHeaders];
@@ -361,6 +366,7 @@ async function saveData() {
 }
 
 async function toggleStatus(groupId, currentStatus) {
+  if (window.event) window.event.preventDefault(); 
   showLoading("🔄 更新狀態中...");
   try {
     await fetchAPI("toggleGroupStatus", { id: groupId, status: currentStatus });
@@ -373,7 +379,8 @@ function showSection(id) { document.querySelectorAll('.card-custom').forEach(el 
 const createForm = document.getElementById('createGroupForm');
 if (createForm) {
   createForm.onsubmit = async function(e) {
-    e.preventDefault(); showLoading("建立中...");
+    e.preventDefault(); // 表單專屬阻擋
+    showLoading("建立中...");
     try { 
       await fetchAPI("createGroup", { 
         id: document.getElementById('newId').value, 
@@ -386,6 +393,7 @@ if (createForm) {
 }
 
 async function saveGroupPrompt() {
+  if (window.event) window.event.preventDefault(); // 🛡️ 阻擋表單重整
   const newPrompt = document.getElementById('groupPromptInput').value.trim(); showLoading("💾 儲存規則中...");
   try { 
     await fetchAPI("saveGroupPrompt", { id: currentId, prompt: newPrompt });
@@ -396,6 +404,7 @@ async function saveGroupPrompt() {
 }
 
 function showBulletinBoard() {
+  if (window.event) window.event.preventDefault(); 
   const matrix = [currentTableHeaders];
   document.querySelectorAll('.record-row').forEach(rowDiv => {
     if (rowDiv.classList.contains('hidden')) return;
@@ -435,6 +444,7 @@ function showBulletinBoard() {
 }
 
 function closeModalOrUnlock() {
+  if (window.event) window.event.preventDefault(); // 🛡️ 阻擋表單重整
   if (isEditorUnlocked) {
     bulletinModalInstance.hide();
   } else {
@@ -443,8 +453,8 @@ function closeModalOrUnlock() {
     
     if (pwd.trim() === currentId) {
       isEditorUnlocked = true;
-      // 🌟 新增：將解鎖狀態寫入分頁短期記憶 (機制 1: 刷新頁面保持解鎖)
-      sessionStorage.setItem(`isUnlocked_${currentId}`, 'true');
+      // 🌟 安全降級：寫入 sessionStorage，分頁關閉即失效
+      sessionStorage.setItem(`unlocked_${currentId}`, 'true');
       bulletinModalInstance.hide();
     } else {
       alert("❌ ID 輸入錯誤！無法進入編輯模式。");
@@ -453,6 +463,7 @@ function closeModalOrUnlock() {
 }
 
 function downloadExcel() {
+  if (window.event) window.event.preventDefault(); 
   const matrix = [currentTableHeaders];
   document.querySelectorAll('.record-row').forEach(rowDiv => {
     if (rowDiv.classList.contains('hidden')) return;
@@ -470,6 +481,7 @@ function downloadExcel() {
 }
 
 function openMemberModal() {
+  if (window.event) window.event.preventDefault(); 
   const roleSelect = document.getElementById('newMemberRole');
   if (currentTemplate === "新家人服事表模板") {
     roleSelect.classList.remove('hidden');
@@ -488,12 +500,13 @@ function renderMemberList() {
         <span class="fw-bold">${m.name}</span> 
         ${currentTemplate === "新家人服事表模板" ? `<span class="badge bg-secondary ms-2">${m.role}</span>` : ''}
       </div>
-      <button class="btn btn-sm btn-danger" onclick="deleteMember(${idx})">刪除</button>
+      <button type="button" class="btn btn-sm btn-danger" onclick="deleteMember(${idx})">刪除</button>
     </li>
   `).join('');
 }
 
 function addMember() {
+  if (window.event) window.event.preventDefault(); // 🛡️ 阻擋表單重整
   const nameInput = document.getElementById('newMemberName');
   const roleSelect = document.getElementById('newMemberRole');
   const rawText = nameInput.value.trim();
@@ -528,33 +541,35 @@ function addMember() {
 }
 
 function deleteMember(idx) {
+  if (window.event) window.event.preventDefault(); 
   localCustomMembers.splice(idx, 1);
   renderMemberList();
 }
 
-// 🌟 替換儲存同工名單功能 (機制 2: 無縫局部更新版)
 async function saveMembersToServer() {
+  if (window.event) window.event.preventDefault(); // 🛡️ 阻擋表單重整 (防止跳頁)
   showLoading("💾 儲存名單中...");
   try {
     await fetchAPI("saveGroupMembers", { id: currentId, members: localCustomMembers });
     alert("✅ 名單儲存成功！");
     
-    // 1. 關閉人員管理的 Modal (不再使用 location.reload())
+    // 關閉 Modal
     const memberModalEl = document.getElementById('memberModal');
     if (memberModalEl) {
       const memberModal = bootstrap.Modal.getInstance(memberModalEl);
       if (memberModal) memberModal.hide();
     }
 
-    // 2. 背景重新抓取最新的 Config 以更新下拉選單與畫面，達到「無縫銜接」
-    showLoading("🔄 更新下拉選單與畫面中...");
+    // 局部更新，絕不刷新整個網頁
+    showLoading("🔄 更新畫面中...");
     const freshConfig = await fetchAPI('getPageConfig', { id: currentId });
-    renderTable(freshConfig); // 重繪表格，新名字就會出現在下拉選單裡了
+    renderTable(freshConfig); 
 
   } catch (e) { alert("儲存失敗：" + e.message); } finally { hideLoading(); }
 }
 
 async function showAggregatedReport(type) {
+  if (window.event) window.event.preventDefault(); 
   showLoading("📊 彙整資料中，這可能需要幾秒鐘...");
   try {
     const matrix = await fetchAPI('getAggregatedReport', { type: type });
