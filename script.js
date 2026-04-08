@@ -30,6 +30,11 @@ async function fetchAPI(action, params = {}) {
 }
 
 window.onload = async () => {
+  // 🌟 新增：檢查該分頁是否曾經解鎖過 (機制 1: 刷新頁面保持解鎖)
+  if (sessionStorage.getItem(`isUnlocked_${currentId}`) === 'true') {
+    isEditorUnlocked = true;
+  }
+
   if (!currentId) { 
     showSection('adminMain'); 
     await loadAdminData(); 
@@ -38,7 +43,11 @@ window.onload = async () => {
     try { 
       const data = await fetchAPI('getPageConfig', { id: currentId }); 
       renderTable(data); 
-      showBulletinBoard(); 
+      
+      // 🌟 修改：如果「未解鎖」，才顯示布告欄 (預覽模式)，已解鎖就直接留在編輯區
+      if (!isEditorUnlocked) {
+        showBulletinBoard(); 
+      }
     } catch(e){ alert(e.message); } 
   }
 };
@@ -182,7 +191,7 @@ function renderTable(data) {
       }
     });
 
-    // 自動依照日期幫表格排好順序，舒舒服服
+    // 自動依照日期幫表格排好順序
     validRows.sort((a, b) => {
       let dateA = a[dateColIdx] || "9999-99-99";
       let dateB = b[dateColIdx] || "9999-99-99";
@@ -213,10 +222,8 @@ function createRowHTML(rowData, gridTemplate) {
 
     if (currentTemplate !== "小組聚會表模板") {
       if (header.includes("日期") || header.includes("聚會名稱") || header.includes("聚會類別")) {
-        // 🌟 日期、名稱、類別完全排除下拉選單，變成純文字/日期預設輸入框
         listAttr = ""; extraClass = "";
       } else {
-        // 其餘欄位全部強制作為下拉同工名單
         if (currentTemplate === "新家人服事表模板" && header.includes("小家長")) {
           listAttr = `list="parentMembersList"`; extraClass = `datalist-input`;
         } else if (currentTemplate === "新家人服事表模板" && header.includes("新家人同工")) {
@@ -227,7 +234,6 @@ function createRowHTML(rowData, gridTemplate) {
       }
     }
     else {
-      // 小組聚會表模板 (維持舊有邏輯不變)
       const allDropdownCols = ["破冰", "敬拜", "分享"]; 
       const coreDropdownCols = ["話語", "領會", "主領", "帶領"]; 
       const isAllCol = allDropdownCols.some(c => header.includes(c));
@@ -296,20 +302,17 @@ function filterByDate() {
 
 function clearDateFilter() { document.getElementById('startDate').value = ""; document.getElementById('endDate').value = ""; document.querySelectorAll('.record-row').forEach(rowDiv => rowDiv.classList.remove('hidden')); }
 
-// 🌟 替換直接呼叫 fetch，改用 window.churchAPI
 async function processAI() {
   const rawText = document.getElementById('aiRawText').value.trim(); if (!rawText) return alert("請貼上文字");
   showLoading("🤖 AI 運算中，請稍候...");
   try {
-    const resJson = await window.churchAPI("parseWithAI", { 
+    const resData = await fetchAPI("parseWithAI", { 
       text: rawText, 
       headers: currentTableHeaders, 
       members: currentGroupMembers, 
       groupPrompt: currentGroupPrompt + "\n" + currentAutoRoleRules 
     });
-    
-    if (resJson.status !== 'success') throw new Error(resJson.message);
-    fillTableWithData(resJson.data); 
+    fillTableWithData(resData); 
     document.getElementById('aiStatus').innerText = "✅ 解析/排班完成！"; 
     document.getElementById('aiRawText').value = ""; 
   } catch (err) { 
@@ -341,7 +344,6 @@ function fillTableWithData(parsedRows) {
   });
 }
 
-// 🌟 替換儲存資料功能
 async function saveData() {
   showLoading("💾 儲存中...");
   try {
@@ -352,30 +354,28 @@ async function saveData() {
     });
     while(matrix.length <= 50) matrix.push(Array(currentTableHeaders.length).fill(""));
     
-    await window.churchAPI("saveSheetData", { groupName: activeGroupName, matrix: matrix });
+    await fetchAPI("saveSheetData", { groupName: activeGroupName, matrix: matrix });
     
     alert("✅ 儲存成功！");
   } catch (e) { alert("儲存失敗"); } finally { hideLoading(); }
 }
 
-// 🌟 替換狀態切換功能
 async function toggleStatus(groupId, currentStatus) {
   showLoading("🔄 更新狀態中...");
   try {
-    const result = await window.churchAPI("toggleGroupStatus", { id: groupId, status: currentStatus });
-    if (result.status === 'success') await loadAdminData();
+    await fetchAPI("toggleGroupStatus", { id: groupId, status: currentStatus });
+    await loadAdminData();
   } catch (e) { alert("更新失敗"); } finally { hideLoading(); }
 }
 
 function showSection(id) { document.querySelectorAll('.card-custom').forEach(el => el.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
 
-// 🌟 替換建立群組功能
 const createForm = document.getElementById('createGroupForm');
 if (createForm) {
   createForm.onsubmit = async function(e) {
     e.preventDefault(); showLoading("建立中...");
     try { 
-      await window.churchAPI("createGroup", { 
+      await fetchAPI("createGroup", { 
         id: document.getElementById('newId').value, 
         name: document.getElementById('newName').value, 
         template: document.getElementById('templateSelect').value 
@@ -385,11 +385,10 @@ if (createForm) {
   };
 }
 
-// 🌟 替換儲存 AI 提示詞功能
 async function saveGroupPrompt() {
   const newPrompt = document.getElementById('groupPromptInput').value.trim(); showLoading("💾 儲存規則中...");
   try { 
-    await window.churchAPI("saveGroupPrompt", { id: currentId, prompt: newPrompt });
+    await fetchAPI("saveGroupPrompt", { id: currentId, prompt: newPrompt });
     currentGroupPrompt = newPrompt; 
     alert("✅ 專屬規則儲存成功！"); 
     document.getElementById('promptSettings').classList.add('hidden'); 
@@ -444,6 +443,8 @@ function closeModalOrUnlock() {
     
     if (pwd.trim() === currentId) {
       isEditorUnlocked = true;
+      // 🌟 新增：將解鎖狀態寫入分頁短期記憶 (機制 1: 刷新頁面保持解鎖)
+      sessionStorage.setItem(`isUnlocked_${currentId}`, 'true');
       bulletinModalInstance.hide();
     } else {
       alert("❌ ID 輸入錯誤！無法進入編輯模式。");
@@ -531,23 +532,31 @@ function deleteMember(idx) {
   renderMemberList();
 }
 
-// 🌟 替換儲存同工名單功能
+// 🌟 替換儲存同工名單功能 (機制 2: 無縫局部更新版)
 async function saveMembersToServer() {
   showLoading("💾 儲存名單中...");
   try {
-    await window.churchAPI("saveGroupMembers", { id: currentId, members: localCustomMembers });
-    alert("✅ 名單儲存成功！將重新載入頁面套用新設定。");
-    location.reload(); 
+    await fetchAPI("saveGroupMembers", { id: currentId, members: localCustomMembers });
+    alert("✅ 名單儲存成功！");
+    
+    // 1. 關閉人員管理的 Modal (不再使用 location.reload())
+    const memberModalEl = document.getElementById('memberModal');
+    if (memberModalEl) {
+      const memberModal = bootstrap.Modal.getInstance(memberModalEl);
+      if (memberModal) memberModal.hide();
+    }
+
+    // 2. 背景重新抓取最新的 Config 以更新下拉選單與畫面，達到「無縫銜接」
+    showLoading("🔄 更新下拉選單與畫面中...");
+    const freshConfig = await fetchAPI('getPageConfig', { id: currentId });
+    renderTable(freshConfig); // 重繪表格，新名字就會出現在下拉選單裡了
+
   } catch (e) { alert("儲存失敗：" + e.message); } finally { hideLoading(); }
 }
 
-// ==========================================
-// 🌟 彙整報表功能 (呼叫後端並渲染)
-// ==========================================
 async function showAggregatedReport(type) {
   showLoading("📊 彙整資料中，這可能需要幾秒鐘...");
   try {
-    // 呼叫後端剛剛寫好的 API (已經串接新的 fetchAPI 邏輯)
     const matrix = await fetchAPI('getAggregatedReport', { type: type });
     
     if (!matrix || matrix.length <= 1) {
@@ -555,7 +564,6 @@ async function showAggregatedReport(type) {
       return;
     }
 
-    // 產生預覽表格的 HTML
     let tableHtml = '<table class="table table-bordered table-hover text-center align-middle m-0" style="min-width: 1200px;"><thead><tr>';
     matrix[0].forEach(h => tableHtml += `<th class="bg-light" style="position: sticky; top: 0; z-index: 10; outline: 1px solid #dee2e6;">${h}</th>`);
     tableHtml += '</tr></thead><tbody>';
@@ -567,15 +575,12 @@ async function showAggregatedReport(type) {
     }
     tableHtml += '</tbody></table>';
 
-    // 塞入 Modal 裡面
     document.getElementById('aggregatedReportContent').innerHTML = `<div class="table-responsive" style="max-height: 65vh; overflow-y: auto;">${tableHtml}</div>`;
     
-    // 設定標題與下載按鈕的事件
     const title = type === 'smallGroup' ? '📊 所有小組聚會總表' : '📊 教會各項服事總表';
     document.getElementById('aggregatedReportModalLabel').innerText = title;
     document.getElementById('downloadAggregatedBtn').onclick = () => downloadAggregatedExcel(matrix, title);
 
-    // 顯示視窗
     new bootstrap.Modal(document.getElementById('aggregatedReportModal')).show();
   } catch (e) {
     alert("彙整失敗：" + e.message);
