@@ -1,182 +1,671 @@
 <!DOCTYPE html>
+
 <html lang="zh-TW">
+
 <head>
+
   <meta name="robots" content="noindex, nofollow">
+
   <meta charset="UTF-8">
+
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <title>教會服事管理系統</title>
+
   
+
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+
   <link rel="stylesheet" href="style.css">
+
+  <style>
+
+    /* 清新統一的配色主題 */
+
+    :root {
+
+      --primary-color: #4A90E2;      /* 清新藍 */
+
+      --primary-light: #6AA8F0;
+
+      --primary-dark: #3A7BC8;
+
+      --secondary-color: #5FB3B3;    /* 湖水綠 */
+
+      --accent-color: #F5A623;       /* 溫暖橙 */
+
+      --success-color: #7AC29A;      /* 柔和綠 */
+
+      --bg-light: #F8FAFB;
+
+      --border-color: #E1E8ED;
+
+      --text-primary: #2C3E50;
+
+      --text-secondary: #6C757D;
+
+    }
+
+    
+
+    body {
+
+      background: linear-gradient(135deg, #E8F4F8 0%, #F0F7FA 100%);
+
+      color: var(--text-primary);
+
+    }
+
+    
+
+    .card-custom {
+
+      background: white;
+
+      border-radius: 12px;
+
+      box-shadow: 0 2px 12px rgba(74, 144, 226, 0.08);
+
+      border: 1px solid var(--border-color);
+
+    }
+
+    
+
+    /* 統一按鈕風格 */
+
+    .btn-primary-custom {
+
+      background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+
+      color: white;
+
+      border: none;
+
+      border-radius: 8px;
+
+      padding: 0.5rem 1.2rem;
+
+      font-weight: 500;
+
+      transition: all 0.3s ease;
+
+      box-shadow: 0 2px 6px rgba(74, 144, 226, 0.2);
+
+    }
+
+    
+
+    .btn-primary-custom:hover {
+
+      transform: translateY(-1px);
+
+      box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+
+      background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-color) 100%);
+
+    }
+
+    
+
+    .btn-secondary-custom {
+
+      background: white;
+
+      color: var(--primary-color);
+
+      border: 1.5px solid var(--primary-color);
+
+      border-radius: 8px;
+
+      padding: 0.5rem 1.2rem;
+
+      font-weight: 500;
+
+      transition: all 0.3s ease;
+
+    }
+
+    
+
+    .btn-secondary-custom:hover {
+
+      background: var(--bg-light);
+
+      transform: translateY(-1px);
+
+    }
+
+    
+
+    .btn-success-custom {
+
+      background: linear-gradient(135deg, var(--success-color) 0%, #90D5AB 100%);
+
+      color: white;
+
+      border: none;
+
+      border-radius: 8px;
+
+      padding: 0.5rem 1.2rem;
+
+      font-weight: 500;
+
+      box-shadow: 0 2px 6px rgba(122, 194, 154, 0.2);
+
+    }
+
+    
+
+    .btn-success-custom:hover {
+
+      transform: translateY(-1px);
+
+      box-shadow: 0 4px 12px rgba(122, 194, 154, 0.3);
+
+    }
+
+    
+
+    .btn-accent-custom {
+
+      background: linear-gradient(135deg, var(--accent-color) 0%, #FFB84D 100%);
+
+      color: white;
+
+      border: none;
+
+      border-radius: 8px;
+
+      padding: 0.5rem 1.2rem;
+
+      font-weight: 500;
+
+      box-shadow: 0 2px 6px rgba(245, 166, 35, 0.2);
+
+    }
+
+    
+
+    .btn-accent-custom:hover {
+
+      transform: translateY(-1px);
+
+      box-shadow: 0 4px 12px rgba(245, 166, 35, 0.3);
+
+    }
+
+    
+
+    .btn-info-custom {
+
+      background: linear-gradient(135deg, var(--secondary-color) 0%, #7EC7C7 100%);
+
+      color: white;
+
+      border: none;
+
+      border-radius: 8px;
+
+      padding: 0.5rem 1.2rem;
+
+      font-weight: 500;
+
+      box-shadow: 0 2px 6px rgba(95, 179, 179, 0.2);
+
+    }
+
+    
+
+    .btn-info-custom:hover {
+
+      transform: translateY(-1px);
+
+      box-shadow: 0 4px 12px rgba(95, 179, 179, 0.3);
+
+    }
+
+    
+
+    h3, h4, h5 {
+
+      color: var(--text-primary);
+
+    }
+
+    
+
+    .text-primary {
+
+      color: var(--primary-color) !important;
+
+    }
+
+    
+
+    .form-control:focus, .form-select:focus {
+
+      border-color: var(--primary-color);
+
+      box-shadow: 0 0 0 0.2rem rgba(74, 144, 226, 0.15);
+
+    }
+
+    
+
+    .search-box {
+
+      border: 1.5px solid var(--border-color);
+
+      border-radius: 10px;
+
+      padding: 0.75rem 1rem;
+
+      transition: all 0.3s ease;
+
+    }
+
+    
+
+    .search-box:focus {
+
+      border-color: var(--primary-color);
+
+      box-shadow: 0 0 0 0.2rem rgba(74, 144, 226, 0.1);
+
+    }
+
+    
+
+    .ai-box {
+
+      background: linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%);
+
+      border: 1.5px solid var(--primary-color);
+
+      border-radius: 12px;
+
+      padding: 1.25rem;
+
+      margin-bottom: 1.5rem;
+
+    }
+
+    
+
+    .bg-light {
+
+      background-color: var(--bg-light) !important;
+
+    }
+
+    
+
+    .modal-header.bg-primary {
+
+      background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%) !important;
+
+    }
+
+    
+
+    .modal-header.bg-info {
+
+      background: linear-gradient(135deg, var(--secondary-color) 0%, #7EC7C7 100%) !important;
+
+    }
+
+    
+
+    .modal-header.bg-success {
+
+      background: linear-gradient(135deg, var(--success-color) 0%, #90D5AB 100%) !important;
+
+    }
+
+  </style>
+
 </head>
+
 <body>
+
+
 
   <div id="globalLoading" class="hidden">⏳ 系統處理中...</div>
 
+
+
   <div class="container-fluid">
+
     
+
     <div id="adminMain" class="card-custom hidden">
+
       <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+
         <h3 class="text-primary fw-bold m-0">教會服事管理系統</h3>
+
         <div class="d-flex gap-2">
-          <button class="btn" style="background-color: #ed8936; color: white; border: none;" onclick="window.open('groupboard.html', '_blank')">👀 小組聚會布告欄</button>
-          <button class="btn btn-sm btn-outline-success shadow-sm fw-bold" onclick="showAggregatedReport('smallGroup')">📊 小組聚會總表</button>
-          <button class="btn btn-sm btn-outline-info shadow-sm fw-bold" onclick="showAggregatedReport('others')">📊 各項服事總表</button>
-          <button class="btn btn-sm btn-primary shadow-sm" onclick="showSection('createSection')">➕ 建立新分頁</button>
+
+          <button class="btn btn-accent-custom" onclick="window.open('groupboard.html', '_blank')">👀 小組聚會布告欄</button>
+
+          <button class="btn btn-secondary-custom" onclick="showAggregatedReport('smallGroup')">📊 小組聚會總表</button>
+
+          <button class="btn btn-secondary-custom" onclick="showAggregatedReport('others')">📊 各項服事總表</button>
+
+          <button class="btn btn-primary-custom" onclick="showSection('createSection')">➕ 建立新分頁</button>
+
         </div>
+
       </div>
+
+
 
       <input type="text" id="groupSearch" class="form-control search-box shadow-sm" 
+
              placeholder="🔍 快速搜尋名稱或分類..." onkeyup="filterGroups()">
 
+
+
       <div id="groupButtons" class="row g-3">
+
         <p class="text-center text-muted">正在載入清單...</p>
+
       </div>
+
     </div>
+
+
 
     <div id="createSection" class="card-custom hidden" style="max-width: 600px;">
+
       <h4 class="fw-bold mb-4">建立新排班表</h4>
+
       <form id="createGroupForm">
+
         <div class="mb-3">
-          <label class="form-label text-muted small fw-bold">ID (網址參數，例如 VN01)</label>
+
+          <label class="form-label text-muted small fw-bold">ID (網址參數,例如 VN01)</label>
+
           <input id="newId" class="form-control" placeholder="系統辨識用 ID" required>
+
         </div>
+
         <div class="mb-3">
+
           <label class="form-label text-muted small fw-bold">顯示名稱</label>
+
           <input id="newName" class="form-control" placeholder="例如: 葡萄樹A組" required>
+
         </div>
+
         <div class="mb-3">
+
           <label class="form-label text-muted small fw-bold">分類屬性 (選擇模板)</label>
+
           <select id="templateSelect" class="form-select" required></select>
+
         </div>
+
         <div class="d-flex gap-2">
-          <button type="submit" class="btn btn-success flex-grow-1">確認建立</button>
-          <button type="button" class="btn btn-light flex-grow-1" onclick="showSection('adminMain')">取消</button>
+
+          <button type="submit" class="btn btn-success-custom flex-grow-1">確認建立</button>
+
+          <button type="button" class="btn btn-secondary-custom flex-grow-1" onclick="showSection('adminMain')">取消</button>
+
         </div>
+
       </form>
+
     </div>
+
+
 
     <div id="reportSection" class="card-custom hidden">
+
       
+
       <div class="toolbar d-flex flex-wrap justify-content-between align-items-center mb-3 gap-3">
+
         <h4 id="groupTitle" class="text-primary m-0 fw-bold">載入中...</h4>
+
         
+
         <div class="d-flex align-items-center gap-2 bg-light p-2 rounded border shadow-sm">
+
           <span class="text-muted small fw-bold ms-1">📅 日期區間：</span>
+
           <input type="date" id="startDate" class="form-control form-control-sm" style="width: 125px;">
+
           <span class="text-muted">~</span>
+
           <input type="date" id="endDate" class="form-control form-control-sm" style="width: 125px;">
-          <button class="btn btn-sm btn-secondary" onclick="filterByDate()">篩選</button>
-          <button class="btn btn-sm btn-outline-danger" onclick="clearDateFilter()">清除</button>
-        </div>
-        
-        <div class="d-flex gap-2">
-          <button class="btn btn-info text-white shadow shadow-sm fw-bold" onclick="showBulletinBoard()">📋 預覽布告欄</button>
-          <button class="btn btn-primary px-4 shadow shadow-sm" onclick="saveData()">💾 儲存變更</button>
+
+          <button class="btn btn-sm btn-secondary-custom" onclick="filterByDate()">篩選</button>
+
+          <button class="btn btn-sm btn-secondary-custom" onclick="clearDateFilter()">清除</button>
+
         </div>
 
+        
+
+        <div class="d-flex gap-2">
+
+          <button class="btn btn-info-custom shadow-sm fw-bold" onclick="showBulletinBoard()">📋 預覽布告欄</button>
+
+          <button class="btn btn-primary-custom px-4 shadow-sm" onclick="saveData()">💾 儲存變更</button>
+
+        </div>
+
+
+
       </div>
+
+
 
       <div class="mb-3 d-flex gap-2">
-        <button class="btn btn-sm btn-outline-secondary shadow-sm" onclick="document.getElementById('promptSettings').classList.toggle('hidden')">
+
+        <button class="btn btn-sm btn-secondary-custom shadow-sm" onclick="document.getElementById('promptSettings').classList.toggle('hidden')">
+
           ⚙️ 設定小組專屬 AI 排班規則
+
         </button>
-        <button id="manageMembersBtn" class="btn btn-sm btn-outline-primary shadow-sm hidden" onclick="openMemberModal()">
+
+        <button id="manageMembersBtn" class="btn btn-sm btn-secondary-custom shadow-sm hidden" onclick="openMemberModal()">
+
           👥 管理同工名單
+
         </button>
+
       </div>
+
+
 
       <div id="promptSettings" class="hidden mb-3 p-3 bg-light border border-secondary border-opacity-25 rounded shadow-sm">
+
         <label class="form-label small fw-bold text-primary">告訴 AI 這個小組的排班限制</label>
+
         <textarea id="groupPromptInput" class="form-control mb-2" rows="2" placeholder="例如：破冰和敬拜必須是同一人、話語分享只能排小明或阿華..."></textarea>
+
         <div class="d-flex justify-content-end">
-          <button class="btn btn-sm btn-primary" onclick="saveGroupPrompt()">💾 儲存規則</button>
+
+          <button class="btn btn-sm btn-primary-custom" onclick="saveGroupPrompt()">💾 儲存規則</button>
+
         </div>
+
       </div>
+
+
 
       <div class="ai-box shadow-sm">
+
         <div class="row g-2 align-items-center">
+
           <div class="col-md-10">
+
             <textarea id="aiRawText" class="form-control" rows="3" placeholder="💡 您可以：&#10;1. 【直接貼上】已經打好的排班文字，讓 AI 自動填入。&#10;2. 【對話生成】輸入條件讓 AI 自動排班（例：排第三季每個週五，地點在A區，破冰自動挑，話語分享只排小明和阿華）"></textarea>
+
           </div>
+
           <div class="col-md-2 d-grid">
-            <button class="btn btn-success fw-bold" onclick="processAI()">🤖 AI 解析</button>
+
+            <button class="btn btn-success-custom fw-bold" onclick="processAI()">🤖 AI 解析</button>
+
           </div>
+
         </div>
+
         <div id="aiStatus" class="form-text text-muted mt-2">✨ 貼上排班文字或輸入排班條件後，點擊解析，系統將自動處理。</div>
+
       </div>
+
+
 
       <div id="dynamicFormContainer" class="p-3 bg-white border rounded shadow-sm" style="overflow-x: auto; min-height: 300px;">
+
       </div>
+
     </div>
+
   </div>
+
+
 
   <div class="modal fade" id="memberModal" tabindex="-1" aria-hidden="true">
+
     <div class="modal-dialog modal-dialog-centered">
+
       <div class="modal-content">
+
         <div class="modal-header bg-primary text-white">
+
           <h5 class="modal-title fw-bold">👥 管理同工名單</h5>
+
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+
         </div>
+
         <div class="modal-body">
+
           <div class="d-flex gap-2 mb-3 align-items-start">
+
             <textarea id="newMemberName" class="form-control" rows="2" placeholder="輸入姓名 (支援批量：可貼上多筆，用換行、空格或逗號隔開)"></textarea>
+
             <div class="d-flex flex-column gap-2">
+
               <select id="newMemberRole" class="form-select w-auto hidden">
+
                 <option value="一般同工">一般同工</option>
+
                 <option value="小家長">小家長</option>
+
               </select>
-              <button class="btn btn-success fw-bold h-100" onclick="addMember()">新增</button>
+
+              <button class="btn btn-success-custom fw-bold h-100" onclick="addMember()">新增</button>
+
             </div>
+
           </div>
+
           <ul id="memberList" class="list-group" style="max-height: 40vh; overflow-y: auto;">
+
             </ul>
+
         </div>
+
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
-          <button type="button" class="btn btn-primary fw-bold" onclick="saveMembersToServer()">💾 儲存名單</button>
+
+          <button type="button" class="btn btn-secondary-custom" data-bs-dismiss="modal">關閉</button>
+
+          <button type="button" class="btn btn-primary-custom fw-bold" onclick="saveMembersToServer()">💾 儲存名單</button>
+
         </div>
+
       </div>
+
     </div>
+
   </div>
+
+
 
   <div class="modal fade" id="bulletinModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="bulletinModalLabel" aria-hidden="true">
+
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
+
       <div class="modal-content">
+
         <div class="modal-header bg-info text-white">
+
           <h5 class="modal-title fw-bold" id="bulletinModalLabel">📋 小組布告欄</h5>
+
           <button type="button" class="btn-close btn-close-white" onclick="closeModalOrUnlock()" aria-label="Close"></button>
+
         </div>
+
         <div class="modal-body" id="bulletinContent">
+
         </div>
+
         <div class="modal-footer d-flex justify-content-between">
-          <button type="button" class="btn btn-success fw-bold shadow-sm" onclick="downloadExcel()">📥 下載 Excel</button>
-          <button type="button" id="modalCloseBtn" class="btn btn-warning fw-bold shadow-sm" onclick="closeModalOrUnlock()">⚙️ 進入編輯 (需輸入 ID)</button>
+
+          <button type="button" class="btn btn-success-custom fw-bold shadow-sm" onclick="downloadExcel()">📥 下載 Excel</button>
+
+          <button type="button" id="modalCloseBtn" class="btn btn-accent-custom fw-bold shadow-sm" onclick="closeModalOrUnlock()">⚙️ 進入編輯 (需輸入 ID)</button>
+
         </div>
+
       </div>
+
     </div>
+
   </div>
+
+
 
   <div class="modal fade" id="aggregatedReportModal" tabindex="-1" aria-hidden="true">
+
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
+
       <div class="modal-content">
+
         <div class="modal-header bg-success text-white">
+
           <h5 class="modal-title fw-bold" id="aggregatedReportModalLabel">📊 彙整總表</h5>
+
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+
         </div>
+
         <div class="modal-body" id="aggregatedReportContent">
+
           </div>
+
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉預覽</button>
-          <button type="button" id="downloadAggregatedBtn" class="btn btn-success fw-bold shadow-sm">📥 下載此總表 Excel</button>
+
+          <button type="button" class="btn btn-secondary-custom" data-bs-dismiss="modal">關閉預覽</button>
+
+          <button type="button" id="downloadAggregatedBtn" class="btn btn-success-custom fw-bold shadow-sm">📥 下載此總表 Excel</button>
+
         </div>
+
       </div>
+
     </div>
+
   </div>
 
+
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
   <script src="https://jirehwang.github.io/LKERP.github.io/config.js"></script>
+
   <script src="script.js"></script>
+
 </body>
+
 </html>
