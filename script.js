@@ -16,6 +16,85 @@
 //       （對齊後端 doPost 讀取 data.id / data.type 的方式）
 // ============================================================
 
+// ============================================================
+//  🛡️ 安全存取 config.js 提供的工具（防止載入競速問題）
+//  config.js 從外部 CDN 載入，可能比 script.js 晚完成，
+//  這裡提供備援實作，確保即使 config.js 尚未就緒也不會拋錯。
+// ============================================================
+function getNotifier() {
+  return window.userNotification || {
+    success: (msg) => console.log("✅", msg),
+    error:   (msg) => { console.error("❌", msg); alert(msg); },
+    warning: (msg) => { console.warn("⚠️", msg); alert(msg); },
+    info:    (msg) => console.log("ℹ️", msg),
+    showLoading: (msg) => {
+      const el = document.getElementById('globalLoading');
+      if (el) { el.innerText = msg || "⏳ 處理中..."; el.classList.remove('hidden'); }
+    },
+    hideLoading: () => {
+      const el = document.getElementById('globalLoading');
+      if (el) el.classList.add('hidden');
+    }
+  };
+}
+
+function getUIState() {
+  return window.uiState || {
+    _locks: {},
+    lock:     function(k) { this._locks[k] = true; },
+    unlock:   function(k) { this._locks[k] = false; },
+    isLocked: function(k) { return !!this._locks[k]; }
+  };
+}
+
+function getSessionMgr() {
+  return window.sessionManager || {
+    setUnlocked: (id) => sessionStorage.setItem(`unlocked_${id}`, 'true'),
+    isUnlocked:  (id) => sessionStorage.getItem(`unlocked_${id}`) === 'true',
+    clear:       (id) => sessionStorage.removeItem(`unlocked_${id}`)
+  };
+}
+
+// ============================================================
+//  🌐 全域變數保底宣告
+//  不管 config.js 是新版或舊版，這些名稱在 script.js 內都保證存在。
+//  若 config.js 已提供 window.userNotification 等，則 getNotifier() 會優先使用它。
+// ============================================================
+const userNotification = {
+  success:     (msg, d) => getNotifier().success(msg, d),
+  error:       (msg, d) => getNotifier().error(msg, d),
+  warning:     (msg, d) => getNotifier().warning(msg, d),
+  info:        (msg, d) => getNotifier().info(msg, d),
+  showLoading: (msg)    => getNotifier().showLoading(msg),
+  hideLoading: ()       => getNotifier().hideLoading()
+};
+
+const uiState = {
+  lock:     (k) => getUIState().lock(k),
+  unlock:   (k) => getUIState().unlock(k),
+  isLocked: (k) => getUIState().isLocked(k)
+};
+
+const sessionManager = {
+  setUnlocked: (id) => getSessionMgr().setUnlocked(id),
+  isUnlocked:  (id) => getSessionMgr().isUnlocked(id),
+  clear:       (id) => getSessionMgr().clear(id)
+};
+
+// APIError fallback（舊版 config.js 未定義時在此補充）
+if (typeof APIError === 'undefined') {
+  window.APIError = class APIError extends Error {
+    constructor(message, httpStatus = null, type = 'UNKNOWN_ERROR') {
+      super(message);
+      this.name = 'APIError';
+      this.httpStatus = httpStatus;
+      this.type = type;
+    }
+  };
+}
+
+// ============================================================
+
 const currentId = new URLSearchParams(window.location.search).get('id');
 let activeGroupName = "";
 let currentTableHeaders = [];
@@ -64,7 +143,7 @@ function handleAPIError(err) {
 
   if (!(err instanceof APIError)) {
     // 非 API 錯誤（例如 JSON 解析錯誤）
-    userNotification.error("發生未預期的錯誤：" + err.message);
+    getNotifier().error("發生未預期的錯誤：" + err.message);
     return;
   }
 
@@ -73,43 +152,43 @@ function handleAPIError(err) {
 
   switch (errorType) {
     case 'AUTH_ERROR':
-      userNotification.error("❌ 權限不足，請重新整理並輸入正確的 ID");
+      getNotifier().error("❌ 權限不足，請重新整理並輸入正確的 ID");
       break;
 
     case 'PERMISSION_ERROR':
-      userNotification.error("❌ 您沒有權限執行此操作");
+      getNotifier().error("❌ 您沒有權限執行此操作");
       break;
 
     case 'TIMEOUT':
-      userNotification.error("⏱️ 請求逾時，請檢查網路連線並重試");
+      getNotifier().error("⏱️ 請求逾時，請檢查網路連線並重試");
       break;
 
     case 'NETWORK_ERROR':
-      userNotification.error("🌐 網路連線失敗，請檢查網路狀態");
+      getNotifier().error("🌐 網路連線失敗，請檢查網路狀態");
       break;
 
     case 'RATE_LIMIT':
-      userNotification.warning("⚠️ 請求過於頻繁，請稍候再試");
+      getNotifier().warning("⚠️ 請求過於頻繁，請稍候再試");
       break;
 
     case 'AI_DAILY_LIMIT':
-      userNotification.error("🤖 今日 AI 使用次數已達上限，請明日再試");
+      getNotifier().error("🤖 今日 AI 使用次數已達上限，請明日再試");
       break;
 
     case 'SERVER_BUSY':
-      userNotification.warning("⚠️ 伺服器忙線中，將自動重試...");
+      getNotifier().warning("⚠️ 伺服器忙線中，將自動重試...");
       break;
 
     case 'NOT_FOUND':
-      userNotification.error("❌ 找不到相關資料：" + message);
+      getNotifier().error("❌ 找不到相關資料：" + message);
       break;
 
     case 'VALIDATION_ERROR':
-      userNotification.error("❌ 資料驗證失敗：" + message);
+      getNotifier().error("❌ 資料驗證失敗：" + message);
       break;
 
     default:
-      userNotification.error("❌ 錯誤：" + message);
+      getNotifier().error("❌ 錯誤：" + message);
   }
 }
 
@@ -119,7 +198,7 @@ function handleAPIError(err) {
 // ============================================================
 window.onload = async () => {
   // 檢查編輯鎖定狀態（使用改進的 sessionManager）
-  if (currentId && window.sessionManager && window.sessionManager.isUnlocked(currentId)) {
+  if (currentId && getSessionMgr().isUnlocked(currentId)) {
     isEditorUnlocked = true;
   }
 
@@ -148,7 +227,7 @@ window.onload = async () => {
 // ============================================================
 async function loadAdminData() {
   try {
-    userNotification.showLoading("⏳ 整理儀表板中...");
+    getNotifier().showLoading("⏳ 整理儀表板中...");
 
     const [groups, templates] = await Promise.all([
       fetchAPI('getGroups', {}),
@@ -196,12 +275,12 @@ async function loadAdminData() {
     div.innerHTML = html || '<p class="text-center text-muted">目前尚無資料</p>';
     document.getElementById('templateSelect').innerHTML = '<option value="" disabled selected>選擇模板</option>' + templates.map(t => `<option value="${t}">${t}</option>`).join('');
 
-    userNotification.success("✅ 儀表板已載入");
+    getNotifier().success("✅ 儀表板已載入");
   } catch (err) {
     handleAPIError(err);
     document.getElementById('groupButtons').innerHTML = '<p class="text-danger">載入失敗，請重試</p>';
   } finally {
-    userNotification.hideLoading();
+    getNotifier().hideLoading();
   }
 }
 
@@ -211,9 +290,9 @@ async function loadAdminData() {
 // ============================================================
 function copyShareLink(url) {
   navigator.clipboard.writeText(url)
-    .then(() => userNotification.success("✅ 專屬網址已複製！"))
+    .then(() => getNotifier().success("✅ 專屬網址已複製！"))
     .catch(() => {
-      userNotification.warning("⚠️ 複製失敗，請手動複製：\n" + url);
+      getNotifier().warning("⚠️ 複製失敗，請手動複製：\n" + url);
     });
 }
 
@@ -457,7 +536,7 @@ function filterByDate() {
   const dateColIdx = currentTableHeaders.findIndex(h => h.includes("日期"));
 
   if (dateColIdx === -1) {
-    userNotification.warning("⚠️ 找不到包含「日期」的欄位。");
+    getNotifier().warning("⚠️ 找不到包含「日期」的欄位。");
     return;
   }
 
@@ -482,7 +561,7 @@ function filterByDate() {
   });
 
   if (start || end) {
-    userNotification.success(`✅ 已篩選出 ${visibleCount} 筆資料`);
+    getNotifier().success(`✅ 已篩選出 ${visibleCount} 筆資料`);
   }
 }
 
@@ -501,17 +580,17 @@ async function processAI() {
   if (window.event) window.event.preventDefault();
 
   // 防止重複提交
-  if (window.uiState.isLocked('processAI')) return;
-  window.uiState.lock('processAI');
+  if (getUIState().isLocked('processAI')) return;
+  getUIState().lock('processAI');
 
   const rawText = document.getElementById('aiRawText').value.trim();
   if (!rawText) {
-    userNotification.warning("⚠️ 請貼上排班文字或輸入排班條件");
-    window.uiState.unlock('processAI');
+    getNotifier().warning("⚠️ 請貼上排班文字或輸入排班條件");
+    getUIState().unlock('processAI');
     return;
   }
 
-  userNotification.showLoading("🤖 AI 運算中，請稍候...");
+  getNotifier().showLoading("🤖 AI 運算中，請稍候...");
   document.getElementById('aiStatus').innerText = "⏳ 處理中...";
 
   try {
@@ -525,15 +604,15 @@ async function processAI() {
     });
 
     fillTableWithData(resData);
-    userNotification.success("✅ AI 排班完成！");
+    getNotifier().success("✅ AI 排班完成！");
     document.getElementById('aiStatus').innerText = "✅ 解析/排班完成！";
     document.getElementById('aiRawText').value = "";
   } catch (err) {
     handleAPIError(err);
     document.getElementById('aiStatus').innerText = "❌ 處理失敗，請重試";
   } finally {
-    userNotification.hideLoading();
-    window.uiState.unlock('processAI');
+    getNotifier().hideLoading();
+    getUIState().unlock('processAI');
   }
 }
 
@@ -596,10 +675,10 @@ async function saveData() {
   if (window.event) window.event.preventDefault();
 
   // 防止重複提交
-  if (window.uiState.isLocked('saveData')) return;
-  window.uiState.lock('saveData');
+  if (getUIState().isLocked('saveData')) return;
+  getUIState().lock('saveData');
 
-  userNotification.showLoading("💾 儲存中...");
+  getNotifier().showLoading("💾 儲存中...");
 
   try {
     const matrix = [currentTableHeaders];
@@ -614,12 +693,12 @@ async function saveData() {
       data: { groupName: activeGroupName, matrix: matrix }
     });
 
-    userNotification.success("✅ 儲存成功！");
+    getNotifier().success("✅ 儲存成功！");
   } catch (err) {
     handleAPIError(err);
   } finally {
-    userNotification.hideLoading();
-    window.uiState.unlock('saveData');
+    getNotifier().hideLoading();
+    getUIState().unlock('saveData');
   }
 }
 
@@ -630,10 +709,10 @@ async function saveData() {
 async function toggleStatus(groupId, currentStatus) {
   if (window.event) window.event.preventDefault();
 
-  if (window.uiState.isLocked('toggleStatus')) return;
-  window.uiState.lock('toggleStatus');
+  if (getUIState().isLocked('toggleStatus')) return;
+  getUIState().lock('toggleStatus');
 
-  userNotification.showLoading("🔄 更新狀態中...");
+  getNotifier().showLoading("🔄 更新狀態中...");
 
   try {
     await fetchAPI("toggleGroupStatus", {
@@ -643,8 +722,8 @@ async function toggleStatus(groupId, currentStatus) {
   } catch (err) {
     handleAPIError(err);
   } finally {
-    userNotification.hideLoading();
-    window.uiState.unlock('toggleStatus');
+    getNotifier().hideLoading();
+    getUIState().unlock('toggleStatus');
   }
 }
 
@@ -666,10 +745,10 @@ if (createForm) {
   createForm.onsubmit = async function(e) {
     e.preventDefault();
 
-    if (window.uiState.isLocked('createGroup')) return;
-    window.uiState.lock('createGroup');
+    if (getUIState().isLocked('createGroup')) return;
+    getUIState().lock('createGroup');
 
-    userNotification.showLoading("建立中...");
+    getNotifier().showLoading("建立中...");
     try {
       await fetchAPI("createGroup", {
         data: {
@@ -682,8 +761,8 @@ if (createForm) {
     } catch (err) {
       handleAPIError(err);
     } finally {
-      userNotification.hideLoading();
-      window.uiState.unlock('createGroup');
+      getNotifier().hideLoading();
+      getUIState().unlock('createGroup');
     }
   };
 }
@@ -695,24 +774,24 @@ if (createForm) {
 async function saveGroupPrompt() {
   if (window.event) window.event.preventDefault();
 
-  if (window.uiState.isLocked('saveGroupPrompt')) return;
-  window.uiState.lock('saveGroupPrompt');
+  if (getUIState().isLocked('saveGroupPrompt')) return;
+  getUIState().lock('saveGroupPrompt');
 
   const newPrompt = document.getElementById('groupPromptInput').value.trim();
-  userNotification.showLoading("💾 儲存規則中...");
+  getNotifier().showLoading("💾 儲存規則中...");
 
   try {
     await fetchAPI("saveGroupPrompt", {
       data: { id: currentId, prompt: newPrompt }
     });
     currentGroupPrompt = newPrompt;
-    userNotification.success("✅ 專屬規則儲存成功！");
+    getNotifier().success("✅ 專屬規則儲存成功！");
     document.getElementById('promptSettings').classList.add('hidden');
   } catch (err) {
     handleAPIError(err);
   } finally {
-    userNotification.hideLoading();
-    window.uiState.unlock('saveGroupPrompt');
+    getNotifier().hideLoading();
+    getUIState().unlock('saveGroupPrompt');
   }
 }
 
@@ -774,14 +853,11 @@ function closeModalOrUnlock() {
 
     if (pwd.trim() === currentId) {
       isEditorUnlocked = true;
-      // 使用改進的 sessionManager
-      if (window.sessionManager) {
-        window.sessionManager.setUnlocked(currentId);
-      }
+      getSessionMgr().setUnlocked(currentId);
       bulletinModalInstance.hide();
-      userNotification.success("✅ 編輯模式已啟用");
+      getNotifier().success("✅ 編輯模式已啟用");
     } else {
-      userNotification.error("❌ ID 輸入錯誤！無法進入編輯模式。");
+      getNotifier().error("❌ ID 輸入錯誤！無法進入編輯模式。");
     }
   }
 }
@@ -799,7 +875,7 @@ function downloadExcel() {
     if (row.some(v => v !== "")) matrix.push(row);
   });
   if (matrix.length === 1) {
-    userNotification.warning("⚠️ 目前沒有資料可以下載！");
+    getNotifier().warning("⚠️ 目前沒有資料可以下載！");
     return;
   }
 
@@ -809,7 +885,7 @@ function downloadExcel() {
 
   const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   XLSX.writeFile(wb, `${activeGroupName}_排班表_${today}.xlsx`);
-  userNotification.success("✅ Excel 已下載");
+  getNotifier().success("✅ Excel 已下載");
 }
 
 
@@ -849,7 +925,7 @@ function addMember() {
   const role = roleSelect.value;
 
   if (!rawText) {
-    userNotification.warning("⚠️ 請輸入姓名！");
+    getNotifier().warning("⚠️ 請輸入姓名！");
     return;
   }
 
@@ -873,11 +949,11 @@ function addMember() {
   renderMemberList();
 
   if (addedCount > 1) {
-    userNotification.success(`✅ 成功批量新增 ${addedCount} 筆名單！` + (dupCount > 0 ? `\n⚠️ 另有 ${dupCount} 筆已存在被自動略過。` : ""));
+    getNotifier().success(`✅ 成功批量新增 ${addedCount} 筆名單！` + (dupCount > 0 ? `\n⚠️ 另有 ${dupCount} 筆已存在被自動略過。` : ""));
   } else if (addedCount === 0 && dupCount > 0) {
-    userNotification.warning("⚠️ 您輸入的名字都已經在名單中囉！");
+    getNotifier().warning("⚠️ 您輸入的名字都已經在名單中囉！");
   } else {
-    userNotification.success("✅ 已新增");
+    getNotifier().success("✅ 已新增");
   }
 }
 
@@ -890,16 +966,16 @@ function deleteMember(idx) {
 async function saveMembersToServer() {
   if (window.event) window.event.preventDefault();
 
-  if (window.uiState.isLocked('saveMembersToServer')) return;
-  window.uiState.lock('saveMembersToServer');
+  if (getUIState().isLocked('saveMembersToServer')) return;
+  getUIState().lock('saveMembersToServer');
 
-  userNotification.showLoading("💾 儲存名單中...");
+  getNotifier().showLoading("💾 儲存名單中...");
 
   try {
     await fetchAPI("saveGroupMembers", {
       data: { id: currentId, members: localCustomMembers }
     });
-    userNotification.success("✅ 名單儲存成功！");
+    getNotifier().success("✅ 名單儲存成功！");
 
     const memberModalEl = document.getElementById('memberModal');
     if (memberModalEl) {
@@ -907,15 +983,15 @@ async function saveMembersToServer() {
       if (memberModal) memberModal.hide();
     }
 
-    userNotification.showLoading("🔄 更新畫面中...");
+    getNotifier().showLoading("🔄 更新畫面中...");
     const freshConfig = await fetchAPI('getPageConfig', { data: { id: currentId } });
     renderTable(freshConfig);
-    userNotification.success("✅ 畫面已更新");
+    getNotifier().success("✅ 畫面已更新");
   } catch (err) {
     handleAPIError(err);
   } finally {
-    userNotification.hideLoading();
-    window.uiState.unlock('saveMembersToServer');
+    getNotifier().hideLoading();
+    getUIState().unlock('saveMembersToServer');
   }
 }
 
@@ -926,16 +1002,16 @@ async function saveMembersToServer() {
 async function showAggregatedReport(type) {
   if (window.event) window.event.preventDefault();
 
-  if (window.uiState.isLocked('showAggregatedReport')) return;
-  window.uiState.lock('showAggregatedReport');
+  if (getUIState().isLocked('showAggregatedReport')) return;
+  getUIState().lock('showAggregatedReport');
 
-  userNotification.showLoading("📊 彙整資料中，這可能需要幾秒鐘...");
+  getNotifier().showLoading("📊 彙整資料中，這可能需要幾秒鐘...");
 
   try {
     const matrix = await fetchAPI('getAggregatedReport', { data: { type: type } });
 
     if (!matrix || matrix.length <= 1) {
-      userNotification.warning("⚠️ 目前還沒有建立任何資料，或是資料都是空的喔！");
+      getNotifier().warning("⚠️ 目前還沒有建立任何資料，或是資料都是空的喔！");
       return;
     }
 
@@ -960,8 +1036,8 @@ async function showAggregatedReport(type) {
   } catch (err) {
     handleAPIError(err);
   } finally {
-    userNotification.hideLoading();
-    window.uiState.unlock('showAggregatedReport');
+    getNotifier().hideLoading();
+    getUIState().unlock('showAggregatedReport');
   }
 }
 
@@ -976,5 +1052,5 @@ function downloadAggregatedExcel(matrix, fileName) {
 
   const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   XLSX.writeFile(wb, `${fileName}_${today}.xlsx`);
-  userNotification.success("✅ Excel 已下載");
+  getNotifier().success("✅ Excel 已下載");
 }
