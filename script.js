@@ -115,23 +115,110 @@ let currentEventData = [];
 
 
 // ============================================================
-//  🛡️ 改進的 API 呼叫（使用新的 config.js）
+//  🛡️ API 呼叫核心（自給自足，不依賴 config.js 的實作細節）
+//
+//  設定來源優先順序：
+//    1. window.CHURCH_CONFIG（新版 config.js 提供）
+//    2. window._GAS_URL / window._GAS_TOKEN（手動注入）
+//    3. 內建預設值（需手動修改 FALLBACK_GAS_URL）
+//
+//  payload 結構統一為：{ action, token, data: { ...params } }
+//  後端 doPost 讀取：var data = payload.data || {}
 // ============================================================
-async function fetchAPI(action, params = {}) {
-  if (typeof window.churchAPI !== 'function') {
-    throw new Error("安全路由尚未載入，請確認 config.js 是否正常運作。");
+
+// ⚙️ 如果沒有新版 config.js，在這裡直接填入你的部署網址與 Token
+const _FALLBACK_GAS_URL   = "https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_U9nKJrRMR1-xzbbtuaq08lePLgAQ2wnDRrCeHdy9jNhh/exec";
+const _FALLBACK_GAS_TOKEN = "ChurchApp-2026";
+const _API_TIMEOUT_MS     = 30000;
+
+function _getGasUrl() {
+  return (window.CHURCH_CONFIG && window.CHURCH_CONFIG.GAS_DEPLOY_URL) ||
+         window._GAS_URL ||
+         _FALLBACK_GAS_URL;
+}
+
+function _getGasToken() {
+  return (window.CHURCH_CONFIG && window.CHURCH_CONFIG.SECRET_TOKEN) ||
+         window._GAS_TOKEN ||
+         _FALLBACK_GAS_TOKEN;
+}
+
+async function fetchAPI(action, data = {}) {
+  // data 就是要放進 payload.data 的內容，呼叫端直接傳物件即可
+  // 例：fetchAPI('getPageConfig', { id: currentId })
+  //     fetchAPI('saveSheetData', { groupName: '...', matrix: [...] })
+
+  const payload = {
+    action: action,
+    token:  _getGasToken(),
+    data:   data
+  };
+
+  const gasUrl = _getGasUrl();
+  if (!gasUrl || gasUrl.includes("YOUR_DEPLOYMENT_ID")) {
+    throw new APIError(
+      "GAS 部署網址尚未設定，請修改 config.js 或 script.js 的 _FALLBACK_GAS_URL",
+      null, 'CONFIG_ERROR'
+    );
   }
 
-  try {
-    const result = await window.churchAPI(action, params);
-    if (result.status !== 'success') {
-      throw new APIError(result.message || "發生未知錯誤", null, 'API_ERROR');
+  let lastError;
+  const maxRetries = 3;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), _API_TIMEOUT_MS);
+
+      const response = await fetch(gasUrl, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload),
+        signal:  controller.signal,
+        mode:    'cors',
+        credentials: 'omit'
+      });
+      clearTimeout(timer);
+
+      if (!response.ok) {
+        throw new APIError(`HTTP ${response.status}`, response.status, 'HTTP_ERROR');
+      }
+
+      const json = await response.json();
+
+      if (json.status !== 'success') {
+        throw new APIError(json.message || '伺服器錯誤', null,
+          classifyError(json.message));
+      }
+
+      return json.data;
+
+    } catch (err) {
+      lastError = err;
+      const type = err instanceof APIError ? err.type : classifyError(err.message);
+      const retryable = ['HTTP_ERROR', 'SERVER_ERROR', 'SERVER_BUSY'].includes(type);
+
+      if (retryable && attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, 1000 * attempt));
+        continue;
+      }
+      break;
     }
-    return result.data;
-  } catch (err) {
-    // 錯誤已由 config.js 分類，此處只需重新拋出
-    throw err;
   }
+
+  throw lastError;
+}
+
+function classifyError(msg) {
+  if (!msg) return 'UNKNOWN_ERROR';
+  const m = msg.toLowerCase();
+  if (m.includes('未授權') || m.includes('無效的憑證')) return 'AUTH_ERROR';
+  if (m.includes('逾時') || m.includes('abort'))        return 'TIMEOUT';
+  if (m.includes('failed to fetch') || m.includes('networkerror')) return 'NETWORK_ERROR';
+  if (m.includes('已達上限'))                           return 'AI_DAILY_LIMIT';
+  if (m.includes('503') || m.includes('忙線'))          return 'SERVER_BUSY';
+  if (m.includes('找不到'))                             return 'NOT_FOUND';
+  return 'UNKNOWN_ERROR';
 }
 
 
@@ -208,7 +295,7 @@ window.onload = async () => {
   } else {
     showSection('reportSection');
     try {
-      const data = await fetchAPI('getPageConfig', { data: { id: currentId } });
+      const data = await fetchAPI('getPageConfig', { id: currentId });
       renderTable(data);
 
       // 如果未解鎖，才顯示布告欄 (預覽模式)
@@ -595,12 +682,10 @@ async function processAI() {
 
   try {
     const resData = await fetchAPI("parseWithAI", {
-      data: {
-        text: rawText,
-        headers: currentTableHeaders,
-        members: currentGroupMembers,
-        groupPrompt: currentGroupPrompt + "\n" + currentAutoRoleRules
-      }
+      text: rawText,
+      headers: currentTableHeaders,
+      members: currentGroupMembers,
+      groupPrompt: currentGroupPrompt + "\n" + currentAutoRoleRules
     });
 
     fillTableWithData(resData);
@@ -689,9 +774,7 @@ async function saveData() {
 
     while (matrix.length <= 50) matrix.push(Array(currentTableHeaders.length).fill(""));
 
-    await fetchAPI("saveSheetData", {
-      data: { groupName: activeGroupName, matrix: matrix }
-    });
+    await fetchAPI("saveSheetData", { groupName: activeGroupName, matrix: matrix });
 
     getNotifier().success("✅ 儲存成功！");
   } catch (err) {
@@ -715,9 +798,7 @@ async function toggleStatus(groupId, currentStatus) {
   getNotifier().showLoading("🔄 更新狀態中...");
 
   try {
-    await fetchAPI("toggleGroupStatus", {
-      data: { id: groupId, status: currentStatus }
-    });
+    await fetchAPI("toggleGroupStatus", { id: groupId, status: currentStatus });
     await loadAdminData();
   } catch (err) {
     handleAPIError(err);
@@ -751,11 +832,9 @@ if (createForm) {
     getNotifier().showLoading("建立中...");
     try {
       await fetchAPI("createGroup", {
-        data: {
-          id: document.getElementById('newId').value,
-          name: document.getElementById('newName').value,
-          template: document.getElementById('templateSelect').value
-        }
+        id: document.getElementById('newId').value,
+        name: document.getElementById('newName').value,
+        template: document.getElementById('templateSelect').value
       });
       location.reload();
     } catch (err) {
@@ -781,9 +860,7 @@ async function saveGroupPrompt() {
   getNotifier().showLoading("💾 儲存規則中...");
 
   try {
-    await fetchAPI("saveGroupPrompt", {
-      data: { id: currentId, prompt: newPrompt }
-    });
+    await fetchAPI("saveGroupPrompt", { id: currentId, prompt: newPrompt });
     currentGroupPrompt = newPrompt;
     getNotifier().success("✅ 專屬規則儲存成功！");
     document.getElementById('promptSettings').classList.add('hidden');
@@ -972,9 +1049,7 @@ async function saveMembersToServer() {
   getNotifier().showLoading("💾 儲存名單中...");
 
   try {
-    await fetchAPI("saveGroupMembers", {
-      data: { id: currentId, members: localCustomMembers }
-    });
+    await fetchAPI("saveGroupMembers", { id: currentId, members: localCustomMembers });
     getNotifier().success("✅ 名單儲存成功！");
 
     const memberModalEl = document.getElementById('memberModal');
@@ -984,7 +1059,7 @@ async function saveMembersToServer() {
     }
 
     getNotifier().showLoading("🔄 更新畫面中...");
-    const freshConfig = await fetchAPI('getPageConfig', { data: { id: currentId } });
+    const freshConfig = await fetchAPI('getPageConfig', { id: currentId });
     renderTable(freshConfig);
     getNotifier().success("✅ 畫面已更新");
   } catch (err) {
@@ -1008,7 +1083,7 @@ async function showAggregatedReport(type) {
   getNotifier().showLoading("📊 彙整資料中，這可能需要幾秒鐘...");
 
   try {
-    const matrix = await fetchAPI('getAggregatedReport', { data: { type: type } });
+    const matrix = await fetchAPI('getAggregatedReport', { type: type });
 
     if (!matrix || matrix.length <= 1) {
       getNotifier().warning("⚠️ 目前還沒有建立任何資料，或是資料都是空的喔！");
