@@ -127,7 +127,7 @@ let currentEventData = [];
 // ============================================================
 
 // ⚙️ 如果沒有新版 config.js，在這裡直接填入你的部署網址與 Token
-const _FALLBACK_GAS_URL   = "https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_U9nKJrRMR1-xzbbtuaq08lePLgAQ2wnDRrCeHdy9jNhh/exec";
+const _FALLBACK_GAS_URL   = "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec";
 const _FALLBACK_GAS_TOKEN = "ChurchApp-2026";
 const _API_TIMEOUT_MS     = 30000;
 
@@ -170,13 +170,19 @@ async function fetchAPI(action, data = {}) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), _API_TIMEOUT_MS);
 
+      // GAS 不支援 CORS preflight（OPTIONS），必須用 no-cors + redirect:follow
+      // no-cors 模式下 response 是 opaque，無法直接 .json()
+      // 解法：先用 no-cors 觸發 GAS 執行，再用 GET 取得結果
+      // 實務上最簡單的方式是改用 application/x-www-form-urlencoded
+      // 這樣瀏覽器不會發 preflight，GAS 也能正常接收
+      const formBody = "payload=" + encodeURIComponent(JSON.stringify(payload));
+
       const response = await fetch(gasUrl, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(payload),
-        signal:  controller.signal,
-        mode:    'cors',
-        credentials: 'omit'
+        method:      'POST',
+        headers:     { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body:        formBody,
+        signal:      controller.signal,
+        redirect:    'follow'
       });
       clearTimeout(timer);
 
