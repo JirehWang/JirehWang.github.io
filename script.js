@@ -1,13 +1,19 @@
 // ============================================================
 //  📋 教會服事管理系統 — 前端邏輯 (script.js)
-//  修正版本 v2.0
-//  修正項目：
+//  修正版本 v3.0
+//  v2.0 修正項目：
 //    1. 使用 config.js 的 churchAPI() 與改進的錯誤處理
 //    2. 加入防重複提交鎖定
 //    3. 改用 userNotification 替代原生 alert
 //    4. Session 管理改進（加入時間戳記）
 //    5. 錯誤分類處理（不同錯誤顯示不同訊息）
 //    6. AI 狀態提示改進
+//  v3.0 修正項目：
+//    7. 修正 getPageConfig 參數傳遞方式
+//       { id: currentId } → { data: { id: currentId } }
+//    8. 修正 getAggregatedReport 參數傳遞方式
+//       { type: type } → { data: { type: type } }
+//       （對齊後端 doPost 讀取 data.id / data.type 的方式）
 // ============================================================
 
 const currentId = new URLSearchParams(window.location.search).get('id');
@@ -123,7 +129,7 @@ window.onload = async () => {
   } else {
     showSection('reportSection');
     try {
-      const data = await fetchAPI('getPageConfig', { id: currentId });
+      const data = await fetchAPI('getPageConfig', { data: { id: currentId } });
       renderTable(data);
 
       // 如果未解鎖，才顯示布告欄 (預覽模式)
@@ -902,7 +908,7 @@ async function saveMembersToServer() {
     }
 
     userNotification.showLoading("🔄 更新畫面中...");
-    const freshConfig = await fetchAPI('getPageConfig', { id: currentId });
+    const freshConfig = await fetchAPI('getPageConfig', { data: { id: currentId } });
     renderTable(freshConfig);
     userNotification.success("✅ 畫面已更新");
   } catch (err) {
@@ -926,7 +932,7 @@ async function showAggregatedReport(type) {
   userNotification.showLoading("📊 彙整資料中，這可能需要幾秒鐘...");
 
   try {
-    const matrix = await fetchAPI('getAggregatedReport', { type: type });
+    const matrix = await fetchAPI('getAggregatedReport', { data: { type: type } });
 
     if (!matrix || matrix.length <= 1) {
       userNotification.warning("⚠️ 目前還沒有建立任何資料，或是資料都是空的喔！");
