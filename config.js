@@ -8,7 +8,7 @@ const CHURCH_CONFIG = {
   // 🔗 Google Apps Script 部署 URL
   // 請將此替換為你的 Apps Script 部署網址
   // 取得方式：GAS 編輯器 → 部署 → 新建部署 → 選擇類型「網頁應用」
-  GAS_DEPLOY_URL: "https://script.google.com/macros/d/{DEPLOYMENT_ID}/usercontent", 
+  GAS_DEPLOY_URL: "https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_U9nKJrRMR1-xzbbtuaq08lePLgAQ2wnDRrCeHdy9jNhh/exec", 
   
   // 🔒 Security Token（必須與後端 core.gs 的 SECRET_TOKEN 一致）
   SECRET_TOKEN: "ChurchApp-2026",
