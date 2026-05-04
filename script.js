@@ -129,7 +129,7 @@ let currentEventData = [];
 // ⚙️ 如果沒有新版 config.js，在這裡直接填入你的部署網址與 Token
 const _FALLBACK_GAS_URL   = "https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_U9nKJrRMR1-xzbbtuaq08lePLgAQ2wnDRrCeHdy9jNhh/exec";
 const _FALLBACK_GAS_TOKEN = "ChurchApp-2026";
-const _API_TIMEOUT_MS     = 30000;
+const _API_TIMEOUT_MS     = 120000;
 
 function _getGasUrl() {
   return (window.CHURCH_CONFIG && window.CHURCH_CONFIG.GAS_DEPLOY_URL) ||
