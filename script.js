@@ -480,7 +480,7 @@ function renderTable(data) {
   const nameColIdx = currentTableHeaders.findIndex(h => h.includes("聚會名稱"));
   const catColIdx = currentTableHeaders.findIndex(h => h.includes("聚會類別"));
 
-  if (dateColIdx !== -1 && currentTemplate !== "小組聚會表模板" && currentEventData.length > 0) {
+  if (dateColIdx !== -1 && currentTemplate !== "小組聚會表模板" && currentTemplate !== "團契聚會表模板" && currentEventData.length > 0) {
     const existingDates = validRows.map(r => r[dateColIdx]);
 
     currentEventData.forEach(event => {
