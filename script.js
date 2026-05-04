@@ -427,7 +427,7 @@ function renderTable(data) {
   localCustomMembers = data.customMembers || [];
 
   const memberBtn = document.getElementById('manageMembersBtn');
-  if (memberBtn && currentTemplate !== "小組聚會表模板" && currentTemplate !== "團契聚會模板") {
+  if (memberBtn && currentTemplate !== "小組聚會表模板" && currentTemplate !== "團契聚會表模板") {
     memberBtn.classList.remove('hidden');
     currentGroupMembers = localCustomMembers.map(m => m.name);
 
@@ -525,8 +525,8 @@ function createRowHTML(rowData, gridTemplate) {
     let inputType = "text";
     if (header.includes("日期")) inputType = "date";
 
-    if (currentTemplate === "團契聚會模板") {
-      // 團契聚會模板：破冰敬拜用全體名單，司會用核心名單，其餘手填
+    if (currentTemplate === "團契聚會表模板") {
+      // 團契聚會表模板：破冰敬拜用全體名單，司會用核心名單，其餘手填
       const allDropdownCols = ["破冰", "敬拜"];
       const coreDropdownCols = ["司會"];
       const isAllCol = allDropdownCols.some(c => header.includes(c));
