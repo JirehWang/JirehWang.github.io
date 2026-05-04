@@ -427,7 +427,7 @@ function renderTable(data) {
   localCustomMembers = data.customMembers || [];
 
   const memberBtn = document.getElementById('manageMembersBtn');
-  if (memberBtn && currentTemplate !== "小組聚會表模板") {
+  if (memberBtn && currentTemplate !== "小組聚會表模板" && currentTemplate !== "團契聚會模板") {
     memberBtn.classList.remove('hidden');
     currentGroupMembers = localCustomMembers.map(m => m.name);
 
@@ -525,7 +525,23 @@ function createRowHTML(rowData, gridTemplate) {
     let inputType = "text";
     if (header.includes("日期")) inputType = "date";
 
-    if (currentTemplate !== "小組聚會表模板") {
+    if (currentTemplate === "團契聚會模板") {
+      // 團契聚會模板：破冰敬拜用全體名單，司會用核心名單，其餘手填
+      const allDropdownCols = ["破冰", "敬拜"];
+      const coreDropdownCols = ["司會"];
+      const isAllCol = allDropdownCols.some(c => header.includes(c));
+      const isCoreCol = coreDropdownCols.some(c => header.includes(c));
+
+      if (isCoreCol) {
+        listAttr = `list="coreMembersList"`;
+        extraClass = `datalist-input`;
+      } else if (isAllCol) {
+        listAttr = `list="allMembersList"`;
+        extraClass = `datalist-input`;
+      }
+
+    } else if (currentTemplate !== "小組聚會表模板") {
+      // 新家人服事表模板 / 其他自訂模板
       if (header.includes("日期") || header.includes("聚會名稱") || header.includes("聚會類別")) {
         listAttr = "";
         extraClass = "";
@@ -541,7 +557,9 @@ function createRowHTML(rowData, gridTemplate) {
           extraClass = `datalist-input`;
         }
       }
+
     } else {
+      // 小組聚會表模板
       const allDropdownCols = ["破冰", "敬拜", "分享"];
       const coreDropdownCols = ["話語", "領會", "主領", "帶領"];
       const isAllCol = allDropdownCols.some(c => header.includes(c));
@@ -563,7 +581,6 @@ function createRowHTML(rowData, gridTemplate) {
   rowHtml += `<button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteRow(this)" title="刪除此列">✖</button></div>`;
   return rowHtml;
 }
-
 
 // ============================================================
 //  ➕ 新增列 / 🗑️ 刪除列
@@ -691,7 +708,8 @@ async function processAI() {
       text: rawText,
       headers: currentTableHeaders,
       members: currentGroupMembers,
-      groupPrompt: currentGroupPrompt + "\n" + currentAutoRoleRules
+      groupPrompt: currentGroupPrompt + "\n" + currentAutoRoleRules,
+      template: currentTemplate
     });
 
     fillTableWithData(resData);
