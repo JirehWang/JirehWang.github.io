@@ -487,8 +487,8 @@ function renderTable(data) {
       if (!existingDates.includes(event.date)) {
         let newRow = new Array(validColCount).fill("");
         newRow[dateColIdx] = event.date;
-        if (nameColIdx !== -1) newRow[nameColIdx] = event.name;
-        if (catColIdx !== -1) newRow[catColIdx] = event.category;
+        if (nameColIdx !== -1) newRow[nameColIdx] = event.category;
+        if (catColIdx !== -1) newRow[catColIdx] = event.name;
         validRows.push(newRow);
       }
     });
