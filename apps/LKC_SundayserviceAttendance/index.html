@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>⛪ 教會主日出席點名系統</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css?v=20260420">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .app-container {
+      width: 100%;
+      padding: 15px;
+      margin-right: auto;
+      margin-left: auto;
+      transition: max-width 0.3s ease;
+    }
+    #main-nav {
+      max-width: 550px;
+      margin: 0 auto;
+    }
+    .nav-card { 
+      cursor: pointer; 
+      transition: 0.3s; 
+      height: 85px; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      font-weight: bold; 
+      border-radius: 12px;
+    }
+    .nav-card:hover { 
+      background-color: #f8f9fa; 
+      transform: translateY(-2px); 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+    }
+    .nav-icon { font-size: 1.8rem; margin-right: 15px; }
+    .nav-text { font-size: 1.2rem; }
+    .custom-modal-backdrop {
+      display: none; 
+      position: fixed; 
+      top: 0; left: 0; 
+      width: 100%; height: 100%; 
+      background: rgba(0,0,0,0.6); 
+      z-index: 9999; 
+      overflow-y: auto;
+    }
+    .custom-modal-content {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      margin: 20px auto;
+      width: 95%;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    
+    <div id="main-nav">
+      <div class="d-flex justify-content-center align-items-end mb-4">
+        <h2 class="fw-bold mb-0">⛪ 教會主日出席點名系統</h2>
+        <a href="https://www.canva.com/design/DAHCGu-ynJs/eI1qlAREHLG-vLxNELzXxg/view?utm_content=DAHCGu-ynJs&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=h30d97a479b" 
+           target="_blank" 
+           class="text-secondary text-decoration-none ms-2 mb-1 border-bottom border-secondary pb-0" 
+           style="font-size: 0.85rem;" title="查看系統操作說明">
+           📖 操作說明
+        </a>
+      </div>
+      
+      <div class="card nav-card text-primary border-primary shadow-sm mb-3" onclick="loadAttendancePage('台語')">
+        <div class="d-flex align-items-center"><span class="nav-icon">🎤</span><span class="nav-text">主日點名系統</span></div>
+      </div>
+      
+      <div class="card nav-card text-secondary shadow-sm mb-3" onclick="loadPage('MEMBERS')">
+        <div class="d-flex align-items-center"><span class="nav-icon">👥</span><span class="nav-text">會友名單管理</span></div>
+      </div>
+      
+      <div class="card nav-card text-success shadow-sm mb-3" onclick="loadPage('STATS')">
+        <div class="d-flex align-items-center"><span class="nav-icon">📊</span><span class="nav-text">出席統計查詢</span></div>
+      </div>
+
+      <div class="card nav-card text-info shadow-sm mb-3" onclick="loadPage('TREND_CHART')">
+        <div class="d-flex align-items-center"><span class="nav-icon">📈</span><span class="nav-text">趨勢分析圖表</span></div>
+      </div>
+    </div>
+
+    <div id="content-area" style="display:none;">
+      <button class="btn btn-outline-secondary mb-3 shadow-sm" onclick="showHome()">← 回主選單</button>
+      
+      <div id="page-ATTENDANCE" class="page-section"></div>
+      <div id="page-MEMBERS" class="page-section"></div>
+      <div id="page-STATS" class="page-section"></div>
+      <div id="page-TREND_CHART" class="page-section"></div>
+    </div>
+
+  </div>
+
+  <!-- 設定檔與 API 橋接層 -->
+  <script src="config.js"></script>
+  <script src="api.js"></script>
+
+<script>
+  var autoJumpConfig = { cat: null, grp: null, active: false };
+  var pageLoaded = { ATTENDANCE: false, MEMBERS: false, STATS: false, TREND_CHART: false };
+
+  /**
+   * 動態載入子頁面 HTML
+   * ✅ 已修改：拿掉 pages/ 前綴，直接從根目錄讀取
+   */
+  async function loadPageContent(pageId, filename) {
+    if (pageLoaded[pageId]) return;
+    const container = document.getElementById('page-' + pageId);
+    container.innerHTML = '<div id="page-loading"><div class="spinner-border text-primary me-3"></div> 載入中...</div>';
+    try {
+      const res = await fetch(filename + '.html');
+      if (!res.ok) throw new Error('找不到 ' + filename + '.html');
+      container.innerHTML = await res.text();
+      pageLoaded[pageId] = true;
+
+      container.querySelectorAll('script').forEach(oldScript => {
+        const newScript = document.createElement('script');
+        if (oldScript.src) {
+          newScript.src = oldScript.src;
+        } else {
+          newScript.textContent = oldScript.textContent;
+        }
+        document.body.appendChild(newScript);
+        oldScript.remove();
+      });
+    } catch (e) {
+      container.innerHTML = '<div class="alert alert-danger m-3">❌ 頁面載入失敗：' + e.message + '</div>';
+    }
+  }
+
+  function prepareContentArea() {
+    document.getElementById('main-nav').style.display = 'none';
+    document.getElementById('content-area').style.display = 'block';
+    document.querySelectorAll('.page-section').forEach(sec => sec.style.display = 'none');
+  }
+
+  function showHome() {
+    if (typeof stopScanning === "function") stopScanning();
+    if (typeof stopAutoSync === "function") stopAutoSync();
+    document.getElementById('main-nav').style.display = 'block';
+    document.getElementById('content-area').style.display = 'none';
+    autoJumpConfig.active = false;
+  }
+
+  async function loadAttendancePage(type) {
+    prepareContentArea();
+    document.getElementById('page-ATTENDANCE').style.display = 'block';
+    await loadPageContent('ATTENDANCE', 'attendance');
+    if (typeof initAttendancePage === "function") initAttendancePage(type);
+  }
+
+  async function loadPage(pageId) {
+    prepareContentArea();
+    const target = document.getElementById('page-' + pageId);
+    if (!target) return;
+    target.style.display = 'block';
+
+    const fileMap = { MEMBERS: 'members', STATS: 'STATS', TREND_CHART: 'Chart' };
+    await loadPageContent(pageId, fileMap[pageId]);
+
+    if (pageId === 'MEMBERS' && typeof refreshMemberTable === "function") refreshMemberTable();
+    if (pageId === 'STATS') {
+      if (typeof initStatsPage === "function") initStatsPage();
+      else if (typeof fetchStatsData === "function") fetchStatsData();
+    }
+    if (pageId === 'TREND_CHART') {
+      const groupNameEl = document.getElementById('chartGroupName');
+      if (groupNameEl) groupNameEl.innerText = (typeof currentAttType !== 'undefined' && currentAttType) ? currentAttType : "尚未選擇";
+      if (typeof loadChartData === "function") loadChartData();
+    }
+  }
+
+  window.onload = function() {
+    if (typeof initializeApp === "function") initializeApp();
+
+    // ✅ 已修改：直接從瀏覽器網址讀取參數，取代 google.script.url.getLocation
+    const params = new URLSearchParams(window.location.search);
+    const initCat = params.get('cat');
+    const initGrp = params.get('grp');
+
+    if (initCat && initGrp) {
+      console.log("🚀 偵測到跳轉指令：", initCat, initGrp);
+      autoJumpConfig.cat = initCat;
+      autoJumpConfig.grp = initGrp;
+      autoJumpConfig.active = true;
+
+      prepareContentArea();
+      document.getElementById('page-ATTENDANCE').style.display = 'block';
+
+loadPageContent('ATTENDANCE', 'attendance').then(() => {
+        let retryCount = 0;
+        let checkInterval = setInterval(() => {
+          retryCount++;
+          const isConfigLoaded = (typeof globalGroupConfig !== 'undefined' && Object.keys(globalGroupConfig).length > 0);
+          if (typeof loadGroupConfig === "function" && isConfigLoaded) {
+            clearInterval(checkInterval);
+            loadGroupConfig(initCat, initGrp);
+          }
+          if (retryCount > 50) {
+            clearInterval(checkInterval);
+            console.warn("⚠️ 自動跳轉逾時");
+          }
+        }, 200);
+      });   // ← 關 .then
+    }       // ← 關 if
+  };        // ← 關 window.onload
+</script>
+</body>
+</html>

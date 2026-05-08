@@ -1,0 +1,175 @@
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
+<div class="card p-4 shadow-sm border-0" style="border-radius: 16px;">
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-3">
+    <h4 class="fw-bold mb-0 text-dark d-flex align-items-center">
+      <span class="fs-3 me-2">📈</span> 聚會趨勢深度分析
+    </h4>
+    <div class="btn-group shadow-sm" role="group">
+      <input type="radio" class="btn-check" name="chartCat" id="catWorship" autocomplete="off" checked onclick="loadCategoryChart('禮拜')">
+      <label class="btn btn-outline-primary fw-bold px-4" for="catWorship">⛪ 禮拜</label>
+      <input type="radio" class="btn-check" name="chartCat" id="catSundaySchool" autocomplete="off" onclick="loadCategoryChart('主日學')">
+      <label class="btn btn-outline-primary fw-bold px-4" for="catSundaySchool">📖 主日學</label>
+    </div>
+  </div>
+
+  <div class="row g-2 mb-3 bg-light p-2 rounded border align-items-end">
+    <div class="col-md-3 col-6">
+      <label class="form-label small fw-bold text-muted mb-1">📅 開始日期</label>
+      <input type="date" id="chartStartDate" class="form-control border-secondary text-secondary fw-bold">
+    </div>
+    <div class="col-md-3 col-6">
+      <label class="form-label small fw-bold text-muted mb-1">📅 結束日期</label>
+      <input type="date" id="chartEndDate" class="form-control border-secondary text-secondary fw-bold">
+    </div>
+    <div class="col-md-6 col-12 d-flex gap-2">
+      <button class="btn btn-primary fw-bold flex-grow-1 shadow-sm" onclick="refreshCurrentChart()">🔍 篩選區間</button>
+      <button class="btn btn-success fw-bold shadow-sm" onclick="exportToExcel()" title="匯出 Excel 數據">📥 匯出 Excel</button>
+      <button class="btn btn-outline-secondary fw-bold shadow-sm" onclick="downloadChartImage()" title="下載圖表圖片">🖼️ 圖表</button>
+    </div>
+  </div>
+  
+  <div class="d-flex justify-content-between align-items-end mb-2">
+    <div class="text-muted small fw-bold" id="chartStatusText">資料讀取中...</div>
+    <button class="btn btn-sm btn-light border fw-bold text-secondary shadow-sm" id="refreshChartBtn" onclick="refreshCurrentChart()" style="border-radius: 8px;">
+      🔄 重新整理
+    </button>
+  </div>
+  
+  <div class="bg-white p-3 border shadow-sm" style="position: relative; height: 60vh; width: 100%; border-radius: 12px;">
+    <canvas id="attendanceChart"></canvas>
+  </div>
+</div>
+
+<script>
+  var attendanceChartInstance = null; 
+  var activeCategory = '禮拜'; 
+  var lastFetchedData = null; 
+
+  const colorPalette = [
+    { border: '#0d6efd', bg: 'rgba(13, 110, 253, 0.1)' },
+    { border: '#dc3545', bg: 'rgba(220, 53, 69, 0.1)' },
+    { border: '#20c997', bg: 'rgba(32, 201, 151, 0.1)' },
+    { border: '#6f42c1', bg: 'rgba(111, 66, 193, 0.1)' },
+    { border: '#fd7e14', bg: 'rgba(253, 126, 20, 0.1)' }
+  ];
+
+  function refreshCurrentChart() { loadCategoryChart(activeCategory); }
+
+  function loadCategoryChart(category) {
+    activeCategory = category; 
+    const startDate = document.getElementById('chartStartDate').value;
+    const endDate = document.getElementById('chartEndDate').value;
+    const statusText = document.getElementById('chartStatusText');
+    const refreshBtn = document.getElementById('refreshChartBtn');
+    statusText.innerHTML = `正在分析 <b class="text-primary">${category}</b> 數據... <span class="spinner-border spinner-border-sm text-primary"></span>`;
+    refreshBtn.disabled = true;
+    google.script.run
+      .withSuccessHandler(function(response) {
+        refreshBtn.disabled = false;
+        if (response.error) {
+          statusText.innerHTML = `<span class="text-danger">${response.error}</span>`;
+          if (attendanceChartInstance) attendanceChartInstance.destroy();
+          return;
+        }
+        lastFetchedData = response;
+        statusText.innerHTML = `✅ 已載入 <b class="text-primary">${category}</b> 紀錄共 ${response.labels.length} 筆`;
+        renderComboChart(response);
+      })
+      .withFailureHandler(function(err) {
+        refreshBtn.disabled = false;
+        statusText.innerHTML = `<span class="text-danger">❌ 載入失敗：${err.message}</span>`;
+      })
+      .getCategoryChartData(category, startDate, endDate); 
+  }
+
+  function renderComboChart(data) {
+    const canvas = document.getElementById('attendanceChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (attendanceChartInstance) attendanceChartInstance.destroy();
+    const chartDatasets = [];
+    chartDatasets.push({
+        type: 'bar', label: '正式會友 (總計)',
+        data: data.datasets['MembersTotal'],
+        backgroundColor: 'rgba(200, 200, 200, 0.5)', borderColor: '#adb5bd',
+        borderWidth: 1, borderRadius: 4, yAxisID: 'y', stack: 'combined', order: 2
+    });
+    chartDatasets.push({
+        type: 'bar', label: '新朋友 (總計)',
+        data: data.datasets['NewFriendsTotal'],
+        backgroundColor: 'rgba(220, 53, 69, 0.6)', borderColor: '#dc3545',
+        borderWidth: 1, borderRadius: 4, yAxisID: 'y', stack: 'combined', order: 2
+    });
+    data.groups.forEach((groupName, index) => {
+        const colors = colorPalette[index % colorPalette.length];
+        chartDatasets.push({
+            type: 'line', label: groupName,
+            data: data.datasets[groupName],
+            borderColor: colors.border, backgroundColor: colors.border,
+            borderWidth: 3, tension: 0.4,
+            pointBackgroundColor: '#ffffff', pointBorderWidth: 2, pointRadius: 4,
+            fill: false, yAxisID: 'yLine', order: 1
+        });
+    });
+    attendanceChartInstance = new Chart(ctx, {
+        data: { labels: data.labels, datasets: chartDatasets },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { position: 'top', labels: { usePointStyle: true, font: { weight: 'bold' } } },
+                tooltip: {
+                    callbacks: {
+                        footer: function(tooltipItems) {
+                            let sum = 0;
+                            tooltipItems.forEach(function(item) { if (item.dataset.type === 'bar') sum += item.parsed.y; });
+                            return '實到總計: ' + sum + ' 人';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { stacked: true, grid: { display: false } },
+                y: { type: 'linear', display: true, position: 'left', stacked: true, beginAtZero: true,
+                     title: { display: true, text: '出席人數' },
+                     grid: { color: 'rgba(0, 0, 0, 0.05)', borderDash: [5, 5] } },
+                yLine: { type: 'linear', display: false, stacked: false, beginAtZero: true,
+                         afterDataLimits: (axis) => { const masterMax = axis.chart.scales.y.max; axis.max = masterMax; axis.min = 0; } }
+            }
+        }
+    });
+  }
+
+  function exportToExcel() {
+    if (!lastFetchedData) return alert("目前沒有數據可以匯出！");
+    const rows = [];
+    const headers = ["日期", "正式會友總計", "新朋友總計", "當日總人數", ...lastFetchedData.groups];
+    rows.push(headers);
+    lastFetchedData.labels.forEach((date, i) => {
+      const mCount = lastFetchedData.datasets["MembersTotal"][i];
+      const nfCount = lastFetchedData.datasets["NewFriendsTotal"][i];
+      const row = [date, mCount, nfCount, (mCount + nfCount)];
+      lastFetchedData.groups.forEach(group => { row.push(lastFetchedData.datasets[group][i]); });
+      rows.push(row);
+    });
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, activeCategory + "數據分析");
+    const fileName = `教會出席統計_${activeCategory}_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  }
+
+  function downloadChartImage() {
+    const canvas = document.getElementById('attendanceChart');
+    const link = document.createElement('a');
+    link.download = `趨勢圖_${activeCategory}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  }
+
+  function loadChartData() { loadCategoryChart(activeCategory); }
+
+  // 頁面載入時自動執行
+  loadChartData();
+</script>

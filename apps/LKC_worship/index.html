@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta name="robots" content="noindex, nofollow">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>敬拜團服事公佈欄</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="text-center mb-4 mt-3">
+  <h2 class="fw-bold">⛪ 敬拜團服事公佈欄</h2>
+</div>
+
+<div class="main-card">
+  <div class="quarter-box d-flex justify-content-between align-items-center">
+    <h5 class="mb-0 fw-bold">查詢季度</h5>
+    <select id="quarterSelect" class="form-select w-auto fw-bold" onchange="loadDashboard()">
+      <option value="2026-Q1" selected>2026-Q1</option>
+      <option value="2026-Q2">2026-Q2</option>
+      <option value="2026-Q3">2026-Q3</option>
+      <option value="2026-Q4">2026-Q4</option>
+    </select>
+  </div>
+
+  <div class="table-scroll-container" id="dashboardContainer">
+    <div class="text-center p-5 text-muted">
+      <div class="spinner-border text-primary mb-2"></div>
+      <div>正在同步最新資料...</div>
+    </div>
+  </div>
+</div>
+<script src="https://jirehwang.github.io/LKERP.github.io/config.js"></script>
+<script src="script.js"></script>
+</body>
+</html>

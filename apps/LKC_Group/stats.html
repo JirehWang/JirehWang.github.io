@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小組點名系統 - 統計中心</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* 新增：切換按鈕樣式 */
+        .report-type-toggle {
+            display: flex;
+            background: #eee;
+            padding: 4px;
+            border-radius: 8px;
+            gap: 4px;
+            margin-right: 15px;
+        }
+        .report-type-toggle input { display: none; }
+        .report-type-toggle label {
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #666;
+            transition: 0.3s;
+        }
+        .report-type-toggle input:checked + label {
+            background: #fff;
+            color: #2c3e50;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .input-row.sub-row {
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <div class="loading-msg" id="overlay-text">處理中，請稍候...</div>
+    </div>
+
+    <div class="header">
+        <h1 style="color: #2c3e50; display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 1.2em;">📊</span> 統計與報表中心
+        </h1>
+        <a href="index.html" class="btn" style="background: #e0e0e0; color: #333; text-decoration: none;">⬅️ 回首頁</a>
+    </div>
+
+    <div class="filter-box" style="background: linear-gradient(145deg, #ffffff, #f5f7f9); display: flex; flex-direction: column; gap: 15px;">
+        <div class="input-row" style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-weight: bold; color: #555; min-width: 85px;">🛡️ 驗證身分：</span>
+            <input type="text" id="groupCode" placeholder="輸入編號" style="width: 120px; text-transform: uppercase; font-weight: bold; text-align: center;">
+            <span id="idResult" class="status-badge">等待輸入...</span>
+            <select id="adminGroupSelect" style="display:none; padding: 10px; border-radius: 6px; border: 1px solid #ddd;"></select>
+        </div>
+    
+        <div class="input-row" style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-weight: bold; color: #555; min-width: 85px;">📊 報表類型：</span>
+            <div class="report-type-toggle">
+                <input type="radio" name="reportType" id="typeMember" value="MEMBER" checked>
+                <label for="typeMember">👤 組員出席率</label>
+                <input type="radio" name="reportType" id="typeWeekly" value="WEEKLY">
+                <label for="typeWeekly">📅 每週出席人次</label>
+            </div>
+        </div>
+    
+        <div class="input-row" style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-weight: bold; color: #555; min-width: 85px;">📅 查詢區間：</span>
+            <input type="date" id="startDate" style="cursor: pointer; padding: 8px; border-radius: 6px; border: 1px solid #ddd;"> 
+            <span style="color: #999; font-weight: bold;">~</span> 
+            <input type="date" id="endDate" style="cursor: pointer; padding: 8px; border-radius: 6px; border: 1px solid #ddd;">
+        </div>
+    
+        <div class="input-row" style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #eee; padding-top: 10px;">
+            <button class="btn" style="background: #4CAF50; box-shadow: 0 4px 6px rgba(76,175,80,0.3);" onclick="loadStats()">🔍 開始分析</button>
+            <button class="btn" style="background: #2196F3; box-shadow: 0 4px 6px rgba(33,150,243,0.3);" onclick="exportToExcel()">📥 匯出報表</button>
+        </div>
+
+    <div id="resultArea" class="stats-dashboard" style="overflow-x: auto; margin-top: 20px;">
+        <table id="statsTable">
+            <thead>
+                </thead>
+            <tbody>
+                <tr><td colspan="5" style="color: #999; padding: 40px 0;">請輸入編號並點擊「開始分析」</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script src="https://jirehwang.github.io/LKERP.github.io/config.js"></script>
+    <script src="stats.js"></script>
+</body>
+</html>

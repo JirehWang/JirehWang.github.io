@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>QR Scanner</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: sans-serif; }
+    #reader { width: 100vw; height: 100vh; transition: transform 0.1s; }
+    
+    #flash {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(40, 167, 69, 0.8);
+      display: none; z-index: 999; pointer-events: none;
+      border: 20px solid #28a745;
+      box-sizing: border-box;
+    }
+
+    .scan-success-effect { animation: pulse-visual 0.4s ease-out; }
+
+    @keyframes pulse-visual {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+
+    #switch-btn {
+      position: fixed; bottom: 30px; right: 30px;
+      width: 55px; height: 55px; background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000; backdrop-filter: blur(10px); cursor: pointer;
+    }
+    #switch-btn svg { fill: white; width: 28px; height: 28px; }
+
+    #status-tip {
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.5); color: #fff; padding: 5px 15px;
+      border-radius: 20px; font-size: 12px; z-index: 1000; pointer-events: none;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="status-tip">等待 QR Code... (v5 旗艦相容版)</div>
+  <div id="flash"></div>
+  <div id="reader"></div>
+  
+  <div id="switch-btn" onclick="switchCamera()">
+    <svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
+  </div>
+
+  <script>
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbyJbzjHIeFFRbqT-Ttk2OAPYfF-qDKYES8dJiu4sJCR4t2Fq9PTtbALwuiJDBxh55kR/exec";
+    
+    let isProcessing = false;
+    let html5QrCode = null;
+    let cameraList = [];
+    let currentCameraIndex = 0;
+
+    let lastScannedData = "";
+    let lastScannedTime = 0;
+
+    async function initScanner() {
+      const formatsToSupport = [ Html5QrcodeSupportedFormats.QR_CODE ];
+      html5QrCode = new Html5Qrcode("reader", { formatsToSupport: formatsToSupport });
+      
+      try {
+        cameraList = await Html5Qrcode.getCameras();
+        if (cameraList.length > 0) {
+          // 嘗試找主鏡頭 (通常是 0 號或標籤帶有 back)
+          currentCameraIndex = cameraList.findIndex(d => d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('rear'));
+          if (currentCameraIndex === -1) currentCameraIndex = cameraList.length - 1;
+          startCurrentCamera();
+        }
+      } catch (err) { alert("無法取得相機列表: " + err); }
+    }
+
+    function startCurrentCamera() {
+      const cameraId = cameraList[currentCameraIndex].id;
+      const tip = document.getElementById('status-tip');
+      tip.innerText = "相機啟動中...";
+      
+      // 🚀 關鍵修復：拿掉 videoConstraints，避免 Pixel 7 Pro 多鏡頭衝突
+      const config = { 
+        fps: 30, 
+        qrbox: (w, h) => { const s = Math.min(w, h) * 0.7; return { width: s, height: s }; }
+      };
+
+      html5QrCode.start(cameraId, config, (text) => { 
+        if (!isProcessing) handleScan(text.trim()); 
+      }).then(() => {
+        tip.innerText = "等待 QR Code... (v5 旗艦版)";
+      }).catch(err => {
+        console.warn("高速模式啟動失敗，嘗試安全模式", err);
+        
+        // 🛡️ 終極安全退回模式：參數降到最低
+        html5QrCode.start(cameraId, { fps: 15, qrbox: 250 }, (text) => {
+           if (!isProcessing) handleScan(text.trim());
+        }).then(() => {
+           tip.innerText = "等待 QR Code... (安全模式)";
+        }).catch(err2 => {
+           tip.innerText = "❌ 相機啟動失敗";
+           tip.style.background = "#dc3545";
+           alert("相機啟動完全失敗。\n請確認瀏覽器已允許相機權限，或關閉其他佔用相機的App。\n錯誤代碼：" + err2);
+        });
+      });
+    }
+
+    async function switchCamera() {
+      if (cameraList.length < 2) return;
+      if (html5QrCode.isScanning) await html5QrCode.stop();
+      currentCameraIndex = (currentCameraIndex + 1) % cameraList.length;
+      startCurrentCamera();
+    }
+
+    async function handleScan(data) {
+      const now = Date.now();
+      if (data === lastScannedData && (now - lastScannedTime) < 5000) return; 
+
+      if (isProcessing) return; 
+      isProcessing = true;
+      
+      lastScannedData = data;
+      lastScannedTime = now;
+      
+      const flash = document.getElementById('flash');
+      const reader = document.getElementById('reader');
+      const tip = document.getElementById('status-tip');
+      
+      flash.style.display = 'block'; 
+      reader.classList.add('scan-success-effect'); 
+      tip.innerText = "✅ 掃描成功：" + data; 
+      tip.style.background = "#28a745";
+
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]); 
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const uid = urlParams.get('userId') || urlParams.get('uid') || 'Unknown';
+      const targetUrl = `${GAS_URL}?action=syncClickToServer&name=${encodeURIComponent(data)}&isChecked=true&userId=${uid}`;
+
+      fetch(targetUrl, { mode: 'no-cors' }).catch(e => console.log("背景傳送異常", e));
+
+      setTimeout(() => {
+        flash.style.display = 'none';
+        reader.classList.remove('scan-success-effect');
+        tip.innerText = "等待 QR Code... (v5 旗艦版)";
+        tip.style.background = "rgba(0,0,0,0.5)";
+        isProcessing = false; 
+      }, 1200); 
+    }
+
+    window.onload = initScanner;
+  </script>
+</body>
+</html>

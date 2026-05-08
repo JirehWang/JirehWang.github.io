@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小組點名與進度</title>
+    <link rel="stylesheet" href="style.css">
+    </head>
+<body>
+
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <div class="loading-msg" id="overlay-text">處理中，請稍候...</div>
+    </div>
+
+    <div class="header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h2 id="displayGroupName" style="margin: 0;">載入中...</h2>
+            <a href="index.html" style="text-decoration: none; color: #666; font-weight: bold;">⬅️ 返回首頁</a>
+        </div>  
+        <div id="scheduleBtn" class="schedule-link-btn" style="display: none;" onclick="goToSchedule()">🗓️ 前往排聚會表</div>
+    </div>
+
+    <div id="init-panel" style="display: none; text-align: center; margin-top: 50px;">
+        <p>偵測到此小組尚未建立成員名單。</p>
+        <textarea id="memberInput" rows="10" style="width:100%; box-sizing: border-box; padding: 10px;" placeholder="請輸入成員姓名，一個姓名換一行..."></textarea>
+        <button class="btn btn-init" style="background-color: #f44336;" onclick="initGroup()">🚀 建立成員名單 (預設為小羊)</button>
+    </div>
+
+    <div id="attendance-panel" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+            <div style="margin: 15px 0; font-weight: bold; color: #333;">
+                📅 聚會日期：<input type="date" id="attendanceDate" style="padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
+            <button class="btn" style="background-color: #607D8B; font-size: 14px; margin-bottom: 10px;" onclick="toggleEditMode()">📝 管理名單與身分</button>
+        </div>
+        
+        <div id="memberList" style="border: 1px solid #ddd; border-radius: 8px; overflow: hidden;"></div>
+
+        <div class="new-friend" style="margin-top: 20px; padding: 15px; background: #fff3e0; border-radius: 8px; border: 1px solid #ffe0b2; margin-bottom: 15px;">
+            <h4 style="margin-top: 0; color: #e65100;">✨ 新朋友 (若有請輸入，多位請用逗號隔開)</h4>
+            <input type="text" id="newFriends" style="width:95%; padding:10px; border: 1px solid #ffcc80; border-radius: 4px;" placeholder="例如：彼得, 約翰">
+        </div>
+
+        <button class="btn" style="background-color: #2196F3; width: 100%; font-size: 18px; margin-bottom: 30px;" onclick="submitAttendance()">💾 送出點名</button>
+
+        <div class="progress-section" id="progressSection" style="display: none;">
+            <div class="progress-header">
+                <h3>📊 近期聚會紀錄 <span style="font-size: 13px; color: #666;">(最近3次)</span></h3>
+                <button class="btn" style="background-color: #9C27B0; padding: 6px 12px; margin: 0; font-size: 13px;" onclick="goToFullStats()">📈 完整統計中心</button>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;">日期</th>
+                            <th style="width: 20%;">實到</th>
+                            <th style="width: 55%; text-align: left;">出席摘要</th>
+                        </tr>
+                    </thead>
+                    <tbody id="progressTableBody">
+                        <tr><td colspan="3" style="color: #666;">資料載入中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="edit-modal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; color: #333;">📝 管理名單與身分</h3>
+            
+            <div class="edit-add-box">
+                <input type="text" id="newMemberInput" placeholder="新增姓名" onkeypress="if(event.key==='Enter') addEditMember()">
+                <select id="newMemberRole" class="edit-role-select">
+                    <option value="小羊">小羊</option>
+                    <option value="一般同工">一般同工</option>
+                    <option value="核心同工">核心同工</option>
+                </select>
+                <button class="btn-add" onclick="addEditMember()">➕ 新增</button>
+            </div>
+
+            <div class="edit-list-container" id="editMemberList"></div>
+
+            <div style="display: flex; justify-content: space-between; margin-top: 20px;">
+                <button class="btn" onclick="toggleEditMode()" style="background: #9e9e9e;">取消</button>
+                <button class="btn" onclick="saveUpdatedList()" style="background: #4CAF50;">💾 儲存變更</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="edit-attendance-modal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; color: #333;">✏️ 修改點名紀錄</h3>
+            
+            <input type="hidden" id="editOriginalDate">
+            
+            <div style="margin: 15px 0; font-weight: bold; color: #333;">
+                📅 聚會日期：<input type="date" id="editAttendanceDate" style="padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
+            
+            <div id="editAttendanceMemberList" style="border: 1px solid #ddd; border-radius: 8px; overflow-y: auto; max-height: 250px;">
+                </div>
+
+            <div class="new-friend" style="margin-top: 15px;">
+                <h4 style="margin-top: 0; color: #e65100;">✨ 新朋友</h4>
+                <input type="text" id="editNewFriends" style="width:95%; padding:10px; border: 1px solid #ffcc80; border-radius: 4px;">
+            </div>
+
+            <div style="display: flex; justify-content: space-between; margin-top: 20px;">
+                <button class="btn" onclick="closeEditAttendanceModal()" style="background: #9e9e9e; padding: 10px;">取消</button>
+                <button class="btn" onclick="deleteAttendanceRecord()" style="background: #f44336; padding: 10px;">🗑️ 刪除紀錄</button>
+                <button class="btn" onclick="submitAttendanceEdit()" style="background: #4CAF50; padding: 10px;">💾 儲存修改</button>
+            </div>
+        </div>
+    </div>
+    <script src="https://jirehwang.github.io/LKERP.github.io/config.js"></script>
+    <script src="group.js"></script>
+</body>
+</html>

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教會近期聚會佈告欄</title>
+    <style>
+        /* 佈告欄專屬的 CSS 風格 */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f7fafc;
+            color: #2d3748;
+            margin: 0;
+            padding: 20px;
+        }
+        .board-container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .header h1 {
+            color: #2b6cb0;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        .header p {
+            color: #718096;
+            font-size: 1.1em;
+        }
+        /* 使用 Grid 讓卡片並排顯示 */
+        .event-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+        }
+        .event-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            border-top: 5px solid #4299e1;
+        }
+        .event-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+        }
+        .date-badge {
+            background: #ebf8ff;
+            color: #2b6cb0;
+            padding: 15px;
+            text-align: center;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .date-badge .day {
+            font-size: 2em;
+            font-weight: bold;
+            line-height: 1;
+        }
+        .date-badge .ym {
+            font-size: 0.9em;
+            color: #4a5568;
+            margin-top: 5px;
+        }
+        .card-body {
+            padding: 20px;
+        }
+        .event-name {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #2d3748;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .sermon-section {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-left: 3px solid #cbd5e0;
+        }
+        .sermon-type {
+            font-size: 0.8em;
+            font-weight: bold;
+            color: #fff;
+            background: #a0aec0;
+            padding: 2px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-bottom: 8px;
+        }
+        .sermon-type.mandarin { background: #48bb78; }
+        .sermon-type.taiwanese { background: #4299e1; }
+        
+        .info-row {
+            margin-bottom: 6px;
+            font-size: 0.95em;
+            line-height: 1.4;
+        }
+        .info-label {
+            color: #718096;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+        .no-data {
+            text-align: center;
+            color: #a0aec0;
+            font-size: 1.2em;
+            padding: 50px;
+            grid-column: 1 / -1;
+        }
+        .admin-link {
+            display: block;
+            text-align: center;
+            margin-top: 40px;
+            color: #718096;
+            text-decoration: none;
+        }
+        .admin-link:hover {
+            color: #2b6cb0;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="board-container">
+        <div class="header">
+            <h1>⛪ 教會近期聚會佈告欄</h1>
+            <p>願平安與您同在，以下是近期的聚會資訊</p>
+        </div>
+
+        <div id="boardGrid" class="event-grid">
+            </div>
+
+        <a href="index.html" class="admin-link">⚙️ 返回系統管理員介面</a>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            renderBoard();
+        });
+
+        function renderBoard() {
+            const container = document.getElementById('boardGrid');
+            const saved = localStorage.getItem('churchEvents');
+            
+            if (!saved) {
+                container.innerHTML = '<div class="no-data">目前尚無聚會資訊</div>';
+                return;
+            }
+
+            let events = JSON.parse(saved);
+
+            // 取得今天的日期 (YYYY-MM-DD格式)
+            const today = new Date().toISOString().split('T')[0];
+
+            // 1. 過濾：只留下「今天(含)」以後的聚會
+            // 2. 排序：依照日期由近到遠排列
+            let upcomingEvents = events
+                .filter(e => e.date >= today)
+                .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            if (upcomingEvents.length === 0) {
+                container.innerHTML = '<div class="no-data">近期尚無安排聚會</div>';
+                return;
+            }
+
+            let html = '';
+
+            upcomingEvents.forEach(event => {
+                // 將 YYYY-MM-DD 切割，方便排版
+                const dateObj = new Date(event.date);
+                const yearMonth = `${dateObj.getFullYear()}年 ${dateObj.getMonth() + 1}月`;
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+                const weekDay = weekDays[dateObj.getDay()];
+
+                // 只抓取有講道資訊的部分來展示
+                const sermons = event.sermons || [];
+
+                html += `
+                    <div class="event-card">
+                        <div class="date-badge">
+                            <div class="day">${day}</div>
+                            <div class="ym">${yearMonth} (星期${weekDay})</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="event-name">${event.name}</div>
+                            
+                            ${sermons.length === 0 ? '<div style="color:#a0aec0; text-align:center; font-size:0.9em;">(講道資訊安排中)</div>' : ''}
+                            
+                            ${sermons.map(sermon => {
+                                const isMandarin = sermon.type === '華語';
+                                const typeClass = isMandarin ? 'mandarin' : 'taiwanese';
+                                
+                                return `
+                                <div class="sermon-section">
+                                    <span class="sermon-type ${typeClass}">${sermon.type}講道</span>
+                                    ${sermon.title ? `<div class="info-row"><span class="info-label">講題:</span> ${sermon.title}</div>` : ''}
+                                    ${sermon.speaker ? `<div class="info-row"><span class="info-label">講員:</span> ${sermon.speaker}</div>` : ''}
+                                    ${sermon.scripture ? `<div class="info-row"><span class="info-label">經文:</span> ${sermon.scripture}</div>` : ''}
+                                    ${sermon.callToWorship ? `<div class="info-row"><span class="info-label">宣召:</span> ${sermon.callToWorship}</div>` : ''}
+                                    ${sermon.goldenVerse && !isMandarin ? `<div class="info-row"><span class="info-label">金句:</span> ${sermon.goldenVerse}</div>` : ''}
+                                </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

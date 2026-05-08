@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta name="robots" content="noindex, nofollow">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小組點名系統 - 主首頁</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <div class="loading-msg" id="overlay-text">載入中...</div>
+    </div>
+    
+    <div style="width: 100%; max-width: 100%; margin: 0 auto; padding: 0 20px; box-sizing: border-box;">
+        <div class="header">
+            <div style="width: 100%; display: flex; justify-content: flex-start; align-items: center; margin-bottom: 15px;">
+                <h1 style="margin: 0;">⛪ 小組點名系統</h1>
+            </div>
+            <div style="width: 100%; display: flex; justify-content: flex-end; align-items: stretch; gap: 12px;">
+                <button class="stats-link tab-btn" onclick="openWeeklyReport()" style="background-color:#4CAF50; border:none; cursor:pointer; width:clamp(60px, 12vw, 100px); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:clamp(13px, 2vw, 17px); line-height:1.2; white-space:normal; word-break:break-word; padding:6px; color:#fff; font-weight:bold;">📅 本週聚會人數</button>
+                <button class="stats-link tab-btn" onclick="window.location.href='manage.html'" style="background-color:#607D8B; border:none; cursor:pointer; width:clamp(60px, 12vw, 100px); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:clamp(13px, 2vw, 17px); line-height:1.2; white-space:normal; word-break:break-word; padding:6px; color:#fff; font-weight:bold;">⚙️ 後台管理</button>
+                <button class="stats-link tab-btn" onclick="window.location.href='stats.html'" style="background-color:#2196F3; border:none; cursor:pointer; width:clamp(60px, 12vw, 100px); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:clamp(13px, 2vw, 17px); line-height:1.2; white-space:normal; word-break:break-word; padding:6px; color:#fff; font-weight:bold;">📊 統計中心</button>
+            </div>
+        </div>
+    </div>
+    
+    <div style="width: 100%; max-width: 100%; margin: 0 auto; padding: 0 20px; box-sizing: border-box;">
+        <div id="group-list-container" style="margin-top: 20px;"></div>
+    </div>
+    
+    <div id="createModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="toggleModal(false)">&times;</span>
+            <h3>✨ 創建新小組</h3>
+            <input type="text" id="newGroupName" placeholder="請輸入小組名稱">
+            <input type="password" id="newGroupCode" placeholder="請設定小組編號 (密碼)">
+            <button class="submit-btn" onclick="createNewGroup()">確認建立</button>
+        </div>
+    </div>
+
+    <!-- 本週聚會人數彈窗 -->
+    <div id="weeklyModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:1000; align-items:center; justify-content:center;" onclick="if(event.target===this) closeWeeklyReport()">
+        <div style="background:#fff; border-radius:12px; width:90%; max-width:520px; padding:1.5rem; max-height:80vh; overflow-y:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; border-bottom:1px solid #eee; padding-bottom:0.75rem;">
+                <h2 style="margin:0; font-size:16px;">📅 本週聚會人數</h2>
+                <button onclick="closeWeeklyReport()" style="background:none; border:none; font-size:20px; cursor:pointer; color:#999;">✕</button>
+            </div>
+            <div id="weeklyReportContent">
+                <p style="color:#999; text-align:center; padding:2rem 0;">載入中...</p>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://jirehwang.github.io/LKERP.github.io/config.js"></script>
+    <script src="index.js"></script>
+</body>
+</html>

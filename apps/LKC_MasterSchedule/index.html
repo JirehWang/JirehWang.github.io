@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教會行事曆管理系統</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>📅 教會行事曆管理系統</h1>
+        
+        <div class="controls">
+            <button class="btn btn-primary" onclick="addEvent()">➕ 新增聚會</button>
+            <button class="btn btn-primary" onclick="openBatchModal()">📅 批量新增</button>
+            <button class="btn btn-primary" onclick="openAiImportModal()">🤖 AI 填寫聚會資訊</button>
+            <button class="btn btn-success" onclick="exportToExcel()">📊 匯出 Excel</button>
+            <button class="btn btn-primary" onclick="saveToGAS()">💾 儲存到雲端</button>
+            <button class="btn btn-primary" onclick="loadFromGAS()">📥 從雲端載入</button>
+
+        </div>
+<div class="search-bar" style="background: #edf2f7; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
+    <div class="input-group" style="margin-bottom: 0;">
+        <label>開始日期</label>
+        <input type="date" id="searchStartDate">
+    </div>
+    <div class="input-group" style="margin-bottom: 0;">
+        <label>結束日期</label>
+        <input type="date" id="searchEndDate">
+    </div>
+    <div style="display: flex; gap: 10px;">
+        <button class="btn btn-primary" onclick="filterEvents()">🔍 查詢</button>
+        <button class="btn" style="background: #718096; color: white;" onclick="clearFilter()">重設</button>
+    </div>
+</div>
+        <div id="eventList" class="event-list"></div>
+    </div>
+
+    <div id="batchModal" class="modal hidden" onclick="closeModalOnBackdrop(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>📅 批量新增聚會</h2>
+                <button class="btn-close" onclick="closeBatchModal()">✕</button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>開始日期 *</label>
+                        <input type="date" id="batchStartDate" required>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>結束日期 *</label>
+                        <input type="date" id="batchEndDate" required>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>聚會名稱</label>
+                        <input type="text" id="batchName" placeholder="例：主日崇拜">
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>聚會類別</label>
+                        <select id="batchCategory">
+                            <option>台華語聚會</option>
+                            <option>聯合聚會</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="weekday-selector">
+                    <label class="section-label">選擇星期 * (可多選)</label>
+                    <div class="weekday-buttons">
+                        <button type="button" class="weekday-btn" data-day="0" onclick="toggleWeekday(0)">日</button>
+                        <button type="button" class="weekday-btn" data-day="1" onclick="toggleWeekday(1)">一</button>
+                        <button type="button" class="weekday-btn" data-day="2" onclick="toggleWeekday(2)">二</button>
+                        <button type="button" class="weekday-btn" data-day="3" onclick="toggleWeekday(3)">三</button>
+                        <button type="button" class="weekday-btn" data-day="4" onclick="toggleWeekday(4)">四</button>
+                        <button type="button" class="weekday-btn" data-day="5" onclick="toggleWeekday(5)">五</button>
+                        <button type="button" class="weekday-btn" data-day="6" onclick="toggleWeekday(6)">六</button>
+                    </div>
+                </div>
+                
+                <div class="preview-section">
+                    <label class="section-label">預覽將新增的日期</label>
+                    <div id="datePreview" class="date-preview">請選擇日期區間和星期</div>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="previewBatchDates()">🔍 預覽日期</button>
+                <button class="btn btn-success" onclick="confirmBatchAdd()">✓ 確認新增</button>
+                <button class="btn" onclick="closeBatchModal()" style="background: #cbd5e0; color: #2d3748;">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="singleEventModal" class="modal hidden" onclick="closeModalOnBackdrop(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>➕ 新增聚會</h2>
+                <button class="btn-close" onclick="closeSingleEventModal()">✕</button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>日期 *</label>
+                        <input type="date" id="singleDate" required>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>聚會名稱</label>
+                        <input type="text" id="singleName" placeholder="例：主日崇拜">
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>聚會類別</label>
+                        <select id="singleCategory">
+                            <option>台華語聚會</option>
+                            <option>聯合聚會</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button class="btn btn-success" onclick="confirmSingleEventAdd()">✓ 確認新增</button>
+                <button class="btn" onclick="closeSingleEventModal()" style="background: #cbd5e0; color: #2d3748;">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="aiImportModal" class="modal hidden" onclick="closeModalOnBackdrop(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>🤖 AI 批量匯入講道資訊</h2>
+                <button class="btn-close" onclick="closeAiImportModal()">✕</button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <label>本次匯入的講道語言 (將影響抓取的欄位)</label>
+                    <select id="aiCategory" style="font-weight: bold; color: #3182ce;" onchange="updateAiPrompt()">
+                        <option value="台語/聯合">台語/聯合講道 (包含講題、講員、經文、宣召、金句、聖詩)</option>
+                        <option value="華語">華語講道 (僅包含講題、講員、經文、宣召)</option>
+                    </select>
+                </div>
+
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <label>自訂 AI 提示詞 (Prompt)</label>
+                    <textarea id="aiPrompt" style="min-height: 180px;"></textarea>
+                </div>
+                
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <label>貼上牧師的原始文字 *</label>
+                    <textarea id="aiRawText" placeholder="貼上牧師提供的原始講道大綱..." style="min-height: 150px;" required></textarea>
+                </div>
+
+                <div class="preview-section">
+                    <label class="section-label">AI 解析預覽</label>
+                    <div id="aiPreview" class="date-preview">請輸入文字並點擊「開始解析」</div>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="processAiText()">🧠 開始解析</button>
+                <button class="btn btn-success" id="btnConfirmAi" onclick="confirmAiImport()" disabled>✓ 寫入行事曆</button>
+                <button class="btn" onclick="closeAiImportModal()" style="background: #cbd5e0; color: #2d3748;">取消</button>
+            </div>
+        </div>
+    </div>
+    <script src="https://jirehwang.github.io/LKERP.github.io/config.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

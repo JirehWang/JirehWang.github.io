@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小組點名系統 - 後台管理</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <div class="loading-msg" id="overlay-text">處理中，請稍候...</div>
+    </div>
+    
+    <div class="header">
+        <h1 style="color: #c62828; display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 1.2em;">⚙️</span> 系統後台管理
+        </h1>
+        <a href="index.html" class="btn" style="background: #e0e0e0; color: #333; text-decoration: none;">⬅️ 回首頁</a>
+    </div>
+    
+    <!-- 登入面板 -->
+    <div id="login-panel" class="filter-box" style="text-align: center; padding: 40px 20px;">
+        <h2>🛡️ 請輸入小組代碼</h2>
+
+        <input type="password" id="adminInput" placeholder="輸入小組代碼" 
+               style="font-size: 16px; text-align: center; margin-bottom: 15px; width: 280px;">
+        <br>
+        <button class="btn" style="background: #c62828; font-size: 16px;" onclick="verifyAdmin()">🔓 登入管理</button>
+    </div>
+    
+    <!-- 管理面板 -->
+    <div id="manage-panel" style="display: none;">
+        <div class="filter-box" style="background: linear-gradient(145deg, #ffffff, #f5f7f9);">
+            <!-- 動態顯示權限等級 -->
+            <div id="permission-badge" style="display: inline-block; background: #4CAF50; color: white; padding: 8px 16px; border-radius: 20px; font-weight: bold; margin-bottom: 15px;">
+                👤 權限載入中...
+            </div>
+            
+            <h3 id="manage-title" style="margin-top: 0;">📋 小組參數管理</h3>
+            <p style="color: #666; font-size: 14px;">修改名稱時，系統將自動同步修改資料庫的關聯分頁名稱，請謹慎操作。</p>
+            
+            <table id="groupsTable">
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">小組名稱</th>
+                        <th style="width: 20%;">專屬代碼</th>
+                        <th style="width: 15%;">狀態</th>
+                        <th style="width: 20%;" id="dateColumn">建立日期</th>
+                        <th style="width: 20%;">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: #999;">載入中...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- 編輯彈窗 -->
+    <div id="edit-group-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeEditModal()">&times;</span>
+            <h3 style="color: #2196F3;">✏️ 修改小組資訊</h3>
+            <p style="color: #e53935; font-size: 12px; font-weight: bold;">⚠️ 若修改名稱，系統會花費幾秒鐘重新命名後端資料庫。</p>
+            
+            <div style="margin-top: 15px;">
+                <label style="font-weight: bold; color: #555;">原始名稱：</label>
+                <input type="text" id="editOldName" disabled 
+                       style="background: #f5f5f5; width: 100%; margin-top: 5px; color: #999; cursor: not-allowed;">
+            </div>
+            
+            <div style="margin-top: 15px;">
+                <label style="font-weight: bold; color: #555;">新名稱：</label>
+                <input type="text" id="editNewName" placeholder="請輸入新的小組名稱"
+                       style="width: 100%; margin-top: 5px;">
+            </div>
+            
+            <div style="margin-top: 15px;">
+                <label style="font-weight: bold; color: #555;">新代碼 (需4碼以上，區分大小寫)：</label>
+                <input type="text" id="editNewCode" placeholder="例如：ABC1"
+                       style="width: 100%; margin-top: 5px; font-family: monospace;">
+            </div>
+            
+            <div style="margin-top: 15px;">
+                <label style="font-weight: bold; color: #555;">狀態設定：</label>
+                <select id="editNewStatus" style="width: 100%; margin-top: 5px; padding: 10px; font-size: 14px;">
+                    <option value="顯示">✅ 顯示 (在首頁小組清單中顯示)</option>
+                    <option value="隱藏">🚫 隱藏 (在首頁小組清單中隱藏)</option>
+                </select>
+            </div>
+            
+            <button class="btn" style="background: #4CAF50; width: 100%; margin-top: 25px; font-size: 16px;" 
+                    onclick="saveGroupEdit()">💾 儲存修改</button>
+        </div>
+    </div>
+    
+    <script src="https://jirehwang.github.io/LKERP.github.io/config.js"></script>
+    <script src="manage.js"></script>
+</body>
+</html>
