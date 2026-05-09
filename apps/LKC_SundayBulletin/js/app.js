@@ -89,7 +89,7 @@ const App = {
       this.syncFormFromModel();
       const failed = Object.entries(results)
         .filter(([, v]) => !v.success)
-        .map(([k]) => ({ calendar:'行事曆', service:'服事排班', worship:'敬拜團', attendance:'點名(手動)', smallGroups:'小組' }[k] || k));
+        .map(([k]) => ({ calendar:'行事曆', service:'服事排班', worship:'敬拜團', worshipSongs:'敬拜曲目', attendance:'點名(手動)', smallGroups:'小組' }[k] || k));
       this.showToast(failed.length ? `帶入完成，請手動填入：${failed.join('、')}` : '全部資料帶入完成', failed.length ? 'warning' : 'success');
     } catch (err) {
       this.showToast('帶入失敗：' + err.message, 'error');
@@ -104,16 +104,23 @@ const App = {
     this.showLoading(true);
     this.showToast('正在帶入主日程序資料...', 'info');
     try {
-      const [calResult, svcResult] = await Promise.all([
+      const [calR, svcR, songsR] = await Promise.allSettled([
         ChurchAPI.fetchCalendarForDate(date),
-        ChurchAPI.fetchServiceSchedule(date)
+        ChurchAPI.fetchServiceSchedule(date),
+        ChurchAPI.fetchWorshipSongs(date)
       ]);
-      BulletinModel.applyAPIData({ calendar: calResult, service: svcResult });
+      const v = s => s.status === 'fulfilled' ? s.value : { success: false, error: s.reason?.message };
+      const calResult   = v(calR);
+      const svcResult   = v(svcR);
+      const songsResult = v(songsR);
+
+      BulletinModel.applyAPIData({ calendar: calResult, service: svcResult, worshipSongs: songsResult });
       this.syncFormFromModel();
       const msgs = [];
       if (!calResult.success) msgs.push(`行事曆失敗: ${calResult.error}`);
       else if (!calResult.data?.taiwanese && !calResult.data?.mandarin) msgs.push(`找不到 ${date} 的講道資訊`);
       if (!svcResult.success) msgs.push(`服事排班失敗: ${svcResult.error}`);
+      if (!songsResult.success) msgs.push(`敬拜曲目失敗: ${songsResult.error}`);
       this.showToast(msgs.length ? msgs.join('；') : '主日程序資料帶入完成', msgs.length ? 'warning' : 'success');
     } catch (err) {
       this.showToast('帶入失敗：' + err.message, 'error');

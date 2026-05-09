@@ -22,6 +22,7 @@ const BulletinModel = {
       mandarin: {
         presider: '',
         scripture: '', sermonTitle: '',
+        worshipSongs: '',
         upcomingPreview: ''
       },
 
@@ -96,7 +97,7 @@ const BulletinModel = {
   },
 
   applyAPIData(apiResults) {
-    const { calendar, service, worship, attendance, smallGroups } = apiResults;
+    const { calendar, service, worship, worshipSongs, attendance, smallGroups } = apiResults;
 
     if (calendar?.success) {
       const { taiwanese: tw, mandarin: zh, upcoming } = calendar.data;
@@ -136,6 +137,10 @@ const BulletinModel = {
 
     if (worship?.success) {
       this.set('ministry.thisWeek.zh.worship', worship.data.leader || '');
+    }
+
+    if (worshipSongs?.success) {
+      this.set('mandarin.worshipSongs', worshipSongs.data.songs || '');
     }
 
     if (attendance?.success) {

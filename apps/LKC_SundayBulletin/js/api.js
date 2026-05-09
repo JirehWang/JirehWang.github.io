@@ -115,6 +115,52 @@ const ChurchAPI = {
     }
   },
 
+  // ==========================================
+  // LKworship - 敬拜曲目（華語禮拜）
+  //
+  // getSongs 動作支援 { startDate, endDate } 或 { year, quarter }
+  // 回傳每列含：日期 / 聚會名稱 / 聚會類別 / 主領 / 敬拜曲目
+  // ==========================================
+  async fetchWorshipSongs(date, requireMatch = false) {
+    try {
+      const result = await this.callGAS(CONFIG.LKWORSHIP_GAS_URL, 'getSongs', {
+        startDate: date,
+        endDate:   date
+      });
+      const rows = this._unwrap(result);
+      console.log('[LKworship-songs]', date, '| rows:', Array.isArray(rows) ? rows.length : 0);
+
+      if (!Array.isArray(rows) || rows.length === 0) {
+        return requireMatch
+          ? { success: false, source: 'LKworship-songs', error: '查無曲目資料' }
+          : { success: true,  source: 'LKworship-songs', data: { songs: '', leader: '', raw: null } };
+      }
+
+      // 在當天的列中找華語場次（聚會類別或聚會名稱含「華語」）
+      const dayRows = rows.filter(r => this._dateMatch(r['日期'] || r['date'], date));
+      const zhRow =
+        dayRows.find(r => String(r['聚會類別'] || '').includes('華語')) ||
+        dayRows.find(r => String(r['聚會名稱'] || '').includes('華語')) ||
+        dayRows[0] || null;
+
+      if (!zhRow) {
+        return { success: true, source: 'LKworship-songs', data: { songs: '', leader: '', raw: null } };
+      }
+
+      return {
+        success: true, source: 'LKworship-songs',
+        data: {
+          songs:  zhRow['敬拜曲目'] || '',
+          leader: zhRow['主領']     || '',
+          raw:    zhRow
+        }
+      };
+    } catch (err) {
+      console.error('[LKworship-songs]', err);
+      return { success: false, source: 'LKworship-songs', error: err.message };
+    }
+  },
+
   async fetchWorshipSchedule(date, requireMatch = false) {
     try {
       const d = new Date(date);
@@ -330,14 +376,22 @@ const ChurchAPI = {
   },
 
   async fetchAll(date) {
-    const [calendar, service, worship, attendance, smallGroups] = await Promise.allSettled([
+    const [calendar, service, worship, worshipSongs, attendance, smallGroups] = await Promise.allSettled([
       this.fetchCalendarForDate(date),
       this.fetchServiceSchedule(date),
       this.fetchWorshipSchedule(date),
+      this.fetchWorshipSongs(date),
       this.fetchAttendance(date),
       this.fetchSmallGroups(date)
     ]);
     const val = r => r.status === 'fulfilled' ? r.value : { success: false, error: r.reason?.message };
-    return { calendar: val(calendar), service: val(service), worship: val(worship), attendance: val(attendance), smallGroups: val(smallGroups) };
+    return {
+      calendar:     val(calendar),
+      service:      val(service),
+      worship:      val(worship),
+      worshipSongs: val(worshipSongs),
+      attendance:   val(attendance),
+      smallGroups:  val(smallGroups)
+    };
   }
 };

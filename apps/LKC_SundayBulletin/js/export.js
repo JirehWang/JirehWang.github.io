@@ -144,7 +144,7 @@ const BulletinExport = {
       { label: '「等候上帝的話」', value: '', bold: true },
       { label: '序樂', value: '(敬拜團)' },
       { label: '宣召', value: '(司會者)' },
-      { label: '敬拜讚美', value: '(敬拜團)' },
+      { label: '敬拜讚美', value: zh.worshipSongs ? `${zh.worshipSongs} (敬拜團)` : '(敬拜團)' },
       { label: '使徒信經', value: '(會眾)' },
       { label: '', value: '' },
       { label: '「領受上帝的話」', value: '', bold: true },
