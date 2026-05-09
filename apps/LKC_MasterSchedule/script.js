@@ -680,7 +680,7 @@ function previewBatchDates() {
         previewDiv.innerHTML = '在選定的日期區間內，沒有符合條件的日期';
         previewDiv.classList.remove('has-dates');
     } else {
-        const weekdayNames = ['日', '一', '二', '三', '四', '五', '六'];
+        const weekdayNames = window.WEEKDAY_NAMES;
         let html = `<div class="preview-count">共 ${previewDates.length} 個日期</div>`;
         
         previewDates.forEach(date => {

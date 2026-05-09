@@ -44,51 +44,27 @@ let currentEventData = [];
 
 
 // ============================================================
-//  🛡️ API 呼叫核心（自給自足，不依賴 config.js 的實作細節）
-//
-//  設定來源優先順序：
-//    1. window.CHURCH_CONFIG（新版 config.js 提供）
-//    2. window._GAS_URL / window._GAS_TOKEN（手動注入）
-//    3. 內建預設值（需手動修改 FALLBACK_GAS_URL）
-//
-//  payload 結構統一為：{ action, token, data: { ...params } }
-//  後端 doPost 讀取：var data = payload.data || {}
+//  🛡️ API 呼叫核心
+//  config.js 已載入並提供 window.GAS_URL / window.AUTH_TOKEN，
+//  此處的 fetchAPI 與中央 churchAPI 並存，差異在於：
+//    - churchAPI 用 text/plain；fetchAPI 用 form-urlencoded（避開 preflight）
+//    - fetchAPI 帶有 timeout/retry 邏輯
+//  payload 結構：{ action, token, data: { ...params } }
 // ============================================================
 
-// ⚙️ 如果沒有新版 config.js，在這裡直接填入你的部署網址與 Token
-const _FALLBACK_GAS_URL   = "https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_U9nKJrRMR1-xzbbtuaq08lePLgAQ2wnDRrCeHdy9jNhh/exec";
-const _FALLBACK_GAS_TOKEN = "ChurchApp-2026";
-const _API_TIMEOUT_MS     = 120000;
-
-function _getGasUrl() {
-  return window.GAS_URL ||
-         (window.CHURCH_CONFIG && window.CHURCH_CONFIG.GAS_DEPLOY_URL) ||
-         window._GAS_URL ||
-         _FALLBACK_GAS_URL;
-}
-
-function _getGasToken() {
-  return window.AUTH_TOKEN ||
-         (window.CHURCH_CONFIG && window.CHURCH_CONFIG.SECRET_TOKEN) ||
-         window._GAS_TOKEN ||
-         _FALLBACK_GAS_TOKEN;
-}
+const _API_TIMEOUT_MS = 120000;
 
 async function fetchAPI(action, data = {}) {
-  // data 就是要放進 payload.data 的內容，呼叫端直接傳物件即可
-  // 例：fetchAPI('getPageConfig', { id: currentId })
-  //     fetchAPI('saveSheetData', { groupName: '...', matrix: [...] })
-
   const payload = {
     action: action,
-    token:  _getGasToken(),
+    token:  window.AUTH_TOKEN,
     data:   data
   };
 
-  const gasUrl = _getGasUrl();
-  if (!gasUrl || gasUrl.includes("YOUR_DEPLOYMENT_ID")) {
+  const gasUrl = window.GAS_URL;
+  if (!gasUrl) {
     throw new APIError(
-      "GAS 部署網址尚未設定，請修改 config.js 或 script.js 的 _FALLBACK_GAS_URL",
+      "GAS 部署網址尚未設定，請確認 config.js 已正確載入",
       null, 'CONFIG_ERROR'
     );
   }

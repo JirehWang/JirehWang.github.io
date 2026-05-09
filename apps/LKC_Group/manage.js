@@ -117,27 +117,10 @@ function renderTable(isAdmin) {
     }).join('');
 }
 
-// 3.5 日期格式化輔助函數
+// 3.5 日期格式化：優先用 config.js 的 formatYMD，無法解析時顯示原值
 function formatDate(dateValue) {
     if (!dateValue) return '-';
-    
-    // 處理 Google Sheets 的日期物件或字串
-    let date;
-    if (typeof dateValue === 'string') {
-        date = new Date(dateValue);
-    } else if (dateValue instanceof Date) {
-        date = dateValue;
-    } else {
-        return String(dateValue); // 無法解析的格式直接顯示
-    }
-    
-    if (isNaN(date.getTime())) return String(dateValue);
-    
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    
-    return `${year}-${month}-${day}`;
+    return window.formatYMD(dateValue) || String(dateValue);
 }
 
 // 4. 開啟編輯彈窗

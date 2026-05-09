@@ -86,6 +86,21 @@
   };
 
   // ============================================================
+  //  🗓️ 共用日期工具
+  // ============================================================
+  window.WEEKDAY_NAMES = ['日', '一', '二', '三', '四', '五', '六'];
+
+  // 格式化為 YYYY-MM-DD（使用本地時區，避免 toISOString 的 UTC 偏移）
+  window.formatYMD = function(date) {
+    const d = (date instanceof Date) ? date : new Date(date);
+    if (isNaN(d.getTime())) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  // ============================================================
   //  🛡️ ensureAPIReady — 由於 <script> 標籤同步載入順序保證 config.js
   //  在 app script 之前完成，這裡幾乎都是立即 resolve；保留 API 以兼容
   //  舊呼叫方式，並在極端情況提供 microtask 等待。
