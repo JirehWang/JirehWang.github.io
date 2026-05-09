@@ -261,7 +261,6 @@ const BulletinExport = {
         ['司琴', 'pianist', 'pianist'],
         ['招待.司獻', 'usher', 'usher'],
         ['新家人關懷', 'newcomerCare', 'newcomerCare'],
-        ['獻花', 'flower', 'flower'],
         ['會前領唱', 'preMeetingSong', 'preMeetingSong'],
         ['獻詩(聖歌隊)', 'choir', 'choir'],
         ['音控', 'soundControl', 'soundControl'],

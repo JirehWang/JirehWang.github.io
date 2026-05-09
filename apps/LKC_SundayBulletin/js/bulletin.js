@@ -10,7 +10,6 @@ const BulletinModel = {
 
       taiwanese: {
         presider: '',
-        mc: '', pianist: '',
         callToWorship: '', openingHymn: '',
         apostlesCreed: true,
         responsivePsalm: '', prayer1Note: '',
@@ -22,7 +21,6 @@ const BulletinModel = {
 
       mandarin: {
         presider: '',
-        mc: '',
         scripture: '', sermonTitle: '',
         upcomingPreview: ''
       },
@@ -30,12 +28,12 @@ const BulletinModel = {
       ministry: {
         thisWeek: {
           date: '',
-          tw: { presider:'', mc:'', pianist:'', usher:'', newcomerCare:'', flower:'', preMeetingSong:'', choir:'', soundControl:'', sundaySchoolA:'' },
+          tw: { presider:'', mc:'', pianist:'', usher:'', newcomerCare:'', preMeetingSong:'', choir:'', soundControl:'', sundaySchoolA:'' },
           zh: { presider:'', mc:'', worship:'', usher:'', newcomerCare:'', sundaySchoolB:'' }
         },
         nextWeek: {
           date: '',
-          tw: { presider:'', mc:'', pianist:'', usher:'', newcomerCare:'', flower:'', preMeetingSong:'', choir:'', soundControl:'', sundaySchoolA:'' },
+          tw: { presider:'', mc:'', pianist:'', usher:'', newcomerCare:'', preMeetingSong:'', choir:'', soundControl:'', sundaySchoolA:'' },
           zh: { presider:'', mc:'', worship:'', usher:'', newcomerCare:'', sundaySchoolB:'' }
         }
       },
@@ -126,9 +124,6 @@ const BulletinModel = {
 
     if (service?.success) {
       const d = service.data;
-      this.set('taiwanese.mc',      d.mc      || '');
-      this.set('taiwanese.pianist', d.pianist || '');
-      this.set('mandarin.mc',       d.zhMc    || '');
       this.set('ministry.thisWeek.tw.mc',            d.mc           || '');
       this.set('ministry.thisWeek.tw.pianist',       d.pianist      || '');
       this.set('ministry.thisWeek.tw.choir',         d.choir        || '');
