@@ -833,12 +833,19 @@ function _ms_matrixToObjects(matrix) {
   });
 }
 
-function _ms_objectsToMatrix(objects, headerOrder) {
+function _ms_objectsToMatrix(objects, headerOrder, opts = {}) {
+  // strict: 只用 headerOrder 列出的欄位，忽略 objects 中其他欄位
+  const strict = opts.strict === true;
   if (!objects || objects.length === 0) return headerOrder ? [headerOrder.slice()] : [];
-  const seen = new Set();
-  const headers = [];
-  if (headerOrder) headerOrder.forEach(h => { if (!seen.has(h)) { seen.add(h); headers.push(h); } });
-  objects.forEach(obj => Object.keys(obj).forEach(k => { if (!seen.has(k)) { seen.add(k); headers.push(k); } }));
+  let headers;
+  if (strict && headerOrder) {
+    headers = headerOrder.slice();
+  } else {
+    const seen = new Set();
+    headers = [];
+    if (headerOrder) headerOrder.forEach(h => { if (!seen.has(h)) { seen.add(h); headers.push(h); } });
+    objects.forEach(obj => Object.keys(obj).forEach(k => { if (!seen.has(k)) { seen.add(k); headers.push(k); } }));
+  }
   const rows = objects.map(obj => headers.map(h => obj[h] == null ? '' : obj[h]));
   return [headers, ...rows];
 }
@@ -1283,7 +1290,30 @@ async function showAggregatedReport(type) {
     if (type === 'smallGroup') {
       // 小組聚會總表 = 後端 smallGroup + others 中模板類型 = 團契聚會表模板 的列
       const fellowshipFromOthers = _ms_filterMatrix(othRaw, obj => obj['模板類型'] === '團契聚會表模板');
-      matrix = _ms_mergeMatrices(smRaw, fellowshipFromOthers);
+      const merged = _ms_mergeMatrices(smRaw, fellowshipFromOthers);
+
+      if (merged.length > 1) {
+        // 模板實際欄位：
+        //   小組聚會表模板：日期、破冰、敬拜、話語分享、主題、經文、地點
+        //   團契聚會表模板：日期、破冰、敬拜、司會、講員、主題、經文、地點
+        // 期望輸出順序：共用欄位用小組原順序；團契特有欄位（司會、講員）附在最後。
+        // 額外加「分頁名稱」當作「這列是哪一組/哪一團契」的辨識欄。
+        // 丟棄 GAS 的技術性元欄位：模板類型 / 聚會名稱 / 聚會類別。
+        const dropMeta = ['模板類型', '聚會名稱', '聚會類別'];
+        const remaining = merged[0].filter(h => !dropMeta.includes(h) && h !== '日期' && h !== '分頁名稱');
+        const ordered = ['日期', '分頁名稱', ...remaining];
+
+        // 物件化、依日期升冪排序
+        const objs = _ms_matrixToObjects(merged);
+        objs.sort((a, b) => {
+          const da = new Date(a['日期'] || 0).getTime() || 0;
+          const db = new Date(b['日期'] || 0).getTime() || 0;
+          return da - db;
+        });
+        matrix = _ms_objectsToMatrix(objs, ordered, { strict: true });
+      } else {
+        matrix = merged;
+      }
     } else {
       // 各項服事總表 = others 排除團契後，依日期合併（同欄不同值用換行串接 + 來源標記）
       const withoutFellowship = _ms_filterMatrix(othRaw, obj => obj['模板類型'] !== '團契聚會表模板');
