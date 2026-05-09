@@ -191,6 +191,39 @@ const App = {
     }
   },
 
+  // 聚會統計 tab：同時帶入出席人數 + 小組人數，皆以主日日期為參照
+  async fetchAttendanceTab() {
+    const date = document.getElementById('bulletinDate').value;
+    if (!date) { this.showToast('請先選擇日期', 'error'); return; }
+    this.showLoading(true);
+    this.showToast(`正在帶入聚會人數（參照主日 ${date}）...`, 'info');
+    try {
+      const [attR, sgR] = await Promise.allSettled([
+        ChurchAPI.fetchAttendance(date),
+        ChurchAPI.fetchSmallGroups(date)
+      ]);
+      const v = s => s.status === 'fulfilled' ? s.value : { success: false, error: s.reason?.message };
+      const attendance  = v(attR);
+      const smallGroups = v(sgR);
+
+      BulletinModel.applyAPIData({ attendance, smallGroups });
+      this.syncFormFromModel();
+
+      const failed = [
+        !attendance.success  && `出席人數（${attendance.error  || '未知錯誤'}）`,
+        !smallGroups.success && `小組人數（${smallGroups.error || '未知錯誤'}）`
+      ].filter(Boolean);
+      this.showToast(
+        failed.length ? `帶入完成，請手動確認：${failed.join('、')}` : '聚會人數資料帶入完成',
+        failed.length ? 'warning' : 'success'
+      );
+    } catch (err) {
+      this.showToast('帶入失敗：' + err.message, 'error');
+    } finally {
+      this.showLoading(false);
+    }
+  },
+
   async saveDraft() {
     try {
       const saved = await DraftManager.save(BulletinModel.get());
@@ -286,7 +319,7 @@ const App = {
     if (!container) return;
     const entries = Object.entries(groups);
     if (entries.length === 0) {
-      container.innerHTML = '<div style="padding:16px;color:#999;text-align:center;width:100%">點擊「⬇ 帶入小組人數」從 LKGroup 自動載入</div>';
+      container.innerHTML = '<div style="padding:16px;color:#999;text-align:center;width:100%">點擊「⬇ 自動帶入」從 LKC_Attendance 與 LKGroup 自動載入</div>';
       return;
     }
     container.innerHTML = '';

@@ -269,10 +269,18 @@ const ChurchAPI = {
   //
   // 1. getGroups        → { success, groups: [{name}] }  完整小組列表
   // 2. getWeeklyReport  → { success, data: [{groupName, total, newFriends}], dateRange }
-  //    統計區間：上一個週日 ~ 本週六（符合「週報日期上一週日到週六」需求）
+  //    統計區間：以主日日期為參照，往前推一週（上一週日 ~ 主日前一日週六）
   // ==========================================
   async fetchSmallGroups(date) {
     try {
+      // 計算以主日日期為參照的小組統計區間：上一週日 ~ 主日前一日（週六）
+      const sundayD   = new Date(date + 'T00:00:00');
+      const prevSunD  = new Date(sundayD); prevSunD.setDate(sundayD.getDate() - 7);
+      const prevSatD  = new Date(sundayD); prevSatD.setDate(sundayD.getDate() - 1);
+      const startDate = this._localDateStr(prevSunD);
+      const endDate   = this._localDateStr(prevSatD);
+      console.log('[LKGroup] 參照主日:', date, '統計區間:', startDate, '~', endDate);
+
       // Step 1: 取得小組列表
       let groupNames = [];
       try {
@@ -291,9 +299,13 @@ const ChurchAPI = {
       const results = {};
       groupNames.forEach(name => { results[name] = { date: '', attendance: 0, newFriends: '' }; });
 
-      // Step 3: 取得本週（上週日到本週六）小組人數
+      // Step 3: 取得以主日日期為參照的小組人數
       try {
-        const weeklyRes = await this.callGAS(CONFIG.LKGROUP_GAS_URL, 'getWeeklyReport', {});
+        const weeklyRes = await this.callGAS(CONFIG.LKGROUP_GAS_URL, 'getWeeklyReport', {
+          referenceDate: date,
+          startDate,
+          endDate
+        });
         console.log('[LKGroup] getWeeklyReport response:', JSON.stringify(weeklyRes).substring(0, 500));
         if (weeklyRes?.success && Array.isArray(weeklyRes.data)) {
           weeklyRes.data.forEach(g => {
