@@ -86,6 +86,15 @@
   };
 
   // ============================================================
+  //  🐛 debug — 受 ?debug=1 或 window.DEBUG 控制的條件式 log
+  //  使用方式：debug('[Module] 訊息', data) 取代瑣碎的 console.log
+  // ============================================================
+  const _debugEnabled = /[?&]debug=1\b/.test(window.location.search) || window.DEBUG === true;
+  window.debug = _debugEnabled
+    ? console.log.bind(console, '%c[debug]', 'color:#888')
+    : function() {};
+
+  // ============================================================
   //  🗓️ 共用日期工具
   // ============================================================
   window.WEEKDAY_NAMES = ['日', '一', '二', '三', '四', '五', '六'];

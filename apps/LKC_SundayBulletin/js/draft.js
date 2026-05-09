@@ -25,7 +25,7 @@ const DraftManager = {
     if (CONFIG.GAS_SYNC_URL) {
       try {
         const result = await this._saveCloud(key, payload);
-        console.log('[Draft] 雲端儲存成功:', key);
+        debug('[Draft] 雲端儲存成功:', key);
         return { success: true, location: 'cloud', key, updatedAt: result.updatedAt };
       } catch (err) {
         console.warn('[Draft] 雲端儲存失敗，已存入本地快取:', err.message);
@@ -46,7 +46,7 @@ const DraftManager = {
         if (cloudData) {
           // 同步回本地快取
           this._saveLocal(key, cloudData);
-          console.log('[Draft] 從雲端載入:', key);
+          debug('[Draft] 從雲端載入:', key);
           return { success: true, location: 'cloud', data: cloudData };
         }
       } catch (err) {
@@ -57,7 +57,7 @@ const DraftManager = {
     // 從本地快取取
     const localData = this._loadLocal(key);
     if (localData) {
-      console.log('[Draft] 從本地快取載入:', key);
+      debug('[Draft] 從本地快取載入:', key);
       return { success: true, location: 'local', data: localData };
     }
 
@@ -69,7 +69,7 @@ const DraftManager = {
     if (CONFIG.GAS_SYNC_URL) {
       try {
         const cloudList = await this._listCloud();
-        console.log('[Draft] 從雲端取得草稿列表');
+        debug('[Draft] 從雲端取得草稿列表');
         return { success: true, location: 'cloud', drafts: cloudList };
       } catch (err) {
         console.warn('[Draft] 雲端列表失敗，改用本地快取:', err.message);
@@ -88,7 +88,7 @@ const DraftManager = {
     if (CONFIG.GAS_SYNC_URL) {
       try {
         await this._deleteCloud(key);
-        console.log('[Draft] 雲端刪除成功:', key);
+        debug('[Draft] 雲端刪除成功:', key);
       } catch (err) {
         console.warn('[Draft] 雲端刪除失敗:', err.message);
       }
@@ -223,7 +223,7 @@ const DraftManager = {
         const result = await this.save(data);
         if (result.success) {
           const loc = result.location === 'cloud' ? '☁️ 雲端' : '💾 本地';
-          console.log(`[Draft] 自動儲存完成 (${loc}):`, data.date);
+          debug(`[Draft] 自動儲存完成 (${loc}):`, data.date);
         }
       }
     }, CONFIG.AUTO_SAVE_INTERVAL);
