@@ -5,6 +5,21 @@ let ministryIdCounter = 1; // 事工細項計數器
 let sermonIdCounter = 1;   // 講道資訊計數器
 
 // ====================
+// 🛡️ 字串安全跳脫工具
+// ====================
+// 用於把使用者輸入安全嵌入 HTML 屬性 / 文字節點 / CSV 儲存格
+const _ESC_ATTR_MAP = { '&': '&amp;', '"': '&quot;', "'": '&#39;', '<': '&lt;', '>': '&gt;' };
+function escapeAttr(s) {
+    return String(s == null ? '' : s).replace(/[&"'<>]/g, ch => _ESC_ATTR_MAP[ch]);
+}
+function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[ch]);
+}
+function csvEscape(s) {
+    return `"${String(s == null ? '' : s).replace(/"/g, '""')}"`;
+}
+
+// ====================
 // 🚀 系統啟動與安全連線
 // ====================
 
@@ -340,13 +355,14 @@ function renderEvents() {
 
     if (dataToRender.length === 0) {
         const hasSearch = document.getElementById('searchStartDate')?.value || document.getElementById('searchEndDate')?.value;
-        if (hasSearch) {
-            container.innerHTML = '<p class="loading">找不到符合此日期區間的聚會資料</p>';
-        } else {
-            container.innerHTML = '<p class="loading">尚無聚會資料，請點擊「新增聚會」開始建立</p>';
-        }
+        container.innerHTML = hasSearch
+            ? '<p class="loading">找不到符合此日期區間的聚會資料</p>'
+            : '<p class="loading">尚無聚會資料，請點擊「新增聚會」開始建立</p>';
         return;
     }
+
+    // 用 DocumentFragment 一次性 append，避免每張卡片觸發 reflow
+    const frag = document.createDocumentFragment();
 
     dataToRender.forEach(event => {
         const ministryItems = event.ministryItems || [];
@@ -354,7 +370,7 @@ function renderEvents() {
 
         const card = document.createElement('div');
         card.className = 'event-card';
-        
+
         // --- 綁定拖曳相關事件 ---
         card.setAttribute('draggable', 'true');
         card.setAttribute('ondragstart', `handleDragStart(event, ${event.id})`);
@@ -364,19 +380,19 @@ function renderEvents() {
 
         card.innerHTML = `
             <div class="event-header" style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
-                
+
                 <div style="cursor: grab; font-size: 20px; color: #a0aec0; padding-right: 5px; padding-bottom: 5px; display: flex; align-items: center;" title="按住拖曳以調整順序">
                     ☰
                 </div>
 
                 <div class="input-group" style="margin-bottom: 0;">
                     <label>日期</label>
-                    <input type="date" value="${event.date}" 
+                    <input type="date" value="${escapeAttr(event.date)}"
                            onchange="updateEvent(${event.id}, 'date', this.value)">
                 </div>
                 <div class="input-group" style="margin-bottom: 0;">
                     <label>聚會名稱</label>
-                    <input type="text" placeholder="輸入聚會名稱" value="${event.name}"
+                    <input type="text" placeholder="輸入聚會名稱" value="${escapeAttr(event.name)}"
                            onchange="updateEvent(${event.id}, 'name', this.value)">
                 </div>
                 <div class="input-group" style="margin-bottom: 0;">
@@ -409,12 +425,12 @@ function renderEvents() {
                         <div class="sub-item" style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 10px; padding: 10px; background: white; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                             <div class="input-group" style="flex: 1; margin-bottom: 0;">
                                 <label>籌備日期</label>
-                                <input type="date" value="${min.date || ''}" 
+                                <input type="date" value="${escapeAttr(min.date)}"
                                        onchange="updateMinistryItem(${event.id}, ${min.id}, 'date', this.value)">
                             </div>
                             <div class="input-group" style="flex: 2; margin-bottom: 0;">
                                 <label>事工內容</label>
-                                <input type="text" placeholder="開會討論、預演準備..." value="${min.content || ''}" 
+                                <input type="text" placeholder="開會討論、預演準備..." value="${escapeAttr(min.content)}"
                                        onchange="updateMinistryItem(${event.id}, ${min.id}, 'content', this.value)">
                             </div>
                             <button class="btn btn-danger btn-small" style="height: 38px;" 
@@ -446,43 +462,45 @@ function renderEvents() {
                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 10px;">
                                 <div class="input-group" style="margin-bottom: 0;">
                                     <label>講題</label>
-                                    <input type="text" value="${sermon.title || ''}" onchange="updateSermon(${event.id}, ${sermon.id}, 'title', this.value)">
+                                    <input type="text" value="${escapeAttr(sermon.title)}" onchange="updateSermon(${event.id}, ${sermon.id}, 'title', this.value)">
                                 </div>
                                 <div class="input-group" style="margin-bottom: 0;">
                                     <label>講員</label>
-                                    <input type="text" value="${sermon.speaker || ''}" onchange="updateSermon(${event.id}, ${sermon.id}, 'speaker', this.value)">
+                                    <input type="text" value="${escapeAttr(sermon.speaker)}" onchange="updateSermon(${event.id}, ${sermon.id}, 'speaker', this.value)">
                                 </div>
                                 <div class="input-group" style="margin-bottom: 0;">
                                     <label>經文</label>
-                                    <input type="text" value="${sermon.scripture || ''}" onchange="updateSermon(${event.id}, ${sermon.id}, 'scripture', this.value)">
+                                    <input type="text" value="${escapeAttr(sermon.scripture)}" onchange="updateSermon(${event.id}, ${sermon.id}, 'scripture', this.value)">
                                 </div>
                                 <div class="input-group" style="margin-bottom: 0;">
                                     <label>宣召</label>
-                                    <input type="text" value="${sermon.callToWorship || ''}" onchange="updateSermon(${event.id}, ${sermon.id}, 'callToWorship', this.value)">
+                                    <input type="text" value="${escapeAttr(sermon.callToWorship)}" onchange="updateSermon(${event.id}, ${sermon.id}, 'callToWorship', this.value)">
                                 </div>
                                 <div class="input-group" style="margin-bottom: 0; ${hideStyle}">
                                     <label>金句</label>
-                                    <input type="text" value="${sermon.goldenVerse || ''}" onchange="updateSermon(${event.id}, ${sermon.id}, 'goldenVerse', this.value)">
+                                    <input type="text" value="${escapeAttr(sermon.goldenVerse)}" onchange="updateSermon(${event.id}, ${sermon.id}, 'goldenVerse', this.value)">
                                 </div>
                                 <div class="input-group" style="margin-bottom: 0; ${hideStyle}">
                                     <label>詩歌/聖詩</label>
-                                    <input type="text" value="${sermon.hymns || ''}" onchange="updateSermon(${event.id}, ${sermon.id}, 'hymns', this.value)">
+                                    <input type="text" value="${escapeAttr(sermon.hymns)}" onchange="updateSermon(${event.id}, ${sermon.id}, 'hymns', this.value)">
                                 </div>
                             </div>
 
                             <div class="input-group" style="margin-top: 15px; margin-bottom: 0;">
                                 <label>內容描述 / 備註</label>
                                 <textarea placeholder="詳細說明..." style="min-height: 60px;"
-                                          onchange="updateSermon(${event.id}, ${sermon.id}, 'description', this.value)">${sermon.description || ''}</textarea>
+                                          onchange="updateSermon(${event.id}, ${sermon.id}, 'description', this.value)">${escapeHtml(sermon.description)}</textarea>
                             </div>
                         </div>
                     `}).join('')}
                 </div>
-                
+
             </div>
         `;
-        container.appendChild(card);
+        frag.appendChild(card);
     });
+
+    container.appendChild(frag);
 }
 
 // ====================
@@ -529,18 +547,23 @@ function exportToExcel() {
     events.forEach(event => {
         const hasMinistry = event.ministryItems && event.ministryItems.length > 0;
         const hasSermons = event.sermons && event.sermons.length > 0;
+        // 預先跳脫共用欄位，避免名稱含逗號或引號破壞 CSV 結構
+        const evDate = csvEscape(event.date);
+        const evName = csvEscape(event.name);
+        const evCat  = csvEscape(event.category);
 
         if (!hasMinistry && !hasSermons) {
-            csv += `${event.date},"${event.name}","${event.category}",,,,,,,,,\n`;
+            csv += `${evDate},${evName},${evCat},,,,,,,,,\n`;
         } else {
             if (hasMinistry) {
                 event.ministryItems.forEach(min => {
-                    csv += `${event.date},"${event.name}","${event.category}","籌備事工","${min.date || ''}","${min.content || ''}",,,,,,,\n`;
+                    csv += `${evDate},${evName},${evCat},"籌備事工",${csvEscape(min.date)},${csvEscape(min.content)},,,,,,,\n`;
                 });
             }
             if (hasSermons) {
                 event.sermons.forEach(sermon => {
-                    csv += `${event.date},"${event.name}","${event.category}","講道(${sermon.type})",,"${sermon.title || ''}","${sermon.speaker || ''}","${sermon.scripture || ''}","${sermon.callToWorship || ''}","${sermon.goldenVerse || ''}","${sermon.hymns || ''}","${(sermon.description || '').replace(/\n/g, ' ')}"\n`;
+                    const desc = (sermon.description || '').replace(/\n/g, ' ');
+                    csv += `${evDate},${evName},${evCat},${csvEscape('講道(' + sermon.type + ')')},,${csvEscape(sermon.title)},${csvEscape(sermon.speaker)},${csvEscape(sermon.scripture)},${csvEscape(sermon.callToWorship)},${csvEscape(sermon.goldenVerse)},${csvEscape(sermon.hymns)},${csvEscape(desc)}\n`;
                 });
             }
         }
