@@ -42,6 +42,9 @@ let localCustomMembers = [];
 let currentTemplate = "";
 let currentEventData = [];
 
+// 預覽布告欄 modal 目前的篩選後矩陣（給下載 Excel 用）
+let _currentBulletinFiltered = null;
+
 
 // ============================================================
 //  🛡️ API 呼叫核心
@@ -810,10 +813,153 @@ async function saveGroupPrompt() {
 
 
 // ============================================================
+//  📅 共用日期篩選器（modal 用：年度 + 季度 + 滾動近 3 個月）
+// ============================================================
+const _MS_FILTER_QUARTERS = [1, 2, 3, 4];
+
+function _ms_getDateColIdx(headers) {
+  if (!Array.isArray(headers)) return -1;
+  return headers.findIndex(h => String(h || '').includes('日期'));
+}
+
+function _ms_yearsFromMatrix(matrix, dateColIdx) {
+  if (!matrix || matrix.length < 2 || dateColIdx < 0) return [new Date().getFullYear()];
+  const ys = new Set();
+  for (let i = 1; i < matrix.length; i++) {
+    const d = new Date(matrix[i][dateColIdx]);
+    if (!isNaN(d)) ys.add(d.getFullYear());
+  }
+  const arr = Array.from(ys).sort((a, b) => b - a);
+  const cur = new Date().getFullYear();
+  if (!arr.includes(cur)) arr.unshift(cur);
+  return arr;
+}
+
+function _ms_currentQuarter() {
+  return Math.floor(new Date().getMonth() / 3) + 1;
+}
+
+function _ms_rollingWindow() {
+  // 預設範圍：往前 1 個月、往後 2 個月
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = new Date(today);
+  start.setMonth(start.getMonth() - 1);
+  const end = new Date(today);
+  end.setMonth(end.getMonth() + 2);
+  end.setHours(23, 59, 59, 999);
+  return [start, end];
+}
+
+function _ms_applyDateFilter(matrix, dateColIdx, mode, year, quarter) {
+  if (!matrix || matrix.length < 2) return matrix ? matrix.slice() : [];
+  if (dateColIdx < 0) return matrix.slice();
+  const headers = matrix[0];
+  let predicate;
+  if (mode === 'rolling') {
+    const [start, end] = _ms_rollingWindow();
+    predicate = d => d >= start && d <= end;
+  } else {
+    const m1 = (quarter - 1) * 3 + 1;
+    predicate = d => d.getFullYear() === year && (d.getMonth() + 1) >= m1 && (d.getMonth() + 1) <= m1 + 2;
+  }
+  const filtered = matrix.slice(1).filter(row => {
+    const d = new Date(row[dateColIdx]);
+    if (isNaN(d)) return false;
+    return predicate(d);
+  });
+  return [headers, ...filtered];
+}
+
+function _ms_buildTableHtml(matrix, opts = {}) {
+  const minWidth = opts.minWidth || 800;
+  if (!matrix || matrix.length <= 1) {
+    return '<p class="text-center text-muted my-4">此範圍內沒有資料，請改選其他季度</p>';
+  }
+  let html = `<table class="table table-bordered table-hover text-center align-middle m-0" style="min-width: ${minWidth}px;"><thead><tr>`;
+  matrix[0].forEach(h => html += `<th class="bg-light" style="position: sticky; top: 0; z-index: 10; outline: 1px solid #dee2e6;">${h}</th>`);
+  html += '</tr></thead><tbody>';
+  for (let i = 1; i < matrix.length; i++) {
+    html += '<tr>';
+    matrix[i].forEach(cell => html += `<td>${cell || "-"}</td>`);
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  return html;
+}
+
+/**
+ * 在指定容器內渲染「年度+季度」篩選器 + 表格。
+ * - 開啟時預設用 rolling（近 3 個月）
+ * - 改選 年/季度 → 切到 quarter 模式
+ * - 點「近 3 個月」按鈕 → 切回 rolling
+ * onFilteredChange(filteredMatrix) 在每次重渲染時觸發，外部用來同步下載按鈕。
+ */
+function _ms_renderFilterableTable({ container, fullMatrix, tableMinWidth, onFilteredChange }) {
+  const headers = (fullMatrix && fullMatrix[0]) || [];
+  const dateColIdx = _ms_getDateColIdx(headers);
+  const noDateCol = dateColIdx < 0;
+  const years = _ms_yearsFromMatrix(fullMatrix, dateColIdx);
+  const today = new Date();
+  const state = {
+    mode: 'rolling',
+    year: years.includes(today.getFullYear()) ? today.getFullYear() : years[0],
+    quarter: _ms_currentQuarter()
+  };
+
+  const filterBar = noDateCol ? '' : `
+    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap p-2 bg-light rounded border">
+      <span class="text-muted small fw-bold">📅 顯示範圍：</span>
+      <button type="button" id="ms-filter-rolling" class="btn btn-sm btn-primary">近 3 個月</button>
+      <span class="text-muted">|</span>
+      <select id="ms-filter-year" class="form-select form-select-sm" style="width: auto;">
+        ${years.map(y => `<option value="${y}" ${y === state.year ? 'selected' : ''}>${y} 年</option>`).join('')}
+      </select>
+      <select id="ms-filter-quarter" class="form-select form-select-sm" style="width: auto;">
+        ${_MS_FILTER_QUARTERS.map(q => `<option value="${q}" ${q === state.quarter ? 'selected' : ''}>Q${q} (${(q - 1) * 3 + 1}~${q * 3}月)</option>`).join('')}
+      </select>
+      <span id="ms-filter-status" class="text-muted small ms-auto"></span>
+    </div>`;
+
+  container.innerHTML = filterBar + `<div class="table-responsive" id="ms-filter-table" style="max-height: 60vh; overflow-y: auto;"></div>`;
+
+  function rerender() {
+    const filtered = noDateCol
+      ? fullMatrix.slice()
+      : _ms_applyDateFilter(fullMatrix, dateColIdx, state.mode, state.year, state.quarter);
+    document.getElementById('ms-filter-table').innerHTML = _ms_buildTableHtml(filtered, { minWidth: tableMinWidth });
+    const statusEl = document.getElementById('ms-filter-status');
+    if (statusEl) {
+      const recordCount = Math.max(filtered.length - 1, 0);
+      statusEl.innerText = state.mode === 'rolling'
+        ? `共 ${recordCount} 筆（近 3 個月）`
+        : `共 ${recordCount} 筆（${state.year} Q${state.quarter}）`;
+    }
+    const rollingBtn = document.getElementById('ms-filter-rolling');
+    if (rollingBtn) {
+      rollingBtn.classList.toggle('btn-primary', state.mode === 'rolling');
+      rollingBtn.classList.toggle('btn-outline-primary', state.mode !== 'rolling');
+    }
+    if (typeof onFilteredChange === 'function') onFilteredChange(filtered);
+  }
+
+  if (!noDateCol) {
+    document.getElementById('ms-filter-rolling').onclick = () => { state.mode = 'rolling'; rerender(); };
+    document.getElementById('ms-filter-year').onchange = e => { state.mode = 'quarter'; state.year = +e.target.value; rerender(); };
+    document.getElementById('ms-filter-quarter').onchange = e => { state.mode = 'quarter'; state.quarter = +e.target.value; rerender(); };
+  }
+
+  rerender();
+}
+
+
+// ============================================================
 //  📋 預覽布告欄
 // ============================================================
 function showBulletinBoard() {
   if (window.event) window.event.preventDefault();
+
+  // 從目前的編輯表單擷取完整 matrix（仍尊重 .hidden 過濾，例如編輯模式的日期區間）
   const matrix = [currentTableHeaders];
   document.querySelectorAll('.record-row').forEach(rowDiv => {
     if (rowDiv.classList.contains('hidden')) return;
@@ -821,20 +967,14 @@ function showBulletinBoard() {
     if (row.some(v => v !== "")) matrix.push(row);
   });
 
-  let tableHtml = '<table class="table table-bordered table-hover text-center align-middle m-0" style="min-width: 800px;"><thead><tr>';
-  matrix[0].forEach(h => tableHtml += `<th class="bg-light" style="position: sticky; top: 0; z-index: 10; outline: 1px solid #dee2e6;">${h}</th>`);
-  tableHtml += '</tr></thead><tbody>';
+  _currentBulletinFiltered = matrix;
+  _ms_renderFilterableTable({
+    container: document.getElementById('bulletinContent'),
+    fullMatrix: matrix,
+    tableMinWidth: 800,
+    onFilteredChange: filtered => { _currentBulletinFiltered = filtered; }
+  });
 
-  for (let i = 1; i < matrix.length; i++) {
-    tableHtml += '<tr>';
-    matrix[i].forEach(cell => tableHtml += `<td>${cell || "-"}</td>`);
-    tableHtml += '</tr>';
-  }
-  tableHtml += '</tbody></table>';
-
-  if (matrix.length === 1) tableHtml = '<p class="text-center text-muted my-4">目前沒有資料可顯示</p>';
-
-  document.getElementById('bulletinContent').innerHTML = `<div class="table-responsive" style="max-height: 65vh; overflow-y: auto;">${tableHtml}</div>`;
   document.getElementById('bulletinModalLabel').innerText = `📋 ${activeGroupName} - 排班布告欄`;
 
   const closeBtn = document.getElementById('modalCloseBtn');
@@ -881,12 +1021,19 @@ function closeModalOrUnlock() {
 // ============================================================
 function downloadExcel() {
   if (window.event) window.event.preventDefault();
-  const matrix = [currentTableHeaders];
-  document.querySelectorAll('.record-row').forEach(rowDiv => {
-    if (rowDiv.classList.contains('hidden')) return;
-    const row = Array.from(rowDiv.querySelectorAll('.grid-input')).map(i => i.value.trim());
-    if (row.some(v => v !== "")) matrix.push(row);
-  });
+
+  // 若 modal 開啟過且已套用篩選，下載篩選後的內容；否則取整份編輯表單的可見資料
+  let matrix;
+  if (Array.isArray(_currentBulletinFiltered) && _currentBulletinFiltered.length > 1) {
+    matrix = _currentBulletinFiltered;
+  } else {
+    matrix = [currentTableHeaders];
+    document.querySelectorAll('.record-row').forEach(rowDiv => {
+      if (rowDiv.classList.contains('hidden')) return;
+      const row = Array.from(rowDiv.querySelectorAll('.grid-input')).map(i => i.value.trim());
+      if (row.some(v => v !== "")) matrix.push(row);
+    });
+  }
   if (matrix.length === 1) {
     getNotifier().warning("⚠️ 目前沒有資料可以下載！");
     return;
@@ -1026,22 +1173,18 @@ async function showAggregatedReport(type) {
       return;
     }
 
-    let tableHtml = '<table class="table table-bordered table-hover text-center align-middle m-0" style="min-width: 1200px;"><thead><tr>';
-    matrix[0].forEach(h => tableHtml += `<th class="bg-light" style="position: sticky; top: 0; z-index: 10; outline: 1px solid #dee2e6;">${h}</th>`);
-    tableHtml += '</tr></thead><tbody>';
-
-    for (let i = 1; i < matrix.length; i++) {
-      tableHtml += '<tr>';
-      matrix[i].forEach(cell => tableHtml += `<td>${cell || "-"}</td>`);
-      tableHtml += '</tr>';
-    }
-    tableHtml += '</tbody></table>';
-
-    document.getElementById('aggregatedReportContent').innerHTML = `<div class="table-responsive" style="max-height: 65vh; overflow-y: auto;">${tableHtml}</div>`;
-
     const title = type === 'smallGroup' ? '📊 所有小組聚會總表' : '📊 教會各項服事總表';
+    let currentFiltered = matrix;
+
+    _ms_renderFilterableTable({
+      container: document.getElementById('aggregatedReportContent'),
+      fullMatrix: matrix,
+      tableMinWidth: 1200,
+      onFilteredChange: filtered => { currentFiltered = filtered; }
+    });
+
     document.getElementById('aggregatedReportModalLabel').innerText = title;
-    document.getElementById('downloadAggregatedBtn').onclick = () => downloadAggregatedExcel(matrix, title);
+    document.getElementById('downloadAggregatedBtn').onclick = () => downloadAggregatedExcel(currentFiltered, title);
 
     new bootstrap.Modal(document.getElementById('aggregatedReportModal')).show();
   } catch (err) {
