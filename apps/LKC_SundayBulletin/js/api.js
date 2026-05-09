@@ -2,37 +2,40 @@
 
 const ChurchAPI = {
 
-  async callGAS(url, action, data = {}) {
-    const res = await fetch(url, {
+  // 共用 fetch helper：統一處理 HTTP 錯誤與 JSON 解析
+  async _postJSON(url, init) {
+    const res = await fetch(url, init);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  },
+
+  // 通用 GAS：text/plain，body = { action, token, data }
+  callGAS(url, action, data = {}) {
+    return this._postJSON(url, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action, token: CONFIG.SHARED_TOKEN, data })
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
   },
 
-  async callLKC1958(action, data = {}) {
+  // LKC1958：form-urlencoded，避開 GAS preflight；body 包在 payload 欄位
+  callLKC1958(action, data = {}) {
     const payload = { action, token: CONFIG.SHARED_TOKEN, data };
-    const formBody = 'payload=' + encodeURIComponent(JSON.stringify(payload));
-    const res = await fetch(CONFIG.LKC1958_GAS_URL, {
+    return this._postJSON(CONFIG.LKC1958_GAS_URL, {
       method:   'POST',
       headers:  { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body:     formBody,
+      body:     'payload=' + encodeURIComponent(JSON.stringify(payload)),
       redirect: 'follow'
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
   },
 
-  async callAttendance(action, payload = null) {
-    const res = await fetch(CONFIG.LKC_ATTENDANCE_GAS_URL, {
+  // Attendance：text/plain，body 形狀為 { action, payload }（不同 schema）
+  callAttendance(action, payload = null) {
+    return this._postJSON(CONFIG.LKC_ATTENDANCE_GAS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action, payload })
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
   },
 
   _unwrap(result) {
@@ -49,11 +52,6 @@ const ChurchAPI = {
     const cellClean   = d.replace(/[^\d]/g, '').substring(0, 8);
     const targetClean = targetDate.replace(/[^\d]/g, '');
     return cellClean === targetClean;
-  },
-
-  // 將任意 Date 物件格式化為 yyyy-mm-dd（使用本地時區，避免 UTC 偏移）
-  _localDateStr(d) {
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   },
 
   async fetchServiceSchedule(sundayDate, requireMatch = false) {
@@ -277,7 +275,7 @@ const ChurchAPI = {
       // 主日禮拜人數報告上一個週日的資料
       const d = new Date(date + 'T00:00:00');
       d.setDate(d.getDate() - 7);
-      const prevSunday = this._localDateStr(d);
+      const prevSunday = formatYMD(d);
       debug('[LKC_Attendance] 查詢日期:', prevSunday, '(週報日期', date, '-7天)');
 
       const req = (type) => ({ type, mode: 'single', date: prevSunday, baseSheet: '會友名單', targetGroups: [] });
@@ -323,8 +321,8 @@ const ChurchAPI = {
       const sundayD   = new Date(date + 'T00:00:00');
       const prevSunD  = new Date(sundayD); prevSunD.setDate(sundayD.getDate() - 7);
       const prevSatD  = new Date(sundayD); prevSatD.setDate(sundayD.getDate() - 1);
-      const startDate = this._localDateStr(prevSunD);
-      const endDate   = this._localDateStr(prevSatD);
+      const startDate = formatYMD(prevSunD);
+      const endDate   = formatYMD(prevSatD);
       debug('[LKGroup] 參照主日:', date, '統計區間:', startDate, '~', endDate);
 
       // Step 1: 取得小組列表
