@@ -132,13 +132,15 @@ const _FALLBACK_GAS_TOKEN = "ChurchApp-2026";
 const _API_TIMEOUT_MS     = 120000;
 
 function _getGasUrl() {
-  return (window.CHURCH_CONFIG && window.CHURCH_CONFIG.GAS_DEPLOY_URL) ||
+  return window.GAS_URL ||
+         (window.CHURCH_CONFIG && window.CHURCH_CONFIG.GAS_DEPLOY_URL) ||
          window._GAS_URL ||
          _FALLBACK_GAS_URL;
 }
 
 function _getGasToken() {
-  return (window.CHURCH_CONFIG && window.CHURCH_CONFIG.SECRET_TOKEN) ||
+  return window.AUTH_TOKEN ||
+         (window.CHURCH_CONFIG && window.CHURCH_CONFIG.SECRET_TOKEN) ||
          window._GAS_TOKEN ||
          _FALLBACK_GAS_TOKEN;
 }

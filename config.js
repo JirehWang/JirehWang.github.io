@@ -1,49 +1,50 @@
-// 📦 中央安全路由設定 (支援多專案 + 嚴格防呆版)
+// 📦 中央安全路由設定 (多專案版)
+//
+// 使用方式：HTML 在載入此檔之前先宣告自己的 key，例如：
+//   <script>window._GAS_KEY = 'LKC_worship';</script>
+//   <script src="https://jirehwang.github.io/LKC1958_June_1.github.io/config.js"></script>
+//
+// 若沒有宣告 _GAS_KEY，會 fallback 到 pathname / hostname 推測。
 (function() {
-  function safeAtob(base64Str) {
-    try {
-      return atob(base64Str.replace(/-/g, '+').replace(/_/g, '/'));
-    } catch (e) {
-      console.error("❌ Base64 解碼失敗:", e);
-      return null;
-    }
-  }
-
-  // 📝 你的系統對應表 (新增 WhosCar)
+  // 📝 子系統 → GAS 部署網址 對應表
+  // key 必須與 app 目錄名稱一致
   const _URL_ROUTER = {
-    "LKworship": "aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J5a182dFV1Y1ZnLVU0clJRallIdms2MzJ0ZVp5eHVmRGtOWF9YMVdSVVhQTUdnc1RhZW1WWERfbXY5a0JEanVTd09uQS9leGVj",
-    "LKCschedule": "aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J3aVlZV2dLeG1MUkFFYUVfcGJwX2tXeUF6bFJQY3dZVlFmdm1KVmFtUkp2b3N2dDV3VFRrdndlYmJGQmtQOHJNcVgvZXhlYw==",
-    "LKC1958_June_1": "aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J4NDI2OElrZ3dRbTJFczBnakRITFVfVTluS0pyUk1SMS14emJidHVhcTA4bGVQTGdBUTJ3bkRSckNlSGR5OWpOaGgvZXhlYw==",
-    "LKGroup": "aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J6ZmFXaF9vb1JUR2lqTFZfN2xZRlVIRm04M29MNkR2WXQ5cnQ2emU1bURYaHR3THY4eW14TFhfUEd1RFRIem1Od2UvZXhlYw==",
-    // 🚗 車牌管理系統專屬路由
-    "WhosCar": "aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J4T2tvYU5xdUl4X1Y4bl83ZVM1VUxtb3F4UFZseV9CZXp4OV9Rc21XU3pOT2NvanJDSTlvYTZVTmQ1aE9EMmV1Uy9leGVj",
-    // 🛡️ DEFAULT 改為空值，作為防呆機制
-    "DEFAULT": "" 
+    "LKC_worship":                 "https://script.google.com/macros/s/AKfycbyk_6tUucVg-U4rRQjYHvk632teZyxufDkNX_X1WRUXPMGgsTaemVXD_mv9kBDjuSwOnA/exec",
+    "LKC_MasterSchedule":          "https://script.google.com/macros/s/AKfycbwiYYWgKxmLRAEaE_pbp_kWyAzlRPcwYVQfvmJVamRJvosvt5wTTkvwebbFBkP8rMqX/exec",
+    "LKC_MinistrySchedule":        "https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_U9nKJrRMR1-xzbbtuaq08lePLgAQ2wnDRrCeHdy9jNhh/exec",
+    "LKC_Group":                   "https://script.google.com/macros/s/AKfycbzfaWh_ooRTGijLV_7lYFUHFm83oL6DvYt9rt6ze5mDXhtwLv8ymxLX_PGuDTHzmNwe/exec",
+    "LKC_WhosCar":                 "https://script.google.com/macros/s/AKfycbxOkoaNquIx_V8n_7eS_5ULmoqxPVly_Bezx9_QsmWSzNOcojrCI9Oa6UNd5hOD2euS/exec",
+    "LKC_SundayserviceAttendance": "https://script.google.com/macros/s/AKfycbyJbzjHIeFFRbqT-Ttk2OAPYfF-qDKYES8dJiu4sJCR4t2Fq9PTtbALwuiJDBxh55kR/exec",
   };
 
-  const _TOKEN_BASE64 = "Q2h1cmNoQXBwLTIwMjY=";
+  const _AUTH_TOKEN = "ChurchApp-2026";
 
-  // 🌟 智慧判斷邏輯
+  // 🌟 路由判斷：_GAS_KEY 優先，其次 pathname / hostname
   let rawPath = window.location.pathname.split('/')[1] || "";
-  let repoName = rawPath.replace(/\.github\.io$/i, ''); 
+  let repoName = rawPath.replace(/\.github\.io$/i, '');
   const hostname = window.location.hostname.split('.')[0];
 
-  // 找對應的 Key (會優先比對資料夾名稱，再比對網址前綴)
-  const currentKey = _URL_ROUTER[repoName] ? repoName : (_URL_ROUTER[hostname] ? hostname : "DEFAULT");
-  const targetEncodedUrl = _URL_ROUTER[currentKey];
+  let currentKey = null;
+  if (window._GAS_KEY && _URL_ROUTER[window._GAS_KEY]) {
+    currentKey = window._GAS_KEY;
+  } else if (_URL_ROUTER[repoName]) {
+    currentKey = repoName;
+  } else if (_URL_ROUTER[hostname]) {
+    currentKey = hostname;
+  }
 
   // 🛡️ 防呆檢查
-  if (currentKey === "DEFAULT" || !targetEncodedUrl) {
-    console.error(`🚨 [路由錯誤] 找不到專案 '${repoName}' 或 '${hostname}' 的後端設定！`);
-    window.GAS_URL = null; 
+  if (!currentKey) {
+    console.error(`🚨 [路由錯誤] 找不到對應的 GAS：未宣告 window._GAS_KEY，且 pathname='${repoName}' / hostname='${hostname}' 都不在 _URL_ROUTER 中`);
+    window.GAS_URL = null;
   } else {
-    window.GAS_URL = safeAtob(targetEncodedUrl);
+    window.GAS_URL = _URL_ROUTER[currentKey];
     console.log(`✅ [${currentKey}] 中央路由系統已就緒`);
   }
-  
-  window.AUTH_TOKEN = safeAtob(_TOKEN_BASE64);
 
-  // 🚀 真正的中央路由
+  window.AUTH_TOKEN = _AUTH_TOKEN;
+
+  // 🚀 中央 API 呼叫
   window.churchAPI = async function(action, data = {}) {
     if (!window.GAS_URL) {
       throw new Error("系統尚未就緒：GAS_URL 為空");
