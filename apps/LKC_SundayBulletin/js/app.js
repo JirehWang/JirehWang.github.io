@@ -2,27 +2,30 @@
 
 const App = {
   _autoSaveTimer: null,
-
-  _formatLocalDate(d) {
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  },
+  _els: null,  // 啟動時一次性快取常用 DOM 節點
 
   async init() {
-    console.log('[App] 初始化教會週報管理系統...');
+    debug('[App] 初始化教會週報管理系統...');
+
+    // 快取熱點 DOM，避免反覆 getElementById
+    this._els = {
+      bulletinDate:               document.getElementById('bulletinDate'),
+      dateDisplay:                document.getElementById('dateDisplay'),
+      serviceTypePrimary:         document.getElementById('serviceTypePrimary'),
+      serviceTypeSecondary:       document.getElementById('serviceTypeSecondary'),
+      serviceTypeSecondaryWrap:   document.getElementById('serviceTypeSecondaryWrap')
+    };
 
     const today = new Date();
     const daysToSunday = today.getDay() === 0 ? 0 : 7 - today.getDay();
     const nextSunday = new Date(today);
     nextSunday.setDate(today.getDate() + daysToSunday);
-    const sundayStr = this._formatLocalDate(nextSunday);
+    const sundayStr = formatYMD(nextSunday);
 
-    document.getElementById('bulletinDate').value = sundayStr;
+    this._els.bulletinDate.value = sundayStr;
     BulletinModel.init(sundayStr);
 
-    document.getElementById('bulletinDate').addEventListener('change', e => {
+    this._els.bulletinDate.addEventListener('change', e => {
       BulletinModel.set('date', e.target.value);
       this.updateDateDisplay();
     });
@@ -38,17 +41,16 @@ const App = {
   },
 
   updateDateDisplay() {
-    const date = document.getElementById('bulletinDate').value;
+    const date = this._els.bulletinDate.value;
     if (date) {
       const d = new Date(date + 'T00:00:00');
-      document.getElementById('dateDisplay').textContent =
+      this._els.dateDisplay.textContent =
         `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
 
       const nextD = new Date(d);
       nextD.setDate(d.getDate() + 7);
-      const nextDate = this._formatLocalDate(nextD);
       BulletinModel.set('ministry.thisWeek.date', date);
-      BulletinModel.set('ministry.nextWeek.date', nextDate);
+      BulletinModel.set('ministry.nextWeek.date', formatYMD(nextD));
     }
   },
 
@@ -70,9 +72,7 @@ const App = {
 
   // 禮拜類型選擇器：台華語 / 聯合(台語程序) / 聯合(華語程序)
   initServiceTypeSelector() {
-    const primary   = document.getElementById('serviceTypePrimary');
-    const secondary = document.getElementById('serviceTypeSecondary');
-    const secWrap   = document.getElementById('serviceTypeSecondaryWrap');
+    const { serviceTypePrimary: primary, serviceTypeSecondary: secondary, serviceTypeSecondaryWrap: secWrap } = this._els;
     if (!primary || !secondary || !secWrap) return;
 
     const onChange = () => {
@@ -86,8 +86,7 @@ const App = {
   },
 
   computeServiceType() {
-    const p = document.getElementById('serviceTypePrimary');
-    const s = document.getElementById('serviceTypeSecondary');
+    const { serviceTypePrimary: p, serviceTypeSecondary: s } = this._els;
     if (!p) return '台華語';
     if (p.value === '台華語') return '台華語';
     return '聯合-' + (s?.value || '台語');
@@ -116,9 +115,7 @@ const App = {
 
   // 從模型同步選擇器狀態（載入草稿時呼叫）
   syncServiceTypeFromModel(t) {
-    const primary   = document.getElementById('serviceTypePrimary');
-    const secondary = document.getElementById('serviceTypeSecondary');
-    const secWrap   = document.getElementById('serviceTypeSecondaryWrap');
+    const { serviceTypePrimary: primary, serviceTypeSecondary: secondary, serviceTypeSecondaryWrap: secWrap } = this._els;
     if (!primary || !secondary || !secWrap) return;
     if (t === '聯合-台語') {
       primary.value = '聯合';   secondary.value = '台語'; secWrap.style.display = '';
@@ -143,7 +140,7 @@ const App = {
 
   // 全部帶入：依序觸發每一個分頁的自動帶入按鈕
   async fetchAll() {
-    const date = document.getElementById('bulletinDate').value;
+    const date = this._els.bulletinDate.value;
     if (!date) { this.showToast('請先選擇日期', 'error'); return; }
     this.showLoading(true);
     this.showToast('正在觸發各分頁的自動帶入...', 'info');
@@ -175,7 +172,7 @@ const App = {
 
   async fetchServiceProgram(opts = {}) {
     const silent = opts.silent === true;
-    const date = document.getElementById('bulletinDate').value;
+    const date = this._els.bulletinDate.value;
     if (!date) { if (!silent) this.showToast('請先選擇日期', 'error'); return { failed: ['未選擇日期'] }; }
     if (!silent) { this.showLoading(true); this.showToast('正在帶入主日程序資料...', 'info'); }
     try {
@@ -208,12 +205,12 @@ const App = {
 
   async fetchMinistry(opts = {}) {
     const silent = opts.silent === true;
-    const date = document.getElementById('bulletinDate').value;
+    const date = this._els.bulletinDate.value;
     if (!date) { if (!silent) this.showToast('請先選擇日期', 'error'); return { failed: ['未選擇日期'] }; }
 
     const nextD = new Date(date + 'T00:00:00');
     nextD.setDate(nextD.getDate() + 7);
-    const nextDate = this._formatLocalDate(nextD);
+    const nextDate = formatYMD(nextD);
 
     if (!silent) { this.showLoading(true); this.showToast('正在帶入服事人員資料（本週 + 下週）...', 'info'); }
     try {
@@ -252,7 +249,7 @@ const App = {
 
   async fetchSection(section, opts = {}) {
     const silent = opts.silent === true;
-    const date = document.getElementById('bulletinDate').value;
+    const date = this._els.bulletinDate.value;
     if (!date) { if (!silent) this.showToast('請先選擇日期', 'error'); return { failed: ['未選擇日期'] }; }
     if (!silent) this.showLoading(true);
     try {
@@ -285,7 +282,7 @@ const App = {
   // 聚會統計 tab：同時帶入出席人數 + 小組人數，皆以主日日期為參照
   async fetchAttendanceTab(opts = {}) {
     const silent = opts.silent === true;
-    const date = document.getElementById('bulletinDate').value;
+    const date = this._els.bulletinDate.value;
     if (!date) { if (!silent) this.showToast('請先選擇日期', 'error'); return { failed: ['未選擇日期'] }; }
     if (!silent) { this.showLoading(true); this.showToast(`正在帶入聚會人數（參照主日 ${date}）...`, 'info'); }
     try {
@@ -364,7 +361,7 @@ const App = {
       const data = await DraftManager.load(date);
       if (!data) { this.showToast('載入失敗', 'error'); return; }
       BulletinModel._current = data;
-      document.getElementById('bulletinDate').value = data.date;
+      this._els.bulletinDate.value = data.date;
       this.syncFormFromModel();
       this.hideDraftModal();
       this.showToast(`草稿 ${date} 已載入`, 'success');

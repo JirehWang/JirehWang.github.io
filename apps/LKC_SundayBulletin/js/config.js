@@ -8,6 +8,16 @@
     : function() {};
 })();
 
+// 🗓️ 格式化為 YYYY-MM-DD（本地時區）
+window.formatYMD = function(date) {
+  const d = (date instanceof Date) ? date : new Date(date);
+  if (isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
 const CONFIG = {
 
   GAS_SYNC_URL: 'https://script.google.com/macros/s/AKfycbyLLQZsz_XZqhWVwaT_8hcvfQc8fSWztAncEmBUk7lnzGr-TcP33uzS-weUG_cavgEn/exec',
