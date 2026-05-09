@@ -79,6 +79,11 @@
             font-weight: bold;
             margin-bottom: 8px;
         }
+        /* 團契類型用不同色塊區隔 */
+        .group-tag.fellowship {
+            background: #fff5f0;
+            color: #c2410c;
+        }
         .event-name {
             font-size: 1.25em;
             font-weight: bold;
@@ -183,13 +188,20 @@
                     throw new Error("系統安全設定 (config.js) 連線超時，請檢查網路或強制重新整理 (Ctrl+F5)。");
                 }
 
-                // 改用中央通訊系統，自動帶入 Token 鑰匙！
-                const result = await window.churchAPI('getAggregatedReport', { type: 'smallGroup' });
+                // 同時抓「小組」與「其他」兩桶資料：團契聚會表模板目前歸在 others 裡，
+                // 但顯示上應視為小組類，所以這裡前端做合併
+                const [smRes, othRes] = await Promise.all([
+                    window.churchAPI('getAggregatedReport', { type: 'smallGroup' }),
+                    window.churchAPI('getAggregatedReport', { type: 'others' })
+                ]);
 
-                if (result.status !== 'success') throw new Error(result.message || "資料抓取失敗");
+                if (smRes.status !== 'success') throw new Error(smRes.message || "小組資料抓取失敗");
 
-                // 轉換格式
-                const allRawData = matrixToObjects(result.data);
+                const smData = matrixToObjects(smRes.data);
+                const othData = (othRes && othRes.status === 'success')
+                    ? matrixToObjects(othRes.data).filter(r => r['模板類型'] === '團契聚會表模板')
+                    : [];
+                const allRawData = [...smData, ...othData];
 
                 // 處理日期區間：今天 ~ 今天+7天
                 const today = new Date();
@@ -238,8 +250,8 @@
                                 <div class="ym">${yearMonth} (星期${weekDay})</div>
                             </div>
                             <div class="card-body">
-                                <div class="text-center"><span class="group-tag">${event["分頁名稱"]}</span></div>
-                                <div class="event-name">${event["主題"] || event["聚會名稱"] || "小組聚會"}</div>
+                                <div class="text-center"><span class="group-tag ${event["模板類型"] === '團契聚會表模板' ? 'fellowship' : ''}">${event["分頁名稱"]}${event["模板類型"] === '團契聚會表模板' ? ' · 團契' : ''}</span></div>
+                                <div class="event-name">${event["主題"] || event["聚會名稱"] || (event["模板類型"] === '團契聚會表模板' ? '團契聚會' : '小組聚會')}</div>
                                 
                                 <div class="duty-section">
                                     ${duties || '<div class="text-center text-muted small">一般聚會，無需特別服事</div>'}
