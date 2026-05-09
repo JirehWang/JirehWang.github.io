@@ -215,8 +215,6 @@ const DraftManager = {
   // 自動儲存
   // ============================================================
 
-  _autoSaveTimer: null,
-
   startAutoSave(getDataFn) {
     this.stopAutoSave();
     this._autoSaveTimer = setInterval(async () => {
@@ -229,6 +227,12 @@ const DraftManager = {
         }
       }
     }, CONFIG.AUTO_SAVE_INTERVAL);
+
+    // 頁面卸載時停止 timer，避免關閉/切頁後仍在背景發 fetch
+    if (!this._unloadHooked) {
+      window.addEventListener('pagehide', () => this.stopAutoSave(), { once: true });
+      this._unloadHooked = true;
+    }
   },
 
   stopAutoSave() {

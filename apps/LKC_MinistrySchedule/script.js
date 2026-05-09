@@ -664,44 +664,49 @@ function fillTableWithData(parsedRows) {
   const container = document.getElementById('rowsContainer');
   const dateColIdx = currentTableHeaders.findIndex(h => h.includes("日期"));
 
+  // 預先快取目前所有 row 與其 inputs，避免每筆 parsedRow 都重新 querySelectorAll → O(N²)
+  const rowCache = Array.from(container.querySelectorAll('.record-row')).map(rowDiv => ({
+    rowDiv,
+    inputs: rowDiv.querySelectorAll('.grid-input')
+  }));
+
   parsedRows.forEach(rowData => {
-    let targetRowDiv = null;
+    let target = null;
     const aiDate = rowData["日期"] || rowData[currentTableHeaders[dateColIdx]];
 
+    // 先嘗試比對日期
     if (aiDate && dateColIdx !== -1) {
-      const allRowDivs = container.querySelectorAll('.record-row');
-      for (let rowDiv of allRowDivs) {
-        const dateInput = rowDiv.querySelectorAll('.grid-input')[dateColIdx];
-        if (dateInput && dateInput.value.trim() === aiDate) {
-          targetRowDiv = rowDiv;
-          break;
-        }
-      }
+      target = rowCache.find(r => {
+        const di = r.inputs[dateColIdx];
+        return di && di.value.trim() === aiDate;
+      });
     }
 
-    if (!targetRowDiv) {
-      const allRowDivs = container.querySelectorAll('.record-row');
-      for (let rowDiv of allRowDivs) {
-        const inputs = Array.from(rowDiv.querySelectorAll('.grid-input'));
-        if (inputs.every(input => input.value.trim() === "")) {
-          targetRowDiv = rowDiv;
-          break;
+    // 找不到日期相符的 → 找完全空白的列
+    if (!target) {
+      target = rowCache.find(r => {
+        for (let i = 0; i < r.inputs.length; i++) {
+          if (r.inputs[i].value.trim() !== "") return false;
         }
-      }
+        return true;
+      });
     }
 
-    if (!targetRowDiv) {
+    // 都沒有 → 新增一列並加入 cache
+    if (!target) {
       addNewRow();
-      targetRowDiv = container.lastElementChild;
+      const rowDiv = container.lastElementChild;
+      target = { rowDiv, inputs: rowDiv.querySelectorAll('.grid-input') };
+      rowCache.push(target);
     }
 
-    const inputs = targetRowDiv.querySelectorAll('.grid-input');
     currentTableHeaders.forEach((header, colIdx) => {
       const val = rowData[header];
       if (val && val !== "") {
-        inputs[colIdx].value = val;
-        inputs[colIdx].classList.add('highlight');
-        setTimeout(() => inputs[colIdx].classList.remove('highlight'), 2000);
+        const input = target.inputs[colIdx];
+        input.value = val;
+        input.classList.add('highlight');
+        setTimeout(() => input.classList.remove('highlight'), 2000);
       }
     });
   });
