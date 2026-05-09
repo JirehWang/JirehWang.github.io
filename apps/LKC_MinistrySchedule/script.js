@@ -1293,24 +1293,26 @@ async function showAggregatedReport(type) {
       const merged = _ms_mergeMatrices(smRaw, fellowshipFromOthers);
 
       if (merged.length > 1) {
-        // 模板實際欄位：
-        //   小組聚會表模板：日期、破冰、敬拜、話語分享、主題、經文、地點
-        //   團契聚會表模板：日期、破冰、敬拜、司會、講員、主題、經文、地點
-        // 期望輸出順序：共用欄位用小組原順序；團契特有欄位（司會、講員）附在最後。
-        // 額外加「分頁名稱」當作「這列是哪一組/哪一團契」的辨識欄。
-        // 丟棄 GAS 的技術性元欄位：模板類型 / 聚會名稱 / 聚會類別。
-        const dropMeta = ['模板類型', '聚會名稱', '聚會類別'];
-        const remaining = merged[0].filter(h => !dropMeta.includes(h) && h !== '日期' && h !== '分頁名稱');
-        const ordered = ['日期', '分頁名稱', ...remaining];
+        // 使用者指定的欄位白名單（其他欄位全部丟掉）
+        // 「話語分享(講員)」是把小組的「話語分享」與團契的「講員」合併成同一欄
+        const finalHeaders = ['日期', '分頁名稱', '破冰', '敬拜', '主題', '經文', '地點', '話語分享(講員)', '司會'];
 
-        // 物件化、依日期升冪排序
-        const objs = _ms_matrixToObjects(merged);
+        const objs = _ms_matrixToObjects(merged).map(obj => {
+          const speak = (obj['話語分享'] == null ? '' : String(obj['話語分享'])).trim();
+          const speaker = (obj['講員'] == null ? '' : String(obj['講員'])).trim();
+          // 同列通常只會其中一個有值（小組 vs 團契），兩個都有時用 / 串接
+          const combined = speak && speaker && speak !== speaker ? `${speak} / ${speaker}` : (speak || speaker);
+          return { ...obj, '話語分享(講員)': combined };
+        });
+
+        // 依日期升冪排序（用 Date 解析以容忍不同日期格式）
         objs.sort((a, b) => {
           const da = new Date(a['日期'] || 0).getTime() || 0;
           const db = new Date(b['日期'] || 0).getTime() || 0;
           return da - db;
         });
-        matrix = _ms_objectsToMatrix(objs, ordered, { strict: true });
+
+        matrix = _ms_objectsToMatrix(objs, finalHeaders, { strict: true });
       } else {
         matrix = merged;
       }
