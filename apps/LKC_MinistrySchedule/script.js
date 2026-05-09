@@ -817,6 +817,115 @@ async function saveGroupPrompt() {
 // ============================================================
 const _MS_FILTER_QUARTERS = [1, 2, 3, 4];
 
+// 應該被視為「小組類聚會」的模板（小組總表 / 各小組布告欄會包含這些）
+const _MS_FELLOWSHIP_TEMPLATES = ['小組聚會表模板', '團契聚會表模板'];
+// 各項服事總表合併同日期時，要丟掉的「來源」欄位
+const _MS_META_COLS = ['分頁名稱', '模板類型', '聚會名稱', '聚會類別'];
+
+// ---- 矩陣 / 物件互轉 ----
+function _ms_matrixToObjects(matrix) {
+  if (!matrix || matrix.length < 2) return [];
+  const headers = matrix[0];
+  return matrix.slice(1).map(row => {
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = row[i]);
+    return obj;
+  });
+}
+
+function _ms_objectsToMatrix(objects, headerOrder) {
+  if (!objects || objects.length === 0) return headerOrder ? [headerOrder.slice()] : [];
+  const seen = new Set();
+  const headers = [];
+  if (headerOrder) headerOrder.forEach(h => { if (!seen.has(h)) { seen.add(h); headers.push(h); } });
+  objects.forEach(obj => Object.keys(obj).forEach(k => { if (!seen.has(k)) { seen.add(k); headers.push(k); } }));
+  const rows = objects.map(obj => headers.map(h => obj[h] == null ? '' : obj[h]));
+  return [headers, ...rows];
+}
+
+function _ms_filterMatrix(matrix, predicate) {
+  if (!matrix || matrix.length < 2) return matrix ? matrix.slice() : [];
+  const filtered = _ms_matrixToObjects(matrix).filter(predicate);
+  return _ms_objectsToMatrix(filtered, matrix[0]);
+}
+
+// 合併兩個（或多個）矩陣，headers 取 union 並依首次出現的順序排列
+function _ms_mergeMatrices(...matrices) {
+  const objs = matrices.flatMap(m => _ms_matrixToObjects(m || []));
+  const seen = new Set();
+  const headerOrder = [];
+  matrices.forEach(m => {
+    if (m && m[0]) m[0].forEach(h => { if (!seen.has(h)) { seen.add(h); headerOrder.push(h); } });
+  });
+  return _ms_objectsToMatrix(objs, headerOrder);
+}
+
+// 同日期的多列合併成一列：每欄不同值用「\n」串接，並加上 (來源) 標記
+// dropColumns 中的欄位會被移除（預設為「分頁名稱/模板類型/聚會名稱/聚會類別」）
+function _ms_collapseByDate(matrix, opts = {}) {
+  const dropCols = opts.dropColumns || _MS_META_COLS;
+  if (!matrix || matrix.length < 2) return matrix ? matrix.slice() : [];
+
+  const objects = _ms_matrixToObjects(matrix);
+  const byDate = new Map();
+  const sourceOf = obj => obj['分頁名稱'] || obj['聚會名稱'] || '';
+
+  objects.forEach(obj => {
+    const date = obj['日期'] || '';
+    if (!date) return;
+    if (!byDate.has(date)) byDate.set(date, new Map()); // colName -> Map<value, Set<source>>
+    const cols = byDate.get(date);
+    const src = sourceOf(obj);
+    Object.keys(obj).forEach(k => {
+      if (k === '日期' || dropCols.includes(k)) return;
+      const v = obj[k];
+      if (v == null || v === '' || v === '-') return;
+      if (!cols.has(k)) cols.set(k, new Map());
+      const valMap = cols.get(k);
+      const sv = String(v);
+      if (!valMap.has(sv)) valMap.set(sv, new Set());
+      if (src) valMap.get(sv).add(src);
+    });
+  });
+
+  const merged = [];
+  Array.from(byDate.keys()).sort().forEach(date => {
+    const obj = { '日期': date };
+    byDate.get(date).forEach((valMap, k) => {
+      const lines = Array.from(valMap.entries()).map(([value, sources]) => {
+        const srcs = Array.from(sources).filter(Boolean);
+        return srcs.length > 0 ? `${value} (${srcs.join('、')})` : value;
+      });
+      obj[k] = lines.join('\n');
+    });
+    merged.push(obj);
+  });
+
+  // 欄位順序：日期優先，後接原始 matrix 的欄位（去掉 drop 跟日期）
+  const headerOrder = ['日期', ...matrix[0].filter(h => h !== '日期' && !dropCols.includes(h))];
+  return _ms_objectsToMatrix(merged, headerOrder);
+}
+
+// ---- getAggregatedReport 雙桶快取（30 秒內重複開 modal 不重複 fetch）----
+let _ms_aggCache = { sm: null, oth: null, ts: 0 };
+const _MS_AGG_TTL = 30 * 1000;
+
+async function _ms_fetchBothAggregated() {
+  const now = Date.now();
+  if (_ms_aggCache.sm && (now - _ms_aggCache.ts) < _MS_AGG_TTL) return _ms_aggCache;
+  // 用 allSettled 允許單邊失敗：例如 'others' 失敗時，'小組總表' 仍能顯示（只是少了 團契 那塊）
+  const [smRes, othRes] = await Promise.allSettled([
+    fetchAPI('getAggregatedReport', { type: 'smallGroup' }),
+    fetchAPI('getAggregatedReport', { type: 'others' })
+  ]);
+  const sm  = smRes.status === 'fulfilled'  ? (smRes.value  || []) : [];
+  const oth = othRes.status === 'fulfilled' ? (othRes.value || []) : [];
+  if (smRes.status === 'rejected')  console.warn('[MinistrySchedule] 小組總表抓取失敗：', smRes.reason);
+  if (othRes.status === 'rejected') console.warn('[MinistrySchedule] 各項總表抓取失敗：', othRes.reason);
+  _ms_aggCache = { sm, oth, ts: now };
+  return _ms_aggCache;
+}
+
 function _ms_getDateColIdx(headers) {
   if (!Array.isArray(headers)) return -1;
   return headers.findIndex(h => String(h || '').includes('日期'));
@@ -879,9 +988,10 @@ function _ms_buildTableHtml(matrix, opts = {}) {
   let html = `<table class="table table-bordered table-hover text-center align-middle m-0" style="min-width: ${minWidth}px;"><thead><tr>`;
   matrix[0].forEach(h => html += `<th class="bg-light" style="position: sticky; top: 0; z-index: 10; outline: 1px solid #dee2e6;">${h}</th>`);
   html += '</tr></thead><tbody>';
+  // td 用 white-space: pre-line 讓合併日期時的「\n 換行」能正確呈現多行
   for (let i = 1; i < matrix.length; i++) {
     html += '<tr>';
-    matrix[i].forEach(cell => html += `<td>${cell || "-"}</td>`);
+    matrix[i].forEach(cell => html += `<td style="white-space: pre-line; vertical-align: top;">${cell || "-"}</td>`);
     html += '</tr>';
   }
   html += '</tbody></table>';
@@ -1166,7 +1276,19 @@ async function showAggregatedReport(type) {
   getNotifier().showLoading("📊 彙整資料中，這可能需要幾秒鐘...");
 
   try {
-    const matrix = await fetchAPI('getAggregatedReport', { type: type });
+    // 同時抓 smallGroup + others，用模板類型重新分桶（團契歸到小組那邊）
+    const { sm: smRaw, oth: othRaw } = await _ms_fetchBothAggregated();
+
+    let matrix;
+    if (type === 'smallGroup') {
+      // 小組聚會總表 = 後端 smallGroup + others 中模板類型 = 團契聚會表模板 的列
+      const fellowshipFromOthers = _ms_filterMatrix(othRaw, obj => obj['模板類型'] === '團契聚會表模板');
+      matrix = _ms_mergeMatrices(smRaw, fellowshipFromOthers);
+    } else {
+      // 各項服事總表 = others 排除團契後，依日期合併（同欄不同值用換行串接 + 來源標記）
+      const withoutFellowship = _ms_filterMatrix(othRaw, obj => obj['模板類型'] !== '團契聚會表模板');
+      matrix = _ms_collapseByDate(withoutFellowship);
+    }
 
     if (!matrix || matrix.length <= 1) {
       getNotifier().warning("⚠️ 目前還沒有建立任何資料，或是資料都是空的喔！");
