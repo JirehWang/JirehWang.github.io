@@ -12,7 +12,7 @@ window.onload = async () => {
         await ensureAPIReady(); 
     } catch (e) {
         console.error(e);
-        alert("系統啟動失敗：" + e.message);
+        userNotification.error("系統啟動失敗：" + e.message);
     } finally {
         hideLoading();
     }
@@ -21,7 +21,7 @@ window.onload = async () => {
 // --- API 呼叫 ---
 async function callAPI(action, data = {}) {
     if (typeof window.churchAPI !== 'function') {
-        alert("⚠️ 系統錯誤：安全路由尚未載入！");
+        userNotification.error("⚠️ 系統錯誤：安全路由尚未載入！");
         throw new Error("安全路由尚未載入");
     }
     return await window.churchAPI(action, data);
@@ -84,7 +84,7 @@ async function loadAdminOptions() {
 
 // --- 數據查詢主入口 ---
 async function loadStats() {
-    if (!identifiedGroupName) return alert('請先輸入正確的編號並等待識別');
+    if (!identifiedGroupName) return userNotification.warning('請先輸入正確的編號並等待識別');
     
     const reportType = document.querySelector('input[name="reportType"]:checked').value;
     const start = document.getElementById('startDate').value;
@@ -115,7 +115,7 @@ async function loadStats() {
         }
     } catch (e) {
         console.error(e);
-        alert("查詢失敗：" + e.message);
+        userNotification.error("查詢失敗：" + e.message);
     } finally {
         hideLoading();
     }
@@ -123,7 +123,7 @@ async function loadStats() {
 
 // --- 渲染：每週出席人次 (包含出席組員與新朋友名單) ---
 function renderWeeklyStats(res, start, end) {
-    if (!res.success) return alert(res.message);
+    if (!res.success) return userNotification.error(res.message);
     const thead = document.querySelector('#statsTable thead');
     const tbody = document.querySelector('#statsTable tbody');
 
@@ -190,7 +190,7 @@ function renderWeeklyStats(res, start, end) {
 
 // --- 渲染：組員出席率 ---
 function renderMemberStats(res, start, end, showGroupCol) {
-    if (!res.success) return alert(res.message);
+    if (!res.success) return userNotification.error(res.message);
     const thead = document.querySelector('#statsTable thead');
     const tbody = document.querySelector('#statsTable tbody');
     const isSingleDay = (start === end && start !== "");
@@ -247,7 +247,7 @@ function createProgressBar(textStr, percentage, colorClass) {
 // --- Excel 匯出 ---
 function exportToExcel() {
     const table = document.getElementById("statsTable");
-    if (table.rows.length <= 1) return alert('目前沒有資料可供匯出');
+    if (table.rows.length <= 1) return userNotification.warning('目前沒有資料可供匯出');
     showLoading("正在準備 Excel 檔案...");
     setTimeout(() => {
         let csv = "\ufeff";

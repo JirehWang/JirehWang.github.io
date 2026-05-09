@@ -141,31 +141,56 @@
   window.hideLoading = hideLoading;
 
   // ============================================================
-  //  🔔 userNotification — toast 通知
+  //  🔔 userNotification — toast 通知（Bootstrap-free，使用 inline style）
   // ============================================================
-  const _bgColorMap = {
-    success: 'bg-success',
-    warning: 'bg-warning text-dark',
-    danger:  'bg-danger',
-    info:    'bg-info'
+  const _toastStyle = {
+    success: { bg: '#28a745', color: '#fff' },
+    warning: { bg: '#ffc107', color: '#212529' },
+    danger:  { bg: '#dc3545', color: '#fff' },
+    info:    { bg: '#17a2b8', color: '#fff' }
   };
 
+  let _toastStack = 0;
   function showToast(message, type = 'info', duration = 3000) {
+    const style = _toastStyle[type] || _toastStyle.info;
+    const offset = 16 + (_toastStack * 64);
+    _toastStack++;
+
     const toast = document.createElement('div');
-    toast.className = 'position-fixed bottom-0 end-0 p-3';
-    toast.style.zIndex = '1050';
-    const safe = String(message).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    toast.innerHTML = `
-      <div class="toast show align-items-center text-white ${_bgColorMap[type] || _bgColorMap.info} border-0">
-        <div class="d-flex">
-          <div class="toast-body">${safe}</div>
-          <button type="button" class="btn-close btn-close-white me-2 m-auto" aria-label="Close"></button>
-        </div>
-      </div>`;
-    const closeBtn = toast.querySelector('.btn-close');
-    if (closeBtn) closeBtn.addEventListener('click', () => toast.remove());
+    toast.style.cssText = [
+      'position:fixed', `bottom:${offset}px`, 'right:16px', 'z-index:99999',
+      `background:${style.bg}`, `color:${style.color}`,
+      'padding:12px 16px 12px 18px', 'border-radius:8px',
+      'box-shadow:0 4px 14px rgba(0,0,0,0.18)',
+      'font-family:"Microsoft JhengHei","Noto Sans TC",sans-serif',
+      'font-size:14px', 'max-width:90vw', 'min-width:220px',
+      'display:flex', 'align-items:center', 'gap:12px',
+      'animation:lkc-toast-in 0.18s ease-out'
+    ].join(';');
+    toast.textContent = String(message);
+
+    const closeBtn = document.createElement('span');
+    closeBtn.textContent = '×';
+    closeBtn.style.cssText = `cursor:pointer;font-size:20px;line-height:1;opacity:0.85;color:${style.color};margin-left:auto`;
+    closeBtn.addEventListener('click', () => removeToast());
+    toast.appendChild(closeBtn);
+
     document.body.appendChild(toast);
-    if (duration > 0) setTimeout(() => toast.remove(), duration);
+
+    function removeToast() {
+      if (!toast.parentNode) return;
+      toast.remove();
+      _toastStack = Math.max(0, _toastStack - 1);
+    }
+    if (duration > 0) setTimeout(removeToast, duration);
+  }
+
+  // toast 進場動畫（一次性注入 keyframes）
+  if (typeof document !== 'undefined' && !document.getElementById('lkc-toast-style')) {
+    const style = document.createElement('style');
+    style.id = 'lkc-toast-style';
+    style.textContent = '@keyframes lkc-toast-in{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}';
+    document.head && document.head.appendChild(style);
   }
 
   window.userNotification = {

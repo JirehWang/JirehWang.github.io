@@ -19,7 +19,7 @@ window.onload = async () => {
         await checkGroupStatus();
     } catch (e) {
         console.error(e);
-        alert("系統啟動失敗：" + e.message);
+        userNotification.error("系統啟動失敗：" + e.message);
         hideLoading();
     }
 };
@@ -63,14 +63,14 @@ async function checkGroupStatus() {
             document.getElementById('attendance-panel').style.display = 'none'; 
         }
     } catch (e) {
-        alert("載入失敗，請重新整理頁面。");
+        userNotification.error("載入失敗，請重新整理頁面。");
     } finally {
         hideLoading();
     }
 }
 
 function goToSchedule() {
-    if (!groupCode) return alert("未取得小組編號，無法跳轉。");
+    if (!groupCode) return userNotification.warning("未取得小組編號，無法跳轉。");
     window.open(`https://jirehwang.github.io/LKC1958_June_1.github.io/?id=${groupCode}`, '_blank');
 }
 
@@ -184,10 +184,10 @@ async function submitAttendanceEdit() {
     try {
         const res = await callAPI('updateAttendanceRecord', { groupName, originalDate, newDate, present, absent, newFriends });
         if (res.success) {
-            alert('修改成功！');
-            closeEditAttendanceModal(); 
-            if (groupCode) await loadGroupProgress(); 
-        } else { alert('修改失敗：' + res.message); }
+            userNotification.success('修改成功！');
+            closeEditAttendanceModal();
+            if (groupCode) await loadGroupProgress();
+        } else { userNotification.error('修改失敗：' + res.message); }
     } finally { hideLoading(); }
 }
 
@@ -199,25 +199,25 @@ async function deleteAttendanceRecord() {
     try {
         const res = await callAPI('deleteAttendanceRecord', { groupName, originalDate });
         if (res.success) {
-            alert('紀錄已刪除！');
-            closeEditAttendanceModal(); 
-            if (groupCode) await loadGroupProgress(); 
-        } else { alert('刪除失敗：' + res.message); }
+            userNotification.success('紀錄已刪除！');
+            closeEditAttendanceModal();
+            if (groupCode) await loadGroupProgress();
+        } else { userNotification.error('刪除失敗：' + res.message); }
     } finally { hideLoading(); }
 }
 
 async function initGroup() {
     const rawMembers = document.getElementById('memberInput').value.split('\n').filter(n => n.trim());
-    if (rawMembers.length === 0) return alert('請輸入名單');
+    if (rawMembers.length === 0) return userNotification.warning('請輸入名單');
     const members = rawMembers.map(name => ({ name: name.trim(), role: '小羊' }));
 
     showLoading("正在建立雲端分頁，這可能需要幾秒鐘...");
     try {
         const res = await callAPI('initGroup', { groupName, members });
-        if (res.success) { 
-            await checkGroupStatus(); 
-        } 
-        else { alert(res.message); }
+        if (res.success) {
+            await checkGroupStatus();
+        }
+        else { userNotification.error(res.message); }
     } finally { hideLoading(); }
 }
 
@@ -288,8 +288,8 @@ function addEditMember() {
     const newName = input.value.trim();
     const newRole = roleSelect ? roleSelect.value : '小羊'; 
     
-    if (!newName) return alert("請輸入要新增的姓名！");
-    if (editingMembers.some(m => m.name === newName)) return alert("此人已經在名單中了！");
+    if (!newName) return userNotification.warning("請輸入要新增的姓名！");
+    if (editingMembers.some(m => m.name === newName)) return userNotification.warning("此人已經在名單中了！");
 
     editingMembers.push({ name: newName, role: newRole });
     input.value = ""; 
@@ -315,14 +315,14 @@ async function saveUpdatedList() {
     showLoading("正在更新雲端名單...");
     try {
         const res = await callAPI('updateMemberList', { groupName, members: editingMembers });
-        if (res.success) { 
-            alert('名單更新成功！'); 
-            currentMembers = [...editingMembers]; 
-            renderMemberList(currentMembers); 
-            toggleEditMode(); 
-        } 
-        else { alert('更新失敗：' + res.message); }
-    } catch (e) { alert("連線發生錯誤，請稍後再試。"); } finally { hideLoading(); }
+        if (res.success) {
+            userNotification.success('名單更新成功！');
+            currentMembers = [...editingMembers];
+            renderMemberList(currentMembers);
+            toggleEditMode();
+        }
+        else { userNotification.error('更新失敗：' + res.message); }
+    } catch (e) { userNotification.error("連線發生錯誤，請稍後再試。"); } finally { hideLoading(); }
 }
 
 async function submitAttendance() {
@@ -339,12 +339,12 @@ async function submitAttendance() {
     showLoading("正在存入點名資料，請勿關閉網頁...");
     try {
         const res = await callAPI('submitAttendance', { groupName, date, present, absent, newFriends });
-        if (res.success) { 
-            alert('點名成功！'); 
-            document.querySelectorAll('.attendance-check').forEach(cb => cb.checked = false); 
-            document.getElementById('newFriends').value = ''; 
-            if (groupCode) await loadGroupProgress(); 
-        } 
-        else { alert('失敗：' + res.message); }
+        if (res.success) {
+            userNotification.success('點名成功！');
+            document.querySelectorAll('.attendance-check').forEach(cb => cb.checked = false);
+            document.getElementById('newFriends').value = '';
+            if (groupCode) await loadGroupProgress();
+        }
+        else { userNotification.error('失敗：' + res.message); }
     } finally { hideLoading(); }
 }

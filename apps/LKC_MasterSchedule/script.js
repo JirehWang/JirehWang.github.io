@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         renderEvents();
         console.log("✅ 行事曆系統安全啟動");
     } catch (e) {
-        alert("系統啟動失敗：" + e.message);
+        userNotification.error("系統啟動失敗：" + e.message);
     } finally {
         hideLoading();
     }
@@ -53,7 +53,7 @@ function confirmSingleEventAdd() {
     const category = document.getElementById('singleCategory').value;
 
     if (!dateStr) {
-        alert('請選擇日期');
+        userNotification.warning('請選擇日期');
         return;
     }
 
@@ -118,7 +118,7 @@ function moveEventUp(eventId) {
     if (index > 0) {
         // 限制只能與「相同日期」的聚會交換順序
         if (events[index].date !== events[index - 1].date) {
-            alert('💡 只能與「相同日期」的聚會互相調整順序喔！\n若要跨日移動，請直接修改日期欄位。');
+            userNotification.warning('💡 只能與「相同日期」的聚會互相調整順序喔！跨日請直接修改日期欄位。');
             return;
         }
         // 陣列元素交換
@@ -136,7 +136,7 @@ function moveEventDown(eventId) {
     if (index < events.length - 1) {
         // 限制只能與「相同日期」的聚會交換順序
         if (events[index].date !== events[index + 1].date) {
-            alert('💡 只能與「相同日期」的聚會互相調整順序喔！\n若要跨日移動，請直接修改日期欄位。');
+            userNotification.warning('💡 只能與「相同日期」的聚會互相調整順序喔！跨日請直接修改日期欄位。');
             return;
         }
         // 陣列元素交換
@@ -194,7 +194,7 @@ function handleDrop(e, targetEventId) {
 
     // 防呆：檢查是否為同一天
     if (events[draggedIndex].date !== events[targetIndex].date) {
-        alert('💡 只能與「相同日期」的聚會互相調整順序喔！\n若要跨日移動，請直接修改日期欄位。');
+        userNotification.warning('💡 只能與「相同日期」的聚會互相調整順序喔！跨日請直接修改日期欄位。');
         return;
     }
 
@@ -519,7 +519,7 @@ function recalculateCounters() {
 
 function exportToExcel() {
     if (events.length === 0) {
-        alert('沒有資料可以匯出');
+        userNotification.warning('沒有資料可以匯出');
         return;
     }
 
@@ -571,13 +571,13 @@ async function saveToGAS() {
         const result = await callCloudAPI('save', events);
         
         if (result.success) {
-            alert('✅ 資料已成功儲存到雲端！');
+            userNotification.success('✅ 資料已成功儲存到雲端！');
         } else {
             throw new Error(result.error || '後端回傳失敗');
         }
     } catch (error) {
         console.error('儲存失敗細節:', error);
-        alert(`❌ 儲存失敗！\n原因: ${error.message}`);
+        userNotification.error(`❌ 儲存失敗！原因: ${error.message}`);
     } finally {
         saveBtn.innerHTML = originalText;
         saveBtn.disabled = false;
@@ -599,12 +599,12 @@ async function loadFromGAS() {
             sortEvents(); // 從雲端載入後確保排序正確
             recalculateCounters(); 
             renderEvents();
-            saveToLocalStorage(); 
-            alert('✅ 資料已從雲端載入！');
+            saveToLocalStorage();
+            userNotification.success('✅ 資料已從雲端載入！');
         }
     } catch (error) {
         console.error('載入失敗:', error);
-        alert('載入失敗，請檢查網路連線');
+        userNotification.error('載入失敗，請檢查網路連線');
     } finally {
         loadBtn.innerHTML = originalText;
         loadBtn.disabled = false;
@@ -660,7 +660,7 @@ function previewBatchDates() {
     const end = new Date(endDate);
     
     if (start > end) {
-        alert('開始日期不能晚於結束日期');
+        userNotification.warning('開始日期不能晚於結束日期');
         return;
     }
     
@@ -699,7 +699,7 @@ function confirmBatchAdd() {
     const category = document.getElementById('batchCategory').value;
     
     if (previewDates.length === 0) {
-        alert('請先預覽日期，確認有可新增的日期');
+        userNotification.warning('請先預覽日期，確認有可新增的日期');
         return;
     }
     
@@ -727,7 +727,8 @@ function confirmBatchAdd() {
     saveToLocalStorage();
     closeBatchModal();
     
-    alert(`成功新增 ${addedCount} 個聚會！${previewDates.length - addedCount > 0 ? '\n(' + (previewDates.length - addedCount) + ' 個重複的聚會已略過)' : ''}`);
+    const skipped = previewDates.length - addedCount;
+    userNotification.success(`成功新增 ${addedCount} 個聚會！${skipped > 0 ? `（略過 ${skipped} 個重複）` : ''}`);
 }
 
 // ====================
@@ -792,7 +793,7 @@ async function processAiText() {
     const confirmBtn = document.getElementById('btnConfirmAi');
 
     if (!rawText) {
-        alert('請先貼上牧師的原始文字');
+        userNotification.warning('請先貼上牧師的原始文字');
         return;
     }
 
@@ -898,5 +899,5 @@ function confirmAiImport() {
     saveToLocalStorage();
     closeAiImportModal();
 
-    alert(`✅ 成功將 ${addedCount} 筆講道資訊整合進行事曆！`);
+    userNotification.success(`✅ 成功將 ${addedCount} 筆講道資訊整合進行事曆！`);
 }

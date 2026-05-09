@@ -4,7 +4,7 @@
 window.onload = async () => {
     // 檢查中央路由是否就緒
     if (typeof window.churchAPI !== 'function') {
-        alert("⚠️ 系統錯誤：安全路由 (config.js) 尚未載入！請聯絡管理員。");
+        userNotification.error("⚠️ 系統錯誤：安全路由 (config.js) 尚未載入！請聯絡管理員。");
         return;
     }
 
@@ -23,12 +23,12 @@ window.onload = async () => {
                 document.getElementById('overlay-text').innerText = "進入專屬小組中...";
                 window.location.href = `group.html?name=${encodeURIComponent(res.groupName)}&code=${encodeURIComponent(queryId)}`;
             } else {
-                alert("專屬連結無效或代碼錯誤！");
+                userNotification.warning("專屬連結無效或代碼錯誤！");
                 hideLoading();
                 fetchGroups(); // 若失敗，則載入正常首頁清單
             }
         } catch (e) {
-            alert("驗證連結時發生錯誤。");
+            userNotification.error("驗證連結時發生錯誤。");
             hideLoading();
             fetchGroups();
         }
@@ -79,20 +79,20 @@ function toggleModal(show) {
 async function createNewGroup() {
     const name = document.getElementById('newGroupName').value;
     const code = document.getElementById('newGroupCode').value;
-    if (!name || !code) return alert('請填寫完整資訊');
+    if (!name || !code) return userNotification.warning('請填寫完整資訊');
 
     showLoading("正在雲端建立小組並設定權限...");
     try {
         // 🌟 使用中央路由發送請求
         const res = await window.churchAPI('createGroup', { groupName: name, groupCode: code });
-        
-        alert(res.message);
+
+        (res.success ? userNotification.success : userNotification.warning)(res.message);
         if (res.success) {
             toggleModal(false);
             fetchGroups();
         }
     } catch (e) {
-        alert("建立失敗，請稍後再試。");
+        userNotification.error("建立失敗，請稍後再試。");
     } finally {
         hideLoading();
     }
@@ -113,12 +113,12 @@ async function enterGroup(groupName) {
             document.getElementById('overlay-text').innerText = "驗證成功，進入小組中...";
             window.location.href = `group.html?name=${encodeURIComponent(groupName)}&code=${encodeURIComponent(code)}`;
         } else {
-            hideLoading(); 
-            alert(res.message);
+            hideLoading();
+            userNotification.warning(res.message);
         }
     } catch (e) {
         hideLoading();
-        alert("驗證時發生網路錯誤。");
+        userNotification.error("驗證時發生網路錯誤。");
     }
 }
 // --- 本週聚會人數彈窗 ---
