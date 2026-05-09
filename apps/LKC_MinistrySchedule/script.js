@@ -16,82 +16,11 @@
 //       （對齊後端 doPost 讀取 data.id / data.type 的方式）
 // ============================================================
 
-// ============================================================
-//  🛡️ 安全存取 config.js 提供的工具（防止載入競速問題）
-//  config.js 從外部 CDN 載入，可能比 script.js 晚完成，
-//  這裡提供備援實作，確保即使 config.js 尚未就緒也不會拋錯。
-// ============================================================
-function getNotifier() {
-  return window.userNotification || {
-    success: (msg) => console.log("✅", msg),
-    error:   (msg) => { console.error("❌", msg); alert(msg); },
-    warning: (msg) => { console.warn("⚠️", msg); alert(msg); },
-    info:    (msg) => console.log("ℹ️", msg),
-    showLoading: (msg) => {
-      const el = document.getElementById('globalLoading');
-      if (el) { el.innerText = msg || "⏳ 處理中..."; el.classList.remove('hidden'); }
-    },
-    hideLoading: () => {
-      const el = document.getElementById('globalLoading');
-      if (el) el.classList.add('hidden');
-    }
-  };
-}
-
-function getUIState() {
-  return window.uiState || {
-    _locks: {},
-    lock:     function(k) { this._locks[k] = true; },
-    unlock:   function(k) { this._locks[k] = false; },
-    isLocked: function(k) { return !!this._locks[k]; }
-  };
-}
-
-function getSessionMgr() {
-  return window.sessionManager || {
-    setUnlocked: (id) => sessionStorage.setItem(`unlocked_${id}`, 'true'),
-    isUnlocked:  (id) => sessionStorage.getItem(`unlocked_${id}`) === 'true',
-    clear:       (id) => sessionStorage.removeItem(`unlocked_${id}`)
-  };
-}
-
-// ============================================================
-//  🌐 全域變數保底宣告
-//  不管 config.js 是新版或舊版，這些名稱在 script.js 內都保證存在。
-//  若 config.js 已提供 window.userNotification 等，則 getNotifier() 會優先使用它。
-// ============================================================
-const userNotification = {
-  success:     (msg, d) => getNotifier().success(msg, d),
-  error:       (msg, d) => getNotifier().error(msg, d),
-  warning:     (msg, d) => getNotifier().warning(msg, d),
-  info:        (msg, d) => getNotifier().info(msg, d),
-  showLoading: (msg)    => getNotifier().showLoading(msg),
-  hideLoading: ()       => getNotifier().hideLoading()
-};
-
-const uiState = {
-  lock:     (k) => getUIState().lock(k),
-  unlock:   (k) => getUIState().unlock(k),
-  isLocked: (k) => getUIState().isLocked(k)
-};
-
-const sessionManager = {
-  setUnlocked: (id) => getSessionMgr().setUnlocked(id),
-  isUnlocked:  (id) => getSessionMgr().isUnlocked(id),
-  clear:       (id) => getSessionMgr().clear(id)
-};
-
-// APIError fallback（舊版 config.js 未定義時在此補充）
-if (typeof APIError === 'undefined') {
-  window.APIError = class APIError extends Error {
-    constructor(message, httpStatus = null, type = 'UNKNOWN_ERROR') {
-      super(message);
-      this.name = 'APIError';
-      this.httpStatus = httpStatus;
-      this.type = type;
-    }
-  };
-}
+// userNotification / uiState / sessionManager / APIError 由中央 config.js 提供。
+// 提供 getNotifier / getUIState shim 以避免大規模呼叫端改寫。
+const getNotifier   = () => window.userNotification;
+const getUIState    = () => window.uiState;
+const getSessionMgr = () => window.sessionManager;
 
 // ============================================================
 
@@ -113,53 +42,32 @@ let localCustomMembers = [];
 let currentTemplate = "";
 let currentEventData = [];
 
+// 預覽布告欄 modal 目前的篩選後矩陣（給下載 Excel 用）
+let _currentBulletinFiltered = null;
+
 
 // ============================================================
-//  🛡️ API 呼叫核心（自給自足，不依賴 config.js 的實作細節）
-//
-//  設定來源優先順序：
-//    1. window.CHURCH_CONFIG（新版 config.js 提供）
-//    2. window._GAS_URL / window._GAS_TOKEN（手動注入）
-//    3. 內建預設值（需手動修改 FALLBACK_GAS_URL）
-//
-//  payload 結構統一為：{ action, token, data: { ...params } }
-//  後端 doPost 讀取：var data = payload.data || {}
+//  🛡️ API 呼叫核心
+//  config.js 已載入並提供 window.GAS_URL / window.AUTH_TOKEN，
+//  此處的 fetchAPI 與中央 churchAPI 並存，差異在於：
+//    - churchAPI 用 text/plain；fetchAPI 用 form-urlencoded（避開 preflight）
+//    - fetchAPI 帶有 timeout/retry 邏輯
+//  payload 結構：{ action, token, data: { ...params } }
 // ============================================================
 
-// ⚙️ 如果沒有新版 config.js，在這裡直接填入你的部署網址與 Token
-const _FALLBACK_GAS_URL   = "https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_U9nKJrRMR1-xzbbtuaq08lePLgAQ2wnDRrCeHdy9jNhh/exec";
-const _FALLBACK_GAS_TOKEN = "ChurchApp-2026";
-const _API_TIMEOUT_MS     = 120000;
-
-function _getGasUrl() {
-  return window.GAS_URL ||
-         (window.CHURCH_CONFIG && window.CHURCH_CONFIG.GAS_DEPLOY_URL) ||
-         window._GAS_URL ||
-         _FALLBACK_GAS_URL;
-}
-
-function _getGasToken() {
-  return window.AUTH_TOKEN ||
-         (window.CHURCH_CONFIG && window.CHURCH_CONFIG.SECRET_TOKEN) ||
-         window._GAS_TOKEN ||
-         _FALLBACK_GAS_TOKEN;
-}
+const _API_TIMEOUT_MS = 120000;
 
 async function fetchAPI(action, data = {}) {
-  // data 就是要放進 payload.data 的內容，呼叫端直接傳物件即可
-  // 例：fetchAPI('getPageConfig', { id: currentId })
-  //     fetchAPI('saveSheetData', { groupName: '...', matrix: [...] })
-
   const payload = {
     action: action,
-    token:  _getGasToken(),
+    token:  window.AUTH_TOKEN,
     data:   data
   };
 
-  const gasUrl = _getGasUrl();
-  if (!gasUrl || gasUrl.includes("YOUR_DEPLOYMENT_ID")) {
+  const gasUrl = window.GAS_URL;
+  if (!gasUrl) {
     throw new APIError(
-      "GAS 部署網址尚未設定，請修改 config.js 或 script.js 的 _FALLBACK_GAS_URL",
+      "GAS 部署網址尚未設定，請確認 config.js 已正確載入",
       null, 'CONFIG_ERROR'
     );
   }
@@ -735,44 +643,49 @@ function fillTableWithData(parsedRows) {
   const container = document.getElementById('rowsContainer');
   const dateColIdx = currentTableHeaders.findIndex(h => h.includes("日期"));
 
+  // 預先快取目前所有 row 與其 inputs，避免每筆 parsedRow 都重新 querySelectorAll → O(N²)
+  const rowCache = Array.from(container.querySelectorAll('.record-row')).map(rowDiv => ({
+    rowDiv,
+    inputs: rowDiv.querySelectorAll('.grid-input')
+  }));
+
   parsedRows.forEach(rowData => {
-    let targetRowDiv = null;
+    let target = null;
     const aiDate = rowData["日期"] || rowData[currentTableHeaders[dateColIdx]];
 
+    // 先嘗試比對日期
     if (aiDate && dateColIdx !== -1) {
-      const allRowDivs = container.querySelectorAll('.record-row');
-      for (let rowDiv of allRowDivs) {
-        const dateInput = rowDiv.querySelectorAll('.grid-input')[dateColIdx];
-        if (dateInput && dateInput.value.trim() === aiDate) {
-          targetRowDiv = rowDiv;
-          break;
-        }
-      }
+      target = rowCache.find(r => {
+        const di = r.inputs[dateColIdx];
+        return di && di.value.trim() === aiDate;
+      });
     }
 
-    if (!targetRowDiv) {
-      const allRowDivs = container.querySelectorAll('.record-row');
-      for (let rowDiv of allRowDivs) {
-        const inputs = Array.from(rowDiv.querySelectorAll('.grid-input'));
-        if (inputs.every(input => input.value.trim() === "")) {
-          targetRowDiv = rowDiv;
-          break;
+    // 找不到日期相符的 → 找完全空白的列
+    if (!target) {
+      target = rowCache.find(r => {
+        for (let i = 0; i < r.inputs.length; i++) {
+          if (r.inputs[i].value.trim() !== "") return false;
         }
-      }
+        return true;
+      });
     }
 
-    if (!targetRowDiv) {
+    // 都沒有 → 新增一列並加入 cache
+    if (!target) {
       addNewRow();
-      targetRowDiv = container.lastElementChild;
+      const rowDiv = container.lastElementChild;
+      target = { rowDiv, inputs: rowDiv.querySelectorAll('.grid-input') };
+      rowCache.push(target);
     }
 
-    const inputs = targetRowDiv.querySelectorAll('.grid-input');
     currentTableHeaders.forEach((header, colIdx) => {
       const val = rowData[header];
       if (val && val !== "") {
-        inputs[colIdx].value = val;
-        inputs[colIdx].classList.add('highlight');
-        setTimeout(() => inputs[colIdx].classList.remove('highlight'), 2000);
+        const input = target.inputs[colIdx];
+        input.value = val;
+        input.classList.add('highlight');
+        setTimeout(() => input.classList.remove('highlight'), 2000);
       }
     });
   });
@@ -900,10 +813,153 @@ async function saveGroupPrompt() {
 
 
 // ============================================================
+//  📅 共用日期篩選器（modal 用：年度 + 季度 + 滾動近 3 個月）
+// ============================================================
+const _MS_FILTER_QUARTERS = [1, 2, 3, 4];
+
+function _ms_getDateColIdx(headers) {
+  if (!Array.isArray(headers)) return -1;
+  return headers.findIndex(h => String(h || '').includes('日期'));
+}
+
+function _ms_yearsFromMatrix(matrix, dateColIdx) {
+  if (!matrix || matrix.length < 2 || dateColIdx < 0) return [new Date().getFullYear()];
+  const ys = new Set();
+  for (let i = 1; i < matrix.length; i++) {
+    const d = new Date(matrix[i][dateColIdx]);
+    if (!isNaN(d)) ys.add(d.getFullYear());
+  }
+  const arr = Array.from(ys).sort((a, b) => b - a);
+  const cur = new Date().getFullYear();
+  if (!arr.includes(cur)) arr.unshift(cur);
+  return arr;
+}
+
+function _ms_currentQuarter() {
+  return Math.floor(new Date().getMonth() / 3) + 1;
+}
+
+function _ms_rollingWindow() {
+  // 預設範圍：往前 1 個月、往後 2 個月
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = new Date(today);
+  start.setMonth(start.getMonth() - 1);
+  const end = new Date(today);
+  end.setMonth(end.getMonth() + 2);
+  end.setHours(23, 59, 59, 999);
+  return [start, end];
+}
+
+function _ms_applyDateFilter(matrix, dateColIdx, mode, year, quarter) {
+  if (!matrix || matrix.length < 2) return matrix ? matrix.slice() : [];
+  if (dateColIdx < 0) return matrix.slice();
+  const headers = matrix[0];
+  let predicate;
+  if (mode === 'rolling') {
+    const [start, end] = _ms_rollingWindow();
+    predicate = d => d >= start && d <= end;
+  } else {
+    const m1 = (quarter - 1) * 3 + 1;
+    predicate = d => d.getFullYear() === year && (d.getMonth() + 1) >= m1 && (d.getMonth() + 1) <= m1 + 2;
+  }
+  const filtered = matrix.slice(1).filter(row => {
+    const d = new Date(row[dateColIdx]);
+    if (isNaN(d)) return false;
+    return predicate(d);
+  });
+  return [headers, ...filtered];
+}
+
+function _ms_buildTableHtml(matrix, opts = {}) {
+  const minWidth = opts.minWidth || 800;
+  if (!matrix || matrix.length <= 1) {
+    return '<p class="text-center text-muted my-4">此範圍內沒有資料，請改選其他季度</p>';
+  }
+  let html = `<table class="table table-bordered table-hover text-center align-middle m-0" style="min-width: ${minWidth}px;"><thead><tr>`;
+  matrix[0].forEach(h => html += `<th class="bg-light" style="position: sticky; top: 0; z-index: 10; outline: 1px solid #dee2e6;">${h}</th>`);
+  html += '</tr></thead><tbody>';
+  for (let i = 1; i < matrix.length; i++) {
+    html += '<tr>';
+    matrix[i].forEach(cell => html += `<td>${cell || "-"}</td>`);
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  return html;
+}
+
+/**
+ * 在指定容器內渲染「年度+季度」篩選器 + 表格。
+ * - 開啟時預設用 rolling（近 3 個月）
+ * - 改選 年/季度 → 切到 quarter 模式
+ * - 點「近 3 個月」按鈕 → 切回 rolling
+ * onFilteredChange(filteredMatrix) 在每次重渲染時觸發，外部用來同步下載按鈕。
+ */
+function _ms_renderFilterableTable({ container, fullMatrix, tableMinWidth, onFilteredChange }) {
+  const headers = (fullMatrix && fullMatrix[0]) || [];
+  const dateColIdx = _ms_getDateColIdx(headers);
+  const noDateCol = dateColIdx < 0;
+  const years = _ms_yearsFromMatrix(fullMatrix, dateColIdx);
+  const today = new Date();
+  const state = {
+    mode: 'rolling',
+    year: years.includes(today.getFullYear()) ? today.getFullYear() : years[0],
+    quarter: _ms_currentQuarter()
+  };
+
+  const filterBar = noDateCol ? '' : `
+    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap p-2 bg-light rounded border">
+      <span class="text-muted small fw-bold">📅 顯示範圍：</span>
+      <button type="button" id="ms-filter-rolling" class="btn btn-sm btn-primary">近 3 個月</button>
+      <span class="text-muted">|</span>
+      <select id="ms-filter-year" class="form-select form-select-sm" style="width: auto;">
+        ${years.map(y => `<option value="${y}" ${y === state.year ? 'selected' : ''}>${y} 年</option>`).join('')}
+      </select>
+      <select id="ms-filter-quarter" class="form-select form-select-sm" style="width: auto;">
+        ${_MS_FILTER_QUARTERS.map(q => `<option value="${q}" ${q === state.quarter ? 'selected' : ''}>Q${q} (${(q - 1) * 3 + 1}~${q * 3}月)</option>`).join('')}
+      </select>
+      <span id="ms-filter-status" class="text-muted small ms-auto"></span>
+    </div>`;
+
+  container.innerHTML = filterBar + `<div class="table-responsive" id="ms-filter-table" style="max-height: 60vh; overflow-y: auto;"></div>`;
+
+  function rerender() {
+    const filtered = noDateCol
+      ? fullMatrix.slice()
+      : _ms_applyDateFilter(fullMatrix, dateColIdx, state.mode, state.year, state.quarter);
+    document.getElementById('ms-filter-table').innerHTML = _ms_buildTableHtml(filtered, { minWidth: tableMinWidth });
+    const statusEl = document.getElementById('ms-filter-status');
+    if (statusEl) {
+      const recordCount = Math.max(filtered.length - 1, 0);
+      statusEl.innerText = state.mode === 'rolling'
+        ? `共 ${recordCount} 筆（近 3 個月）`
+        : `共 ${recordCount} 筆（${state.year} Q${state.quarter}）`;
+    }
+    const rollingBtn = document.getElementById('ms-filter-rolling');
+    if (rollingBtn) {
+      rollingBtn.classList.toggle('btn-primary', state.mode === 'rolling');
+      rollingBtn.classList.toggle('btn-outline-primary', state.mode !== 'rolling');
+    }
+    if (typeof onFilteredChange === 'function') onFilteredChange(filtered);
+  }
+
+  if (!noDateCol) {
+    document.getElementById('ms-filter-rolling').onclick = () => { state.mode = 'rolling'; rerender(); };
+    document.getElementById('ms-filter-year').onchange = e => { state.mode = 'quarter'; state.year = +e.target.value; rerender(); };
+    document.getElementById('ms-filter-quarter').onchange = e => { state.mode = 'quarter'; state.quarter = +e.target.value; rerender(); };
+  }
+
+  rerender();
+}
+
+
+// ============================================================
 //  📋 預覽布告欄
 // ============================================================
 function showBulletinBoard() {
   if (window.event) window.event.preventDefault();
+
+  // 從目前的編輯表單擷取完整 matrix（仍尊重 .hidden 過濾，例如編輯模式的日期區間）
   const matrix = [currentTableHeaders];
   document.querySelectorAll('.record-row').forEach(rowDiv => {
     if (rowDiv.classList.contains('hidden')) return;
@@ -911,20 +967,14 @@ function showBulletinBoard() {
     if (row.some(v => v !== "")) matrix.push(row);
   });
 
-  let tableHtml = '<table class="table table-bordered table-hover text-center align-middle m-0" style="min-width: 800px;"><thead><tr>';
-  matrix[0].forEach(h => tableHtml += `<th class="bg-light" style="position: sticky; top: 0; z-index: 10; outline: 1px solid #dee2e6;">${h}</th>`);
-  tableHtml += '</tr></thead><tbody>';
+  _currentBulletinFiltered = matrix;
+  _ms_renderFilterableTable({
+    container: document.getElementById('bulletinContent'),
+    fullMatrix: matrix,
+    tableMinWidth: 800,
+    onFilteredChange: filtered => { _currentBulletinFiltered = filtered; }
+  });
 
-  for (let i = 1; i < matrix.length; i++) {
-    tableHtml += '<tr>';
-    matrix[i].forEach(cell => tableHtml += `<td>${cell || "-"}</td>`);
-    tableHtml += '</tr>';
-  }
-  tableHtml += '</tbody></table>';
-
-  if (matrix.length === 1) tableHtml = '<p class="text-center text-muted my-4">目前沒有資料可顯示</p>';
-
-  document.getElementById('bulletinContent').innerHTML = `<div class="table-responsive" style="max-height: 65vh; overflow-y: auto;">${tableHtml}</div>`;
   document.getElementById('bulletinModalLabel').innerText = `📋 ${activeGroupName} - 排班布告欄`;
 
   const closeBtn = document.getElementById('modalCloseBtn');
@@ -971,12 +1021,19 @@ function closeModalOrUnlock() {
 // ============================================================
 function downloadExcel() {
   if (window.event) window.event.preventDefault();
-  const matrix = [currentTableHeaders];
-  document.querySelectorAll('.record-row').forEach(rowDiv => {
-    if (rowDiv.classList.contains('hidden')) return;
-    const row = Array.from(rowDiv.querySelectorAll('.grid-input')).map(i => i.value.trim());
-    if (row.some(v => v !== "")) matrix.push(row);
-  });
+
+  // 若 modal 開啟過且已套用篩選，下載篩選後的內容；否則取整份編輯表單的可見資料
+  let matrix;
+  if (Array.isArray(_currentBulletinFiltered) && _currentBulletinFiltered.length > 1) {
+    matrix = _currentBulletinFiltered;
+  } else {
+    matrix = [currentTableHeaders];
+    document.querySelectorAll('.record-row').forEach(rowDiv => {
+      if (rowDiv.classList.contains('hidden')) return;
+      const row = Array.from(rowDiv.querySelectorAll('.grid-input')).map(i => i.value.trim());
+      if (row.some(v => v !== "")) matrix.push(row);
+    });
+  }
   if (matrix.length === 1) {
     getNotifier().warning("⚠️ 目前沒有資料可以下載！");
     return;
@@ -1116,22 +1173,18 @@ async function showAggregatedReport(type) {
       return;
     }
 
-    let tableHtml = '<table class="table table-bordered table-hover text-center align-middle m-0" style="min-width: 1200px;"><thead><tr>';
-    matrix[0].forEach(h => tableHtml += `<th class="bg-light" style="position: sticky; top: 0; z-index: 10; outline: 1px solid #dee2e6;">${h}</th>`);
-    tableHtml += '</tr></thead><tbody>';
-
-    for (let i = 1; i < matrix.length; i++) {
-      tableHtml += '<tr>';
-      matrix[i].forEach(cell => tableHtml += `<td>${cell || "-"}</td>`);
-      tableHtml += '</tr>';
-    }
-    tableHtml += '</tbody></table>';
-
-    document.getElementById('aggregatedReportContent').innerHTML = `<div class="table-responsive" style="max-height: 65vh; overflow-y: auto;">${tableHtml}</div>`;
-
     const title = type === 'smallGroup' ? '📊 所有小組聚會總表' : '📊 教會各項服事總表';
+    let currentFiltered = matrix;
+
+    _ms_renderFilterableTable({
+      container: document.getElementById('aggregatedReportContent'),
+      fullMatrix: matrix,
+      tableMinWidth: 1200,
+      onFilteredChange: filtered => { currentFiltered = filtered; }
+    });
+
     document.getElementById('aggregatedReportModalLabel').innerText = title;
-    document.getElementById('downloadAggregatedBtn').onclick = () => downloadAggregatedExcel(matrix, title);
+    document.getElementById('downloadAggregatedBtn').onclick = () => downloadAggregatedExcel(currentFiltered, title);
 
     new bootstrap.Modal(document.getElementById('aggregatedReportModal')).show();
   } catch (err) {

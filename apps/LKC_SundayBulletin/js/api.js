@@ -2,37 +2,40 @@
 
 const ChurchAPI = {
 
-  async callGAS(url, action, data = {}) {
-    const res = await fetch(url, {
+  // 共用 fetch helper：統一處理 HTTP 錯誤與 JSON 解析
+  async _postJSON(url, init) {
+    const res = await fetch(url, init);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  },
+
+  // 通用 GAS：text/plain，body = { action, token, data }
+  callGAS(url, action, data = {}) {
+    return this._postJSON(url, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action, token: CONFIG.SHARED_TOKEN, data })
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
   },
 
-  async callLKC1958(action, data = {}) {
+  // LKC1958：form-urlencoded，避開 GAS preflight；body 包在 payload 欄位
+  callLKC1958(action, data = {}) {
     const payload = { action, token: CONFIG.SHARED_TOKEN, data };
-    const formBody = 'payload=' + encodeURIComponent(JSON.stringify(payload));
-    const res = await fetch(CONFIG.LKC1958_GAS_URL, {
+    return this._postJSON(CONFIG.LKC1958_GAS_URL, {
       method:   'POST',
       headers:  { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body:     formBody,
+      body:     'payload=' + encodeURIComponent(JSON.stringify(payload)),
       redirect: 'follow'
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
   },
 
-  async callAttendance(action, payload = null) {
-    const res = await fetch(CONFIG.LKC_ATTENDANCE_GAS_URL, {
+  // Attendance：text/plain，body 形狀為 { action, payload }（不同 schema）
+  callAttendance(action, payload = null) {
+    return this._postJSON(CONFIG.LKC_ATTENDANCE_GAS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action, payload })
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
   },
 
   _unwrap(result) {
@@ -51,11 +54,6 @@ const ChurchAPI = {
     return cellClean === targetClean;
   },
 
-  // 將任意 Date 物件格式化為 yyyy-mm-dd（使用本地時區，避免 UTC 偏移）
-  _localDateStr(d) {
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  },
-
   async fetchServiceSchedule(sundayDate, requireMatch = false) {
     try {
       const result = await this.callLKC1958('getAggregatedReport', { type: 'others' });
@@ -65,13 +63,13 @@ const ChurchAPI = {
       const headers  = rawData[0] || [];
       const rows     = rawData.slice(1);
       const dateIdx  = headers.indexOf('日期');
-      console.log('[LKC1958] headers:', headers, '| dateIdx:', dateIdx, '| looking for:', sundayDate);
+      debug('[LKC1958] headers:', headers, '| dateIdx:', dateIdx, '| looking for:', sundayDate);
 
       const matchingRows = dateIdx !== -1
         ? rows.filter(row => this._dateMatch(row[dateIdx], sundayDate))
         : rows.filter(row => this._dateMatch(row[0], sundayDate));
 
-      console.log('[LKC1958] matchingRows:', matchingRows.length);
+      debug('[LKC1958] matchingRows:', matchingRows.length);
 
       let sourceRows;
       if (matchingRows.length > 0) {
@@ -128,7 +126,7 @@ const ChurchAPI = {
         endDate:   date
       });
       const rows = this._unwrap(result);
-      console.log('[LKworship-songs]', date, '| rows:', Array.isArray(rows) ? rows.length : 0);
+      debug('[LKworship-songs]', date, '| rows:', Array.isArray(rows) ? rows.length : 0);
 
       if (!Array.isArray(rows) || rows.length === 0) {
         return requireMatch
@@ -194,7 +192,7 @@ const ChurchAPI = {
   async fetchCalendar() {
     try {
       const result = await this.callGAS(CONFIG.LKCSCHEDULE_GAS_URL, 'load', {});
-      console.log('[LKCschedule] raw (first 800):', JSON.stringify(result).substring(0, 800));
+      debug('[LKCschedule] raw (first 800):', JSON.stringify(result).substring(0, 800));
 
       let events = [];
       if (result && result.success && Array.isArray(result.events)) {
@@ -242,7 +240,7 @@ const ChurchAPI = {
     const events = result.data;
 
     const dayEvents = events.filter(e => this._dateMatch(e.date, date));
-    console.log('[LKCschedule] date:', date, '| dayEvents:', dayEvents.length);
+    debug('[LKCschedule] date:', date, '| dayEvents:', dayEvents.length);
 
     const twEvent = dayEvents.find(e => e.hasTwSermon)
       || dayEvents.find(e => e.category.includes('台語') || e.name.includes('台語') || e.category === '主日');
@@ -277,8 +275,8 @@ const ChurchAPI = {
       // 主日禮拜人數報告上一個週日的資料
       const d = new Date(date + 'T00:00:00');
       d.setDate(d.getDate() - 7);
-      const prevSunday = this._localDateStr(d);
-      console.log('[LKC_Attendance] 查詢日期:', prevSunday, '(週報日期', date, '-7天)');
+      const prevSunday = formatYMD(d);
+      debug('[LKC_Attendance] 查詢日期:', prevSunday, '(週報日期', date, '-7天)');
 
       const req = (type) => ({ type, mode: 'single', date: prevSunday, baseSheet: '會友名單', targetGroups: [] });
 
@@ -287,8 +285,8 @@ const ChurchAPI = {
         this.callAttendance('getAttendanceStats', req('華語'))
       ]);
 
-      console.log('[LKC_Attendance] 台語 raw:', twRaw.status === 'fulfilled' ? twRaw.value : twRaw.reason);
-      console.log('[LKC_Attendance] 華語 raw:', zhRaw.status === 'fulfilled' ? zhRaw.value : zhRaw.reason);
+      debug('[LKC_Attendance] 台語 raw:', twRaw.status === 'fulfilled' ? twRaw.value : twRaw.reason);
+      debug('[LKC_Attendance] 華語 raw:', zhRaw.status === 'fulfilled' ? zhRaw.value : zhRaw.reason);
 
       const parseTotal = (settled) => {
         if (settled.status !== 'fulfilled') return 0;
@@ -323,21 +321,21 @@ const ChurchAPI = {
       const sundayD   = new Date(date + 'T00:00:00');
       const prevSunD  = new Date(sundayD); prevSunD.setDate(sundayD.getDate() - 7);
       const prevSatD  = new Date(sundayD); prevSatD.setDate(sundayD.getDate() - 1);
-      const startDate = this._localDateStr(prevSunD);
-      const endDate   = this._localDateStr(prevSatD);
-      console.log('[LKGroup] 參照主日:', date, '統計區間:', startDate, '~', endDate);
+      const startDate = formatYMD(prevSunD);
+      const endDate   = formatYMD(prevSatD);
+      debug('[LKGroup] 參照主日:', date, '統計區間:', startDate, '~', endDate);
 
       // Step 1: 取得小組列表
       let groupNames = [];
       try {
         const groupsRes = await this.callGAS(CONFIG.LKGROUP_GAS_URL, 'getGroups', {});
-        console.log('[LKGroup] getGroups response:', JSON.stringify(groupsRes).substring(0, 500));
+        debug('[LKGroup] getGroups response:', JSON.stringify(groupsRes).substring(0, 500));
         if (groupsRes?.success && Array.isArray(groupsRes.groups)) {
           groupNames = groupsRes.groups.map(g => g.name || g).filter(Boolean);
-          console.log('[LKGroup] 小組列表:', groupNames);
+          debug('[LKGroup] 小組列表:', groupNames);
         }
       } catch (e) {
-        console.log('[LKGroup] getGroups 失敗，改用預設列表:', e.message);
+        debug('[LKGroup] getGroups 失敗，改用預設列表:', e.message);
       }
       if (groupNames.length === 0) groupNames = CONFIG.TW_GROUPS;
 
@@ -352,7 +350,7 @@ const ChurchAPI = {
           startDate,
           endDate
         });
-        console.log('[LKGroup] getWeeklyReport response:', JSON.stringify(weeklyRes).substring(0, 500));
+        debug('[LKGroup] getWeeklyReport response:', JSON.stringify(weeklyRes).substring(0, 500));
         if (weeklyRes?.success && Array.isArray(weeklyRes.data)) {
           weeklyRes.data.forEach(g => {
             if (Object.prototype.hasOwnProperty.call(results, g.groupName)) {
@@ -365,7 +363,7 @@ const ChurchAPI = {
           });
         }
       } catch (e) {
-        console.log('[LKGroup] getWeeklyReport 失敗:', e.message);
+        debug('[LKGroup] getWeeklyReport 失敗:', e.message);
       }
 
       return { success: true, source: 'LKGroup', data: results };

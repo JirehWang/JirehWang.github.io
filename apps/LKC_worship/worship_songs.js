@@ -22,7 +22,7 @@ async function loadByQuarter() {
 async function loadByDateRange() {
   const start = document.getElementById('startDate').value;
   const end = document.getElementById('endDate').value;
-  if (!start || !end) return alert("請設定起訖日期");
+  if (!start || !end) return userNotification.warning("請設定起訖日期");
   await loadSongs({ startDate: start, endDate: end });
 }
 
@@ -176,15 +176,15 @@ async function saveAllSongs() {
   try {
     const result = await callAPI('saveSongs', { songsData: songsData });
     if (result.status === 'success') {
-      alert('🎉 曲目資料已成功儲存！');
+      userNotification.success('🎉 曲目資料已成功儲存！');
       dirtyRows.clear();
       updateSaveBtn();
       document.getElementById('syncTime').innerText = new Date().toLocaleTimeString();
     } else {
-      alert('⚠️ 儲存失敗：' + result.message);
+      userNotification.warning('⚠️ 儲存失敗：' + result.message);
     }
   } catch (err) {
-    alert('❌ 儲存失敗：' + err.message);
+    userNotification.error('❌ 儲存失敗：' + err.message);
   }
 
   btn.disabled = false;

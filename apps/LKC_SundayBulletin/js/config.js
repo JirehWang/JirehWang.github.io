@@ -1,5 +1,23 @@
 // 設定檔 - 教會週報管理系統
 
+// 🐛 debug — 受 ?debug=1 或 window.DEBUG 控制的條件式 log
+(function() {
+  const enabled = /[?&]debug=1\b/.test(window.location.search) || window.DEBUG === true;
+  window.debug = enabled
+    ? console.log.bind(console, '%c[debug]', 'color:#888')
+    : function() {};
+})();
+
+// 🗓️ 格式化為 YYYY-MM-DD（本地時區）
+window.formatYMD = function(date) {
+  const d = (date instanceof Date) ? date : new Date(date);
+  if (isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
 const CONFIG = {
 
   GAS_SYNC_URL: 'https://script.google.com/macros/s/AKfycbyLLQZsz_XZqhWVwaT_8hcvfQc8fSWztAncEmBUk7lnzGr-TcP33uzS-weUG_cavgEn/exec',

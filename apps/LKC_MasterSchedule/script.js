@@ -5,35 +5,36 @@ let ministryIdCounter = 1; // 事工細項計數器
 let sermonIdCounter = 1;   // 講道資訊計數器
 
 // ====================
+// 🛡️ 字串安全跳脫工具
+// ====================
+// 用於把使用者輸入安全嵌入 HTML 屬性 / 文字節點 / CSV 儲存格
+const _ESC_ATTR_MAP = { '&': '&amp;', '"': '&quot;', "'": '&#39;', '<': '&lt;', '>': '&gt;' };
+function escapeAttr(s) {
+    return String(s == null ? '' : s).replace(/[&"'<>]/g, ch => _ESC_ATTR_MAP[ch]);
+}
+function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[ch]);
+}
+function csvEscape(s) {
+    return `"${String(s == null ? '' : s).replace(/"/g, '""')}"`;
+}
+
+// ====================
 // 🚀 系統啟動與安全連線
 // ====================
 
-// 🛡️ API 哨兵：確保 config.js 已經準備好
-async function ensureAPIReady() {
-    let retryCount = 0;
-    while (typeof window.churchAPI !== 'function' && retryCount < 50) {
-        await new Promise(resolve => setTimeout(resolve, 100)); 
-        retryCount++;
-    }
-    if (typeof window.churchAPI !== 'function') {
-        throw new Error("安全路由載入逾時，請檢查 config.js。");
-    }
-}
+// showLoading / hideLoading / ensureAPIReady 由 config.js 提供。
 
 // 初始化
 document.addEventListener('DOMContentLoaded', async function() {
     try {
-        // 第一時間顯示載入中
         showLoading("🚀 正在啟動行事曆系統...");
-        
-        // 等待路由就緒
         await ensureAPIReady();
-        
         loadFromLocalStorage();
         renderEvents();
         console.log("✅ 行事曆系統安全啟動");
     } catch (e) {
-        alert("系統啟動失敗：" + e.message);
+        userNotification.error("系統啟動失敗：" + e.message);
     } finally {
         hideLoading();
     }
@@ -43,18 +44,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 async function callCloudAPI(action, data = {}) {
     if (typeof window.churchAPI !== 'function') throw new Error("API 尚未就緒");
     return await window.churchAPI(action, data);
-}
-
-// --- Loading 控制 ---
-function showLoading(msg = "處理中...") {
-    const textEl = document.getElementById('overlay-text');
-    const overlayEl = document.getElementById('loading-overlay');
-    if (textEl) textEl.innerText = msg;
-    if (overlayEl) overlayEl.style.display = 'flex';
-}
-function hideLoading() {
-    const overlayEl = document.getElementById('loading-overlay');
-    if (overlayEl) overlayEl.style.display = 'none';
 }
 
 // ====================
@@ -79,7 +68,7 @@ function confirmSingleEventAdd() {
     const category = document.getElementById('singleCategory').value;
 
     if (!dateStr) {
-        alert('請選擇日期');
+        userNotification.warning('請選擇日期');
         return;
     }
 
@@ -144,7 +133,7 @@ function moveEventUp(eventId) {
     if (index > 0) {
         // 限制只能與「相同日期」的聚會交換順序
         if (events[index].date !== events[index - 1].date) {
-            alert('💡 只能與「相同日期」的聚會互相調整順序喔！\n若要跨日移動，請直接修改日期欄位。');
+            userNotification.warning('💡 只能與「相同日期」的聚會互相調整順序喔！跨日請直接修改日期欄位。');
             return;
         }
         // 陣列元素交換
@@ -162,7 +151,7 @@ function moveEventDown(eventId) {
     if (index < events.length - 1) {
         // 限制只能與「相同日期」的聚會交換順序
         if (events[index].date !== events[index + 1].date) {
-            alert('💡 只能與「相同日期」的聚會互相調整順序喔！\n若要跨日移動，請直接修改日期欄位。');
+            userNotification.warning('💡 只能與「相同日期」的聚會互相調整順序喔！跨日請直接修改日期欄位。');
             return;
         }
         // 陣列元素交換
@@ -220,7 +209,7 @@ function handleDrop(e, targetEventId) {
 
     // 防呆：檢查是否為同一天
     if (events[draggedIndex].date !== events[targetIndex].date) {
-        alert('💡 只能與「相同日期」的聚會互相調整順序喔！\n若要跨日移動，請直接修改日期欄位。');
+        userNotification.warning('💡 只能與「相同日期」的聚會互相調整順序喔！跨日請直接修改日期欄位。');
         return;
     }
 
@@ -366,13 +355,14 @@ function renderEvents() {
 
     if (dataToRender.length === 0) {
         const hasSearch = document.getElementById('searchStartDate')?.value || document.getElementById('searchEndDate')?.value;
-        if (hasSearch) {
-            container.innerHTML = '<p class="loading">找不到符合此日期區間的聚會資料</p>';
-        } else {
-            container.innerHTML = '<p class="loading">尚無聚會資料，請點擊「新增聚會」開始建立</p>';
-        }
+        container.innerHTML = hasSearch
+            ? '<p class="loading">找不到符合此日期區間的聚會資料</p>'
+            : '<p class="loading">尚無聚會資料，請點擊「新增聚會」開始建立</p>';
         return;
     }
+
+    // 用 DocumentFragment 一次性 append，避免每張卡片觸發 reflow
+    const frag = document.createDocumentFragment();
 
     dataToRender.forEach(event => {
         const ministryItems = event.ministryItems || [];
@@ -380,7 +370,7 @@ function renderEvents() {
 
         const card = document.createElement('div');
         card.className = 'event-card';
-        
+
         // --- 綁定拖曳相關事件 ---
         card.setAttribute('draggable', 'true');
         card.setAttribute('ondragstart', `handleDragStart(event, ${event.id})`);
@@ -390,19 +380,19 @@ function renderEvents() {
 
         card.innerHTML = `
             <div class="event-header" style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
-                
+
                 <div style="cursor: grab; font-size: 20px; color: #a0aec0; padding-right: 5px; padding-bottom: 5px; display: flex; align-items: center;" title="按住拖曳以調整順序">
                     ☰
                 </div>
 
                 <div class="input-group" style="margin-bottom: 0;">
                     <label>日期</label>
-                    <input type="date" value="${event.date}" 
+                    <input type="date" value="${escapeAttr(event.date)}"
                            onchange="updateEvent(${event.id}, 'date', this.value)">
                 </div>
                 <div class="input-group" style="margin-bottom: 0;">
                     <label>聚會名稱</label>
-                    <input type="text" placeholder="輸入聚會名稱" value="${event.name}"
+                    <input type="text" placeholder="輸入聚會名稱" value="${escapeAttr(event.name)}"
                            onchange="updateEvent(${event.id}, 'name', this.value)">
                 </div>
                 <div class="input-group" style="margin-bottom: 0;">
@@ -435,12 +425,12 @@ function renderEvents() {
                         <div class="sub-item" style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 10px; padding: 10px; background: white; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                             <div class="input-group" style="flex: 1; margin-bottom: 0;">
                                 <label>籌備日期</label>
-                                <input type="date" value="${min.date || ''}" 
+                                <input type="date" value="${escapeAttr(min.date)}"
                                        onchange="updateMinistryItem(${event.id}, ${min.id}, 'date', this.value)">
                             </div>
                             <div class="input-group" style="flex: 2; margin-bottom: 0;">
                                 <label>事工內容</label>
-                                <input type="text" placeholder="開會討論、預演準備..." value="${min.content || ''}" 
+                                <input type="text" placeholder="開會討論、預演準備..." value="${escapeAttr(min.content)}"
                                        onchange="updateMinistryItem(${event.id}, ${min.id}, 'content', this.value)">
                             </div>
                             <button class="btn btn-danger btn-small" style="height: 38px;" 
@@ -472,43 +462,45 @@ function renderEvents() {
                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 10px;">
                                 <div class="input-group" style="margin-bottom: 0;">
                                     <label>講題</label>
-                                    <input type="text" value="${sermon.title || ''}" onchange="updateSermon(${event.id}, ${sermon.id}, 'title', this.value)">
+                                    <input type="text" value="${escapeAttr(sermon.title)}" onchange="updateSermon(${event.id}, ${sermon.id}, 'title', this.value)">
                                 </div>
                                 <div class="input-group" style="margin-bottom: 0;">
                                     <label>講員</label>
-                                    <input type="text" value="${sermon.speaker || ''}" onchange="updateSermon(${event.id}, ${sermon.id}, 'speaker', this.value)">
+                                    <input type="text" value="${escapeAttr(sermon.speaker)}" onchange="updateSermon(${event.id}, ${sermon.id}, 'speaker', this.value)">
                                 </div>
                                 <div class="input-group" style="margin-bottom: 0;">
                                     <label>經文</label>
-                                    <input type="text" value="${sermon.scripture || ''}" onchange="updateSermon(${event.id}, ${sermon.id}, 'scripture', this.value)">
+                                    <input type="text" value="${escapeAttr(sermon.scripture)}" onchange="updateSermon(${event.id}, ${sermon.id}, 'scripture', this.value)">
                                 </div>
                                 <div class="input-group" style="margin-bottom: 0;">
                                     <label>宣召</label>
-                                    <input type="text" value="${sermon.callToWorship || ''}" onchange="updateSermon(${event.id}, ${sermon.id}, 'callToWorship', this.value)">
+                                    <input type="text" value="${escapeAttr(sermon.callToWorship)}" onchange="updateSermon(${event.id}, ${sermon.id}, 'callToWorship', this.value)">
                                 </div>
                                 <div class="input-group" style="margin-bottom: 0; ${hideStyle}">
                                     <label>金句</label>
-                                    <input type="text" value="${sermon.goldenVerse || ''}" onchange="updateSermon(${event.id}, ${sermon.id}, 'goldenVerse', this.value)">
+                                    <input type="text" value="${escapeAttr(sermon.goldenVerse)}" onchange="updateSermon(${event.id}, ${sermon.id}, 'goldenVerse', this.value)">
                                 </div>
                                 <div class="input-group" style="margin-bottom: 0; ${hideStyle}">
                                     <label>詩歌/聖詩</label>
-                                    <input type="text" value="${sermon.hymns || ''}" onchange="updateSermon(${event.id}, ${sermon.id}, 'hymns', this.value)">
+                                    <input type="text" value="${escapeAttr(sermon.hymns)}" onchange="updateSermon(${event.id}, ${sermon.id}, 'hymns', this.value)">
                                 </div>
                             </div>
 
                             <div class="input-group" style="margin-top: 15px; margin-bottom: 0;">
                                 <label>內容描述 / 備註</label>
                                 <textarea placeholder="詳細說明..." style="min-height: 60px;"
-                                          onchange="updateSermon(${event.id}, ${sermon.id}, 'description', this.value)">${sermon.description || ''}</textarea>
+                                          onchange="updateSermon(${event.id}, ${sermon.id}, 'description', this.value)">${escapeHtml(sermon.description)}</textarea>
                             </div>
                         </div>
                     `}).join('')}
                 </div>
-                
+
             </div>
         `;
-        container.appendChild(card);
+        frag.appendChild(card);
     });
+
+    container.appendChild(frag);
 }
 
 // ====================
@@ -545,7 +537,7 @@ function recalculateCounters() {
 
 function exportToExcel() {
     if (events.length === 0) {
-        alert('沒有資料可以匯出');
+        userNotification.warning('沒有資料可以匯出');
         return;
     }
 
@@ -555,18 +547,23 @@ function exportToExcel() {
     events.forEach(event => {
         const hasMinistry = event.ministryItems && event.ministryItems.length > 0;
         const hasSermons = event.sermons && event.sermons.length > 0;
+        // 預先跳脫共用欄位，避免名稱含逗號或引號破壞 CSV 結構
+        const evDate = csvEscape(event.date);
+        const evName = csvEscape(event.name);
+        const evCat  = csvEscape(event.category);
 
         if (!hasMinistry && !hasSermons) {
-            csv += `${event.date},"${event.name}","${event.category}",,,,,,,,,\n`;
+            csv += `${evDate},${evName},${evCat},,,,,,,,,\n`;
         } else {
             if (hasMinistry) {
                 event.ministryItems.forEach(min => {
-                    csv += `${event.date},"${event.name}","${event.category}","籌備事工","${min.date || ''}","${min.content || ''}",,,,,,,\n`;
+                    csv += `${evDate},${evName},${evCat},"籌備事工",${csvEscape(min.date)},${csvEscape(min.content)},,,,,,,\n`;
                 });
             }
             if (hasSermons) {
                 event.sermons.forEach(sermon => {
-                    csv += `${event.date},"${event.name}","${event.category}","講道(${sermon.type})",,"${sermon.title || ''}","${sermon.speaker || ''}","${sermon.scripture || ''}","${sermon.callToWorship || ''}","${sermon.goldenVerse || ''}","${sermon.hymns || ''}","${(sermon.description || '').replace(/\n/g, ' ')}"\n`;
+                    const desc = (sermon.description || '').replace(/\n/g, ' ');
+                    csv += `${evDate},${evName},${evCat},${csvEscape('講道(' + sermon.type + ')')},,${csvEscape(sermon.title)},${csvEscape(sermon.speaker)},${csvEscape(sermon.scripture)},${csvEscape(sermon.callToWorship)},${csvEscape(sermon.goldenVerse)},${csvEscape(sermon.hymns)},${csvEscape(desc)}\n`;
                 });
             }
         }
@@ -597,13 +594,13 @@ async function saveToGAS() {
         const result = await callCloudAPI('save', events);
         
         if (result.success) {
-            alert('✅ 資料已成功儲存到雲端！');
+            userNotification.success('✅ 資料已成功儲存到雲端！');
         } else {
             throw new Error(result.error || '後端回傳失敗');
         }
     } catch (error) {
         console.error('儲存失敗細節:', error);
-        alert(`❌ 儲存失敗！\n原因: ${error.message}`);
+        userNotification.error(`❌ 儲存失敗！原因: ${error.message}`);
     } finally {
         saveBtn.innerHTML = originalText;
         saveBtn.disabled = false;
@@ -625,12 +622,12 @@ async function loadFromGAS() {
             sortEvents(); // 從雲端載入後確保排序正確
             recalculateCounters(); 
             renderEvents();
-            saveToLocalStorage(); 
-            alert('✅ 資料已從雲端載入！');
+            saveToLocalStorage();
+            userNotification.success('✅ 資料已從雲端載入！');
         }
     } catch (error) {
         console.error('載入失敗:', error);
-        alert('載入失敗，請檢查網路連線');
+        userNotification.error('載入失敗，請檢查網路連線');
     } finally {
         loadBtn.innerHTML = originalText;
         loadBtn.disabled = false;
@@ -686,7 +683,7 @@ function previewBatchDates() {
     const end = new Date(endDate);
     
     if (start > end) {
-        alert('開始日期不能晚於結束日期');
+        userNotification.warning('開始日期不能晚於結束日期');
         return;
     }
     
@@ -706,7 +703,7 @@ function previewBatchDates() {
         previewDiv.innerHTML = '在選定的日期區間內，沒有符合條件的日期';
         previewDiv.classList.remove('has-dates');
     } else {
-        const weekdayNames = ['日', '一', '二', '三', '四', '五', '六'];
+        const weekdayNames = window.WEEKDAY_NAMES;
         let html = `<div class="preview-count">共 ${previewDates.length} 個日期</div>`;
         
         previewDates.forEach(date => {
@@ -725,7 +722,7 @@ function confirmBatchAdd() {
     const category = document.getElementById('batchCategory').value;
     
     if (previewDates.length === 0) {
-        alert('請先預覽日期，確認有可新增的日期');
+        userNotification.warning('請先預覽日期，確認有可新增的日期');
         return;
     }
     
@@ -753,7 +750,8 @@ function confirmBatchAdd() {
     saveToLocalStorage();
     closeBatchModal();
     
-    alert(`成功新增 ${addedCount} 個聚會！${previewDates.length - addedCount > 0 ? '\n(' + (previewDates.length - addedCount) + ' 個重複的聚會已略過)' : ''}`);
+    const skipped = previewDates.length - addedCount;
+    userNotification.success(`成功新增 ${addedCount} 個聚會！${skipped > 0 ? `（略過 ${skipped} 個重複）` : ''}`);
 }
 
 // ====================
@@ -818,7 +816,7 @@ async function processAiText() {
     const confirmBtn = document.getElementById('btnConfirmAi');
 
     if (!rawText) {
-        alert('請先貼上牧師的原始文字');
+        userNotification.warning('請先貼上牧師的原始文字');
         return;
     }
 
@@ -924,5 +922,5 @@ function confirmAiImport() {
     saveToLocalStorage();
     closeAiImportModal();
 
-    alert(`✅ 成功將 ${addedCount} 筆講道資訊整合進行事曆！`);
+    userNotification.success(`✅ 成功將 ${addedCount} 筆講道資訊整合進行事曆！`);
 }

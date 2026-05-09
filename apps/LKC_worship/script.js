@@ -156,7 +156,7 @@ async function savePositionsToServer() {
   const btn = document.querySelector('button[onclick="savePositionsToServer()"]');
   btn.disabled = true;
   await callAPI('savePositions', { positionsData });
-  alert("✅ 位置設定儲存成功！");
+  userNotification.success("✅ 位置設定儲存成功！");
   btn.disabled = false;
 }
 
@@ -203,7 +203,7 @@ async function loadScheduleByQuarter() {
 async function loadScheduleByDateRange() {
   const start = document.getElementById('queryStartDate').value;
   const end = document.getElementById('queryEndDate').value;
-  if (!start || !end) return alert("請先設定起訖日期");
+  if (!start || !end) return userNotification.warning("請先設定起訖日期");
 
   document.getElementById('previewContainer').style.display = 'none';
   document.getElementById('saveScheduleBtn').style.display = 'none';
@@ -234,7 +234,7 @@ function confirmAddExtraMeeting() {
   const date = document.getElementById('extraDate').value;
   const name = document.getElementById('extraName').value;
   const type = document.getElementById('extraType').value;
-  if(!date) return alert("請選擇日期！");
+  if(!date) return userNotification.warning("請選擇日期！");
 
   generatedScheduleData.push({
     '年度': date.substring(0,4),
@@ -272,7 +272,7 @@ function confirmLeaveSelection() {
 
 // 🌟 智慧填補
 function smartGenerateSchedule() {
-  if (generatedScheduleData.length === 0) return alert("請先載入季度框架或新增日期！");
+  if (generatedScheduleData.length === 0) return userNotification.warning("請先載入季度框架或新增日期！");
 
   let leaderPool = [], previousLeader = null, consecutive = {};
   currentPositions.forEach(p => consecutive[p.positionName] = {});
@@ -434,7 +434,7 @@ async function saveGeneratedSchedule() {
   btn.innerText = "儲存中...";
   const result = await callAPI('saveSchedule', { scheduleData: generatedScheduleData });
   if (result.status === 'success') { 
-    alert("🎉 排班表已成功存檔！"); 
+    userNotification.success("🎉 排班表已成功存檔！");
     loadDashboard(); 
     switchTab('dashboard'); 
   }

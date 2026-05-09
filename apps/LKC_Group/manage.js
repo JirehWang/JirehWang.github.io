@@ -2,29 +2,15 @@ let adminGroupsList = [];
 let currentEditingGroup = null; // 改為儲存完整的 group 物件（包含 uuid）
 let verifiedAdminCode = ""; // 儲存已驗證的管理員代碼
 
-async function ensureAPIReady() {
-    let retryCount = 0;
-    while (typeof window.churchAPI !== 'function' && retryCount < 50) {
-        await new Promise(resolve => setTimeout(resolve, 100)); 
-        retryCount++;
-    }
-}
+// showLoading / hideLoading / ensureAPIReady 由 config.js 提供。
 
 window.onload = async () => {
     try {
-        await ensureAPIReady(); 
+        await ensureAPIReady();
     } catch (e) {
-        alert("系統路由啟動失敗，請重新整理");
+        userNotification.error("系統路由啟動失敗，請重新整理");
     }
 };
-
-function showLoading(msg = "處理中...") {
-    document.getElementById('overlay-text').innerText = msg;
-    document.getElementById('loading-overlay').style.display = 'flex';
-}
-function hideLoading() {
-    document.getElementById('loading-overlay').style.display = 'none';
-}
 
 async function callAPI(action, data = {}) {
     if (typeof window.churchAPI !== 'function') throw new Error("安全路由尚未載入");
@@ -34,25 +20,22 @@ async function callAPI(action, data = {}) {
 // 1. 驗證管理員身分
 async function verifyAdmin() {
     const code = document.getElementById('adminInput').value.trim();
-    if (!code) return alert("請輸入代碼");
+    if (!code) return userNotification.warning("請輸入代碼");
 
     showLoading("驗證權限中...");
     try {
-        // 利用原本就有的 findGroupByCode 來驗證
         const res = await callAPI('findGroupByCode', { groupCode: code });
-        
-        // ✅ 修復：只要驗證成功就放行（不論是管理員還是小組長）
+
         if (res.success) {
-            verifiedAdminCode = code; // ✅ 儲存已驗證的代碼
+            verifiedAdminCode = code;
             document.getElementById('login-panel').style.display = 'none';
             document.getElementById('manage-panel').style.display = 'block';
-            await loadGroups(); // 驗證成功後載入清單
+            await loadGroups();
         } else {
-            // 只有驗證失敗才顯示錯誤
-            alert("❌ 權限不足或代碼錯誤！\n詳細訊息: " + (res.message || "查無此代碼"));
+            userNotification.error("❌ 權限不足或代碼錯誤！" + (res.message ? " " + res.message : ""));
         }
     } catch (e) {
-        alert("連線發生錯誤: " + e.message);
+        userNotification.error("連線發生錯誤: " + e.message);
     } finally {
         hideLoading();
     }
@@ -69,10 +52,10 @@ async function loadGroups() {
             updatePermissionBadge(res.isAdmin); // ✅ 更新權限徽章
             renderTable(res.isAdmin); // ✅ 傳入權限等級
         } else {
-            alert("載入失敗：" + res.message);
+            userNotification.error("載入失敗：" + res.message);
         }
     } catch (e) {
-        alert("連線發生錯誤: " + e.message);
+        userNotification.error("連線發生錯誤: " + e.message);
     } finally {
         hideLoading();
     }
@@ -134,27 +117,10 @@ function renderTable(isAdmin) {
     }).join('');
 }
 
-// 3.5 日期格式化輔助函數
+// 3.5 日期格式化：優先用 config.js 的 formatYMD，無法解析時顯示原值
 function formatDate(dateValue) {
     if (!dateValue) return '-';
-    
-    // 處理 Google Sheets 的日期物件或字串
-    let date;
-    if (typeof dateValue === 'string') {
-        date = new Date(dateValue);
-    } else if (dateValue instanceof Date) {
-        date = dateValue;
-    } else {
-        return String(dateValue); // 無法解析的格式直接顯示
-    }
-    
-    if (isNaN(date.getTime())) return String(dateValue);
-    
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    
-    return `${year}-${month}-${day}`;
+    return window.formatYMD(dateValue) || String(dateValue);
 }
 
 // 4. 開啟編輯彈窗
@@ -180,15 +146,15 @@ async function saveGroupEdit() {
     const newCode = document.getElementById('editNewCode').value.trim();
     const newStatus = document.getElementById('editNewStatus').value;
 
-    if (!newName) return alert("名稱不可為空！");
-    if (newCode.length < 4) return alert("代碼至少需要 4 碼！");
+    if (!newName) return userNotification.warning("名稱不可為空！");
+    if (newCode.length < 4) return userNotification.warning("代碼至少需要 4 碼！");
 
-    const hasChanges = 
-        newName !== currentEditingGroup.name || 
-        newCode !== currentEditingGroup.code || 
+    const hasChanges =
+        newName !== currentEditingGroup.name ||
+        newCode !== currentEditingGroup.code ||
         newStatus !== currentEditingGroup.status;
-    
-    if (!hasChanges) return alert("⚠️ 您沒有做任何修改！");
+
+    if (!hasChanges) return userNotification.warning("⚠️ 您沒有做任何修改！");
 
     if (newName !== currentEditingGroup.name) {
         if (!confirm(`⚠️ 警告：您即將把【${currentEditingGroup.name}】改名為【${newName}】\n\n系統將會同步重新命名資料庫中的分頁，此動作需要幾秒鐘，確定要執行嗎？`)) {
@@ -207,17 +173,17 @@ async function saveGroupEdit() {
         });
 
         if (res.success) {
-            alert('✅ 修改成功！分頁名稱已同步更新。');
+            userNotification.success('✅ 修改成功！分頁名稱已同步更新。');
             closeEditModal();
             if (newCode !== currentEditingGroup.code) {
                 verifiedAdminCode = newCode;
             }
             await loadGroups();
         } else {
-            alert('❌ 修改失敗：' + res.message);
+            userNotification.error('❌ 修改失敗：' + res.message);
         }
     } catch (e) {
-        alert("連線發生錯誤: " + e.message);
+        userNotification.error("連線發生錯誤: " + e.message);
     } finally {
         hideLoading();
     }
