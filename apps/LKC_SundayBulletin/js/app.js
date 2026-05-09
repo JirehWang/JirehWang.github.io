@@ -141,19 +141,31 @@ const App = {
     document.getElementById('modalOverlay')  ?.addEventListener('click', e => { if (e.target === e.currentTarget) this.hideDraftModal(); });
   },
 
+  // 全部帶入：依序觸發每一個分頁的自動帶入按鈕
   async fetchAll() {
     const date = document.getElementById('bulletinDate').value;
     if (!date) { this.showToast('請先選擇日期', 'error'); return; }
     this.showLoading(true);
-    this.showToast('正在從各系統帶入資料...', 'info');
+    this.showToast('正在觸發各分頁的自動帶入...', 'info');
+
+    const tasks = [
+      { name: '主日程序', fn: () => this.fetchServiceProgram({ silent: true }) },
+      { name: '服事人員', fn: () => this.fetchMinistry      ({ silent: true }) },
+      { name: '聚會人數', fn: () => this.fetchAttendanceTab ({ silent: true }) }
+      // 活動預告：fetchServiceProgram 已透過 fetchCalendarForDate 帶入未來活動，無須重複呼叫
+    ];
+
     try {
-      const results = await ChurchAPI.fetchAll(date);
-      BulletinModel.applyAPIData(results);
-      this.syncFormFromModel();
-      const failed = Object.entries(results)
-        .filter(([, v]) => !v.success)
-        .map(([k]) => ({ calendar:'行事曆', service:'服事排班', worship:'敬拜團', worshipSongs:'敬拜曲目', attendance:'點名(手動)', smallGroups:'小組' }[k] || k));
-      this.showToast(failed.length ? `帶入完成，請手動填入：${failed.join('、')}` : '全部資料帶入完成', failed.length ? 'warning' : 'success');
+      const results = await Promise.allSettled(tasks.map(t => t.fn()));
+      const failed = results
+        .map((r, i) => (r.status === 'rejected' || (r.value && r.value.failed && r.value.failed.length))
+          ? `${tasks[i].name}（${r.status === 'rejected' ? r.reason?.message : r.value.failed.join('、')}）`
+          : null)
+        .filter(Boolean);
+      this.showToast(
+        failed.length ? `帶入完成，下列項目需手動確認：${failed.join('；')}` : '全部資料帶入完成',
+        failed.length ? 'warning' : 'success'
+      );
     } catch (err) {
       this.showToast('帶入失敗：' + err.message, 'error');
     } finally {
@@ -161,11 +173,11 @@ const App = {
     }
   },
 
-  async fetchServiceProgram() {
+  async fetchServiceProgram(opts = {}) {
+    const silent = opts.silent === true;
     const date = document.getElementById('bulletinDate').value;
-    if (!date) { this.showToast('請先選擇日期', 'error'); return; }
-    this.showLoading(true);
-    this.showToast('正在帶入主日程序資料...', 'info');
+    if (!date) { if (!silent) this.showToast('請先選擇日期', 'error'); return { failed: ['未選擇日期'] }; }
+    if (!silent) { this.showLoading(true); this.showToast('正在帶入主日程序資料...', 'info'); }
     try {
       const [calR, svcR, songsR] = await Promise.allSettled([
         ChurchAPI.fetchCalendarForDate(date),
@@ -184,24 +196,26 @@ const App = {
       else if (!calResult.data?.taiwanese && !calResult.data?.mandarin) msgs.push(`找不到 ${date} 的講道資訊`);
       if (!svcResult.success) msgs.push(`服事排班失敗: ${svcResult.error}`);
       if (!songsResult.success) msgs.push(`敬拜曲目失敗: ${songsResult.error}`);
-      this.showToast(msgs.length ? msgs.join('；') : '主日程序資料帶入完成', msgs.length ? 'warning' : 'success');
+      if (!silent) this.showToast(msgs.length ? msgs.join('；') : '主日程序資料帶入完成', msgs.length ? 'warning' : 'success');
+      return { failed: msgs };
     } catch (err) {
-      this.showToast('帶入失敗：' + err.message, 'error');
+      if (!silent) this.showToast('帶入失敗：' + err.message, 'error');
+      return { failed: [err.message] };
     } finally {
-      this.showLoading(false);
+      if (!silent) this.showLoading(false);
     }
   },
 
-  async fetchMinistry() {
+  async fetchMinistry(opts = {}) {
+    const silent = opts.silent === true;
     const date = document.getElementById('bulletinDate').value;
-    if (!date) { this.showToast('請先選擇日期', 'error'); return; }
+    if (!date) { if (!silent) this.showToast('請先選擇日期', 'error'); return { failed: ['未選擇日期'] }; }
 
     const nextD = new Date(date + 'T00:00:00');
     nextD.setDate(nextD.getDate() + 7);
     const nextDate = this._formatLocalDate(nextD);
 
-    this.showLoading(true);
-    this.showToast('正在帶入服事人員資料（本週 + 下週）...', 'info');
+    if (!silent) { this.showLoading(true); this.showToast('正在帶入服事人員資料（本週 + 下週）...', 'info'); }
     try {
       const [calS, svcS, worS, nextCalS, nextSvcS, nextWorS] = await Promise.allSettled([
         ChurchAPI.fetchCalendarForDate(date),
@@ -223,21 +237,24 @@ const App = {
         !v(nextSvcS).success && `下週服事排班（${v(nextSvcS).error || ''}）`,
         !v(nextWorS).success && `下週敬拜團（${v(nextWorS).error  || ''}）`
       ].filter(Boolean);
-      this.showToast(
+      if (!silent) this.showToast(
         failed.length ? `帶入完成，請手動確認：${failed.join('、')}` : '服事人員資料帶入完成（本週＋下週）',
         failed.length ? 'warning' : 'success'
       );
+      return { failed };
     } catch (err) {
-      this.showToast('帶入失敗：' + err.message, 'error');
+      if (!silent) this.showToast('帶入失敗：' + err.message, 'error');
+      return { failed: [err.message] };
     } finally {
-      this.showLoading(false);
+      if (!silent) this.showLoading(false);
     }
   },
 
-  async fetchSection(section) {
+  async fetchSection(section, opts = {}) {
+    const silent = opts.silent === true;
     const date = document.getElementById('bulletinDate').value;
-    if (!date) { this.showToast('請先選擇日期', 'error'); return; }
-    this.showLoading(true);
+    if (!date) { if (!silent) this.showToast('請先選擇日期', 'error'); return { failed: ['未選擇日期'] }; }
+    if (!silent) this.showLoading(true);
     try {
       const map = {
         calendar:    () => ChurchAPI.fetchCalendarForDate(date),
@@ -250,23 +267,27 @@ const App = {
       if (result.success) {
         BulletinModel.applyAPIData({ [section]: result });
         this.syncFormFromModel();
-        this.showToast('資料帶入完成', 'success');
+        if (!silent) this.showToast('資料帶入完成', 'success');
+        return { failed: [] };
       } else {
-        this.showToast('帶入失敗：' + (result.error || '未知錯誤'), 'error');
+        const msg = result.error || '未知錯誤';
+        if (!silent) this.showToast('帶入失敗：' + msg, 'error');
+        return { failed: [msg] };
       }
     } catch (err) {
-      this.showToast('帶入失敗：' + err.message, 'error');
+      if (!silent) this.showToast('帶入失敗：' + err.message, 'error');
+      return { failed: [err.message] };
     } finally {
-      this.showLoading(false);
+      if (!silent) this.showLoading(false);
     }
   },
 
   // 聚會統計 tab：同時帶入出席人數 + 小組人數，皆以主日日期為參照
-  async fetchAttendanceTab() {
+  async fetchAttendanceTab(opts = {}) {
+    const silent = opts.silent === true;
     const date = document.getElementById('bulletinDate').value;
-    if (!date) { this.showToast('請先選擇日期', 'error'); return; }
-    this.showLoading(true);
-    this.showToast(`正在帶入聚會人數（參照主日 ${date}）...`, 'info');
+    if (!date) { if (!silent) this.showToast('請先選擇日期', 'error'); return { failed: ['未選擇日期'] }; }
+    if (!silent) { this.showLoading(true); this.showToast(`正在帶入聚會人數（參照主日 ${date}）...`, 'info'); }
     try {
       const [attR, sgR] = await Promise.allSettled([
         ChurchAPI.fetchAttendance(date),
@@ -283,14 +304,16 @@ const App = {
         !attendance.success  && `出席人數（${attendance.error  || '未知錯誤'}）`,
         !smallGroups.success && `小組人數（${smallGroups.error || '未知錯誤'}）`
       ].filter(Boolean);
-      this.showToast(
+      if (!silent) this.showToast(
         failed.length ? `帶入完成，請手動確認：${failed.join('、')}` : '聚會人數資料帶入完成',
         failed.length ? 'warning' : 'success'
       );
+      return { failed };
     } catch (err) {
-      this.showToast('帶入失敗：' + err.message, 'error');
+      if (!silent) this.showToast('帶入失敗：' + err.message, 'error');
+      return { failed: [err.message] };
     } finally {
-      this.showLoading(false);
+      if (!silent) this.showLoading(false);
     }
   },
 
