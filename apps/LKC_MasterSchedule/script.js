@@ -8,27 +8,13 @@ let sermonIdCounter = 1;   // 講道資訊計數器
 // 🚀 系統啟動與安全連線
 // ====================
 
-// 🛡️ API 哨兵：確保 config.js 已經準備好
-async function ensureAPIReady() {
-    let retryCount = 0;
-    while (typeof window.churchAPI !== 'function' && retryCount < 50) {
-        await new Promise(resolve => setTimeout(resolve, 100)); 
-        retryCount++;
-    }
-    if (typeof window.churchAPI !== 'function') {
-        throw new Error("安全路由載入逾時，請檢查 config.js。");
-    }
-}
+// showLoading / hideLoading / ensureAPIReady 由 config.js 提供。
 
 // 初始化
 document.addEventListener('DOMContentLoaded', async function() {
     try {
-        // 第一時間顯示載入中
         showLoading("🚀 正在啟動行事曆系統...");
-        
-        // 等待路由就緒
         await ensureAPIReady();
-        
         loadFromLocalStorage();
         renderEvents();
         console.log("✅ 行事曆系統安全啟動");
@@ -43,18 +29,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 async function callCloudAPI(action, data = {}) {
     if (typeof window.churchAPI !== 'function') throw new Error("API 尚未就緒");
     return await window.churchAPI(action, data);
-}
-
-// --- Loading 控制 ---
-function showLoading(msg = "處理中...") {
-    const textEl = document.getElementById('overlay-text');
-    const overlayEl = document.getElementById('loading-overlay');
-    if (textEl) textEl.innerText = msg;
-    if (overlayEl) overlayEl.style.display = 'flex';
-}
-function hideLoading() {
-    const overlayEl = document.getElementById('loading-overlay');
-    if (overlayEl) overlayEl.style.display = 'none';
 }
 
 // ====================

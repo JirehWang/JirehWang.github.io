@@ -7,17 +7,7 @@ let currentMembers = [];
 let editingMembers = []; 
 let recentRecordsData = []; 
 
-// --- 🚀 啟動哨兵：確保中央路由 (config.js) 已經準備好 ---
-async function ensureAPIReady() {
-    let retryCount = 0;
-    while (typeof window.churchAPI !== 'function' && retryCount < 50) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        retryCount++;
-    }
-    if (typeof window.churchAPI !== 'function') {
-        throw new Error("安全路由載入逾時，請確認 config.js 是否正常載入。");
-    }
-}
+// showLoading / hideLoading / ensureAPIReady 由 config.js 提供。
 
 // --- 📦 網頁載入啟動流程 ---
 window.onload = async () => {
@@ -33,17 +23,6 @@ window.onload = async () => {
         hideLoading();
     }
 };
-
-function showLoading(msg = "處理中...") {
-    const textEl = document.getElementById('overlay-text');
-    const overlayEl = document.getElementById('loading-overlay');
-    if (textEl) textEl.innerText = msg;
-    if (overlayEl) overlayEl.style.display = 'flex';
-}
-function hideLoading() {
-    const overlayEl = document.getElementById('loading-overlay');
-    if (overlayEl) overlayEl.style.display = 'none';
-}
 
 async function callAPI(action, data = {}) {
     if (typeof window.churchAPI !== 'function') throw new Error("安全路由尚未載入");

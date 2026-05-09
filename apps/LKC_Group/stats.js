@@ -3,23 +3,7 @@ let isAdmin = false;
 let debounceTimer;
 const splitRegex = /[^\u4e00-\u9fa5a-zA-Z0-9\s]+/; // 與後端一致的分隔符號
 
-// --- Loading 控制 ---
-function showLoading(msg = "處理中...") {
-    document.getElementById('overlay-text').innerText = msg;
-    document.getElementById('loading-overlay').style.display = 'flex';
-}
-function hideLoading() {
-    document.getElementById('loading-overlay').style.display = 'none';
-}
-
-// --- 確保路由載入 ---
-async function ensureAPIReady() {
-    let retryCount = 0;
-    while (typeof window.churchAPI !== 'function' && retryCount < 50) {
-        await new Promise(resolve => setTimeout(resolve, 100)); 
-        retryCount++;
-    }
-}
+// showLoading / hideLoading / ensureAPIReady 由 config.js 提供。
 
 // --- 系統啟動 ---
 window.onload = async () => {

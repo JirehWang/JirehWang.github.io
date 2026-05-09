@@ -16,82 +16,11 @@
 //       （對齊後端 doPost 讀取 data.id / data.type 的方式）
 // ============================================================
 
-// ============================================================
-//  🛡️ 安全存取 config.js 提供的工具（防止載入競速問題）
-//  config.js 從外部 CDN 載入，可能比 script.js 晚完成，
-//  這裡提供備援實作，確保即使 config.js 尚未就緒也不會拋錯。
-// ============================================================
-function getNotifier() {
-  return window.userNotification || {
-    success: (msg) => console.log("✅", msg),
-    error:   (msg) => { console.error("❌", msg); alert(msg); },
-    warning: (msg) => { console.warn("⚠️", msg); alert(msg); },
-    info:    (msg) => console.log("ℹ️", msg),
-    showLoading: (msg) => {
-      const el = document.getElementById('globalLoading');
-      if (el) { el.innerText = msg || "⏳ 處理中..."; el.classList.remove('hidden'); }
-    },
-    hideLoading: () => {
-      const el = document.getElementById('globalLoading');
-      if (el) el.classList.add('hidden');
-    }
-  };
-}
-
-function getUIState() {
-  return window.uiState || {
-    _locks: {},
-    lock:     function(k) { this._locks[k] = true; },
-    unlock:   function(k) { this._locks[k] = false; },
-    isLocked: function(k) { return !!this._locks[k]; }
-  };
-}
-
-function getSessionMgr() {
-  return window.sessionManager || {
-    setUnlocked: (id) => sessionStorage.setItem(`unlocked_${id}`, 'true'),
-    isUnlocked:  (id) => sessionStorage.getItem(`unlocked_${id}`) === 'true',
-    clear:       (id) => sessionStorage.removeItem(`unlocked_${id}`)
-  };
-}
-
-// ============================================================
-//  🌐 全域變數保底宣告
-//  不管 config.js 是新版或舊版，這些名稱在 script.js 內都保證存在。
-//  若 config.js 已提供 window.userNotification 等，則 getNotifier() 會優先使用它。
-// ============================================================
-const userNotification = {
-  success:     (msg, d) => getNotifier().success(msg, d),
-  error:       (msg, d) => getNotifier().error(msg, d),
-  warning:     (msg, d) => getNotifier().warning(msg, d),
-  info:        (msg, d) => getNotifier().info(msg, d),
-  showLoading: (msg)    => getNotifier().showLoading(msg),
-  hideLoading: ()       => getNotifier().hideLoading()
-};
-
-const uiState = {
-  lock:     (k) => getUIState().lock(k),
-  unlock:   (k) => getUIState().unlock(k),
-  isLocked: (k) => getUIState().isLocked(k)
-};
-
-const sessionManager = {
-  setUnlocked: (id) => getSessionMgr().setUnlocked(id),
-  isUnlocked:  (id) => getSessionMgr().isUnlocked(id),
-  clear:       (id) => getSessionMgr().clear(id)
-};
-
-// APIError fallback（舊版 config.js 未定義時在此補充）
-if (typeof APIError === 'undefined') {
-  window.APIError = class APIError extends Error {
-    constructor(message, httpStatus = null, type = 'UNKNOWN_ERROR') {
-      super(message);
-      this.name = 'APIError';
-      this.httpStatus = httpStatus;
-      this.type = type;
-    }
-  };
-}
+// userNotification / uiState / sessionManager / APIError 由中央 config.js 提供。
+// 提供 getNotifier / getUIState shim 以避免大規模呼叫端改寫。
+const getNotifier   = () => window.userNotification;
+const getUIState    = () => window.uiState;
+const getSessionMgr = () => window.sessionManager;
 
 // ============================================================
 

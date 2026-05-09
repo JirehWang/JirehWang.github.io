@@ -2,29 +2,15 @@ let adminGroupsList = [];
 let currentEditingGroup = null; // 改為儲存完整的 group 物件（包含 uuid）
 let verifiedAdminCode = ""; // 儲存已驗證的管理員代碼
 
-async function ensureAPIReady() {
-    let retryCount = 0;
-    while (typeof window.churchAPI !== 'function' && retryCount < 50) {
-        await new Promise(resolve => setTimeout(resolve, 100)); 
-        retryCount++;
-    }
-}
+// showLoading / hideLoading / ensureAPIReady 由 config.js 提供。
 
 window.onload = async () => {
     try {
-        await ensureAPIReady(); 
+        await ensureAPIReady();
     } catch (e) {
         alert("系統路由啟動失敗，請重新整理");
     }
 };
-
-function showLoading(msg = "處理中...") {
-    document.getElementById('overlay-text').innerText = msg;
-    document.getElementById('loading-overlay').style.display = 'flex';
-}
-function hideLoading() {
-    document.getElementById('loading-overlay').style.display = 'none';
-}
 
 async function callAPI(action, data = {}) {
     if (typeof window.churchAPI !== 'function') throw new Error("安全路由尚未載入");

@@ -5,9 +5,17 @@
 //   <script src="https://jirehwang.github.io/LKC1958_June_1.github.io/config.js"></script>
 //
 // 若沒有宣告 _GAS_KEY，會 fallback 到 pathname / hostname 推測。
+//
+// 提供的共用 API：
+//   window.churchAPI(action, data)        — 呼叫 GAS
+//   window.ensureAPIReady()                — 等待路由就緒（事件式）
+//   window.showLoading(msg) / hideLoading()— 顯示遮罩（自動偵測 DOM）
+//   window.userNotification                — toast 通知 + 載入指示
+//   window.uiState                         — 防重複提交鎖
+//   window.sessionManager                  — sessionStorage 管理
+//   window.APIError                        — 自訂錯誤類別
 (function() {
   // 📝 子系統 → GAS 部署網址 對應表
-  // key 必須與 app 目錄名稱一致
   const _URL_ROUTER = {
     "LKC_worship":                 "https://script.google.com/macros/s/AKfycbyk_6tUucVg-U4rRQjYHvk632teZyxufDkNX_X1WRUXPMGgsTaemVXD_mv9kBDjuSwOnA/exec",
     "LKC_MasterSchedule":          "https://script.google.com/macros/s/AKfycbwiYYWgKxmLRAEaE_pbp_kWyAzlRPcwYVQfvmJVamRJvosvt5wTTkvwebbFBkP8rMqX/exec",
@@ -18,10 +26,11 @@
   };
 
   const _AUTH_TOKEN = "ChurchApp-2026";
+  const _SESSION_TTL_MS = 3600000; // 1 小時
 
   // 🌟 路由判斷：_GAS_KEY 優先，其次 pathname / hostname
-  let rawPath = window.location.pathname.split('/')[1] || "";
-  let repoName = rawPath.replace(/\.github\.io$/i, '');
+  const rawPath = window.location.pathname.split('/')[1] || "";
+  const repoName = rawPath.replace(/\.github\.io$/i, '');
   const hostname = window.location.hostname.split('.')[0];
 
   let currentKey = null;
@@ -33,7 +42,6 @@
     currentKey = hostname;
   }
 
-  // 🛡️ 防呆檢查
   if (!currentKey) {
     console.error(`🚨 [路由錯誤] 找不到對應的 GAS：未宣告 window._GAS_KEY，且 pathname='${repoName}' / hostname='${hostname}' 都不在 _URL_ROUTER 中`);
     window.GAS_URL = null;
@@ -44,12 +52,26 @@
 
   window.AUTH_TOKEN = _AUTH_TOKEN;
 
-  // 🚀 中央 API 呼叫
+  // ============================================================
+  //  🎯 自訂 APIError
+  // ============================================================
+  class APIError extends Error {
+    constructor(message, httpStatus = null, type = 'UNKNOWN_ERROR') {
+      super(message);
+      this.name = 'APIError';
+      this.httpStatus = httpStatus;
+      this.type = type;
+    }
+  }
+  window.APIError = APIError;
+
+  // ============================================================
+  //  🚀 中央 API 呼叫
+  // ============================================================
   window.churchAPI = async function(action, data = {}) {
     if (!window.GAS_URL) {
-      throw new Error("系統尚未就緒：GAS_URL 為空");
+      throw new APIError("系統尚未就緒：GAS_URL 為空", null, 'CONFIG_ERROR');
     }
-
     try {
       const resp = await fetch(window.GAS_URL, {
         method: 'POST',
@@ -62,4 +84,139 @@
       throw err;
     }
   };
+
+  // ============================================================
+  //  🛡️ ensureAPIReady — 由於 <script> 標籤同步載入順序保證 config.js
+  //  在 app script 之前完成，這裡幾乎都是立即 resolve；保留 API 以兼容
+  //  舊呼叫方式，並在極端情況提供 microtask 等待。
+  // ============================================================
+  window.ensureAPIReady = function() {
+    if (typeof window.churchAPI === 'function' && window.GAS_URL) {
+      return Promise.resolve();
+    }
+    return new Promise((resolve, reject) => {
+      if (typeof window.churchAPI === 'function' && window.GAS_URL) {
+        return resolve();
+      }
+      const timer = setTimeout(() => {
+        document.removeEventListener('churchAPIReady', onReady);
+        reject(new APIError("安全路由載入逾時，請確認網路連線或檔案路徑。", null, 'CONFIG_ERROR'));
+      }, 5000);
+      const onReady = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      document.addEventListener('churchAPIReady', onReady, { once: true });
+    });
+  };
+
+  // ============================================================
+  //  💡 載入指示器：自動偵測 DOM 元素
+  //    - LKC_Group / LKC_MasterSchedule 用 #loading-overlay + #overlay-text
+  //    - LKC_MinistrySchedule 用 #globalLoading
+  // ============================================================
+  function showLoading(msg = "處理中...") {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) {
+      const textEl = document.getElementById('overlay-text');
+      if (textEl) textEl.innerText = msg;
+      overlay.style.display = 'flex';
+      return;
+    }
+    const global = document.getElementById('globalLoading');
+    if (global) {
+      global.innerText = msg;
+      global.classList.remove('hidden');
+    }
+  }
+
+  function hideLoading() {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.style.display = 'none';
+    const global = document.getElementById('globalLoading');
+    if (global) global.classList.add('hidden');
+  }
+
+  window.showLoading = showLoading;
+  window.hideLoading = hideLoading;
+
+  // ============================================================
+  //  🔔 userNotification — toast 通知
+  // ============================================================
+  const _bgColorMap = {
+    success: 'bg-success',
+    warning: 'bg-warning text-dark',
+    danger:  'bg-danger',
+    info:    'bg-info'
+  };
+
+  function showToast(message, type = 'info', duration = 3000) {
+    const toast = document.createElement('div');
+    toast.className = 'position-fixed bottom-0 end-0 p-3';
+    toast.style.zIndex = '1050';
+    const safe = String(message).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    toast.innerHTML = `
+      <div class="toast show align-items-center text-white ${_bgColorMap[type] || _bgColorMap.info} border-0">
+        <div class="d-flex">
+          <div class="toast-body">${safe}</div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" aria-label="Close"></button>
+        </div>
+      </div>`;
+    const closeBtn = toast.querySelector('.btn-close');
+    if (closeBtn) closeBtn.addEventListener('click', () => toast.remove());
+    document.body.appendChild(toast);
+    if (duration > 0) setTimeout(() => toast.remove(), duration);
+  }
+
+  window.userNotification = {
+    success: (msg, d = 3000) => showToast(msg, 'success', d),
+    warning: (msg, d = 5000) => showToast(msg, 'warning', d),
+    error:   (msg, d = 5000) => showToast(msg, 'danger',  d),
+    info:    (msg, d = 3000) => showToast(msg, 'info',    d),
+    showLoading: showLoading,
+    hideLoading: hideLoading
+  };
+
+  // ============================================================
+  //  🔐 uiState — 防重複提交鎖
+  // ============================================================
+  window.uiState = (function() {
+    const _locks = {};
+    return {
+      lock:     (k) => { _locks[k] = true; },
+      unlock:   (k) => { _locks[k] = false; },
+      isLocked: (k) => _locks[k] === true
+    };
+  })();
+
+  // ============================================================
+  //  💾 sessionManager — sessionStorage 帶過期檢查
+  // ============================================================
+  window.sessionManager = {
+    setUnlocked(id) {
+      sessionStorage.setItem(`session_${id}`, JSON.stringify({ unlocked: true, timestamp: Date.now() }));
+    },
+    isUnlocked(id) {
+      const raw = sessionStorage.getItem(`session_${id}`);
+      if (!raw) return false;
+      try {
+        const data = JSON.parse(raw);
+        if (Date.now() - data.timestamp > _SESSION_TTL_MS) {
+          sessionStorage.removeItem(`session_${id}`);
+          return false;
+        }
+        return data.unlocked === true;
+      } catch (e) {
+        return false;
+      }
+    },
+    clear(id) {
+      sessionStorage.removeItem(`session_${id}`);
+    }
+  };
+
+  // 通知就緒（給可能等待的 ensureAPIReady listener）
+  if (typeof document !== 'undefined') {
+    document.dispatchEvent(new Event('churchAPIReady'));
+  }
 })();
