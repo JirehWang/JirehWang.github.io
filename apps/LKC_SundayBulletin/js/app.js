@@ -30,6 +30,7 @@ const App = {
     this.initTabs();
     this.initFormFields();
     this.initButtons();
+    this.initServiceTypeSelector();
     this.updateDateDisplay();
     this.syncFormFromModel();
     DraftManager.startAutoSave(() => BulletinModel.get());
@@ -65,6 +66,68 @@ const App = {
   initFormFields() {
     document.addEventListener('input',  e => { const f = e.target.dataset.field; if (f) BulletinModel.set(f, e.target.value); });
     document.addEventListener('change', e => { const f = e.target.dataset.field; if (f) BulletinModel.set(f, e.target.value); });
+  },
+
+  // 禮拜類型選擇器：台華語 / 聯合(台語程序) / 聯合(華語程序)
+  initServiceTypeSelector() {
+    const primary   = document.getElementById('serviceTypePrimary');
+    const secondary = document.getElementById('serviceTypeSecondary');
+    const secWrap   = document.getElementById('serviceTypeSecondaryWrap');
+    if (!primary || !secondary || !secWrap) return;
+
+    const onChange = () => {
+      secWrap.style.display = (primary.value === '聯合') ? '' : 'none';
+      const t = this.computeServiceType();
+      BulletinModel.set('serviceType', t);
+      this.applyServiceMode(t);
+    };
+    primary.addEventListener('change', onChange);
+    secondary.addEventListener('change', onChange);
+  },
+
+  computeServiceType() {
+    const p = document.getElementById('serviceTypePrimary');
+    const s = document.getElementById('serviceTypeSecondary');
+    if (!p) return '台華語';
+    if (p.value === '台華語') return '台華語';
+    return '聯合-' + (s?.value || '台語');
+  },
+
+  applyServiceMode(t) {
+    const grid = document.querySelector('.service-grid');
+    if (grid) {
+      grid.classList.remove('mode-tw-zh', 'mode-united-tw', 'mode-united-zh');
+      if (t === '聯合-台語')      grid.classList.add('mode-united-tw');
+      else if (t === '聯合-華語') grid.classList.add('mode-united-zh');
+      else                         grid.classList.add('mode-tw-zh');
+    }
+
+    const twTitle = document.querySelector('.tw-column h4');
+    const zhTitle = document.querySelector('.zh-column h4');
+    if (t === '聯合-台語') {
+      if (twTitle) twTitle.textContent = '聯合主日禮拜（以台語程序）';
+    } else if (t === '聯合-華語') {
+      if (zhTitle) zhTitle.textContent = '聯合主日禮拜（以華語程序）';
+    } else {
+      if (twTitle) twTitle.textContent = '台語主日禮拜（一樓）';
+      if (zhTitle) zhTitle.textContent = '華語主日禮拜（三樓）';
+    }
+  },
+
+  // 從模型同步選擇器狀態（載入草稿時呼叫）
+  syncServiceTypeFromModel(t) {
+    const primary   = document.getElementById('serviceTypePrimary');
+    const secondary = document.getElementById('serviceTypeSecondary');
+    const secWrap   = document.getElementById('serviceTypeSecondaryWrap');
+    if (!primary || !secondary || !secWrap) return;
+    if (t === '聯合-台語') {
+      primary.value = '聯合';   secondary.value = '台語'; secWrap.style.display = '';
+    } else if (t === '聯合-華語') {
+      primary.value = '聯合';   secondary.value = '華語'; secWrap.style.display = '';
+    } else {
+      primary.value = '台華語'; secondary.value = '台語'; secWrap.style.display = 'none';
+    }
+    this.applyServiceMode(t || '台華語');
   },
 
   initButtons() {
@@ -315,6 +378,7 @@ const App = {
       const v = el.dataset.field.split('.').reduce((o, k) => o?.[k], data);
       if (v !== undefined && v !== null) el.value = String(v);
     });
+    this.syncServiceTypeFromModel(data.serviceType || '台華語');
     this.syncSmallGroupsUI(data.attendance?.smallGroups || {});
     this.syncEventsUI(data.events || []);
     this.syncOfferingUI(data.offeringReport?.monthlyItems || []);

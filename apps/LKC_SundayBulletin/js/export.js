@@ -92,18 +92,31 @@ const BulletinExport = {
   },
 
   // ============================================================
-  // 第一頁: 台語 + 華語程序
+  // 第一頁: 禮拜程序（依 serviceType 決定布局）
+  //   台華語     → 台語 + 華語 兩欄並列
+  //   聯合-台語  → 聯合主日禮拜 (以台語程序)，單欄滿版
+  //   聯合-華語  → 聯合主日禮拜 (以華語程序)，單欄滿版
   // ============================================================
   _buildPage1(data) {
     const { docx } = window;
     const tw = data.taiwanese;
     const zh = data.mandarin;
     const dateStr = this._formatDate(data.date);
+    const serviceType = data.serviceType || '台華語';
+
+    const twHeader = (serviceType === '聯合-台語')
+      ? [
+          { label: '', value: `聯合主日禮拜  ${dateStr}`, bold: true, size: 22 },
+          { label: '', value: '（以台語程序）', bold: false, size: 18 }
+        ]
+      : [
+          { label: '', value: `台語主日禮拜  ${dateStr}`, bold: true, size: 22 },
+          { label: '', value: '一樓', bold: false, size: 18 }
+        ];
 
     // 左欄 - 台語程序
     const twLines = [
-      { label: '', value: `台語主日禮拜  ${dateStr}`, bold: true, size: 22 },
-      { label: '', value: '一樓', bold: false, size: 18 },
+      ...twHeader,
       { label: '主理者：', value: tw.presider },
       { label: '', value: '' },
       { label: '「等候上帝的話」', value: '', bold: true },
@@ -126,8 +139,8 @@ const BulletinExport = {
       { label: `金句 ${tw.goldenVerse || '___'}`, value: '(會眾)' },
       { label: `奉獻${tw.offeringNote ? ' ' + tw.offeringNote : ''}`, value: '(會眾)' },
       { label: `頌榮 ${tw.doxologyHymn || '___'} 首`, value: '(會眾)' },
-      { label: '祝祷', value: '(主理者)' },
-      { label: '阿們颂', value: '(會眾)' },
+      { label: '祝禱', value: '(主理者)' },
+      { label: '阿們頌', value: '(會眾)' },
       { label: '後奏', value: '(司琴者)' },
       { label: '平安禮', value: '(會眾)' },
       { label: '', value: '' },
@@ -136,9 +149,18 @@ const BulletinExport = {
     ];
 
     // 右欄 - 華語程序
+    const zhHeader = (serviceType === '聯合-華語')
+      ? [
+          { label: '', value: `聯合主日禮拜  ${dateStr}`, bold: true, size: 22 },
+          { label: '', value: '（以華語程序）', bold: false, size: 18 }
+        ]
+      : [
+          { label: '', value: `華語主日禮拜  ${dateStr}`, bold: true, size: 22 },
+          { label: '', value: '三樓', bold: false, size: 18 }
+        ];
+
     const zhLines = [
-      { label: '', value: `華語主日禮拜  ${dateStr}`, bold: true, size: 22 },
-      { label: '', value: '三樓', bold: false, size: 18 },
+      ...zhHeader,
       { label: '主理者：', value: zh.presider },
       { label: '', value: '' },
       { label: '「等候上帝的話」', value: '', bold: true },
@@ -149,14 +171,14 @@ const BulletinExport = {
       { label: '', value: '' },
       { label: '「領受上帝的話」', value: '', bold: true },
       { label: `聖經 ${zh.scripture || '___'}`, value: '(司會者)' },
-      { label: '祈禱(+主祷文)', value: '(司會者)' },
+      { label: '祈禱(+主禱文)', value: '(司會者)' },
       { label: `講道「${zh.sermonTitle || '___'}」`, value: '(主理者)' },
       { label: '', value: '' },
       { label: '「回應上帝的話」', value: '', bold: true },
       { label: '回應詩(平安禮)', value: '(敬拜團)' },
       { label: '報告', value: '(司會者)' },
       { label: '奉獻', value: '(會眾)' },
-      { label: '祝祷', value: '(主理者)' },
+      { label: '祝禱', value: '(主理者)' },
       { label: '', value: '' },
       { label: '「實行上帝的話」', value: '', bold: true },
       { label: zh.upcomingPreview || '活動預告請見第二頁', value: '', size: 16 }
@@ -177,33 +199,63 @@ const BulletinExport = {
       });
     };
 
-    const table = new docx.Table({
-      rows: [new docx.TableRow({
-        children: [
-          new docx.TableCell({
+    const noBorder = {
+      top:    { style: docx.BorderStyle.NONE },
+      bottom: { style: docx.BorderStyle.NONE },
+      left:   { style: docx.BorderStyle.NONE },
+      right:  { style: docx.BorderStyle.NONE }
+    };
+
+    let table;
+    if (serviceType === '聯合-台語') {
+      // 單欄滿版：台語程序
+      table = new docx.Table({
+        rows: [new docx.TableRow({
+          children: [new docx.TableCell({
             children: buildCellContent(twLines),
-            width: { size: 4500, type: docx.WidthType.DXA },
-            borders: {
-              right: { style: docx.BorderStyle.SINGLE, size: 2, color: '888888' },
-              top: { style: docx.BorderStyle.NONE },
-              bottom: { style: docx.BorderStyle.NONE },
-              left: { style: docx.BorderStyle.NONE }
-            }
-          }),
-          new docx.TableCell({
+            width: { size: 9000, type: docx.WidthType.DXA },
+            borders: noBorder
+          })]
+        })],
+        width: { size: 9000, type: docx.WidthType.DXA }
+      });
+    } else if (serviceType === '聯合-華語') {
+      // 單欄滿版：華語程序
+      table = new docx.Table({
+        rows: [new docx.TableRow({
+          children: [new docx.TableCell({
             children: buildCellContent(zhLines),
-            width: { size: 4500, type: docx.WidthType.DXA },
-            borders: {
-              top: { style: docx.BorderStyle.NONE },
-              bottom: { style: docx.BorderStyle.NONE },
-              left: { style: docx.BorderStyle.NONE },
-              right: { style: docx.BorderStyle.NONE }
-            }
-          })
-        ]
-      })],
-      width: { size: 9000, type: docx.WidthType.DXA }
-    });
+            width: { size: 9000, type: docx.WidthType.DXA },
+            borders: noBorder
+          })]
+        })],
+        width: { size: 9000, type: docx.WidthType.DXA }
+      });
+    } else {
+      // 預設：台語 + 華語 兩欄並列
+      table = new docx.Table({
+        rows: [new docx.TableRow({
+          children: [
+            new docx.TableCell({
+              children: buildCellContent(twLines),
+              width: { size: 4500, type: docx.WidthType.DXA },
+              borders: {
+                right:  { style: docx.BorderStyle.SINGLE, size: 2, color: '888888' },
+                top:    { style: docx.BorderStyle.NONE },
+                bottom: { style: docx.BorderStyle.NONE },
+                left:   { style: docx.BorderStyle.NONE }
+              }
+            }),
+            new docx.TableCell({
+              children: buildCellContent(zhLines),
+              width: { size: 4500, type: docx.WidthType.DXA },
+              borders: noBorder
+            })
+          ]
+        })],
+        width: { size: 9000, type: docx.WidthType.DXA }
+      });
+    }
 
     return [table];
   },

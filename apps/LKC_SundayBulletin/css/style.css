@@ -520,6 +520,32 @@ input[type="number"].form-input {
   margin-bottom: 12px;
 }
 
+/* 禮拜類型選擇列 */
+.service-type-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background: var(--gray-100);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--border-radius);
+}
+.service-type-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-700);
+}
+.service-type-select {
+  padding: 6px 10px;
+  font-size: 14px;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+}
+
 /* 台語/華語雙欄布局 */
 .service-grid {
   display: grid;
@@ -530,6 +556,14 @@ input[type="number"].form-input {
 @media (max-width: 900px) {
   .service-grid { grid-template-columns: 1fr; }
 }
+
+/* 聯合禮拜：只顯示其中一欄並佔滿寬度 */
+.service-grid.mode-united-tw,
+.service-grid.mode-united-zh {
+  grid-template-columns: 1fr;
+}
+.service-grid.mode-united-tw .zh-column { display: none; }
+.service-grid.mode-united-zh .tw-column { display: none; }
 
 .service-column {
   padding: 16px;

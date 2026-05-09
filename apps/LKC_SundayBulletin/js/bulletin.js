@@ -8,6 +8,9 @@ const BulletinModel = {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
 
+      // 禮拜類型：台華語 / 聯合-台語 / 聯合-華語
+      serviceType: '台華語',
+
       taiwanese: {
         presider: '',
         callToWorship: '', openingHymn: '',

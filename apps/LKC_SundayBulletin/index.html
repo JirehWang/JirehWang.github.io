@@ -37,7 +37,7 @@
     <button class="tab-btn" data-tab="attendance">聚會統計</button>
     <button class="tab-btn" data-tab="events">活動預告</button>
     <button class="tab-btn" data-tab="announcements">本會消息</button>
-    <button class="tab-btn" data-tab="prayer">關懷代祷</button>
+    <button class="tab-btn" data-tab="prayer">關懷代禱</button>
     <button class="tab-btn" data-tab="offering">奉獻報告</button>
   </nav>
 </header>
@@ -54,7 +54,21 @@
       </div>
     </div>
     <div class="card-body">
-      <div class="service-grid">
+      <div class="service-type-bar">
+        <label class="service-type-label">禮拜類型：</label>
+        <select id="serviceTypePrimary" class="service-type-select">
+          <option value="台華語">台華語禮拜（並列）</option>
+          <option value="聯合">聯合禮拜</option>
+        </select>
+        <span id="serviceTypeSecondaryWrap" style="display:none;">
+          <label class="service-type-label" style="margin-left:12px;">聯合程序：</label>
+          <select id="serviceTypeSecondary" class="service-type-select">
+            <option value="台語">以台語程序</option>
+            <option value="華語">以華語程序</option>
+          </select>
+        </span>
+      </div>
+      <div class="service-grid mode-tw-zh">
         <div class="service-column tw-column">
           <h4>台語主日禮拜（一樓）</h4>
           <div class="form-group"><label>主理者 <span class="source-tag">LKCschedule 講員</span></label><input type="text" class="form-input" data-field="taiwanese.presider"></div>
@@ -63,7 +77,7 @@
           <div class="form-group"><label>開場聖詩號碼 <span class="source-tag">LKCschedule</span></label><input type="text" class="form-input" data-field="taiwanese.openingHymn"></div>
           <div class="section-label">「領受上帝的話」</div>
           <div class="form-group"><label>啟應文第幾篷 <span class="manual-tag">手動</span></label><input type="text" class="form-input" data-field="taiwanese.responsivePsalm"></div>
-          <div class="form-group"><label>祷禱備註 <span class="manual-tag">手動</span></label><input type="text" class="form-input" data-field="taiwanese.prayer1Note"></div>
+          <div class="form-group"><label>祈禱備註 <span class="manual-tag">手動</span></label><input type="text" class="form-input" data-field="taiwanese.prayer1Note"></div>
           <div class="form-group"><label>聖經經文 <span class="source-tag">LKCschedule</span></label><input type="text" class="form-input" data-field="taiwanese.scripture"></div>
           <div class="form-group"><label>讚美／聖歌隊詩名 <span class="manual-tag">手動</span></label><input type="text" class="form-input" data-field="taiwanese.choirSong"></div>
           <div class="form-group"><label>講道題目 <span class="source-tag">LKCschedule</span></label><input type="text" class="form-input" data-field="taiwanese.sermonTitle"></div>
@@ -71,7 +85,7 @@
           <div class="form-group"><label>回應聖詩號碼 <span class="manual-tag">手動</span></label><input type="text" class="form-input" data-field="taiwanese.responseHymn"></div>
           <div class="form-group"><label>金句經文 <span class="source-tag">LKCschedule</span></label><input type="text" class="form-input" data-field="taiwanese.goldenVerse"></div>
           <div class="form-group"><label>奉獻備註 <span class="manual-tag">手動</span></label><input type="text" class="form-input" data-field="taiwanese.offeringNote"></div>
-          <div class="form-group"><label>颂榮號碼 <span class="manual-tag">手動</span></label><input type="text" class="form-input" data-field="taiwanese.doxologyHymn"></div>
+          <div class="form-group"><label>頌榮號碼 <span class="manual-tag">手動</span></label><input type="text" class="form-input" data-field="taiwanese.doxologyHymn"></div>
           <div class="section-label">「實行上帝的話」</div>
           <div class="form-group"><label>教會奉獻帳戶資訊 <span class="manual-tag">手動</span></label><textarea class="form-input" data-field="taiwanese.bankAccount" rows="4"></textarea></div>
         </div>
@@ -79,13 +93,13 @@
           <h4>華語主日禮拜（三樓）</h4>
           <div class="form-group"><label>主理者 <span class="source-tag">LKCschedule 講員</span></label><input type="text" class="form-input" data-field="mandarin.presider"></div>
           <div class="section-label">「等候上帝的話」</div>
-          <p class="hint">序樂（敬拜團）/ 宣召（司會者）/ 敬拜讚美（敬拜團）/ 使徒信経（會眾）— 固定程序</p>
+          <p class="hint">序樂（敬拜團）/ 宣召（司會者）/ 敬拜讚美（敬拜團）/ 使徒信經（會眾）— 固定程序</p>
           <div class="form-group"><label>敬拜曲目 <span class="source-tag">LKworship</span></label><textarea class="form-input" data-field="mandarin.worshipSongs" rows="3" placeholder="例：奇異恩典、主啊我向你舉手、十字架的愛"></textarea></div>
           <div class="section-label">「領受上帝的話」</div>
           <div class="form-group"><label>聖經經文 <span class="source-tag">LKCschedule</span></label><input type="text" class="form-input" data-field="mandarin.scripture"></div>
           <div class="form-group"><label>講道題目 <span class="source-tag">LKCschedule</span></label><input type="text" class="form-input" data-field="mandarin.sermonTitle"></div>
           <div class="section-label">「回應上帝的話」</div>
-          <p class="hint">回應詩（平安禮）/ 報告 / 奉獻 / 祷禱 — 固定程序</p>
+          <p class="hint">回應詩（平安禮）/ 報告 / 奉獻 / 祝禱 — 固定程序</p>
           <div class="section-label">「實行上帝的話」</div>
           <div class="form-group"><label>活動預告文字 <span class="manual-tag">手動</span></label><textarea class="form-input" data-field="mandarin.upcomingPreview" rows="5"></textarea></div>
         </div>
@@ -157,10 +171,10 @@
         <div class="form-group"><label>華語禮拜 <span class="source-tag">LKC_Attendance</span></label><input type="number" class="form-input" data-field="attendance.zhService" min="0" value="0"></div>
         <div class="form-group"><label>聖歌隊 <span class="manual-tag">手動</span></label><input type="number" class="form-input" data-field="attendance.choir" min="0" value="0"></div>
       </div>
-      <div class="section-divider"><span>祷告會</span></div>
+      <div class="section-divider"><span>禱告會</span></div>
       <div class="form-grid-3">
-        <div class="form-group"><label>週日祷告會 <span class="manual-tag">手動</span></label><input type="number" class="form-input" data-field="attendance.sundayPrayer" min="0" value="0"></div>
-        <div class="form-group"><label>週四祷告會 <span class="manual-tag">手動</span></label><input type="number" class="form-input" data-field="attendance.thursdayPrayer" min="0" value="0"></div>
+        <div class="form-group"><label>週日禱告會 <span class="manual-tag">手動</span></label><input type="number" class="form-input" data-field="attendance.sundayPrayer" min="0" value="0"></div>
+        <div class="form-group"><label>週四禱告會 <span class="manual-tag">手動</span></label><input type="number" class="form-input" data-field="attendance.thursdayPrayer" min="0" value="0"></div>
       </div>
       <div class="section-divider"><span>主日學</span></div>
       <div class="form-grid-3">
@@ -228,11 +242,11 @@
 
 <div id="tab-prayer" class="tab-panel">
   <div class="card">
-    <div class="card-header"><h3>關懷代祷</h3><div class="card-actions"><span class="source-badge">手動填入</span></div></div>
+    <div class="card-header"><h3>關懷代禱</h3><div class="card-actions"><span class="source-badge">手動填入</span></div></div>
     <div class="card-body">
       <div class="form-group" style="margin-bottom:16px"><label>在家調養 <span class="manual-tag">手動</span></label><textarea class="form-input" data-field="prayer.homeRest" rows="4"></textarea></div>
       <div class="form-group" style="margin-bottom:16px"><label>住院 <span class="manual-tag">手動</span></label><textarea class="form-input" data-field="prayer.hospital" rows="4"></textarea></div>
-      <div class="form-group"><label>其他代祷 <span class="manual-tag">手動</span></label><textarea class="form-input" data-field="prayer.other" rows="4"></textarea></div>
+      <div class="form-group"><label>其他代禱 <span class="manual-tag">手動</span></label><textarea class="form-input" data-field="prayer.other" rows="4"></textarea></div>
     </div>
   </div>
 </div>
