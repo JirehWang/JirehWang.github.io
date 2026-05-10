@@ -325,34 +325,6 @@ function getAllGroupsStats(startDate, endDate) {
   return { success: true, groupName: "ALL", isSingleDay: isSingleDay, data: allMembersData };
 }
 
-function findGroupByCode(groupCode) {
-  const cleanCode = groupCode ? groupCode.toString().trim().toUpperCase() : "";
-  if (cleanCode === ADMIN_CODE) return { success: true, groupName: "ADMIN", isAdmin: true };
-
-  const sheet = getSheetSafely("小組清單");
-  if (!sheet) return { success: false, message: "找不到 '小組清單' 分頁" };
-  const lastRow = sheet.getLastRow();
-  if (lastRow <= 1) return { success: false, message: "清單目前沒有資料" };
-
-  const data = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
-  for (let i = 0; i < data.length; i++) {
-    const sheetCode = data[i][2].toString().trim().toUpperCase();
-    if (sheetCode === cleanCode) return { success: true, groupName: data[i][0], isAdmin: false };
-  }
-  return { success: false, message: "無效的代碼，請重新輸入" };
-}
-
-function verifyGroup(groupName, groupCode) {
-  const res = findGroupByCode(groupCode);
-  if (res.success && res.groupName === groupName.trim()) {
-    return { success: true, message: '驗證成功' };
-  }
-  if (res.success && res.isAdmin) {
-    return { success: true, message: '管理員驗證成功' };
-  }
-  return { success: false, message: res.message || '驗證失敗' };
-}
-
 /**
  * 3. 本週各小組聚會人數報表 (公開，不需驗證)
  */
