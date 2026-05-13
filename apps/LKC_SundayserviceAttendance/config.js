@@ -8,7 +8,7 @@
  * window.GAS_URL 此時已就緒；無需輪詢。
  */
 (function() {
-  const fallbackUrl = 'https://script.google.com/macros/s/AKfycbyJbzjHIeFFRbqT-Ttk2OAPYfF-qDKYES8dJiu4sJCR4t2Fq9PTtbALwuiJDBxh55kR/exec';
+  const fallbackUrl = 'https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec';
   if (window.GAS_URL) {
     window.GAS_CONFIG = { apiUrl: window.GAS_URL };
     console.log("✅ GAS_CONFIG 已橋接至中央路由：", window.GAS_URL);
