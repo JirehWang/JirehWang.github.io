@@ -24,7 +24,8 @@
     "LKC_WhosCar":                 "https://script.google.com/macros/s/AKfycbxOkoaNquIx_V8n_7eS_5ULmoqxPVly_Bezx9_QsmWSzNOcojrCI9Oa6UNd5hOD2euS/exec",
     "LKC_SundayserviceAttendance": "https://script.google.com/macros/s/AKfycbyJbzjHIeFFRbqT-Ttk2OAPYfF-qDKYES8dJiu4sJCR4t2Fq9PTtbALwuiJDBxh55kR/exec",
     "LKC_SundayserviceAttendance_TEST": "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
-    "LKC_Group_TEST":                   "https://script.google.com/macros/s/AKfycbwB5rO2bDn3DECdZ0SHs3EEiaQsv6fxp4o_hL6eJdPYemZZk29P9xW6NN7JP7-nAcz1/exec",
+    // 🔀 方案 B 整合：小組系統與主日共用同一個 GAS（消除跨 GAS UrlFetch）
+    "LKC_Group_TEST":                   "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
   };
 
   const _AUTH_TOKEN = "ChurchApp-2026";
