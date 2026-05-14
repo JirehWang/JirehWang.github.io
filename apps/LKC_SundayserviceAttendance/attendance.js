@@ -180,8 +180,9 @@
       var isChecked = m.isChecked;
       var isLocked = (m.isChecked && lockedId && lockedId !== attUserId);
       var isSubmitted = m.isSubmitted;
-      if (localPendingActions[m.name] && (now - localPendingActions[m.name].time < 5000)) {
-        isChecked = localPendingActions[m.name].state;
+      var memberKey = m.id || m.name;
+      if (localPendingActions[memberKey] && (now - localPendingActions[memberKey].time < 5000)) {
+        isChecked = localPendingActions[memberKey].state;
         isLocked = false;
       }
       var checkState = isChecked ? "checked" : "";
@@ -191,11 +192,13 @@
       if (isSubmitted) {
         label.classList.add('submitted');
         statusColor = '#198754';
-        label.onclick = function(e) {
-          e.preventDefault();
-          var n = new Date().getTime();
-          if (n - lastClickTime < DOUBLE_CLICK_DELAY) { confirmRevoke(m.name); lastClickTime = 0; } else { lastClickTime = n; }
-        };
+        label.onclick = (function(memUid, memName) {
+          return function(e) {
+            e.preventDefault();
+            var n = new Date().getTime();
+            if (n - lastClickTime < DOUBLE_CLICK_DELAY) { confirmRevoke(memUid, memName); lastClickTime = 0; } else { lastClickTime = n; }
+          };
+        })(m.id, m.name);
       } else if (isLocked) {
         label.classList.add('locked');
         label.style.opacity = "0.5";
@@ -224,15 +227,15 @@
 
   function toggleCardStyle(checkbox) {
     var isChecked = checkbox.checked;
-    var name = checkbox.value;
+    var uid = checkbox.dataset.uid || checkbox.value;  // 優先用 UID
     if (isChecked) checkbox.parentElement.classList.add('selected');
     else checkbox.parentElement.classList.remove('selected');
-    localPendingActions[name] = { time: Date.now(), state: isChecked };
+    localPendingActions[uid] = { time: Date.now(), state: isChecked };
     google.script.run.withFailureHandler(function(err) {
-        checkbox.checked = !isChecked; 
+        checkbox.checked = !isChecked;
         checkbox.parentElement.classList.toggle('selected');
-        delete localPendingActions[name];
-    }).syncClickToServer(name, isChecked, currentAttType, attUserId);
+        delete localPendingActions[uid];
+    }).syncClickToServer(uid, isChecked, currentAttType, attUserId);
   }
 
   function openAttendanceAddModal() {
@@ -278,20 +281,19 @@
     }).getSmartAttendanceList(currentAttType, attUserId);
   }
 
-  function confirmRevoke(name) {
+  function confirmRevoke(uid, displayName) {
     if (navigator.vibrate) navigator.vibrate(50);
-    if (confirm("確定要撤銷 [" + name + "] 的送出紀錄嗎？")) { executeRevoke(name); }
+    if (confirm("確定要撤銷 [" + (displayName || uid) + "] 的送出紀錄嗎？")) { executeRevoke(uid, displayName); }
   }
 
-function executeRevoke(name) {
+function executeRevoke(uid, displayName) {
     var btn = document.getElementById('submitBtn');
     var originalText = "確認送出";
     if (btn) { btn.disabled = true; btn.innerHTML = '正在撤銷...'; }
     google.script.run.withSuccessHandler(function(msg) {
         if (msg === "OK") {
-            // 直接把該卡片改成白色未勾選狀態
             var container = document.getElementById('attendanceListBody');
-            var checkbox = container.querySelector('input[value="' + name + '"]');
+            var checkbox = container.querySelector('input[data-uid="' + uid + '"]');
             if (checkbox) {
                 var card = checkbox.parentElement;
                 card.className = "att-item shadow-sm";
@@ -300,7 +302,7 @@ function executeRevoke(name) {
                 checkbox.checked = false;
                 checkbox.disabled = false;
                 var nameDiv = card.querySelector('.att-name');
-                if (nameDiv) nameDiv.innerHTML = name;
+                if (nameDiv) nameDiv.innerHTML = displayName || uid;
                 card.onclick = function(e) {
                     e.preventDefault();
                     var cb = this.querySelector('input');
@@ -308,10 +310,8 @@ function executeRevoke(name) {
                     toggleCardStyle(cb);
                 };
             }
-            // 更新 localPendingActions 防止輪詢蓋回去
-            localPendingActions[name] = { time: Date.now(), state: false };
+            localPendingActions[uid] = { time: Date.now(), state: false };
             alert("✅ 撤銷成功！");
-            // 更新出席人數
             var submittedCards = container.querySelectorAll('.att-item.submitted').length;
             var maleEl = document.getElementById('newFriendsMale');
             var femaleEl = document.getElementById('newFriendsFemale');
@@ -323,7 +323,7 @@ function executeRevoke(name) {
             alert(msg);
         }
         if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
-    }).revokeAttendance(name, currentAttType, attUserId);
+    }).revokeAttendance(uid, currentAttType, attUserId);
 }
 
   function fetchRemoteStatus() {
@@ -338,10 +338,11 @@ function executeRevoke(name) {
         var container = document.getElementById('attendanceListBody');
         if (!container) return;
         activeList.forEach(function(m) {
-           var checkbox = container.querySelector('input[value="' + m.name + '"]');
+           var checkbox = container.querySelector('input[data-uid="' + m.id + '"]');
            if (!checkbox) return;
            var card = checkbox.parentElement;
-           if (localPendingActions[m.name] && (now - localPendingActions[m.name].time < 5000)) return;
+           var memKey = m.id || m.name;
+           if (localPendingActions[memKey] && (now - localPendingActions[memKey].time < 5000)) return;
            var lockedId = m.operatorId || m.userId || m.operator || m.uid;
            if (m.isSubmitted) {
              if (!card.classList.contains('submitted')) {
@@ -350,10 +351,12 @@ function executeRevoke(name) {
                 card.style.opacity = "1"; card.style.pointerEvents = "auto";
                 var nameDiv = card.querySelector('.att-name');
                 if (nameDiv) nameDiv.innerHTML = m.name;
-                card.onclick = function(e) { e.preventDefault(); 
-                  var n = new Date().getTime();
-                  if (n - lastClickTime < DOUBLE_CLICK_DELAY) { confirmRevoke(m.name); lastClickTime = 0; } else { lastClickTime = n; }
-                };
+                card.onclick = (function(memUid, memName) {
+                  return function(e) { e.preventDefault();
+                    var n = new Date().getTime();
+                    if (n - lastClickTime < DOUBLE_CLICK_DELAY) { confirmRevoke(memUid, memName); lastClickTime = 0; } else { lastClickTime = n; }
+                  };
+                })(m.id, m.name);
              }
            } else if (m.isChecked) {
              checkbox.checked = true;
@@ -419,10 +422,9 @@ function executeRevoke(name) {
                          "確定要正式送出紀錄嗎？";
         if (!confirm(confirmMsg)) return;
     }
+    // 送出 UID 列表（後端會用主日 cache 反查姓名/性別，前端不再傳遞 (男)/(女) 後綴）
     var presentList = Array.from(checked).map(function(cb) {
-       var genderTextEl = cb.parentElement.querySelector('.gender-text');
-       var genderText = genderTextEl ? genderTextEl.innerText : "未知";
-       return cb.value + "(" + genderText + ")";
+       return cb.dataset.uid || cb.value;
     });
     var btn = document.getElementById('submitBtn');
     var originalText = "確認送出";

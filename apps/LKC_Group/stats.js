@@ -1,6 +1,16 @@
 let identifiedGroupName = "";
 let isAdmin = false;
 let debounceTimer;
+let nameDirectory = {};  // uid → name 反查表（從後端 RAW_MODE 回傳）
+
+// UID → 姓名（找不到回傳原字串，相容新朋友純文字）
+function resolveDisplayName(uidOrName) {
+  if (!uidOrName) return "";
+  const s = String(uidOrName).trim();
+  if (/^LK\d+$/i.test(s)) return nameDirectory[s.toUpperCase()] || s;
+  return s;
+}
+
 const splitRegex = /[^\u4e00-\u9fa5a-zA-Z0-9\s]+/; // 與後端一致的分隔符號
 
 // showLoading / hideLoading / ensureAPIReady 由 config.js 提供。
@@ -96,12 +106,13 @@ async function loadStats() {
     
     try {
         if (reportType === "WEEKLY") {
-            const targetGroup = (group === "ALL") ? "小組清單" : group; 
-            const res = await callAPI('getStats', { 
-                groupName: targetGroup, 
-                groupCode: code, 
-                startDate: "RAW_MODE" 
+            const targetGroup = (group === "ALL") ? "小組清單" : group;
+            const res = await callAPI('getStats', {
+                groupName: targetGroup,
+                groupCode: code,
+                startDate: "RAW_MODE"
             });
+            if (res.nameDirectory) nameDirectory = res.nameDirectory;
             renderWeeklyStats(res, start, end);
         } else {
             const isAllGroups = (isAdmin && group === 'ALL');
@@ -154,21 +165,21 @@ function renderWeeklyStats(res, start, end) {
 
     tbody.innerHTML = filteredRows.map(row => {
         const dateStr = row[0] ? new Date(row[0]).toLocaleDateString() : "未知";
-        
-        // 解析出席者 (row[1]) 與新朋友 (row[3])
-        const presentArr = row[1] ? row[1].toString().split(splitRegex).filter(n => n.trim()) : [];
+
+        // 解析出席者 UID → 姓名；新朋友維持純文字
+        const presentRaw = row[1] ? row[1].toString().split(splitRegex).filter(n => n.trim()) : [];
+        const presentArr = presentRaw.map(resolveDisplayName);
         const newFriendsArr = row[3] ? row[3].toString().split(splitRegex).filter(n => n.trim()) : [];
-        
+
         const presentCount = presentArr.length;
         const newFriendsCount = newFriendsArr.length;
         const total = presentCount + newFriendsCount;
 
-        // 💡 組合顯示名單：組員用綠色，新朋友用黃色加星星
-        const attendeeHTML = presentArr.map(name => 
+        const attendeeHTML = presentArr.map(name =>
             `<span style="display:inline-block; background:#e8f5e9; color:#2e7d32; padding:2px 8px; border-radius:4px; margin:2px; font-size:13px; border:1px solid #c8e6c9;">${name}</span>`
         ).join('');
 
-        const newFriendsHTML = newFriendsArr.map(name => 
+        const newFriendsHTML = newFriendsArr.map(name =>
             `<span style="display:inline-block; background:#fff9c4; color:#f57f17; padding:2px 8px; border-radius:4px; margin:2px; font-size:13px; border:1px solid #ffe082;">✨ ${name}</span>`
         ).join('');
 

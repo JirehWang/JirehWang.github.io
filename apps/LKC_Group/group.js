@@ -1,13 +1,22 @@
 // --- 基礎變數設定 ---
 const urlParams = new URLSearchParams(window.location.search);
 const groupName = urlParams.get('name');
-const groupCode = urlParams.get('code'); 
+const groupCode = urlParams.get('code');
 
-let currentMembers = []; 
-let editingMembers = []; 
-let recentRecordsData = []; 
+let currentMembers = []; // [{ name, uid, role }]
+let editingMembers = [];
+let recentRecordsData = [];
+let nameDirectory = {};  // uid → name 反查表（從後端 RAW_MODE 回傳）
 
 // showLoading / hideLoading / ensureAPIReady 由 config.js 提供。
+
+// 共用：UID 反查姓名（找不到就直接回傳原字串）
+function resolveDisplayName(uidOrName) {
+  if (!uidOrName) return "";
+  const s = String(uidOrName).trim();
+  if (/^LK\d+$/i.test(s)) return nameDirectory[s.toUpperCase()] || s;
+  return s; // 不是 UID 格式（可能是新朋友）就直接顯示
+}
 
 // --- 📦 網頁載入啟動流程 ---
 window.onload = async () => {
@@ -92,21 +101,25 @@ async function loadGroupProgress() {
         });
         
         if (res.success && res.data.length > 0) {
+            // \u63a5\u6536 nameDirectory \u7528\u65bc UID \u53cd\u67e5
+            if (res.nameDirectory) nameDirectory = res.nameDirectory;
+
             const sortedData = res.data.slice().sort((a, b) => {
                 return new Date(b[0]).getTime() - new Date(a[0]).getTime();
             });
-            recentRecordsData = sortedData.slice(0, 3); 
-            
+            recentRecordsData = sortedData.slice(0, 3);
+
             const splitRegex = /[^\u4e00-\u9fa5a-zA-Z0-9\s]+/;
 
             tbody.innerHTML = recentRecordsData.map((row, index) => {
                 const dateObj = new Date(row[0]);
-                const dateStr = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`; 
-                
-                const fullDateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
-                row.fullDateStr = fullDateStr; 
+                const dateStr = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
 
-                const present = row[1] ? row[1].toString().split(splitRegex).map(s=>s.trim()).filter(n=>n) : [];
+                const fullDateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+                row.fullDateStr = fullDateStr;
+
+                const presentRaw = row[1] ? row[1].toString().split(splitRegex).map(s=>s.trim()).filter(n=>n) : [];
+                const present = presentRaw.map(resolveDisplayName);  // UID \u2192 \u59d3\u540d
                 const newFriends = row[3] ? row[3].toString().split(splitRegex).map(s=>s.trim()).filter(n=>n) : [];
                 const totalCount = present.length + newFriends.length;
                 
@@ -139,7 +152,8 @@ function openEditAttendanceModal(index) {
     const row = recentRecordsData[index];
     const originalDate = row.fullDateStr;
     const splitRegex = /[^\u4e00-\u9fa5a-zA-Z0-9\s]+/; 
-    const presentArr = row[1] ? row[1].toString().split(splitRegex).map(s=>s.trim()).filter(n=>n) : [];
+    const presentUidArr = row[1] ? row[1].toString().split(splitRegex).map(s=>s.trim()).filter(n=>n) : [];
+    const presentUidSet = new Set(presentUidArr.map(s => s.toUpperCase()));
     const newFriendsStr = row[3] ? row[3].toString().split(splitRegex).map(s=>s.trim()).filter(n=>n).join(',') : '';
 
     document.getElementById('editOriginalDate').value = originalDate;
@@ -147,14 +161,15 @@ function openEditAttendanceModal(index) {
     document.getElementById('editNewFriends').value = newFriendsStr;
 
     const listDiv = document.getElementById('editAttendanceMemberList');
-    
-    // 直接列出所有人
+
+    // checkbox value 用 UID
     listDiv.innerHTML = currentMembers.map(m => {
-        const isChecked = presentArr.includes(m.name) ? 'checked' : '';
+        const uid = m.uid || '';
+        const isChecked = uid && presentUidSet.has(uid.toUpperCase()) ? 'checked' : '';
         const roleClass = getRoleClass(m.role);
         return `
             <div class="member-item">
-                <input type="checkbox" class="edit-attendance-check" value="${m.name}" ${isChecked}>
+                <input type="checkbox" class="edit-attendance-check" value="${uid}" data-name="${m.name}" ${isChecked}>
                 <span class="role-badge ${roleClass}">${m.role}</span>
                 <span style="font-size: 16px; font-weight: bold; color: #333;">${m.name}</span>
             </div>
@@ -173,8 +188,9 @@ async function submitAttendanceEdit() {
     const newDate = document.getElementById('editAttendanceDate').value;
     const newFriends = normalizeNames(document.getElementById('editNewFriends').value);
 
-    const present = Array.from(document.querySelectorAll('.edit-attendance-check:checked')).map(cb => cb.value);
-    const absent = Array.from(document.querySelectorAll('.edit-attendance-check:not(:checked)')).map(cb => cb.value);
+    // 都送 UID（cb.value 已是 UID）；篩掉空字串
+    const present = Array.from(document.querySelectorAll('.edit-attendance-check:checked')).map(cb => cb.value).filter(v => v);
+    const absent = Array.from(document.querySelectorAll('.edit-attendance-check:not(:checked)')).map(cb => cb.value).filter(v => v);
 
     if (present.length === 0 && !newFriends) {
         if (!confirm("修改後出席人數為 0，確定要儲存嗎？")) return;
@@ -222,6 +238,7 @@ async function initGroup() {
 }
 
 // 💡 更新：今日點名時，照常顯示所有組員 (包含陪伴同工)，讓他們能被記錄
+//    checkbox value 用 UID（後端用 UID 儲存），data-name 留作備援顯示
 function renderMemberList(members) {
     const list = document.getElementById('memberList');
     if (members.length === 0) {
@@ -230,9 +247,10 @@ function renderMemberList(members) {
     }
     list.innerHTML = members.map(m => {
         const roleClass = getRoleClass(m.role);
+        const uid = m.uid || '';
         return `
             <div class="member-item">
-                <input type="checkbox" class="attendance-check" value="${m.name}">
+                <input type="checkbox" class="attendance-check" value="${uid}" data-name="${m.name}">
                 <span class="role-badge ${roleClass}">${m.role}</span>
                 <span style="font-size: 16px; font-weight: bold; color: #333;">${m.name}</span>
             </div>
@@ -327,9 +345,10 @@ async function saveUpdatedList() {
 
 async function submitAttendance() {
     const date = document.getElementById('attendanceDate').value;
-    const present = Array.from(document.querySelectorAll('.attendance-check:checked')).map(cb => cb.value);
-    const absent = Array.from(document.querySelectorAll('.attendance-check:not(:checked)')).map(cb => cb.value);
-    
+    // 送 UID 列表（cb.value 已是 UID）；篩掉空字串避免主日尚未綁定 UID 的會友造成髒資料
+    const present = Array.from(document.querySelectorAll('.attendance-check:checked')).map(cb => cb.value).filter(v => v);
+    const absent = Array.from(document.querySelectorAll('.attendance-check:not(:checked)')).map(cb => cb.value).filter(v => v);
+
     const newFriends = normalizeNames(document.getElementById('newFriends').value);
 
     if (present.length === 0 && !newFriends) {
