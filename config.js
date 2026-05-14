@@ -24,8 +24,15 @@
     "LKC_WhosCar":                 "https://script.google.com/macros/s/AKfycbxOkoaNquIx_V8n_7eS_5ULmoqxPVly_Bezx9_QsmWSzNOcojrCI9Oa6UNd5hOD2euS/exec",
     "LKC_SundayserviceAttendance": "https://script.google.com/macros/s/AKfycbyJbzjHIeFFRbqT-Ttk2OAPYfF-qDKYES8dJiu4sJCR4t2Fq9PTtbALwuiJDBxh55kR/exec",
     "LKC_SundayserviceAttendance_TEST": "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
-    // 🔀 方案 B 整合：小組系統與主日共用同一個 GAS（消除跨 GAS UrlFetch）
+    // 🔀 方案 B 整合：小組系統共用主日 GAS
     "LKC_Group_TEST":                   "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
+    // 🔀 方案 C 整合：事工管理共用主日 GAS（action 自動加 ministry_ 前綴）
+    "LKC_MinistrySchedule_TEST":        "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
+  };
+
+  // 📝 子系統 → 後端 action 自動前綴（避免不同系統 action 名稱衝突）
+  const _ACTION_PREFIX = {
+    "LKC_MinistrySchedule_TEST": "ministry_",
   };
 
   const _AUTH_TOKEN = "ChurchApp-2026";
@@ -70,16 +77,23 @@
 
   // ============================================================
   //  🚀 中央 API 呼叫
+  //    若當前 _GAS_KEY 在 _ACTION_PREFIX 中，自動加前綴
+  //    例：LKC_MinistrySchedule_TEST 呼叫 'getGroups' → 後端收到 'ministry_getGroups'
   // ============================================================
+  const _actionPrefix = _ACTION_PREFIX[currentKey] || "";
   window.churchAPI = async function(action, data = {}) {
     if (!window.GAS_URL) {
       throw new APIError("系統尚未就緒：GAS_URL 為空", null, 'CONFIG_ERROR');
     }
+    // 已有前綴的 action 不重複加
+    const realAction = (_actionPrefix && action.indexOf(_actionPrefix) !== 0)
+      ? _actionPrefix + action
+      : action;
     try {
       const resp = await fetch(window.GAS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: action, token: window.AUTH_TOKEN, data: data })
+        body: JSON.stringify({ action: realAction, token: window.AUTH_TOKEN, data: data })
       });
       return await resp.json();
     } catch (err) {
