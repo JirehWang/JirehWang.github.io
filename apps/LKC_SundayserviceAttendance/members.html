@@ -88,18 +88,29 @@
         <label class="form-label fw-bold small text-muted">備註</label>
         <textarea id="editNote_Mem" class="form-control" rows="3" placeholder="其他聯絡資訊或註記..."></textarea>
       </div>
-      <div class="col-md-7">
-        <label class="form-label fw-bold small text-muted">所屬小組</label>
-        <input type="text" id="editGroup_Mem" class="form-control" placeholder="例如：磐石小組（可留空）">
+      <div class="col-12">
+        <label class="form-label fw-bold small text-muted">
+          所屬小組
+          <span class="text-info fw-normal">（多組以「、」分隔，例：葡萄樹A組、以斯帖小組）</span>
+        </label>
+        <input type="text" id="editGroup_Mem" class="form-control" placeholder="例：葡萄樹A組（可留空）">
       </div>
-      <div class="col-md-5">
-        <label class="form-label fw-bold small text-muted">身分</label>
+      <div class="col-12" id="roleSimpleWrapper">
+        <label class="form-label fw-bold small text-muted">身分（單組）</label>
         <select id="editRole_Mem" class="form-select">
           <option value="小羊">🐑 小羊（預設）</option>
           <option value="一般同工">一般同工</option>
           <option value="核心同工">⭐ 核心同工</option>
           <option value="陪伴同工">陪伴同工</option>
         </select>
+      </div>
+      <div class="col-12" id="roleAdvancedWrapper" style="display:none;">
+        <label class="form-label fw-bold small text-muted">
+          身分（多組）
+          <span class="text-info fw-normal">格式：核心同工(葡萄樹A組)、一般同工(以斯帖小組)</span>
+        </label>
+        <input type="text" id="editRoleAdvanced_Mem" class="form-control"
+               placeholder="例：核心同工(葡萄樹A組)、一般同工(以斯帖小組)">
       </div>
       <div class="col-12">
         <div class="form-check form-switch mt-2">
@@ -162,16 +173,47 @@
     }).getAllMembers();
   }
 
-  // 身分顯示樣式
-  function _roleBadge(role) {
-    const r = role || '小羊';
+  // 身分顯示：自動拆解多組格式 → 多個 badge
+  function _roleBadge(roleStr) {
+    if (!roleStr) return '<span class="badge bg-light text-dark border">小羊</span>';
     const colors = {
       '核心同工': 'bg-primary',
       '一般同工': 'bg-info text-dark',
       '陪伴同工': 'bg-secondary',
       '小羊':     'bg-light text-dark border'
     };
-    return `<span class="badge ${colors[r] || colors['小羊']}">${r}</span>`;
+    const parts = String(roleStr).split(/[、,，]/).map(s => s.trim()).filter(s => s);
+    return parts.map(p => {
+      const m = p.match(/^(.+?)\((.+?)\)$/);
+      if (m) {
+        const r = m[1].trim();
+        const g = m[2].trim();
+        return `<span class="badge ${colors[r] || colors['小羊']}" title="${g}">${r}<small class="ms-1 opacity-75">${g}</small></span>`;
+      }
+      return `<span class="badge ${colors[p] || colors['小羊']}">${p}</span>`;
+    }).join(' ');
+  }
+
+  // 判斷字串是不是「多組複雜格式」（含括號）
+  function _isMultiRoleFormat(roleStr) {
+    return roleStr && String(roleStr).indexOf('(') !== -1;
+  }
+
+  // 切換 modal 內 身分編輯模式：單組 dropdown vs 多組 text
+  function _switchRoleEditMode(roleStr) {
+    const simple = document.getElementById('roleSimpleWrapper');
+    const adv = document.getElementById('roleAdvancedWrapper');
+    if (_isMultiRoleFormat(roleStr)) {
+      simple.style.display = 'none';
+      adv.style.display = 'block';
+      document.getElementById('editRoleAdvanced_Mem').value = roleStr || '';
+    } else {
+      simple.style.display = 'block';
+      adv.style.display = 'none';
+      const ROLES = ['核心同工','一般同工','小羊','陪伴同工'];
+      document.getElementById('editRole_Mem').value =
+        ROLES.indexOf((roleStr || '').trim()) !== -1 ? roleStr.trim() : '小羊';
+    }
   }
 
   function filterMembers() {
@@ -239,7 +281,6 @@
     document.getElementById('memberListModal').style.display = 'block';
     const btnShowQr = document.getElementById('btnShowQrCode');
     const groupInput = document.getElementById('editGroup_Mem');
-    const roleSelect = document.getElementById('editRole_Mem');
     if (row) {
       document.getElementById('memModalHeader').innerText = "編輯會友資料";
       document.getElementById('editOldName_Mem').value = row[0];
@@ -249,14 +290,11 @@
       document.getElementById('editIsExcluded_Mem').checked = (row[4] === true || row[4] === "TRUE");
       let uid = String(row[7] || "").trim();
       document.getElementById('editModal_Uid').value = uid || "無編號";
-      // 所屬小組：編輯時可改（主日是唯一真實來源）
       groupInput.value = row[8] || "";
       groupInput.readOnly = false;
       groupInput.classList.remove('bg-light');
-      groupInput.placeholder = "例如：磐石小組（可留空）";
-      // 身分：4 種選一
-      const ROLES = ['核心同工','一般同工','小羊','陪伴同工'];
-      roleSelect.value = ROLES.indexOf(row[9]) !== -1 ? row[9] : '小羊';
+      // 身分：根據格式自動切換 dropdown / 進階 text input
+      _switchRoleEditMode(row[9] || "");
       currentMemberName = row[0];
       currentQrUrl = uid ? "https://quickchart.io/qr?size=250x250&text=" + encodeURIComponent(uid) : "";
       btnShowQr.disabled = !uid;
@@ -270,8 +308,7 @@
       groupInput.value = "";
       groupInput.readOnly = false;
       groupInput.classList.remove('bg-light');
-      groupInput.placeholder = "例如：磐石小組（可留空）";
-      roleSelect.value = '小羊';
+      _switchRoleEditMode("小羊");  // 新增預設單組模式
       let nextUid = calculateNextUid(allMembersRawData);
       document.getElementById('editModal_Uid').value = nextUid;
       currentMemberName = "新會友";
@@ -381,7 +418,11 @@
     const note = document.getElementById('editNote_Mem').value.trim();
     const isExcluded = document.getElementById('editIsExcluded_Mem').checked;
     const group = document.getElementById('editGroup_Mem').value.trim();
-    const role = document.getElementById('editRole_Mem').value;
+    // 身分：依目前顯示的 wrapper 判斷取哪一個值
+    const useAdvanced = document.getElementById('roleAdvancedWrapper').style.display !== 'none';
+    const role = useAdvanced
+      ? document.getElementById('editRoleAdvanced_Mem').value.trim() || '小羊'
+      : document.getElementById('editRole_Mem').value;
     if (!name) return alert("請輸入姓名");
     const btn = document.getElementById('saveMemBtn');
     btn.disabled = true; btn.innerText = "處理中...";
