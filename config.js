@@ -85,26 +85,55 @@
 
   // 📋 快取設定（key = 完整 action 名稱含前綴；value = TTL 秒）
   const _CACHEABLE_ACTIONS = {
-    // 公開資料（無個資、變動低）
+    // 主日系統 — 全域資料
     'getGroups':                 600,    // 小組清單 10 分鐘
     'getGroupConfig':            600,    // 主日點名場次 10 分鐘
     'getWeeklyReport':           300,    // 本週聚會人數 5 分鐘
+    'getAllMembers':             300,    // 會友名單 5 分鐘
+    'getAdminGroupsList':        600,    // 後台小組清單 10 分鐘
+
+    // 主日系統 — 統計（per-data params 已自動 hash）
+    'getStats':                  300,    // 單一小組統計 5 分鐘
+    'getAllGroupsStats':         300,    // 全小組彙整統計 5 分鐘
+    'getAttendanceStats':        300,    // 主日出席統計 5 分鐘
+    'getAttendanceTrend':        600,    // 出席趨勢 10 分鐘
+
+    // 事工管理
     'ministry_getGroups':        600,    // 事工小組清單 10 分鐘
     'ministry_getTemplates':     3600,   // 事工模板清單 1 小時
-    'ministry_getAggregatedReport': 600  // 事工彙整報表 10 分鐘
+    'ministry_getAggregatedReport': 600, // 事工彙整報表 10 分鐘
+    'ministry_getPageConfig':    300     // 事工單一小組頁設定 5 分鐘
   };
 
   // 寫入時要連帶清除的 read-cache（key = 寫入 action，value = 要清掉的 read action 陣列）
+  // 使用 cacheDeleteAll 清整個 topic（包含所有 subkey），所以不分 data 變體
   const _INVALIDATE_ON_WRITE = {
-    'createGroup':            ['getGroups'],
-    'updateGroupInfo':        ['getGroups'],
+    // ── 會友名單異動 ──
+    'addMember':              ['getAllMembers', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig'],
+    'updateMember':           ['getAllMembers', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig'],
+    'deleteMember':           ['getAllMembers', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig'],
+
+    // ── 小組異動 ──
+    'createGroup':            ['getGroups', 'getAdminGroupsList'],
+    'updateGroupInfo':        ['getGroups', 'getAdminGroupsList'],
+    'updateMemberList':       ['getAllMembers', 'getStats', 'getAllGroupsStats', 'ministry_getPageConfig'],
+
+    // ── 主日點名異動 ──
     'createAttendanceGroup':  ['getGroupConfig'],
-    'submitAttendance':       ['getWeeklyReport'],
-    'updateAttendanceRecord': ['getWeeklyReport'],
-    'deleteAttendanceRecord': ['getWeeklyReport'],
-    'ministry_createGroup':       ['ministry_getGroups'],
+    'saveAttendance':         ['getWeeklyReport', 'getAttendanceStats', 'getAttendanceTrend', 'getStats', 'getAllGroupsStats'],
+    'revokeAttendance':       ['getWeeklyReport', 'getAttendanceStats', 'getAttendanceTrend', 'getStats', 'getAllGroupsStats'],
+
+    // ── 小組點名異動 ──
+    'submitAttendance':       ['getWeeklyReport', 'getStats', 'getAllGroupsStats'],
+    'updateAttendanceRecord': ['getWeeklyReport', 'getStats', 'getAllGroupsStats'],
+    'deleteAttendanceRecord': ['getWeeklyReport', 'getStats', 'getAllGroupsStats'],
+
+    // ── 事工異動 ──
+    'ministry_createGroup':       ['ministry_getGroups', 'ministry_getAggregatedReport'],
     'ministry_toggleGroupStatus': ['ministry_getGroups'],
-    'ministry_saveSheetData':     ['ministry_getAggregatedReport']
+    'ministry_saveSheetData':     ['ministry_getAggregatedReport', 'ministry_getPageConfig'],
+    'ministry_saveGroupPrompt':   ['ministry_getPageConfig'],
+    'ministry_saveGroupMembers':  ['ministry_getPageConfig']
   };
 
   // Lazy-load Firebase cache module（僅在需要時 import；失敗則自動 fallback 至直接 GAS 呼叫）
@@ -116,12 +145,11 @@
     return _firebaseCachePromise;
   }
 
-  // 為帶 data 的 cache 計算 key（無 data → action 本身）
-  function _makeCacheKey(action, data) {
-    if (!data || Object.keys(data).length === 0) return action;
+  // 為帶 data 的 cache 計算 subkey（無 data → null 走 _default）
+  function _makeSubkey(data) {
+    if (!data || Object.keys(data).length === 0) return null;
     const json = JSON.stringify(data);
-    const hash = btoa(unescape(encodeURIComponent(json))).replace(/[^a-zA-Z0-9]/g, '').substring(0, 24);
-    return action + '_' + hash;
+    return btoa(unescape(encodeURIComponent(json))).replace(/[^a-zA-Z0-9]/g, '').substring(0, 24);
   }
 
   // 直接打 GAS（不走 cache）
@@ -144,16 +172,16 @@
       : action;
 
     try {
-      // 🔥 可快取 → 走 Firebase
+      // 🔥 可快取 → 走 Firebase（cache 路徑：cache/{action}/{dataHash}）
       const ttl = _CACHEABLE_ACTIONS[realAction];
       if (ttl) {
         const fb = await _getFirebaseCache();
         if (fb && fb.cacheGetOrFetch) {
-          const cacheKey = _makeCacheKey(realAction, data);
+          const subkey = _makeSubkey(data);
           try {
-            return await fb.cacheGetOrFetch(cacheKey, () => _doDirectCall(realAction, data), ttl);
+            return await fb.cacheGetOrFetch(realAction, subkey, () => _doDirectCall(realAction, data), ttl);
           } catch (e) {
-            console.warn('[firebase-cache]', cacheKey, '失敗，回退直接呼叫:', e);
+            console.warn('[firebase-cache]', realAction, '失敗，回退直接呼叫:', e);
           }
         }
       }
@@ -161,14 +189,14 @@
       // 直接呼叫 GAS
       const result = await _doDirectCall(realAction, data);
 
-      // 🗑️ 寫入 action 觸發 cache 失效
+      // 🗑️ 寫入 action 觸發整個 topic 的 cache 失效（不分 data 變體）
       const toInvalidate = _INVALIDATE_ON_WRITE[realAction];
       if (toInvalidate && toInvalidate.length > 0) {
         const fb = await _getFirebaseCache();
-        if (fb && fb.cacheDelete) {
-          // 同步觸發但不 await（不影響使用者操作回應速度）
-          toInvalidate.forEach(act => {
-            fb.cacheDelete(act).catch(() => {});
+        if (fb && fb.cacheDeleteAll) {
+          // 不 await（不影響使用者操作回應速度）
+          toInvalidate.forEach(topic => {
+            fb.cacheDeleteAll(topic).catch(() => {});
           });
         }
       }
@@ -180,10 +208,10 @@
     }
   };
 
-  // 對外暴露：手動清除特定 action 的 cache（給特殊情境用）
-  window.churchAPIInvalidate = async function(actionOrKey) {
+  // 對外暴露：手動清除整個 topic 的 cache
+  window.churchAPIInvalidate = async function(topic) {
     const fb = await _getFirebaseCache();
-    if (fb && fb.cacheDelete) await fb.cacheDelete(actionOrKey);
+    if (fb && fb.cacheDeleteAll) await fb.cacheDeleteAll(topic);
   };
 
   // ============================================================
