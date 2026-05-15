@@ -76,11 +76,64 @@
   window.APIError = APIError;
 
   // ============================================================
-  //  🚀 中央 API 呼叫
+  //  🚀 中央 API 呼叫（含 Firebase RTDB 快取整合）
   //    若當前 _GAS_KEY 在 _ACTION_PREFIX 中，自動加前綴
-  //    例：LKC_MinistrySchedule_TEST 呼叫 'getGroups' → 後端收到 'ministry_getGroups'
+  //    若 action 在 _CACHEABLE_ACTIONS 中，自動經 Firebase 快取
+  //    若 action 在 _INVALIDATE_ON_WRITE 中，呼叫後自動清除相關快取
   // ============================================================
   const _actionPrefix = _ACTION_PREFIX[currentKey] || "";
+
+  // 📋 快取設定（key = 完整 action 名稱含前綴；value = TTL 秒）
+  const _CACHEABLE_ACTIONS = {
+    // 公開資料（無個資、變動低）
+    'getGroups':                 600,    // 小組清單 10 分鐘
+    'getGroupConfig':            600,    // 主日點名場次 10 分鐘
+    'getWeeklyReport':           300,    // 本週聚會人數 5 分鐘
+    'ministry_getGroups':        600,    // 事工小組清單 10 分鐘
+    'ministry_getTemplates':     3600,   // 事工模板清單 1 小時
+    'ministry_getAggregatedReport': 600  // 事工彙整報表 10 分鐘
+  };
+
+  // 寫入時要連帶清除的 read-cache（key = 寫入 action，value = 要清掉的 read action 陣列）
+  const _INVALIDATE_ON_WRITE = {
+    'createGroup':            ['getGroups'],
+    'updateGroupInfo':        ['getGroups'],
+    'createAttendanceGroup':  ['getGroupConfig'],
+    'submitAttendance':       ['getWeeklyReport'],
+    'updateAttendanceRecord': ['getWeeklyReport'],
+    'deleteAttendanceRecord': ['getWeeklyReport'],
+    'ministry_createGroup':       ['ministry_getGroups'],
+    'ministry_toggleGroupStatus': ['ministry_getGroups'],
+    'ministry_saveSheetData':     ['ministry_getAggregatedReport']
+  };
+
+  // Lazy-load Firebase cache module（僅在需要時 import；失敗則自動 fallback 至直接 GAS 呼叫）
+  let _firebaseCachePromise = null;
+  function _getFirebaseCache() {
+    if (_firebaseCachePromise) return _firebaseCachePromise;
+    _firebaseCachePromise = import('https://jirehwang.github.io/LKC1958_June_1.github.io/firebase/firebase-cache.js')
+      .catch(err => { console.warn('[firebase-cache] 載入失敗，將以直接呼叫 GAS 模式運作:', err); return null; });
+    return _firebaseCachePromise;
+  }
+
+  // 為帶 data 的 cache 計算 key（無 data → action 本身）
+  function _makeCacheKey(action, data) {
+    if (!data || Object.keys(data).length === 0) return action;
+    const json = JSON.stringify(data);
+    const hash = btoa(unescape(encodeURIComponent(json))).replace(/[^a-zA-Z0-9]/g, '').substring(0, 24);
+    return action + '_' + hash;
+  }
+
+  // 直接打 GAS（不走 cache）
+  async function _doDirectCall(realAction, data) {
+    const resp = await fetch(window.GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: realAction, token: window.AUTH_TOKEN, data: data })
+    });
+    return await resp.json();
+  }
+
   window.churchAPI = async function(action, data = {}) {
     if (!window.GAS_URL) {
       throw new APIError("系統尚未就緒：GAS_URL 為空", null, 'CONFIG_ERROR');
@@ -89,17 +142,48 @@
     const realAction = (_actionPrefix && action.indexOf(_actionPrefix) !== 0)
       ? _actionPrefix + action
       : action;
+
     try {
-      const resp = await fetch(window.GAS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: realAction, token: window.AUTH_TOKEN, data: data })
-      });
-      return await resp.json();
+      // 🔥 可快取 → 走 Firebase
+      const ttl = _CACHEABLE_ACTIONS[realAction];
+      if (ttl) {
+        const fb = await _getFirebaseCache();
+        if (fb && fb.cacheGetOrFetch) {
+          const cacheKey = _makeCacheKey(realAction, data);
+          try {
+            return await fb.cacheGetOrFetch(cacheKey, () => _doDirectCall(realAction, data), ttl);
+          } catch (e) {
+            console.warn('[firebase-cache]', cacheKey, '失敗，回退直接呼叫:', e);
+          }
+        }
+      }
+
+      // 直接呼叫 GAS
+      const result = await _doDirectCall(realAction, data);
+
+      // 🗑️ 寫入 action 觸發 cache 失效
+      const toInvalidate = _INVALIDATE_ON_WRITE[realAction];
+      if (toInvalidate && toInvalidate.length > 0) {
+        const fb = await _getFirebaseCache();
+        if (fb && fb.cacheDelete) {
+          // 同步觸發但不 await（不影響使用者操作回應速度）
+          toInvalidate.forEach(act => {
+            fb.cacheDelete(act).catch(() => {});
+          });
+        }
+      }
+
+      return result;
     } catch (err) {
       console.error("📡 API 通訊失敗:", err);
       throw err;
     }
+  };
+
+  // 對外暴露：手動清除特定 action 的 cache（給特殊情境用）
+  window.churchAPIInvalidate = async function(actionOrKey) {
+    const fb = await _getFirebaseCache();
+    if (fb && fb.cacheDelete) await fb.cacheDelete(actionOrKey);
   };
 
   // ============================================================
