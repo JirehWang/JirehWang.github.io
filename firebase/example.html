@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>Firebase 快取使用範例</title>
+</head>
+<body>
+  <h1>Firebase Firestore 快取測試</h1>
+  <button id="btn-set">寫入快取</button>
+  <button id="btn-get">讀取快取</button>
+  <button id="btn-del">刪除快取</button>
+  <pre id="output">（按按鈕看結果）</pre>
+
+  <!-- 關鍵：type="module" 才能用 import -->
+  <script type="module">
+    import { cacheGet, cacheSet, cacheDelete, cacheGetOrFetch } from './firebase-cache.js';
+
+    const out = document.getElementById('output');
+    const log = (label, data) => {
+      out.textContent = `[${label}] ${new Date().toLocaleTimeString()}\n` +
+                        JSON.stringify(data, null, 2);
+    };
+
+    document.getElementById('btn-set').onclick = async () => {
+      const payload = { hello: 'world', time: Date.now() };
+      await cacheSet('demo-key', payload, 60);   // 60 秒後過期
+      log('SET', payload);
+    };
+
+    document.getElementById('btn-get').onclick = async () => {
+      const data = await cacheGet('demo-key');
+      log('GET', data);
+    };
+
+    document.getElementById('btn-del').onclick = async () => {
+      await cacheDelete('demo-key');
+      log('DELETE', 'done');
+    };
+
+    // 範例：搭配 GAS 使用（取消註解後使用）
+    //
+    // const songs = await cacheGetOrFetch(
+    //   'worship-songs-2026',
+    //   () => window.churchAPI('getSongs'),   // 沒命中快取時才呼叫 GAS
+    //   600                                   // 快取 10 分鐘
+    // );
+  </script>
+</body>
+</html>
