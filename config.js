@@ -84,25 +84,28 @@
   const _actionPrefix = _ACTION_PREFIX[currentKey] || "";
 
   // 📋 快取設定（key = 完整 action 名稱含前綴；value = TTL 秒）
+  // 統一 21600 = 6 小時。實際更新依靠 invalidation 機制（前端 + GAS + onEdit）
+  // TTL 只是「兜底」：若 invalidation 全部漏接，最壞 6 小時後自動刷新
+  const _SIX_HOURS = 21600;
   const _CACHEABLE_ACTIONS = {
     // 主日系統 — 全域資料
-    'getGroups':                 600,    // 小組清單 10 分鐘
-    'getGroupConfig':            600,    // 主日點名場次 10 分鐘
-    'getWeeklyReport':           300,    // 本週聚會人數 5 分鐘
-    'getAllMembers':             300,    // 會友名單 5 分鐘
-    'getAdminGroupsList':        600,    // 後台小組清單 10 分鐘
+    'getGroups':                    _SIX_HOURS,
+    'getGroupConfig':               _SIX_HOURS,
+    'getWeeklyReport':              _SIX_HOURS,
+    'getAllMembers':                _SIX_HOURS,
+    'getAdminGroupsList':           _SIX_HOURS,
 
-    // 主日系統 — 統計（per-data params 已自動 hash）
-    'getStats':                  300,    // 單一小組統計 5 分鐘
-    'getAllGroupsStats':         300,    // 全小組彙整統計 5 分鐘
-    'getAttendanceStats':        300,    // 主日出席統計 5 分鐘
-    'getAttendanceTrend':        600,    // 出席趨勢 10 分鐘
+    // 主日系統 — 統計
+    'getStats':                     _SIX_HOURS,
+    'getAllGroupsStats':            _SIX_HOURS,
+    'getAttendanceStats':           _SIX_HOURS,
+    'getAttendanceTrend':           _SIX_HOURS,
 
     // 事工管理
-    'ministry_getGroups':        600,    // 事工小組清單 10 分鐘
-    'ministry_getTemplates':     3600,   // 事工模板清單 1 小時
-    'ministry_getAggregatedReport': 600, // 事工彙整報表 10 分鐘
-    'ministry_getPageConfig':    300     // 事工單一小組頁設定 5 分鐘
+    'ministry_getGroups':           _SIX_HOURS,
+    'ministry_getTemplates':        _SIX_HOURS,
+    'ministry_getAggregatedReport': _SIX_HOURS,
+    'ministry_getPageConfig':       _SIX_HOURS
   };
 
   // 寫入時要連帶清除的 read-cache（key = 寫入 action，value = 要清掉的 read action 陣列）
