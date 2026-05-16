@@ -94,6 +94,7 @@
     'getWeeklyReport':              _SIX_HOURS,
     'getAllMembers':                _SIX_HOURS,
     'getAdminGroupsList':           _SIX_HOURS,
+    'getAllGroupMembers':           _SIX_HOURS,
 
     // 主日系統 — 統計
     'getStats':                     _SIX_HOURS,
@@ -112,14 +113,14 @@
   // 使用 cacheDeleteAll 清整個 topic（包含所有 subkey），所以不分 data 變體
   const _INVALIDATE_ON_WRITE = {
     // ── 會友名單異動 ──
-    'addMember':              ['getAllMembers', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig'],
-    'updateMember':           ['getAllMembers', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig'],
-    'deleteMember':           ['getAllMembers', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig'],
+    'addMember':              ['getAllMembers', 'getAllGroupMembers', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig'],
+    'updateMember':           ['getAllMembers', 'getAllGroupMembers', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig'],
+    'deleteMember':           ['getAllMembers', 'getAllGroupMembers', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig'],
 
     // ── 小組異動 ──
     'createGroup':            ['getGroups', 'getAdminGroupsList'],
     'updateGroupInfo':        ['getGroups', 'getAdminGroupsList'],
-    'updateMemberList':       ['getAllMembers', 'getStats', 'getAllGroupsStats', 'ministry_getPageConfig'],
+    'updateMemberList':       ['getAllMembers', 'getAllGroupMembers', 'getStats', 'getAllGroupsStats', 'ministry_getPageConfig'],
 
     // ── 主日點名異動 ──
     'createAttendanceGroup':  ['getGroupConfig'],

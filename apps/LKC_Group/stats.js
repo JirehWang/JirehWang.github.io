@@ -66,6 +66,9 @@ document.getElementById('groupCode').addEventListener('input', (e) => {
                 idRes.className = 'status-badge status-ok';
                 idRes.innerText = isAdmin ? '🛡️ 最高權限模式' : `✅ 小組：${res.groupName}`;
                 adminSelect.style.display = isAdmin ? 'inline-block' : 'none';
+                // 管理員模式才顯示「總小組成員清單」標籤
+                const allMembersLabel = document.getElementById('typeAllMembersLabel');
+                if (allMembersLabel) allMembersLabel.style.display = isAdmin ? 'inline-block' : 'none';
                 if (isAdmin) await loadAdminOptions();
             } else {
                 identifiedGroupName = "";
@@ -105,7 +108,11 @@ async function loadStats() {
     showLoading("正在彙整報表數據...");
     
     try {
-        if (reportType === "WEEKLY") {
+        if (reportType === "ALL_MEMBERS") {
+            // 管理員專屬：總小組成員清單
+            const res = await callAPI('getAllGroupMembers', { authCode: code });
+            renderAllGroupMembers(res);
+        } else if (reportType === "WEEKLY") {
             const targetGroup = (group === "ALL") ? "小組清單" : group;
             const res = await callAPI('getStats', {
                 groupName: targetGroup,
@@ -130,6 +137,72 @@ async function loadStats() {
     } finally {
         hideLoading();
     }
+}
+
+// --- 渲染：總小組成員清單（管理員專用）---
+function renderAllGroupMembers(res) {
+    if (!res.success) return userNotification.error(res.message || "讀取失敗");
+    const thead = document.querySelector('#statsTable thead');
+    const tbody = document.querySelector('#statsTable tbody');
+
+    thead.innerHTML = `
+        <tr>
+            <th style="width: 18%;">姓名</th>
+            <th style="width: 10%;">性別</th>
+            <th style="width: 18%;">系統編號</th>
+            <th style="width: 30%;">所屬小組</th>
+            <th style="width: 24%;">身分</th>
+        </tr>
+    `;
+
+    if (!res.data || res.data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:30px; color:#999;">沒有任何已歸組會友</td></tr>`;
+        return;
+    }
+
+    // 依組別 → 姓名排序
+    const sorted = res.data.slice().sort((a, b) => {
+        const ga = (a.group || '').localeCompare(b.group || '');
+        if (ga !== 0) return ga;
+        return (a.name || '').localeCompare(b.name || '');
+    });
+
+    tbody.innerHTML = sorted.map(m => {
+        const genderColor = m.gender === '男' ? '#0d6efd' : (m.gender === '女' ? '#dc3545' : '#6c757d');
+        // 多組身分 → 拆 badge 顯示
+        const roleHtml = _renderRoleBadges(m.role);
+        // 多組所屬小組 → 拆顯示
+        const groupHtml = (m.group || '').split(/[、,，]/).map(s => s.trim()).filter(s => s).map(g =>
+            `<span style="background:#e3f2fd; color:#1565c0; padding:2px 8px; border-radius:4px; font-size:12px; margin:1px; display:inline-block;">${g}</span>`
+        ).join(' ');
+        return `
+            <tr>
+                <td style="font-weight:bold;">${m.name}</td>
+                <td style="color:${genderColor}; font-weight:bold;">${m.gender || '-'}</td>
+                <td style="font-family:monospace; color:#666;">${m.uid || '-'}</td>
+                <td>${groupHtml || '<span style="color:#ccc;">-</span>'}</td>
+                <td>${roleHtml || '<span style="color:#ccc;">-</span>'}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// 身分 badge 渲染（支援單組與多組「核心同工(A組)、一般同工(B組)」格式）
+function _renderRoleBadges(roleStr) {
+    if (!roleStr) return '';
+    const COLORS = {
+        '核心同工': 'background:#0d6efd; color:#fff;',
+        '一般同工': 'background:#0dcaf0; color:#000;',
+        '陪伴同工': 'background:#6c757d; color:#fff;',
+        '小羊':     'background:#e9ecef; color:#333;'
+    };
+    return String(roleStr).split(/[、,，]/).map(s => s.trim()).filter(s => s).map(p => {
+        const m = p.match(/^(.+?)\((.+?)\)$/);
+        const r = m ? m[1].trim() : p;
+        const g = m ? `<small style="opacity:0.8; margin-left:4px;">${m[2].trim()}</small>` : '';
+        const style = COLORS[r] || COLORS['小羊'];
+        return `<span style="${style} padding:2px 8px; border-radius:4px; font-size:12px; margin:1px; display:inline-block;">${r}${g}</span>`;
+    }).join(' ');
 }
 
 // --- 渲染：每週出席人次 (包含出席組員與新朋友名單) ---

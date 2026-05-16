@@ -39,18 +39,16 @@
     <table class="table table-hover align-middle mb-0" style="min-width: 800px;"> 
       <thead class="table-dark">
         <tr>
-          <th style="width: 110px;">姓名</th>
-          <th style="width: 70px;">性別</th>
-          <th style="width: 110px;">建立日期</th>
+          <th style="width: 120px;">姓名</th>
+          <th style="width: 80px;">性別</th>
+          <th style="width: 120px;">建立日期</th>
           <th>備註</th>
-          <th style="width: 100px;">所屬小組</th>
-          <th style="width: 90px;">身分</th>
-          <th style="width: 90px;">狀態</th>
-          <th style="width: 120px;">操作</th>
+          <th style="width: 100px;">狀態</th>
+          <th style="width: 140px;">操作</th>
         </tr>
       </thead>
       <tbody id="memberTableBody">
-        <tr><td colspan="8" class="text-center p-5">資料載入中...</td></tr>
+        <tr><td colspan="6" class="text-center p-5">資料載入中...</td></tr>
       </tbody>
     </table>
   </div>
@@ -89,34 +87,13 @@
         <textarea id="editNote_Mem" class="form-control" rows="3" placeholder="其他聯絡資訊或註記..."></textarea>
       </div>
       <div class="col-12">
-        <label class="form-label fw-bold small text-muted">
-          所屬小組
-          <span class="text-info fw-normal">（多組以「、」分隔，例：葡萄樹A組、以斯帖小組）</span>
-        </label>
-        <input type="text" id="editGroup_Mem" class="form-control" placeholder="例：葡萄樹A組（可留空）">
-      </div>
-      <div class="col-12" id="roleSimpleWrapper">
-        <label class="form-label fw-bold small text-muted">身分（單組）</label>
-        <select id="editRole_Mem" class="form-select">
-          <option value="小羊">🐑 小羊（預設）</option>
-          <option value="一般同工">一般同工</option>
-          <option value="核心同工">⭐ 核心同工</option>
-          <option value="陪伴同工">陪伴同工</option>
-        </select>
-      </div>
-      <div class="col-12" id="roleAdvancedWrapper" style="display:none;">
-        <label class="form-label fw-bold small text-muted">
-          身分（多組）
-          <span class="text-info fw-normal">格式：核心同工(葡萄樹A組)、一般同工(以斯帖小組)</span>
-        </label>
-        <input type="text" id="editRoleAdvanced_Mem" class="form-control"
-               placeholder="例：核心同工(葡萄樹A組)、一般同工(以斯帖小組)">
-      </div>
-      <div class="col-12">
         <div class="form-check form-switch mt-2">
           <input class="form-check-input" type="checkbox" id="editIsExcluded_Mem">
           <label class="form-check-label fw-bold" for="editIsExcluded_Mem">不列入主日出席率統計</label>
         </div>
+        <small class="text-muted">
+          ℹ️ 所屬小組與身分請至「<a href="../LKC_Group/" target="_blank">小組系統</a>」管理
+        </small>
       </div>
     </div>
     <div class="text-end mt-4">
@@ -166,54 +143,11 @@
 
   function refreshMemberTable() {
     const tbody = document.getElementById('memberTableBody');
-    tbody.innerHTML = '<tr><td colspan="8" class="text-center p-5"><div class="spinner-border text-primary"></div><br>資料載入中...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center p-5"><div class="spinner-border text-primary"></div><br>資料載入中...</td></tr>';
     google.script.run.withSuccessHandler(function(data) {
       allMembersRawData = data || [];
       filterMembers();
     }).getAllMembers();
-  }
-
-  // 身分顯示：自動拆解多組格式 → 多個 badge
-  function _roleBadge(roleStr) {
-    if (!roleStr) return '<span class="badge bg-light text-dark border">小羊</span>';
-    const colors = {
-      '核心同工': 'bg-primary',
-      '一般同工': 'bg-info text-dark',
-      '陪伴同工': 'bg-secondary',
-      '小羊':     'bg-light text-dark border'
-    };
-    const parts = String(roleStr).split(/[、,，]/).map(s => s.trim()).filter(s => s);
-    return parts.map(p => {
-      const m = p.match(/^(.+?)\((.+?)\)$/);
-      if (m) {
-        const r = m[1].trim();
-        const g = m[2].trim();
-        return `<span class="badge ${colors[r] || colors['小羊']}" title="${g}">${r}<small class="ms-1 opacity-75">${g}</small></span>`;
-      }
-      return `<span class="badge ${colors[p] || colors['小羊']}">${p}</span>`;
-    }).join(' ');
-  }
-
-  // 判斷字串是不是「多組複雜格式」（含括號）
-  function _isMultiRoleFormat(roleStr) {
-    return roleStr && String(roleStr).indexOf('(') !== -1;
-  }
-
-  // 切換 modal 內 身分編輯模式：單組 dropdown vs 多組 text
-  function _switchRoleEditMode(roleStr) {
-    const simple = document.getElementById('roleSimpleWrapper');
-    const adv = document.getElementById('roleAdvancedWrapper');
-    if (_isMultiRoleFormat(roleStr)) {
-      simple.style.display = 'none';
-      adv.style.display = 'block';
-      document.getElementById('editRoleAdvanced_Mem').value = roleStr || '';
-    } else {
-      simple.style.display = 'block';
-      adv.style.display = 'none';
-      const ROLES = ['核心同工','一般同工','小羊','陪伴同工'];
-      document.getElementById('editRole_Mem').value =
-        ROLES.indexOf((roleStr || '').trim()) !== -1 ? roleStr.trim() : '小羊';
-    }
   }
 
   function filterMembers() {
@@ -232,7 +166,7 @@
   function renderTable(data) {
     const tbody = document.getElementById('memberTableBody');
     if (!data || data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="text-center p-5 text-muted">查無資料</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center p-5 text-muted">查無資料</td></tr>';
       return;
     }
     let html = '';
@@ -245,9 +179,7 @@
         <td class="text-dark"><strong>${row[0]}</strong></td>
         <td>${row[1] || ''}</td>
         <td><small class="text-muted">${dateStr}</small></td>
-        <td title="${row[3] || ''}"><div class="text-truncate" style="max-width:150px;">${row[3] || ''}</div></td>
-        <td><small class="text-muted">${row[8] || ''}</small></td>
-        <td>${_roleBadge(row[9])}</td>
+        <td title="${row[3] || ''}"><div class="text-truncate" style="max-width:200px;">${row[3] || ''}</div></td>
         <td>${isExcluded ? '<span class="badge bg-warning text-dark">不統計</span>' : '<span class="badge bg-success bg-opacity-10 text-success border border-success">正常</span>'}</td>
         <td>
           <div class="btn-group">
@@ -280,7 +212,6 @@
   function openMemberModal(row = null) {
     document.getElementById('memberListModal').style.display = 'block';
     const btnShowQr = document.getElementById('btnShowQrCode');
-    const groupInput = document.getElementById('editGroup_Mem');
     if (row) {
       document.getElementById('memModalHeader').innerText = "編輯會友資料";
       document.getElementById('editOldName_Mem').value = row[0];
@@ -290,11 +221,6 @@
       document.getElementById('editIsExcluded_Mem').checked = (row[4] === true || row[4] === "TRUE");
       let uid = String(row[7] || "").trim();
       document.getElementById('editModal_Uid').value = uid || "無編號";
-      groupInput.value = row[8] || "";
-      groupInput.readOnly = false;
-      groupInput.classList.remove('bg-light');
-      // 身分：根據格式自動切換 dropdown / 進階 text input
-      _switchRoleEditMode(row[9] || "");
       currentMemberName = row[0];
       currentQrUrl = uid ? "https://quickchart.io/qr?size=250x250&text=" + encodeURIComponent(uid) : "";
       btnShowQr.disabled = !uid;
@@ -305,10 +231,6 @@
       document.getElementById('editGender_Mem').value = "男";
       document.getElementById('editNote_Mem').value = "";
       document.getElementById('editIsExcluded_Mem').checked = false;
-      groupInput.value = "";
-      groupInput.readOnly = false;
-      groupInput.classList.remove('bg-light');
-      _switchRoleEditMode("小羊");  // 新增預設單組模式
       let nextUid = calculateNextUid(allMembersRawData);
       document.getElementById('editModal_Uid').value = nextUid;
       currentMemberName = "新會友";
@@ -417,12 +339,6 @@
     const gender = document.getElementById('editGender_Mem').value;
     const note = document.getElementById('editNote_Mem').value.trim();
     const isExcluded = document.getElementById('editIsExcluded_Mem').checked;
-    const group = document.getElementById('editGroup_Mem').value.trim();
-    // 身分：依目前顯示的 wrapper 判斷取哪一個值
-    const useAdvanced = document.getElementById('roleAdvancedWrapper').style.display !== 'none';
-    const role = useAdvanced
-      ? document.getElementById('editRoleAdvanced_Mem').value.trim() || '小羊'
-      : document.getElementById('editRole_Mem').value;
     if (!name) return alert("請輸入姓名");
     const btn = document.getElementById('saveMemBtn');
     btn.disabled = true; btn.innerText = "處理中...";
@@ -432,16 +348,15 @@
       if (msg && msg.includes("成功")) { closeMemberModal(); refreshMemberTable(); }
     };
 
+    // 所屬小組、身分由小組系統管理，此處不傳
     if (!oldName) {
-      // 新增：含 所屬小組 + 身分
       google.script.run
         .withSuccessHandler(onSuccess)
-        .addMember({ name, gender, note, isExcluded, group, role });
+        .addMember({ name, gender, note, isExcluded });
     } else {
-      // 編輯：含 所屬小組 + 身分（主日為唯一真實來源）
       google.script.run
         .withSuccessHandler(onSuccess)
-        .updateMember(oldName, { name, gender, note, isExcluded, group, role });
+        .updateMember(oldName, { name, gender, note, isExcluded });
     }
   }
 
