@@ -77,12 +77,16 @@
 
       </div>
 
-      <div class="mb-3 d-flex gap-2">
+      <div class="mb-3 d-flex gap-2 flex-wrap">
         <button class="btn btn-sm btn-outline-secondary shadow-sm" onclick="document.getElementById('promptSettings').classList.toggle('hidden')">
           ⚙️ 設定小組專屬 AI 排班規則
         </button>
         <button id="manageMembersBtn" class="btn btn-sm btn-outline-primary shadow-sm hidden" onclick="openMemberModal()">
           👥 管理同工名單
+        </button>
+        <!-- 小組/團契模板專屬：直接編輯 master 成員身分 -->
+        <button id="manageGroupRolesBtn" class="btn btn-sm btn-outline-success shadow-sm hidden" onclick="openGroupRoleModal()">
+          🧑‍🤝‍🧑 設定組員身分
         </button>
       </div>
 
@@ -135,6 +139,30 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
           <button type="button" class="btn btn-primary fw-bold" onclick="saveMembersToServer()">💾 儲存名單</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 設定組員身分（小組/團契模板專用） -->
+  <div class="modal fade" id="groupRoleModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title fw-bold">🧑‍🤝‍🧑 設定 <span id="groupRoleModalTitle"></span> 組員身分</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-info small mb-3 py-2">
+            💡 此處設定的身分會寫回主日的會友名單，<b>小組系統、AI 排班會即時同步</b>
+          </div>
+          <ul id="groupRoleList" class="list-group" style="max-height: 55vh; overflow-y: auto;">
+            <li class="list-group-item text-center text-muted">載入中...</li>
+          </ul>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-success fw-bold" onclick="saveGroupRoles()">💾 儲存變更</button>
         </div>
       </div>
     </div>

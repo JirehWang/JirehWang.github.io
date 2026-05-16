@@ -351,7 +351,10 @@ function renderTable(data) {
   localCustomMembers = data.customMembers || [];
 
   const memberBtn = document.getElementById('manageMembersBtn');
-  if (memberBtn && currentTemplate !== "小組聚會表模板" && currentTemplate !== "團契聚會表模板") {
+  const groupRoleBtn = document.getElementById('manageGroupRolesBtn');
+  const isGroupOrFellowship = (currentTemplate === "小組聚會表模板" || currentTemplate === "團契聚會表模板");
+
+  if (memberBtn && !isGroupOrFellowship) {
     memberBtn.classList.remove('hidden');
     currentGroupMembers = localCustomMembers.map(m => m.name);
 
@@ -361,6 +364,13 @@ function renderTable(data) {
       let normalNames = localCustomMembers.filter(m => m.role === "一般同工").map(m => m.name).join(", ");
       currentAutoRoleRules = `【系統強制權限】：\n小家長 (${parentNames})：可排所有服事。\n一般同工 (${normalNames})：不可排特定帶領服事。`;
     }
+  } else if (memberBtn) {
+    memberBtn.classList.add('hidden');
+  }
+
+  // 小組/團契模板才顯示「設定組員身分」按鈕（直接編輯 master）
+  if (groupRoleBtn) {
+    groupRoleBtn.classList.toggle('hidden', !isGroupOrFellowship);
   }
 
   const promptInput = document.getElementById('groupPromptInput');
@@ -1281,6 +1291,109 @@ async function saveMembersToServer() {
   } finally {
     getNotifier().hideLoading();
     getUIState().unlock('saveMembersToServer');
+  }
+}
+
+
+// ============================================================
+//  🧑‍🤝‍🧑 設定小組組員身分（小組/團契模板專用，跳過小組系統直接編輯 master）
+// ============================================================
+let _groupRoleEditingMembers = [];
+
+async function openGroupRoleModal() {
+  if (window.event) window.event.preventDefault();
+  if (!activeGroupName) {
+    getNotifier().warning("⚠️ 尚未載入小組資料");
+    return;
+  }
+
+  document.getElementById('groupRoleModalTitle').innerText = activeGroupName;
+  const listEl = document.getElementById('groupRoleList');
+  listEl.innerHTML = '<li class="list-group-item text-center text-muted"><div class="spinner-border spinner-border-sm me-2"></div>載入中...</li>';
+
+  new bootstrap.Modal(document.getElementById('groupRoleModal')).show();
+
+  try {
+    const data = await fetchAPI('getGroupMembers', { groupName: activeGroupName });
+    if (!data || !data.isInitialized) {
+      listEl.innerHTML = '<li class="list-group-item text-center text-warning py-3">⚠️ 此小組尚未初始化名單<br><small class="text-muted">請先去小組系統初始化</small></li>';
+      _groupRoleEditingMembers = [];
+      return;
+    }
+    _groupRoleEditingMembers = (data.members || []).map(m => ({ ...m }));
+    renderGroupRoleList();
+  } catch (err) {
+    handleAPIError(err);
+    listEl.innerHTML = `<li class="list-group-item text-center text-danger py-3">❌ 載入失敗</li>`;
+  }
+}
+
+function renderGroupRoleList() {
+  const listEl = document.getElementById('groupRoleList');
+  if (_groupRoleEditingMembers.length === 0) {
+    listEl.innerHTML = '<li class="list-group-item text-center text-muted py-3">此小組沒有任何成員</li>';
+    return;
+  }
+  listEl.innerHTML = _groupRoleEditingMembers.map((m, idx) => {
+    const roleColors = {
+      '核心同工': 'border-start border-primary border-4',
+      '一般同工': 'border-start border-info border-4',
+      '陪伴同工': 'border-start border-secondary border-4',
+      '小羊':     'border-start border-light border-4'
+    };
+    const bClass = roleColors[m.role] || roleColors['小羊'];
+    const nickname = (m.nickname || '').trim();
+    return `
+      <li class="list-group-item d-flex justify-content-between align-items-center ${bClass}">
+        <div>
+          <span class="fw-bold">${m.name}</span>
+          ${nickname ? `<small class="text-muted ms-2">(${nickname})</small>` : ''}
+        </div>
+        <select class="form-select form-select-sm" style="width: 150px;"
+                onchange="updateGroupRoleByIdx(${idx}, this.value)">
+          <option value="核心同工" ${m.role === '核心同工' ? 'selected' : ''}>⭐ 核心同工</option>
+          <option value="一般同工" ${m.role === '一般同工' ? 'selected' : ''}>👤 一般同工</option>
+          <option value="小羊"     ${m.role === '小羊'     ? 'selected' : ''}>🐑 小羊</option>
+          <option value="陪伴同工" ${m.role === '陪伴同工' ? 'selected' : ''}>👥 陪伴同工</option>
+        </select>
+      </li>
+    `;
+  }).join('');
+}
+
+function updateGroupRoleByIdx(idx, newRole) {
+  if (_groupRoleEditingMembers[idx]) {
+    _groupRoleEditingMembers[idx].role = newRole;
+    // 即時更新左側 border 顏色
+    renderGroupRoleList();
+  }
+}
+
+async function saveGroupRoles() {
+  if (window.event) window.event.preventDefault();
+  if (getUIState().isLocked('saveGroupRoles')) return;
+  getUIState().lock('saveGroupRoles');
+
+  getNotifier().showLoading("💾 儲存身分中...");
+  try {
+    await fetchAPI('updateGroupMemberRoles', {
+      groupName: activeGroupName,
+      members: _groupRoleEditingMembers
+    });
+    getNotifier().success("✅ 身分已更新！小組系統與 AI 排班會即時同步");
+
+    const modal = bootstrap.Modal.getInstance(document.getElementById('groupRoleModal'));
+    if (modal) modal.hide();
+
+    // 重新讀取頁面設定（讓 AI 規則更新到新身分）
+    getNotifier().showLoading("🔄 更新畫面中...");
+    const freshConfig = await fetchAPI('getPageConfig', { id: currentId });
+    renderTable(freshConfig);
+  } catch (err) {
+    handleAPIError(err);
+  } finally {
+    getNotifier().hideLoading();
+    getUIState().unlock('saveGroupRoles');
   }
 }
 

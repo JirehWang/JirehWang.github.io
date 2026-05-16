@@ -107,7 +107,8 @@
     'ministry_getGroups':           _SIX_HOURS,
     'ministry_getTemplates':        _SIX_HOURS,
     'ministry_getAggregatedReport': _SIX_HOURS,
-    'ministry_getPageConfig':       _SIX_HOURS
+    'ministry_getPageConfig':       _SIX_HOURS,
+    'ministry_getGroupMembers':     _SIX_HOURS
   };
 
   // 寫入時要連帶清除的 read-cache（key = 寫入 action，value = 要清掉的 read action 陣列）
@@ -121,7 +122,8 @@
     // ── 小組異動 ──
     'createGroup':            ['getGroups', 'getAdminGroupsList'],
     'updateGroupInfo':        ['getGroups', 'getAdminGroupsList'],
-    'updateMemberList':       ['getAllMembers', 'getAllGroupMembers', 'getStats', 'getAllGroupsStats', 'ministry_getPageConfig'],
+    'updateMemberList':       ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'ministry_getPageConfig', 'ministry_getGroupMembers'],
+    'ministry_updateGroupMemberRoles': ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'ministry_getPageConfig', 'ministry_getGroupMembers'],
 
     // ── 主日點名異動 ──
     'createAttendanceGroup':  ['getGroupConfig'],
