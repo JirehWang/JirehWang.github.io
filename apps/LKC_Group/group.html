@@ -78,11 +78,17 @@
             <h3 style="margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; color: #333;">📝 管理名單與身分</h3>
             
             <div class="edit-add-box">
-                <input type="text" id="newMemberInput" placeholder="新增姓名" onkeypress="if(event.key==='Enter') addEditMember()">
+                <input type="text" id="newMemberInput"
+                       list="memberSuggestionsList"
+                       autocomplete="off"
+                       placeholder="輸入姓名（會自動下拉會友清單，找不到也可直接輸入新人）"
+                       onkeypress="if(event.key==='Enter') addEditMember()">
+                <datalist id="memberSuggestionsList"></datalist>
                 <select id="newMemberRole" class="edit-role-select">
                     <option value="小羊">小羊</option>
                     <option value="一般同工">一般同工</option>
                     <option value="核心同工">核心同工</option>
+                    <option value="陪伴同工">陪伴同工</option>
                 </select>
                 <button class="btn-add" onclick="addEditMember()">➕ 新增</button>
             </div>

@@ -162,16 +162,19 @@ function openEditAttendanceModal(index) {
 
     const listDiv = document.getElementById('editAttendanceMemberList');
 
-    // checkbox value 用 UID
+    // checkbox value 用 UID；顯示帶 UID 後綴避免同名混淆
     listDiv.innerHTML = currentMembers.map(m => {
         const uid = m.uid || '';
         const isChecked = uid && presentUidSet.has(uid.toUpperCase()) ? 'checked' : '';
         const roleClass = getRoleClass(m.role);
+        const uidTag = uid
+            ? `<small style="color:#888; font-family:monospace; margin-left:4px;">(${uid})</small>`
+            : `<small style="color:#dc3545; margin-left:4px;">(無編號)</small>`;
         return `
             <div class="member-item">
                 <input type="checkbox" class="edit-attendance-check" value="${uid}" data-name="${m.name}" ${isChecked}>
                 <span class="role-badge ${roleClass}">${m.role}</span>
-                <span style="font-size: 16px; font-weight: bold; color: #333;">${m.name}</span>
+                <span style="font-size: 16px; font-weight: bold; color: #333;">${m.name}</span>${uidTag}
             </div>
         `;
     }).join('');
@@ -238,7 +241,8 @@ async function initGroup() {
 }
 
 // 💡 更新：今日點名時，照常顯示所有組員 (包含陪伴同工)，讓他們能被記錄
-//    checkbox value 用 UID（後端用 UID 儲存），data-name 留作備援顯示
+//    checkbox value 用 UID（後端用 UID 儲存）
+//    顯示加上 UID 後綴避免同名混淆：王小明 (LK00001)
 function renderMemberList(members) {
     const list = document.getElementById('memberList');
     if (members.length === 0) {
@@ -248,11 +252,14 @@ function renderMemberList(members) {
     list.innerHTML = members.map(m => {
         const roleClass = getRoleClass(m.role);
         const uid = m.uid || '';
+        const uidTag = uid
+            ? `<small style="color:#888; font-family:monospace; margin-left:4px;">(${uid})</small>`
+            : `<small style="color:#dc3545; margin-left:4px;">(無編號)</small>`;
         return `
             <div class="member-item">
                 <input type="checkbox" class="attendance-check" value="${uid}" data-name="${m.name}">
                 <span class="role-badge ${roleClass}">${m.role}</span>
-                <span style="font-size: 16px; font-weight: bold; color: #333;">${m.name}</span>
+                <span style="font-size: 16px; font-weight: bold; color: #333;">${m.name}</span>${uidTag}
             </div>
         `;
     }).join('');
@@ -264,9 +271,46 @@ function toggleEditMode() {
         modal.style.display = 'none';
     } else {
         editingMembers = currentMembers.map(m => ({...m}));
-        document.getElementById('newMemberInput').value = ""; 
+        document.getElementById('newMemberInput').value = "";
         renderEditList();
+        loadMemberSuggestions();    // 載入主日所有會友到 datalist
         modal.style.display = 'block';
+    }
+}
+
+// 從主日載入所有會友姓名 + UID，填進 datalist 給「新增」輸入框做自動完成
+let _memberSuggestionsCache = null;
+async function loadMemberSuggestions() {
+    const datalist = document.getElementById('memberSuggestionsList');
+    if (!datalist) return;
+
+    // 既有名單已存在 → 仍要排除（避免重複加同一人），所以每次都重建 options
+    const buildOptions = (data) => {
+        const existingNames = new Set(editingMembers.map(m => m.name));
+        // 同名但 UID 不同 → 全部都列（讓用戶手動選對的人）
+        datalist.innerHTML = data
+            .filter(m => !existingNames.has(m.name))
+            .map(m => {
+                // 同名警示：若同樣 name 在主日有多筆，UID 是辨識用
+                const label = `${m.name} (${m.uid})`;
+                // datalist 的 value 就是被選中後填入 input 的值；用 label 包含 UID 才能區分同名
+                return `<option value="${label}"></option>`;
+            }).join('');
+    };
+
+    if (_memberSuggestionsCache) {
+        buildOptions(_memberSuggestionsCache);
+        return;
+    }
+
+    try {
+        const res = await callAPI('getMemberSuggestions', {});
+        if (res && res.success && res.data) {
+            _memberSuggestionsCache = res.data;
+            buildOptions(res.data);
+        }
+    } catch (e) {
+        console.warn('載入會友建議清單失敗', e);
     }
 }
 
@@ -282,12 +326,16 @@ function renderEditList() {
     }
     container.innerHTML = editingMembers.map(m => {
         const safeName = (m.name || '').replace(/'/g, "&#39;");
+        const uid = m.uid || '';
+        const uidTag = uid
+            ? `<small style="color:#888; font-family:monospace; margin-left:2px;">(${uid})</small>`
+            : `<small style="color:#dc3545; margin-left:2px;">(待建)</small>`;
         return `
             <div class="edit-member-item" data-name="${safeName}">
-                <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+                <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
                     <span class="drag-handle" title="按住拖曳排序"
                           style="cursor: grab; color:#999; font-size:18px; padding:0 6px; user-select:none; touch-action:none;">⋮⋮</span>
-                    <span style="font-weight:bold; width: 60px; overflow: hidden; text-overflow: ellipsis;">${m.name}</span>
+                    <span style="font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${m.name}${uidTag}</span>
                     <select class="edit-role-select" onchange="updateMemberRoleByName('${safeName}', this.value)">
                         <option value="核心同工" ${m.role==='核心同工'?'selected':''}>核心同工</option>
                         <option value="一般同工" ${m.role==='一般同工'?'selected':''}>一般同工</option>
@@ -323,23 +371,32 @@ function renderEditList() {
     }
 }
 
-// 💡 更新：新增名單的下拉選單（因為 HTML 寫死了，這裡用 JS 動態替換原本的結構）
-// (請確保 HTML 裡面的 #newMemberRole 選單也有加上 <option value="陪伴同工">陪伴同工</option>)
-// 下方是 JS 新增邏輯：
+// 新增成員：支援兩種輸入
+//   1. 從下拉選擇 → 值會是「王小明 (LK00001)」 → 解析出 name + uid
+//   2. 直接輸入新名字 → 純文字（uid 留空，後端會自動建檔產生新 UID）
 function addEditMember() {
     const input = document.getElementById('newMemberInput');
-    let roleSelect = document.getElementById('newMemberRole');
-    
-    // 防呆：如果前端 HTML 還沒加，強制抓取當前值或預設給小羊
-    const newName = input.value.trim();
-    const newRole = roleSelect ? roleSelect.value : '小羊'; 
-    
-    if (!newName) return userNotification.warning("請輸入要新增的姓名！");
-    if (editingMembers.some(m => m.name === newName)) return userNotification.warning("此人已經在名單中了！");
+    const roleSelect = document.getElementById('newMemberRole');
 
-    editingMembers.push({ name: newName, role: newRole });
-    input.value = ""; 
-    renderEditList(); 
+    const raw = (input.value || '').trim();
+    const newRole = roleSelect ? roleSelect.value : '小羊';
+    if (!raw) return userNotification.warning("請輸入要新增的姓名！");
+
+    // 解析 "名字 (LKxxxxx)" 格式（datalist 選擇後會是這格式）
+    const m = raw.match(/^(.+?)\s*\((LK\d+)\)\s*$/i);
+    const newName = m ? m[1].trim() : raw;
+    const newUid  = m ? m[2].trim().toUpperCase() : '';
+
+    // 同名 + 相同 UID 才視為重複；沒 UID 的純名字也比對名字
+    const dup = editingMembers.some(em =>
+        em.name === newName && (em.uid || '') === newUid
+    );
+    if (dup) return userNotification.warning("此人已經在名單中了！");
+
+    editingMembers.push({ name: newName, uid: newUid, role: newRole });
+    input.value = "";
+    renderEditList();
+    loadMemberSuggestions();  // 重建 datalist（剛加入的人會被過濾掉）
 }
 
 // 舊版（保留向下相容，依 index）
