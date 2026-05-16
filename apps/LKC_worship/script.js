@@ -49,10 +49,186 @@ function switchTab(tabId) {
   content.classList.add('active');
   const activeLink = document.querySelector(`a[onclick="switchTab('${tabId}')"]`);
   if (activeLink) activeLink.classList.add('active');
-  
+
   if(tabId === 'dashboard') loadDashboard();
   if(tabId === 'settings') loadPositions();
   if(tabId === 'schedule') initScheduleTab();
+  if(tabId === 'teamMembers') loadTeamMembers();
+}
+
+// ==========================================
+// 👥 敬拜團員名單管理
+// ==========================================
+let _editingTeamMembers = [];
+let _mainMemberSuggestionsCache = null;
+
+async function loadTeamMembers() {
+  const tbody = document.getElementById('teamMembersTbody');
+  tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted p-4"><div class="spinner-border spinner-border-sm me-2"></div>載入中...</td></tr>';
+
+  try {
+    const [sugRes, teamRes] = await Promise.all([
+      callAPI('getMemberSuggestions'),
+      callAPI('getTeamMembers')
+    ]);
+    _mainMemberSuggestionsCache = (sugRes && sugRes.data) ? sugRes.data : [];
+    _editingTeamMembers = ((teamRes && teamRes.data) ? teamRes.data : []).map(m => ({ ...m }));
+
+    buildTeamMemberDatalist();
+    renderTeamMembersTable();
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger p-4">❌ 載入失敗：${err.message}</td></tr>`;
+  }
+}
+
+function buildTeamMemberDatalist() {
+  const datalist = document.getElementById('teamMemberSuggestions');
+  if (!datalist || !_mainMemberSuggestionsCache) return;
+
+  const existingUids = new Set(_editingTeamMembers.map(m => m.uid));
+  // 算同名次數，決定 datalist 顯示格式
+  const nameCount = {};
+  _mainMemberSuggestionsCache.forEach(m => {
+    if (!existingUids.has(m.uid)) {
+      nameCount[m.name] = (nameCount[m.name] || 0) + 1;
+    }
+  });
+
+  datalist.innerHTML = _mainMemberSuggestionsCache
+    .filter(m => !existingUids.has(m.uid))
+    .map(m => {
+      const label = nameCount[m.name] > 1 ? `${m.name} (${m.uid})` : m.name;
+      return `<option value="${label}"></option>`;
+    }).join('');
+}
+
+function renderTeamMembersTable() {
+  const tbody = document.getElementById('teamMembersTbody');
+  if (_editingTeamMembers.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted p-4">尚無團員，請從上方加入</td></tr>';
+    _updateTeamMembersCount();
+    return;
+  }
+
+  // 排序：正式在前、姓名次之
+  const sorted = _editingTeamMembers.slice().sort((a, b) => {
+    if (a.status !== b.status) return a.status === '正式' ? -1 : 1;
+    return (a.name || '').localeCompare(b.name || '');
+  });
+
+  tbody.innerHTML = sorted.map(m => {
+    const idx = _editingTeamMembers.indexOf(m);
+    const statusBadge = m.status === '實習'
+      ? '<span class="badge bg-warning text-dark">🎓 實習</span>'
+      : '<span class="badge bg-primary">⭐ 正式</span>';
+    return `
+      <tr>
+        <td><strong>${m.name}</strong></td>
+        <td><small class="text-muted font-monospace">${m.uid || '-'}</small></td>
+        <td class="text-center">
+          ${statusBadge}
+          <select class="form-select form-select-sm d-inline-block ms-2" style="width: 110px;"
+                  onchange="updateTeamMemberStatus(${idx}, this.value)">
+            <option value="正式" ${m.status === '正式' ? 'selected' : ''}>正式</option>
+            <option value="實習" ${m.status === '實習' ? 'selected' : ''}>實習</option>
+          </select>
+        </td>
+        <td class="text-center">
+          <button class="btn btn-sm btn-outline-danger" onclick="removeTeamMember(${idx})">移除</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  _updateTeamMembersCount();
+}
+
+function _updateTeamMembersCount() {
+  const total = _editingTeamMembers.length;
+  const formal = _editingTeamMembers.filter(m => m.status === '正式').length;
+  const intern = _editingTeamMembers.filter(m => m.status === '實習').length;
+  const totalEl  = document.getElementById('teamMembersCount');
+  const formalEl = document.getElementById('teamMembersFormalCount');
+  const internEl = document.getElementById('teamMembersInternCount');
+  if (totalEl)  totalEl.innerText = total;
+  if (formalEl) formalEl.innerText = formal;
+  if (internEl) internEl.innerText = intern;
+}
+
+function addTeamMember() {
+  const input = document.getElementById('newTeamMemberInput');
+  const statusSel = document.getElementById('newTeamMemberStatus');
+  const raw = (input.value || '').trim();
+  const status = statusSel ? statusSel.value : '正式';
+  if (!raw) { alert('⚠️ 請輸入姓名'); return; }
+
+  // 解析「姓名 (LK00001)」格式
+  const m = raw.match(/^(.+?)\s*\((LK\d+)\)\s*$/i);
+  let name = m ? m[1].trim() : raw;
+  let uid  = m ? m[2].trim().toUpperCase() : '';
+
+  // 純姓名 → 從主日候選清單自動帶 UID（唯一同名才自動帶）
+  if (!uid && _mainMemberSuggestionsCache) {
+    const matched = _mainMemberSuggestionsCache.filter(x => x.name === name);
+    if (matched.length === 1) {
+      uid = matched[0].uid;
+    } else if (matched.length > 1) {
+      alert(`⚠️ 主日有多位「${name}」，請從下拉選單點選正確的一位（會顯示編號區別）`);
+      return;
+    } else {
+      // 主日沒有 → 提示先去主日建檔
+      if (!confirm(`⚠️ 主日會友名單中查無「${name}」，仍要加入嗎？\n（建議先去主日會友管理建檔以取得系統編號）`)) {
+        return;
+      }
+    }
+  }
+
+  // 重複檢查（同 UID 或同姓名）
+  const dup = _editingTeamMembers.some(em =>
+    (uid && em.uid === uid) || (!uid && em.name === name && !em.uid)
+  );
+  if (dup) { alert('此人已經在團員名單中'); return; }
+
+  _editingTeamMembers.push({
+    name: name,
+    uid: uid,
+    status: status,
+    joinDate: new Date().toISOString()
+  });
+
+  input.value = '';
+  renderTeamMembersTable();
+  buildTeamMemberDatalist();
+}
+
+function updateTeamMemberStatus(idx, status) {
+  if (_editingTeamMembers[idx]) {
+    _editingTeamMembers[idx].status = status === '實習' ? '實習' : '正式';
+    renderTeamMembersTable();
+  }
+}
+
+function removeTeamMember(idx) {
+  const m = _editingTeamMembers[idx];
+  if (!m) return;
+  if (confirm(`確定要將【${m.name}】從敬拜團員名單中移除嗎？`)) {
+    _editingTeamMembers.splice(idx, 1);
+    renderTeamMembersTable();
+    buildTeamMemberDatalist();
+  }
+}
+
+async function saveTeamMembersToServer() {
+  try {
+    const res = await callAPI('saveTeamMembers', { members: _editingTeamMembers });
+    if (res && res.status === 'success') {
+      alert('✅ ' + (res.message || '已儲存'));
+    } else {
+      alert('❌ 儲存失敗：' + (res && res.message ? res.message : '未知錯誤'));
+    }
+  } catch (err) {
+    alert('❌ 儲存失敗：' + err.message);
+  }
 }
 
 // ==========================================

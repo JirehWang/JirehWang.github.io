@@ -19,6 +19,7 @@
   
   <ul class="nav nav-pills mb-4 shadow-sm p-2 rounded-pill bg-light" id="myTab">
     <li class="nav-item"><a class="nav-link active rounded-pill fw-bold" href="#" onclick="switchTab('dashboard')">📢 公佈欄總表</a></li>
+    <li class="nav-item"><a class="nav-link rounded-pill fw-bold" href="#" onclick="switchTab('teamMembers')">👥 敬拜團員名單</a></li>
     <li class="nav-item"><a class="nav-link rounded-pill fw-bold" href="#" onclick="switchTab('settings')">⚙️ 位置與同工</a></li>
     <li class="nav-item"><a class="nav-link rounded-pill fw-bold" href="#" onclick="switchTab('schedule')">🗓️ 服事安排預覽</a></li>
     <li class="nav-item"><a class="nav-link rounded-pill fw-bold" href="worship_songs.html">🎵 敬拜曲目</a></li>
@@ -40,6 +41,67 @@
     <div class="table-scroll-container" id="dashboardContainer">
       <div class="text-center text-muted p-5">請選擇季度以載入資料...</div>
     </div> 
+  </div>
+
+  <!-- 👥 敬拜團員名單 -->
+  <div id="teamMembers" class="tab-content">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0">敬拜團員名單管理</h5>
+      <button class="btn btn-primary px-4 fw-bold" onclick="saveTeamMembersToServer()">💾 儲存名單</button>
+    </div>
+
+    <div class="alert alert-info small mb-3 py-2">
+      💡 從主日「會友名單」選人加入，可設定<b>正式 / 實習</b>。<br>
+      後續「位置與同工」會自動從這份名單拉人，避免直接打名字造成混亂。
+    </div>
+
+    <!-- 新增區 -->
+    <div class="card p-3 mb-3 bg-light border">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-7">
+          <label class="form-label small fw-bold text-muted mb-1">從主日會友選擇（也可直接輸入）</label>
+          <input type="text" id="newTeamMemberInput" class="form-control"
+                 list="teamMemberSuggestions"
+                 autocomplete="off"
+                 placeholder="輸入姓名搜尋..."
+                 onkeypress="if(event.key==='Enter') addTeamMember()">
+          <datalist id="teamMemberSuggestions"></datalist>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-bold text-muted mb-1">狀態</label>
+          <select id="newTeamMemberStatus" class="form-select">
+            <option value="正式">⭐ 正式</option>
+            <option value="實習">🎓 實習</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-success w-100 fw-bold" onclick="addTeamMember()">➕ 加入</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 列表 -->
+    <div class="table-responsive">
+      <table class="table table-bordered align-middle table-hover">
+        <thead class="table-light text-center">
+          <tr>
+            <th style="width: 35%;">姓名</th>
+            <th style="width: 20%;">系統編號</th>
+            <th style="width: 25%;">狀態</th>
+            <th style="width: 100px;">操作</th>
+          </tr>
+        </thead>
+        <tbody id="teamMembersTbody">
+          <tr><td colspan="4" class="text-center text-muted p-4">尚無團員，請從上方加入</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="text-muted small mt-2">
+      共 <span id="teamMembersCount">0</span> 位團員
+      （<span class="text-primary">⭐ 正式 <span id="teamMembersFormalCount">0</span></span>
+       <span class="text-warning">🎓 實習 <span id="teamMembersInternCount">0</span></span>）
+    </div>
   </div>
 
   <div id="settings" class="tab-content">
