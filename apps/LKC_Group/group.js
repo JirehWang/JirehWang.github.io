@@ -84,7 +84,7 @@ function goToSchedule() {
 }
 
 function goToFullStats() {
-    window.open(`https://jirehwang.github.io/LKGroup.github.io/stats.html?id=${groupCode || ''}`, '_blank');
+    window.open(`https://jirehwang.github.io/LKC1958_June_1.github.io/apps/LKC_Group/stats.html?id=${groupCode || ''}`, '_blank');
 }
 
 async function loadGroupProgress() {

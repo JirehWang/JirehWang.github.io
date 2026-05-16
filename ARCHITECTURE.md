@@ -233,6 +233,16 @@ cache/
 
 ## 📜 更新紀錄 (Changelog)
 
+### 2026-05-16（後續補丁）
+- **事工管理：直接編輯小組組員身分** — 小組/團契模板新增「🧑‍🤝‍🧑 設定組員身分」按鈕，免跳系統。
+  後端新增 2 個橋接 API：`ministry_getGroupMembers` / `ministry_updateGroupMemberRoles`
+- **URL 整合** — 所有寫死的舊獨立 repo 路徑統一指向 `LKC1958_June_1.github.io`：
+  - GAS Core.js `doGet`：QR 跳轉的場次頁
+  - GAS attendance.html：scannerUrl
+  - 前端 attendance.js：scannerUrl + 場次 QR 的 finalUrl
+  - 前端 group.js `goToFullStats`：原指 LKGroup.github.io → 改指本 repo apps/LKC_Group/stats.html
+  - 目的：未來測試區直接升級為正式區，URL 不需再改
+
 ### 2026-05-16（Phase 4.5 + 4.6 大批更新）
 
 #### 🆕 新功能

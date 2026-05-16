@@ -459,7 +459,7 @@ function executeRevoke(uid, displayName) {
 
   function toggleScanner() {
     if (!attUserId) attUserId = localStorage.getItem('att_uid');
-    var scannerUrl = "https://jirehwang.github.io/qrcodescanner.github.io/?userId=" + attUserId;
+    var scannerUrl = "https://jirehwang.github.io/LKC1958_June_1.github.io/apps/qrcodescanner.github.io/?userId=" + attUserId;
     window.open(scannerUrl, '_blank');
     startAutoSync();
   }
@@ -512,7 +512,7 @@ function executeRevoke(uid, displayName) {
   
     // ✅ 加上時間戳記，強制瀏覽器視為全新請求
     const timestamp = Date.now();
-    const finalUrl = "https://jirehwang.github.io/LKC_-SundayserviceAttendance.github.io/?cat=" + encodeURIComponent(cat) + "&grp=" + encodeURIComponent(grp) + "&v=" + timestamp;
+    const finalUrl = "https://jirehwang.github.io/LKC1958_June_1.github.io/apps/LKC_SundayserviceAttendance/?cat=" + encodeURIComponent(cat) + "&grp=" + encodeURIComponent(grp) + "&v=" + timestamp;
     
     const qr = new QRious({ value: finalUrl, size: 300, level: 'H' });
     ctx.drawImage(qr.canvas, 50, 180, 300, 300);
