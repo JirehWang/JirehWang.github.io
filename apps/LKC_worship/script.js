@@ -1,10 +1,146 @@
 /* script.js - 敬拜團服事管理系統 (外部框架驅動 + 列專屬請假版) */
 
 // --- 全域變數 ---
-let currentPositions = []; 
-let generatedScheduleData = []; 
-let uniquePersonnel = []; 
-let sortablePositions = null; 
+let currentPositions = [];
+let generatedScheduleData = [];
+let uniquePersonnel = [];
+let sortablePositions = null;
+let _worshipTeamCache = null; // 敬拜團員名單快取（供「位置與同工」下拉使用）
+
+// ==========================================
+// 🔍 共用：可搜尋浮動下拉選單元件
+// ==========================================
+function _hideFloatingDropdown() {
+  const dd = document.getElementById('_floatingDropdown');
+  if (dd) dd.remove();
+  document.removeEventListener('mousedown', _floatingDropdownOutsideClick, { capture: true });
+  window.removeEventListener('scroll', _hideFloatingDropdown, { capture: true });
+  window.removeEventListener('resize', _hideFloatingDropdown);
+}
+function _floatingDropdownOutsideClick(e) {
+  const dd = document.getElementById('_floatingDropdown');
+  if (dd && !dd.contains(e.target)) _hideFloatingDropdown();
+}
+
+/**
+ * 顯示一個可搜尋的浮動下拉清單
+ * @param {HTMLElement} anchorEl - 錨點元素（決定位置）
+ * @param {Array<{label:string, subLabel?:string, value:any, disabled?:boolean}>} items
+ * @param {Function} onPick - 回呼 (item) => void
+ * @param {Object} [opts] - { placeholder, emptyText, width }
+ */
+function _showFloatingDropdown(anchorEl, items, onPick, opts = {}) {
+  _hideFloatingDropdown();
+  const rect = anchorEl.getBoundingClientRect();
+  const width = opts.width || Math.max(rect.width, 240);
+
+  const dd = document.createElement('div');
+  dd.id = '_floatingDropdown';
+  dd.className = 'shadow-lg border rounded bg-white';
+  dd.style.cssText = `position:fixed; top:${rect.bottom + 4}px; left:${rect.left}px;
+                      width:${width}px; max-height:300px; overflow:hidden;
+                      z-index:2050; display:flex; flex-direction:column;`;
+
+  // 搜尋框
+  const searchWrap = document.createElement('div');
+  searchWrap.className = 'p-2 border-bottom bg-light';
+  const search = document.createElement('input');
+  search.type = 'text';
+  search.className = 'form-control form-control-sm';
+  search.placeholder = opts.placeholder || '🔍 輸入關鍵字搜尋...';
+  searchWrap.appendChild(search);
+  dd.appendChild(searchWrap);
+
+  // 清單區
+  const list = document.createElement('div');
+  list.style.cssText = 'overflow-y:auto; flex:1;';
+  dd.appendChild(list);
+
+  function render(kw = '') {
+    const f = (kw || '').toLowerCase().trim();
+    const filtered = items.filter(it =>
+      !f || (it.label || '').toLowerCase().includes(f) ||
+      (it.subLabel || '').toLowerCase().includes(f)
+    );
+    if (filtered.length === 0) {
+      list.innerHTML = `<div class="p-3 text-center text-muted small">${opts.emptyText || '查無相符'}</div>`;
+      return;
+    }
+    list.innerHTML = filtered.map(it => {
+      const i = items.indexOf(it);
+      const disabledCls = it.disabled ? 'text-muted' : '';
+      const cursor = it.disabled ? 'not-allowed' : 'pointer';
+      return `<div class="ss-item px-3 py-2 border-bottom d-flex justify-content-between align-items-center ${disabledCls}"
+                style="cursor:${cursor};" data-i="${i}">
+        <span><strong>${it.label}</strong></span>
+        ${it.subLabel ? `<small class="text-muted">${it.subLabel}</small>` : ''}
+      </div>`;
+    }).join('');
+    list.querySelectorAll('.ss-item').forEach(el => {
+      const it = items[parseInt(el.dataset.i)];
+      if (it.disabled) return;
+      el.onmouseenter = () => el.style.backgroundColor = '#e7f1ff';
+      el.onmouseleave = () => el.style.backgroundColor = '';
+      el.onmousedown = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onPick(it);
+        _hideFloatingDropdown();
+      };
+    });
+  }
+
+  search.addEventListener('input', () => render(search.value));
+  render();
+  document.body.appendChild(dd);
+  setTimeout(() => search.focus(), 30);
+
+  // 外部點擊 / 捲動 / Resize 關閉
+  setTimeout(() => {
+    document.addEventListener('mousedown', _floatingDropdownOutsideClick, { capture: true });
+    window.addEventListener('scroll', _hideFloatingDropdown, { capture: true });
+    window.addEventListener('resize', _hideFloatingDropdown);
+  }, 0);
+}
+
+// 確保敬拜團員名單已載入（快取）
+async function ensureWorshipTeamLoaded(force = false) {
+  if (_worshipTeamCache && !force) return _worshipTeamCache;
+  try {
+    const res = await callAPI('getTeamMembers');
+    _worshipTeamCache = (res && res.data) ? res.data : [];
+  } catch (e) {
+    console.warn('載入敬拜團員名單失敗', e);
+    _worshipTeamCache = [];
+  }
+  return _worshipTeamCache;
+}
+
+// 主日會友下拉（敬拜團員名單分頁用）
+function openMainMemberDropdown(anchorEl) {
+  if (!_mainMemberSuggestionsCache) return;
+  const existingUids = new Set(_editingTeamMembers.map(m => m.uid));
+  const nameCount = {};
+  _mainMemberSuggestionsCache.forEach(m => {
+    if (!existingUids.has(m.uid)) nameCount[m.name] = (nameCount[m.name] || 0) + 1;
+  });
+  const items = _mainMemberSuggestionsCache
+    .filter(m => !existingUids.has(m.uid))
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+    .map(m => {
+      const label = nameCount[m.name] > 1 ? `${m.name} (${m.uid})` : m.name;
+      return { label: m.name, subLabel: m.uid || '', value: label };
+    });
+  if (items.length === 0) {
+    alert('ℹ️ 主日會友清單為空，或可選的人都已在敬拜團員名單中');
+    return;
+  }
+  _showFloatingDropdown(anchorEl, items, (it) => {
+    const input = document.getElementById('newTeamMemberInput');
+    input.value = it.value;
+    input.focus();
+  }, { placeholder: '🔍 輸入姓名或編號搜尋...', emptyText: '查無此會友' });
+}
 
 // --- 初始化 ---
 window.onload = () => {
@@ -222,6 +358,7 @@ async function saveTeamMembersToServer() {
   try {
     const res = await callAPI('saveTeamMembers', { members: _editingTeamMembers });
     if (res && res.status === 'success') {
+      _worshipTeamCache = null; // 失效：「位置與同工」下次開啟時會重新拉
       alert('✅ ' + (res.message || '已儲存'));
     } else {
       alert('❌ 儲存失敗：' + (res && res.message ? res.message : '未知錯誤'));
@@ -295,16 +432,22 @@ function renderDashboardTable(data) {
 async function loadPositions() {
   const tbody = document.getElementById('positionsTbody');
   if (!tbody) return;
+
+  // 同步載入：敬拜團員名單（給標籤式選人用）+ 位置資料
+  await ensureWorshipTeamLoaded(true); // 強制刷新，確保是最新名單
+
   const result = await callAPI('getPositions', {});
-  tbody.innerHTML = ''; 
+  tbody.innerHTML = '';
   if (result.status === 'success') {
-    result.data.length === 0 ? addPositionRow('主領', '', '是') : result.data.forEach(i => addPositionRow(i.positionName, i.personnel, i.isRequired || '是'));
+    result.data.length === 0
+      ? addPositionRow('主領', '', '是')
+      : result.data.forEach(i => addPositionRow(i.positionName, i.personnel, i.isRequired || '是'));
     if (sortablePositions) sortablePositions.destroy();
-    sortablePositions = new Sortable(tbody, { 
-        handle: '.drag-handle', 
-        animation: 150,
-        filter: 'input, select, button',
-        preventOnFilter: false 
+    sortablePositions = new Sortable(tbody, {
+      handle: '.drag-handle',
+      animation: 150,
+      filter: 'input, select, button, .personnel-picker, .badge, .btn-close',
+      preventOnFilter: false
     });
   }
 }
@@ -315,11 +458,102 @@ function addPositionRow(posName, personnel, isRequired = "是") {
   tr.innerHTML = `
     <td class="text-center align-middle drag-handle" style="cursor: grab; color: #adb5bd;">☰</td>
     <td><input type="text" class="form-control form-control-sm pos-name text-center" value="${posName}" onclick="this.select()"></td>
-    <td><input type="text" class="form-control form-control-sm pos-personnel" value="${personnel}" onclick="this.select()"></td>
+    <td class="personnel-cell"></td>
     <td><select class="form-select form-select-sm pos-required"><option value="是" ${isRequired === "是" ? "selected" : ""}>必排</option><option value="否" ${isRequired === "否" ? "selected" : ""}>非必排</option></select></td>
     <td class="text-center"><button class="btn btn-outline-danger btn-sm" onclick="this.closest('tr').remove()">x</button></td>
   `;
   tbody.appendChild(tr);
+  renderPersonnelTagPicker(tr.querySelector('.personnel-cell'), personnel || '');
+}
+
+/**
+ * 標籤式多選人員（從敬拜團員名單挑選 + 內建關鍵字搜尋）
+ * 仍以隱藏欄位 .pos-personnel 儲存「逗號分隔字串」，保持後端相容
+ */
+function renderPersonnelTagPicker(td, currentValue) {
+  const selected = (currentValue || '').split(/[,、]/).map(s => s.trim()).filter(x => x);
+  td.innerHTML = `
+    <div class="personnel-picker d-flex flex-wrap gap-1 align-items-center p-1 border rounded bg-white"
+         style="min-height:34px;">
+      <div class="tags-container d-flex flex-wrap gap-1 flex-grow-1"></div>
+      <button type="button" class="btn btn-sm btn-outline-primary add-personnel-btn px-2 py-0"
+              style="font-size:0.78rem; white-space:nowrap;">＋ 加入</button>
+    </div>
+    <input type="hidden" class="pos-personnel" value="${selected.join(',')}">
+  `;
+
+  const tagsContainer = td.querySelector('.tags-container');
+  const hiddenInput = td.querySelector('.pos-personnel');
+  const addBtn = td.querySelector('.add-personnel-btn');
+
+  function refreshHidden() {
+    const names = Array.from(tagsContainer.querySelectorAll('.tag-name'))
+      .map(el => el.dataset.name);
+    hiddenInput.value = names.join(',');
+  }
+
+  function addTag(name, opts = {}) {
+    name = (name || '').trim();
+    if (!name) return;
+    // 重複跳過
+    const exists = Array.from(tagsContainer.querySelectorAll('.tag-name'))
+      .some(el => el.dataset.name === name);
+    if (exists) return;
+
+    const isInTeam = _worshipTeamCache && _worshipTeamCache.some(m => m.name === name);
+    const status = isInTeam ? (_worshipTeamCache.find(m => m.name === name).status || '正式') : '';
+    const bgClass = !isInTeam ? 'bg-secondary'
+                  : status === '實習' ? 'bg-warning text-dark' : 'bg-primary';
+
+    const tag = document.createElement('span');
+    tag.className = `badge ${bgClass} tag-name d-inline-flex align-items-center`;
+    tag.dataset.name = name;
+    tag.style.cssText = 'font-size:0.78rem; padding:0.35em 0.55em; gap:0.3em;';
+    tag.title = isInTeam ? `敬拜團員（${status}）` : '⚠️ 此人不在敬拜團員名單中';
+    tag.innerHTML = `
+      ${!isInTeam ? '⚠️ ' : ''}${name}
+      <button type="button" class="btn-close btn-close-white" style="font-size:0.5rem;" aria-label="移除"></button>
+    `;
+    tag.querySelector('button').onclick = (e) => {
+      e.stopPropagation();
+      tag.remove();
+      refreshHidden();
+    };
+    tagsContainer.appendChild(tag);
+    refreshHidden();
+  }
+
+  selected.forEach(n => addTag(n));
+
+  addBtn.onclick = async (e) => {
+    e.stopPropagation();
+    const team = await ensureWorshipTeamLoaded();
+    if (!team || team.length === 0) {
+      alert('⚠️ 敬拜團員名單為空\n請先到「👥 敬拜團員名單」分頁新增成員');
+      return;
+    }
+    const existingNames = new Set(
+      Array.from(tagsContainer.querySelectorAll('.tag-name')).map(el => el.dataset.name)
+    );
+    // 正式優先 → 實習 → 已選的（顯示為 disabled）
+    const items = team
+      .slice()
+      .sort((a, b) => {
+        if (a.status !== b.status) return a.status === '正式' ? -1 : 1;
+        return (a.name || '').localeCompare(b.name || '');
+      })
+      .map(m => ({
+        label: m.name,
+        subLabel: (m.status === '實習' ? '🎓 實習' : '⭐ 正式') + (m.uid ? `　${m.uid}` : ''),
+        value: m.name,
+        disabled: existingNames.has(m.name)
+      }));
+    _showFloatingDropdown(addBtn, items, (it) => addTag(it.value), {
+      placeholder: '🔍 輸入姓名或編號搜尋敬拜團員...',
+      emptyText: '查無相符的敬拜團員',
+      width: 320
+    });
+  };
 }
 
 async function savePositionsToServer() {
