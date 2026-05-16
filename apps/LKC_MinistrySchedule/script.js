@@ -57,19 +57,46 @@ let _currentBulletinFiltered = null;
 
 const _API_TIMEOUT_MS = 120000;
 
+/**
+ * 事工管理 API 呼叫
+ *
+ * 優先走中央 churchAPI（自動加 ministry_ 前綴 + Firebase RTDB 快取）
+ * 若 churchAPI 不可用，回退至直接呼叫 GAS（手動加前綴）
+ *
+ * 回傳格式：後端統一回 { status, data, message? }
+ * 此函式只回傳 data 部分；非 success 就拋 APIError
+ */
 async function fetchAPI(action, data = {}) {
+  // ── 優先路徑：中央 churchAPI（含 Firebase cache + 自動加前綴） ──
+  if (typeof window.churchAPI === 'function') {
+    try {
+      const result = await window.churchAPI(action, data);
+      if (!result || result.status !== 'success') {
+        throw new APIError(
+          (result && result.message) || '伺服器錯誤',
+          null,
+          classifyError(result && result.message)
+        );
+      }
+      return result.data;
+    } catch (err) {
+      if (err instanceof APIError) throw err;
+      throw new APIError(err.message || '網路錯誤', null, classifyError(err.message));
+    }
+  }
+
+  // ── 回退路徑：直接打 GAS（保留 retry / timeout 邏輯） ──
+  // 手動加 ministry_ 前綴
+  const realAction = action.indexOf('ministry_') === 0 ? action : 'ministry_' + action;
   const payload = {
-    action: action,
+    action: realAction,
     token:  window.AUTH_TOKEN,
     data:   data
   };
 
   const gasUrl = window.GAS_URL;
   if (!gasUrl) {
-    throw new APIError(
-      "GAS 部署網址尚未設定，請確認 config.js 已正確載入",
-      null, 'CONFIG_ERROR'
-    );
+    throw new APIError("GAS 部署網址尚未設定", null, 'CONFIG_ERROR');
   }
 
   let lastError;
@@ -80,40 +107,28 @@ async function fetchAPI(action, data = {}) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), _API_TIMEOUT_MS);
 
-      // GAS 不支援 CORS preflight（OPTIONS），必須用 no-cors + redirect:follow
-      // no-cors 模式下 response 是 opaque，無法直接 .json()
-      // 解法：先用 no-cors 觸發 GAS 執行，再用 GET 取得結果
-      // 實務上最簡單的方式是改用 application/x-www-form-urlencoded
-      // 這樣瀏覽器不會發 preflight，GAS 也能正常接收
-      const formBody = "payload=" + encodeURIComponent(JSON.stringify(payload));
-
+      // 改用 text/plain + 純 JSON body（與整合後的 doPost 一致）
       const response = await fetch(gasUrl, {
-        method:      'POST',
-        headers:     { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body:        formBody,
-        signal:      controller.signal,
-        redirect:    'follow'
+        method:   'POST',
+        headers:  { 'Content-Type': 'text/plain;charset=utf-8' },
+        body:     JSON.stringify(payload),
+        signal:   controller.signal,
+        redirect: 'follow'
       });
       clearTimeout(timer);
 
-      if (!response.ok) {
-        throw new APIError(`HTTP ${response.status}`, response.status, 'HTTP_ERROR');
-      }
+      if (!response.ok) throw new APIError(`HTTP ${response.status}`, response.status, 'HTTP_ERROR');
 
       const json = await response.json();
-
       if (json.status !== 'success') {
-        throw new APIError(json.message || '伺服器錯誤', null,
-          classifyError(json.message));
+        throw new APIError(json.message || '伺服器錯誤', null, classifyError(json.message));
       }
-
       return json.data;
 
     } catch (err) {
       lastError = err;
       const type = err instanceof APIError ? err.type : classifyError(err.message);
       const retryable = ['HTTP_ERROR', 'SERVER_ERROR', 'SERVER_BUSY'].includes(type);
-
       if (retryable && attempt < maxRetries) {
         await new Promise(r => setTimeout(r, 1000 * attempt));
         continue;
@@ -121,7 +136,6 @@ async function fetchAPI(action, data = {}) {
       break;
     }
   }
-
   throw lastError;
 }
 
