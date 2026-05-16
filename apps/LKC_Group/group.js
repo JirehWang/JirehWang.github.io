@@ -270,29 +270,57 @@ function toggleEditMode() {
     }
 }
 
-// 💡 更新：編輯名單的下拉選單加入「陪伴同工」
+// 💡 更新：編輯名單可拖曳排序，順序會套用到小組點名介面
+//    為了避免拖曳後 index 失準，所有事件改用 data-name 對應
+let _editSortableInstance = null;
 function renderEditList() {
     const container = document.getElementById('editMemberList');
     if (editingMembers.length === 0) {
         container.innerHTML = '<div class="empty-hint">目前名單為空</div>';
+        if (_editSortableInstance) { _editSortableInstance.destroy(); _editSortableInstance = null; }
         return;
     }
-    container.innerHTML = editingMembers.map((m, index) => {
+    container.innerHTML = editingMembers.map(m => {
+        const safeName = (m.name || '').replace(/'/g, "&#39;");
         return `
-            <div class="edit-member-item">
-                <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="edit-member-item" data-name="${safeName}">
+                <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+                    <span class="drag-handle" title="按住拖曳排序"
+                          style="cursor: grab; color:#999; font-size:18px; padding:0 6px; user-select:none; touch-action:none;">⋮⋮</span>
                     <span style="font-weight:bold; width: 60px; overflow: hidden; text-overflow: ellipsis;">${m.name}</span>
-                    <select class="edit-role-select" onchange="updateMemberRole(${index}, this.value)">
+                    <select class="edit-role-select" onchange="updateMemberRoleByName('${safeName}', this.value)">
                         <option value="核心同工" ${m.role==='核心同工'?'selected':''}>核心同工</option>
                         <option value="一般同工" ${m.role==='一般同工'?'selected':''}>一般同工</option>
                         <option value="小羊" ${m.role==='小羊'?'selected':''}>小羊</option>
                         <option value="陪伴同工" ${m.role==='陪伴同工'?'selected':''}>陪伴同工</option>
                     </select>
                 </div>
-                <button class="btn-remove" onclick="removeEditMember(${index})">🗑️ 移除</button>
+                <button class="btn-remove" onclick="removeEditMemberByName('${safeName}')">🗑️ 移除</button>
             </div>
         `;
     }).join('');
+
+    // 初始化拖曳（每次 render 都重建）
+    if (_editSortableInstance) { _editSortableInstance.destroy(); }
+    if (typeof Sortable !== 'undefined') {
+        _editSortableInstance = Sortable.create(container, {
+            animation: 200,
+            handle: '.drag-handle',
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            onEnd: function() {
+                // 依 DOM 當前順序重排 editingMembers
+                const newOrder = Array.from(container.children)
+                    .map(el => el.dataset.name)
+                    .filter(n => n);
+                editingMembers.sort((a, b) => {
+                    const ia = newOrder.indexOf(a.name);
+                    const ib = newOrder.indexOf(b.name);
+                    return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+                });
+            }
+        });
+    }
 }
 
 // 💡 更新：新增名單的下拉選單（因為 HTML 寫死了，這裡用 JS 動態替換原本的結構）
@@ -314,12 +342,25 @@ function addEditMember() {
     renderEditList(); 
 }
 
-function updateMemberRole(index, newRole) { editingMembers[index].role = newRole; }
-
+// 舊版（保留向下相容，依 index）
+function updateMemberRole(index, newRole) { if (editingMembers[index]) editingMembers[index].role = newRole; }
 function removeEditMember(index) {
-    const nameToRemove = editingMembers[index].name;
+    const nameToRemove = editingMembers[index] && editingMembers[index].name;
+    if (!nameToRemove) return;
     if (confirm(`確定要將【${nameToRemove}】從名單中移除嗎？`)) {
         editingMembers.splice(index, 1);
+        renderEditList();
+    }
+}
+
+// 新版（不受拖曳影響，依姓名查找）
+function updateMemberRoleByName(name, newRole) {
+    const m = editingMembers.find(x => x.name === name);
+    if (m) m.role = newRole;
+}
+function removeEditMemberByName(name) {
+    if (confirm(`確定要將【${name}】從名單中移除嗎？`)) {
+        editingMembers = editingMembers.filter(m => m.name !== name);
         renderEditList();
     }
 }

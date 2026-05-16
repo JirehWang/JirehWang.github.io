@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>小組點名與進度</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* Sortable.js 拖曳排序樣式 */
+        .sortable-ghost { opacity: 0.4; background: #e3f2fd; }
+        .sortable-chosen { background: #fff9c4; }
+        .drag-handle:hover { color: #555 !important; }
+        .drag-handle:active { cursor: grabbing; }
+    </style>
     </head>
 <body>
 
@@ -116,6 +123,8 @@
     </div>
     <script>window._GAS_KEY = 'LKC_Group_TEST';</script>
     <script src="https://jirehwang.github.io/LKC1958_June_1.github.io/config.js"></script>
+    <!-- Sortable.js：拖曳排序「管理名單與身分」用 -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
     <script src="group.js"></script>
 </body>
 </html>
