@@ -64,8 +64,7 @@
             <input type="text" id="newTeamMemberInput" class="form-control"
                    list="teamMemberSuggestions"
                    autocomplete="off"
-                   placeholder="輸入姓名搜尋或點右方下拉..."
-                   onfocus="openMainMemberDropdown(this)"
+                   placeholder="輸入姓名搜尋或點右方「▼ 選擇」..."
                    onkeypress="if(event.key==='Enter') addTeamMember()">
             <button class="btn btn-outline-primary fw-bold" type="button"
                     onclick="openMainMemberDropdown(document.getElementById('newTeamMemberInput'))"

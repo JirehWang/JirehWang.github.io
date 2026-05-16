@@ -117,24 +117,63 @@ async function ensureWorshipTeamLoaded(force = false) {
 }
 
 // 主日會友下拉（敬拜團員名單分頁用）
-function openMainMemberDropdown(anchorEl) {
-  if (!_mainMemberSuggestionsCache) return;
-  const existingUids = new Set(_editingTeamMembers.map(m => m.uid));
+async function openMainMemberDropdown(anchorEl) {
+  // 1. 若快取為空 → 自動嘗試重新抓（包含第一次點擊就出現的情境）
+  if (!_mainMemberSuggestionsCache || _mainMemberSuggestionsCache.length === 0) {
+    // 先在浮動下拉顯示 loading（並非 alert，不會死循環）
+    _showFloatingDropdown(anchorEl, [{ label: '⏳ 正在抓主日會友清單...', subLabel: '', value: null, disabled: true }],
+      () => {}, { placeholder: '載入中...', emptyText: '載入中...' });
+    try {
+      const sugRes = await callAPI('getMemberSuggestions');
+      // GAS 端 throw 會走到 doPost catch → {status:'error', message}
+      if (sugRes && sugRes.status === 'error') {
+        throw new Error(sugRes.message || 'GAS 回傳錯誤');
+      }
+      _mainMemberSuggestionsCache = (sugRes && sugRes.data) ? sugRes.data : [];
+      buildTeamMemberDatalist();
+    } catch (err) {
+      _showFloatingDropdown(anchorEl, [
+        { label: `❌ 載入失敗：${err.message || err}`, subLabel: '', value: null, disabled: true },
+        { label: '👉 請按右方「重試」', subLabel: '', value: '__retry__' }
+      ], (it) => { if (it.value === '__retry__') openMainMemberDropdown(anchorEl); },
+        { placeholder: '載入失敗' });
+      return;
+    }
+  }
+
+  // 2. 真的空（GAS 回傳空陣列）→ 顯示在 dropdown 內，附「重試」項
+  if (!_mainMemberSuggestionsCache || _mainMemberSuggestionsCache.length === 0) {
+    _showFloatingDropdown(anchorEl, [
+      { label: '⚠️ 主日會友清單為空', subLabel: 'GAS 可能讀不到主日測試試算表', value: null, disabled: true },
+      { label: '🔄 重新嘗試', subLabel: '', value: '__retry__' }
+    ], (it) => {
+      if (it.value === '__retry__') {
+        _mainMemberSuggestionsCache = null;
+        openMainMemberDropdown(anchorEl);
+      }
+    }, { placeholder: '無資料' });
+    return;
+  }
+
+  // 3. 過濾已加入的人 → 渲染
+  const existingUids = new Set(_editingTeamMembers.map(m => m.uid).filter(x => x));
   const nameCount = {};
   _mainMemberSuggestionsCache.forEach(m => {
     if (!existingUids.has(m.uid)) nameCount[m.name] = (nameCount[m.name] || 0) + 1;
   });
-  const items = _mainMemberSuggestionsCache
-    .filter(m => !existingUids.has(m.uid))
+  const available = _mainMemberSuggestionsCache.filter(m => !existingUids.has(m.uid));
+  if (available.length === 0) {
+    _showFloatingDropdown(anchorEl, [
+      { label: 'ℹ️ 所有主日會友都已在敬拜團員名單中', subLabel: '', value: null, disabled: true }
+    ], () => {}, { placeholder: '都加入了' });
+    return;
+  }
+  const items = available
     .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
     .map(m => {
       const label = nameCount[m.name] > 1 ? `${m.name} (${m.uid})` : m.name;
       return { label: m.name, subLabel: m.uid || '', value: label };
     });
-  if (items.length === 0) {
-    alert('ℹ️ 主日會友清單為空，或可選的人都已在敬拜團員名單中');
-    return;
-  }
   _showFloatingDropdown(anchorEl, items, (it) => {
     const input = document.getElementById('newTeamMemberInput');
     input.value = it.value;
@@ -207,7 +246,12 @@ async function loadTeamMembers() {
       callAPI('getMemberSuggestions'),
       callAPI('getTeamMembers')
     ]);
-    _mainMemberSuggestionsCache = (sugRes && sugRes.data) ? sugRes.data : [];
+    if (sugRes && sugRes.status === 'error') {
+      console.warn('[loadTeamMembers] getMemberSuggestions error：', sugRes.message);
+      _mainMemberSuggestionsCache = []; // 仍可繼續，使用者按 ▼ 時會重抓並顯示錯誤
+    } else {
+      _mainMemberSuggestionsCache = (sugRes && sugRes.data) ? sugRes.data : [];
+    }
     _editingTeamMembers = ((teamRes && teamRes.data) ? teamRes.data : []).map(m => ({ ...m }));
 
     buildTeamMemberDatalist();
