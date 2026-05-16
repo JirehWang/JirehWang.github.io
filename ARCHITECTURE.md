@@ -6,14 +6,14 @@
   完整架構設計，並對比原始（test repo 既有 README 描述的）舊架構，
   方便日後維護與正式版上線的決策參考。
 
-  最後更新：2026-05-16
+  最後更新：2026-05-17
   本次大更新：
-    - 主日 members.html 簡化（移除所屬小組/身分欄）
-    - 小組統計新增「總小組成員清單」(admin)
-    - 小組成員拖曳排序 + 暱稱機制
-    - 新增成員 datalist 自動完成（從主日抓會友候選）
-    - Firebase Service Account OAuth2 整合 + 安全強化
-    - 三層 invalidation 全面就緒
+    - 敬拜團：新增「敬拜團員名單」分頁（從主日會友拉選，正式/實習狀態）
+    - 敬拜團：「位置與同工」改為標籤式多選，資料來源綁定敬拜團員名單
+    - 共用可搜尋浮動下拉元件（替代 HTML5 datalist，UX 強化）
+    - 小組移除成員時同步更新主日的「所屬小組 / 身分」
+    - 小組統計（單日）補入「當日有出席但已不在組」的歷史成員
+    - 前次更新：主日 members.html 簡化、Firebase Service Account 整合
 -->
 
 # 🏛️ 教會系統架構文件（測試版）
@@ -56,7 +56,7 @@
 | 小組點名 | `LKC_Group_TEST` | **主日_測試版 GAS** | ✓ 已併入 |
 | 事工管理 | `LKC_MinistrySchedule_TEST` | **主日_測試版 GAS**（action 加 `ministry_` 前綴） | ✓ 已併入 |
 | 教會行事曆 | `LKC_MasterSchedule` | 教會行事曆 GAS（獨立） | ⏸ 待整合 |
-| 敬拜團 | `LKC_worship` | 敬拜團 GAS（獨立） | ⏸ 待整合 |
+| 敬拜團 | `LKC_worship` | 敬拜團 GAS（獨立，含「敬拜團員名單」） | ⏸ 待整合（已強化前端） |
 | 車號查詢 | `LKC_WhosCar` | 車號查詢 GAS（獨立） | ⏸ 暫擱置 |
 | 週報管理 | `LKC_SundayBulletin` | 週報 GAS（獨立） | ⏸ 暫擱置 |
 
@@ -225,6 +225,8 @@ cache/
 | Phase 4：Firebase RTDB 快取層 | ✅ 完成 | 三層 invalidation |
 | Phase 4.5：成員管理 UX 強化 | ✅ 完成 | 拖曳排序 / 暱稱 / datalist / admin 總清單 |
 | Phase 4.6：安全強化 | ✅ 完成 | Service Account / HTTP Referrer / .gitignore |
+| Phase 4.7：小組移除同步 + 統計補歷史 | ✅ 完成 | 主日身分/組別與點名歷史一致 |
+| Phase 4.8：敬拜團員名單 + 位置選人改造 | ✅ 完成 | 敬拜團員清單為單一來源、可搜尋下拉 |
 | Phase 5：教會行事曆併入主 GAS | ⏸ 待測試副本 | 預計併入後再消滅一個獨立 GAS |
 | Phase 6：敬拜團併入主 GAS | ⏸ 規劃中 | 與事工共用 GeminiHelper |
 | Phase 7：正式版切換 | ⏸ 待測試穩定 | 把 _TEST 改為正式版 GAS / 試算表 ID |
@@ -232,6 +234,45 @@ cache/
 ---
 
 ## 📜 更新紀錄 (Changelog)
+
+### 2026-05-17（敬拜團 UX 改造 + 小組同步修補）
+
+#### 🆕 敬拜團：可搜尋下拉選單 + 標籤式多選
+| 模組 | 改動 |
+|---|---|
+| **敬拜團員名單分頁（新增區）** | 輸入框右側加「▼ 選擇」按鈕，可開啟主日會友的可搜尋下拉清單；點 input focus 也會自動展開；已加入的會自動過濾 |
+| **位置與同工分頁（同工名單）** | 由純文字逗號分隔輸入框 → 改為**標籤式多選**；資料來源**綁定敬拜團員名單**（`getTeamMembers`）；正式 = 藍色徽章、實習 = 黃色徽章；舊資料中不在名單的人會顯示灰色 `⚠️`，提醒整理 |
+| **共用可搜尋浮動下拉元件** | `_showFloatingDropdown(anchorEl, items, onPick, opts)` 通用元件：自帶搜尋框、即時關鍵字過濾、外部點擊/捲動/縮放自動關閉；支援 `disabled` 項目（用來顯示「已選」狀態） |
+| **儲存後自動失效** | `saveTeamMembersToServer` 成功後清掉 `_worshipTeamCache`，「位置與同工」下次開啟即拉到最新名單 |
+
+**對後端 API 0 影響**：同工名單仍以逗號字串存在 hidden input `.pos-personnel`，savePositions 後端不用任何改動。
+
+#### 🛠️ 小組移除成員時，主日同步更新
+- 之前：A 組從 `_名單` 移除某人時，**主日「會友名單」的「所屬小組 / 身分」沒被更新**，導致該人仍被視為 A 組成員
+- 修正：`updateMemberList` 函式新增「先計算被移除者」流程：
+  1. 找出原本在這組、但新名單沒有的人
+  2. 用 `parseGroupRoles` 解析其多組身分 → 移除這組 → `formatGroupRoles` 回寫
+  3. 透過 `updateMember` 更新主日的 `所屬小組 / 身分` 欄
+- `_saveMemberLocalData` 改為**完全重寫** `_名單`（只保留原建立日期），確保被移除者也從本地快取消失
+- 回傳訊息加上「移除 N」統計
+
+#### 🛠️ 小組統計（單日）顯示歷史出席
+- 問題：點某日統計時，**只列出目前還在組的人**，若有人已被移除但當天有出席，會被完全忽略
+- 原則：**「請保留他原本的點名紀錄，舊的是如何就是如何，不可移除」**
+- 修正：`getStats` singleDay 分支也加上補歷史成員邏輯（區間模式之前已有）
+  - 把 presentUidSet 中目前不在組的人補進清單，role 標記為 `(歷史)`
+- `_點名紀錄` sheet 本身**完全未動**，只是統計呈現補回來
+
+#### 📁 影響檔案
+**前端**（已 push）
+- `apps/LKC_worship/admin.html` — 新增區下拉按鈕
+- `apps/LKC_worship/script.js` — 共用下拉元件、標籤式多選、快取失效
+
+**後端 GAS**（主日_測試版）
+- `GroupAttendance.js` — `updateMemberList` 移除同步、`_saveMemberLocalData` 全量覆寫
+- `GroupStatistics.js` — `getStats` singleDay 補入歷史成員
+
+---
 
 ### 2026-05-16（後續補丁）
 - **事工管理：直接編輯小組組員身分** — 小組/團契模板新增「🧑‍🤝‍🧑 設定組員身分」按鈕，免跳系統。
