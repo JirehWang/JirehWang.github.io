@@ -16,6 +16,41 @@ async function callAPI(action, data) {
   return await window.churchAPI(action, data || {});
 }
 
+// ─── 通用 toast 提示 ───
+// type: 'info' | 'success' | 'error'
+let _toastEl = null;
+function showToast(msg, type = 'success', durationMs = 2200) {
+  if (!_toastEl) {
+    _toastEl = document.createElement('div');
+    _toastEl.id = '__calToast';
+    _toastEl.style.cssText = `
+      position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+      padding: 10px 22px; border-radius: 24px; color: #fff;
+      font-size: 0.92rem; font-weight: 600; z-index: 9999;
+      box-shadow: 0 4px 16px rgba(0,0,0,.18); transition: opacity .2s;
+      max-width: 92vw; text-align: center;
+    `;
+    document.body.appendChild(_toastEl);
+  }
+  const bg = { info: '#0d6efd', success: '#198754', error: '#dc3545' }[type] || '#198754';
+  _toastEl.style.background = bg;
+  _toastEl.innerText = msg;
+  _toastEl.style.opacity = '1';
+  _toastEl.style.display = 'block';
+  if (showToast._timer) clearTimeout(showToast._timer);
+  if (durationMs > 0) {
+    showToast._timer = setTimeout(() => {
+      _toastEl.style.opacity = '0';
+      setTimeout(() => { if (_toastEl) _toastEl.style.display = 'none'; }, 200);
+    }, durationMs);
+  }
+}
+function showLoadingToast(msg) { showToast('⏳ ' + msg, 'info', 0); }
+function hideToast() {
+  if (showToast._timer) clearTimeout(showToast._timer);
+  if (_toastEl) { _toastEl.style.opacity = '0'; setTimeout(() => _toastEl.style.display = 'none', 200); }
+}
+
 window.addEventListener('DOMContentLoaded', loadTypes);
 
 async function loadTypes() {
@@ -152,25 +187,28 @@ async function saveType() {
 
   if (!data.name) { alert('請輸入名稱'); return; }
 
+  showLoadingToast(isEdit ? '儲存類型中...' : '新增類型中...');
   try {
     const res = await callAPI(isEdit ? 'cal_updateType' : 'cal_addType', data);
     if (!res.success) throw new Error(res.message || '失敗');
     bootstrap.Modal.getOrCreateInstance(document.getElementById('typeModal')).hide();
     await loadTypes();
+    showToast(isEdit ? '✅ 類型已更新' : '✅ 類型已新增', 'success');
   } catch (err) {
-    alert('❌ ' + err.message);
+    showToast('❌ ' + err.message, 'error', 4000);
   }
 }
 
 async function confirmDeleteType(typeId, name) {
   if (!confirm(`確定要刪除「${name}」嗎？\n⚠️ 連同子類型、欄位、事項都會一起刪除（不可復原）`)) return;
+  showLoadingToast('刪除中...');
   try {
     const res = await callAPI('cal_deleteType', { typeId });
     if (!res.success) throw new Error(res.message);
-    alert('✅ ' + res.message);
     await loadTypes();
+    showToast('✅ ' + (res.message || '已刪除'), 'success');
   } catch (err) {
-    alert('❌ ' + err.message);
+    showToast('❌ ' + err.message, 'error', 4000);
   }
 }
 
@@ -289,19 +327,31 @@ async function toggleInheritedField(fieldId, enabled) {
   // enabled=true → 從 excludedFieldIds 移除；false → 加入
   const ctx = _currentFieldsContext;
   if (!ctx || !ctx.isSubType) return;
+
+  // 找到對應的欄位名稱顯示在 toast
+  const f = (ctx.inheritedFields || []).find(x => x.fieldId === fieldId);
+  const fname = f ? f['顯示名稱'] : '欄位';
+
   let excl = ctx.excludedFieldIds.slice();
   if (enabled) excl = excl.filter(x => x !== fieldId);
   else if (!excl.includes(fieldId)) excl.push(fieldId);
 
+  // 防呆：寫入期間鎖定該 checkbox
+  const checkbox = document.querySelector(`input[onchange*="${fieldId}"]`);
+  if (checkbox) checkbox.disabled = true;
+
+  showLoadingToast((enabled ? '啟用' : '排除') + `「${fname}」中...`);
   try {
     const res = await callAPI('cal_updateType', { typeId: ctx.subTypeId, excludedFieldIds: excl });
     if (!res.success) throw new Error(res.message);
     ctx.excludedFieldIds = excl;
-    // 重新渲染顯示狀態
     await reloadFieldsList();
+    showToast((enabled ? '✅ 已啟用「' : '✅ 已排除「') + fname + '」', 'success', 1800);
   } catch (err) {
-    alert('❌ ' + err.message);
+    showToast('❌ 儲存失敗：' + err.message, 'error', 4000);
     await reloadFieldsList();
+  } finally {
+    if (checkbox) checkbox.disabled = false;
   }
 }
 
@@ -376,10 +426,11 @@ async function saveFieldRow(fid) {
   };
   if (!data.name) { alert('請輸入欄位名稱'); return; }
 
+  const isNew = String(fid).startsWith('_new_');
+  showLoadingToast(isNew ? '新增欄位中...' : '儲存欄位中...');
   try {
     let res;
-    if (String(fid).startsWith('_new_')) {
-      // 新增 → 掛到 caller typeId（子類型或頂層）
+    if (isNew) {
       data.typeId = ctx.isSubType ? ctx.subTypeId : ctx.rootTypeId;
       res = await callAPI('cal_addField', data);
       if (!res.success) throw new Error(res.message);
@@ -389,8 +440,9 @@ async function saveFieldRow(fid) {
       if (!res.success) throw new Error(res.message);
     }
     await reloadFieldsList();
+    showToast(isNew ? `✅ 已新增欄位「${data.name}」` : `✅ 已更新欄位「${data.name}」`, 'success');
   } catch (err) {
-    alert('❌ ' + err.message);
+    showToast('❌ ' + err.message, 'error', 4000);
   }
 }
 
@@ -403,12 +455,14 @@ async function deleteFieldRow(fid, name) {
     return;
   }
   if (!confirm(`確定刪除欄位「${name}」？\n⚠️ 所有事項中此欄位的值也會一併清除`)) return;
+  showLoadingToast('刪除中...');
   try {
     const res = await callAPI('cal_deleteField', { fieldId: fid });
     if (!res.success) throw new Error(res.message);
     await reloadFieldsList();
+    showToast(`✅ 已刪除「${name}」`, 'success');
   } catch (err) {
-    alert('❌ ' + err.message);
+    showToast('❌ ' + err.message, 'error', 4000);
   }
 }
 
@@ -507,6 +561,7 @@ function exportFieldsTemplate() {
 
   const fileName = `行事曆模板_${callerType['名稱']}_${new Date().toISOString().substring(0,10)}.xlsx`;
   XLSX.writeFile(wb, fileName);
+  showToast(`📥 已下載：${fileName}`, 'success', 2500);
 }
 
 // ─── 遷移 ───
