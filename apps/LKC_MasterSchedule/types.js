@@ -313,11 +313,12 @@ function exportFieldsTemplate() {
   const subTypes = _calTypesFlat.filter(t => t.parentTypeId === _currentFieldsRootTypeId);
 
   // Sheet 1：資料填寫
-  const headers = ['日期', '子類型', '顯示標題'].concat(_currentFieldsList.map(f => f['顯示名稱']));
+  // 註：不放「顯示標題」欄，系統會自動取第一個欄位的值當標題；
+  //     若日後想改，可在月曆上點開事項手動修改
+  const headers = ['日期', '子類型'].concat(_currentFieldsList.map(f => f['顯示名稱']));
   const exampleRow = [
     '2026-01-05',
     subTypes.length > 0 ? subTypes[0]['名稱'] : '',
-    '（留空 = 自動）',
     ..._currentFieldsList.map(f => {
       if (f['欄位類型'] === 'select' || f['欄位類型'] === 'multiselect') {
         const opts = Array.isArray(f['下拉選項']) ? f['下拉選項'] : [];
@@ -347,8 +348,7 @@ function exportFieldsTemplate() {
     ['【欄位說明】'],
     ['欄位名稱', '型別', '是否必填', '說明'],
     ['日期', 'date', '必填', '事項日期'],
-    ['子類型', 'text', '選填', subTypes.length > 0 ? `必須是：${subTypes.map(s => s['名稱']).join(' / ')}` : '此類型沒有子類型，可留空'],
-    ['顯示標題', 'text', '選填', '留空時自動取第一個欄位的值']
+    ['子類型', 'text', '選填', subTypes.length > 0 ? `必須是：${subTypes.map(s => s['名稱']).join(' / ')}` : '此類型沒有子類型，可留空']
   ];
   _currentFieldsList.forEach(f => {
     let desc = '';
