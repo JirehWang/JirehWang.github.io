@@ -705,8 +705,8 @@ function _renderAiCard(ev, i, rootType, subTypes, fields) {
           </select>
         </div>` : ''}
         <div class="col-md-${subTypes.length > 0 ? '4' : '6'}">
-          <label class="form-label small mb-1 fw-bold">🏷️ 標題（選填）</label>
-          <input type="text" class="form-control form-control-sm ai-title" value="${escapeAttr(ev.title || '')}" placeholder="留空 = 自動">
+          <label class="form-label small mb-1 fw-bold">🏷️ 行程標題（選填）</label>
+          <input type="text" class="form-control form-control-sm ai-title" value="${escapeAttr(ev.title || '')}" placeholder="留空 = 自動取第一個欄位">
         </div>
       </div>
       <div class="ai-card-fields">
@@ -893,13 +893,13 @@ async function handleExcelUpload(ev) {
         }
       }
 
-      // 標題
-      const title = String(row['顯示標題'] || row['標題'] || '').trim();
+      // 標題（新版用「行程標題」，舊版相容「顯示標題」/「標題」）
+      const title = String(row['行程標題'] || row['顯示標題'] || row['標題'] || '').trim();
 
       // 欄位值
       const values = {};
       Object.entries(row).forEach(([col, v]) => {
-        if (['日期', 'date', '子類型', '顯示標題', '標題'].indexOf(col) !== -1) return;
+        if (['日期', 'date', '子類型', '行程標題', '顯示標題', '標題'].indexOf(col) !== -1) return;
         const f = fieldByName[col];
         if (f && v !== '' && v !== null && v !== undefined) {
           values[f.fieldId] = (v instanceof Date) ? v.toISOString().substring(0,10) : String(v);

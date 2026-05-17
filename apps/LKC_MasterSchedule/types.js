@@ -532,11 +532,12 @@ function exportFieldsTemplate() {
   const subTypes = isSubType ? [] : _calTypesFlat.filter(t => t.parentTypeId === ctx.rootTypeId);
 
   // Sheet 1：資料填寫
-  // 頂層模板：日期 + 子類型 + 各欄位（每列可填不同子類型）
-  // 子類型模板：日期 + 各欄位（typeId 直接 = 此子類型，不需子類型欄）
+  // 「行程標題」= 月曆 chip 上顯示的文字（選填；留空 = 自動取第一個欄位的值當標題）
+  // 頂層模板：日期 + 子類型 + 行程標題 + 各欄位
+  // 子類型模板：日期 + 行程標題 + 各欄位
   const headers = isSubType
-    ? ['日期'].concat(_currentFieldsList.map(f => f['顯示名稱']))
-    : ['日期', '子類型'].concat(_currentFieldsList.map(f => f['顯示名稱']));
+    ? ['日期', '行程標題'].concat(_currentFieldsList.map(f => f['顯示名稱']))
+    : ['日期', '子類型', '行程標題'].concat(_currentFieldsList.map(f => f['顯示名稱']));
 
   // 構造範例列的「範例值」邏輯
   const fieldExample = f => {
@@ -549,9 +550,10 @@ function exportFieldsTemplate() {
     return f.required ? '（必填）' : '（選填）';
   };
 
+  const titleExample = '（留空 = 自動取第一個欄位）';
   const exampleRow = isSubType
-    ? ['2026-01-05', ..._currentFieldsList.map(fieldExample)]
-    : ['2026-01-05', subTypes.length > 0 ? subTypes[0]['名稱'] : '', ..._currentFieldsList.map(fieldExample)];
+    ? ['2026-01-05', titleExample, ..._currentFieldsList.map(fieldExample)]
+    : ['2026-01-05', subTypes.length > 0 ? subTypes[0]['名稱'] : '', titleExample, ..._currentFieldsList.map(fieldExample)];
 
   const dataSheet = XLSX.utils.aoa_to_sheet([headers, exampleRow]);
   dataSheet['!cols'] = headers.map(h => ({ wch: Math.max(12, h.length * 2 + 2) }));
@@ -579,6 +581,7 @@ function exportFieldsTemplate() {
   if (!isSubType && subTypes.length > 0) {
     instructions.push(['子類型', 'text', '選填', `每列可填不同子類型；必須是：${subTypes.map(s => s['名稱']).join(' / ')}`]);
   }
+  instructions.push(['行程標題', 'text', '選填', '月曆上顯示的文字；留空 = 自動取第一個欄位的值；想用不同顯示文字（例如縮短講題）才填']);
   _currentFieldsList.forEach(f => {
     let desc = '';
     if (f['欄位類型'] === 'select' || f['欄位類型'] === 'multiselect') {
