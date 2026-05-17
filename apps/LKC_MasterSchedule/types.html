@@ -118,8 +118,11 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <div class="alert alert-info py-2 small mb-3">
-          💡 欄位定義在<b>頂層類型</b>上，子類型自動繼承。
+        <div class="alert alert-info py-2 small mb-3 d-flex justify-content-between align-items-center">
+          <span>💡 欄位定義在<b>頂層類型</b>上，子類型自動繼承。</span>
+          <button class="btn btn-sm btn-outline-success" onclick="exportFieldsTemplate()" title="下載 Excel 模板，填好後從月曆頁上傳">
+            📥 匯出 Excel 模板
+          </button>
         </div>
         <div id="fieldsList"></div>
         <button class="btn btn-outline-primary w-100 mt-3" onclick="openAddFieldRow()">＋ 新增欄位</button>
@@ -132,6 +135,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>window._GAS_KEY = 'LKC_MasterSchedule';</script>
 <script src="https://jirehwang.github.io/LKC1958_June_1.github.io/config.js"></script>
 <script src="types.js"></script>

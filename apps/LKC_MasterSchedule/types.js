@@ -301,6 +301,86 @@ async function deleteFieldRow(fid, name) {
   }
 }
 
+// ─── Excel 模板匯出 ───
+function exportFieldsTemplate() {
+  if (!_currentFieldsRootTypeId || !_currentFieldsList) {
+    alert('還沒載入欄位'); return;
+  }
+  const rootType = _calTypesFlat.find(t => t.typeId === _currentFieldsRootTypeId);
+  if (!rootType) { alert('找不到類型'); return; }
+
+  // 子類型清單（給說明用）
+  const subTypes = _calTypesFlat.filter(t => t.parentTypeId === _currentFieldsRootTypeId);
+
+  // Sheet 1：資料填寫
+  const headers = ['日期', '子類型', '顯示標題'].concat(_currentFieldsList.map(f => f['顯示名稱']));
+  const exampleRow = [
+    '2026-01-05',
+    subTypes.length > 0 ? subTypes[0]['名稱'] : '',
+    '（留空 = 自動）',
+    ..._currentFieldsList.map(f => {
+      if (f['欄位類型'] === 'select' || f['欄位類型'] === 'multiselect') {
+        const opts = Array.isArray(f['下拉選項']) ? f['下拉選項'] : [];
+        return opts.length > 0 ? opts[0] : '（範例值）';
+      }
+      if (f['欄位類型'] === 'date') return '2026-01-05';
+      if (f['欄位類型'] === 'number') return '0';
+      return f.required ? '（必填）' : '（選填）';
+    })
+  ];
+  const dataSheet = XLSX.utils.aoa_to_sheet([headers, exampleRow]);
+  // 設定欄寬
+  dataSheet['!cols'] = headers.map(h => ({ wch: Math.max(12, h.length * 2 + 2) }));
+
+  // Sheet 2：使用說明
+  const instructions = [
+    ['📖 教會行事曆 - Excel 模板使用說明'],
+    [''],
+    [`類型：${rootType.icon || ''} ${rootType['名稱']}`],
+    [''],
+    ['【填寫規則】'],
+    ['1. 第一列「資料填寫」分頁的第 1 列為標題，請勿修改'],
+    ['2. 第 2 列是範例，請刪除後再填入實際資料（或保留也可以，但要記得改成正確值）'],
+    ['3. 從第 3 列起填入實際資料，每列 = 一個事項'],
+    ['4. 日期格式：YYYY-MM-DD（例 2026-01-05）；或 Excel 日期格式'],
+    [''],
+    ['【欄位說明】'],
+    ['欄位名稱', '型別', '是否必填', '說明'],
+    ['日期', 'date', '必填', '事項日期'],
+    ['子類型', 'text', '選填', subTypes.length > 0 ? `必須是：${subTypes.map(s => s['名稱']).join(' / ')}` : '此類型沒有子類型，可留空'],
+    ['顯示標題', 'text', '選填', '留空時自動取第一個欄位的值']
+  ];
+  _currentFieldsList.forEach(f => {
+    let desc = '';
+    if (f['欄位類型'] === 'select' || f['欄位類型'] === 'multiselect') {
+      const opts = Array.isArray(f['下拉選項']) ? f['下拉選項'] : [];
+      desc = '選項：' + opts.join(' / ');
+      if (f['欄位類型'] === 'multiselect') desc += '（多選用逗號分隔）';
+    } else if (f['欄位類型'] === 'longtext') desc = '長文字，可換行';
+    else if (f['欄位類型'] === 'url') desc = '網址';
+    else if (f['欄位類型'] === 'number') desc = '數字';
+    instructions.push([
+      f['顯示名稱'], f['欄位類型'], f.required ? '必填' : '選填', desc
+    ]);
+  });
+  instructions.push(['']);
+  instructions.push(['【匯入方式】']);
+  instructions.push(['1. 填好後存檔']);
+  instructions.push(['2. 到「📅 行事曆月曆」頁面右上「📤 上傳 Excel」']);
+  instructions.push(['3. 系統會解析並預覽，確認後一鍵建立']);
+
+  const guideSheet = XLSX.utils.aoa_to_sheet(instructions);
+  guideSheet['!cols'] = [{wch:20},{wch:12},{wch:10},{wch:50}];
+
+  const wb = XLSX.utils.book_new();
+  // 重要：第一個 Sheet 名稱 = 頂層類型名稱（上傳時用來對應）
+  XLSX.utils.book_append_sheet(wb, dataSheet, rootType['名稱']);
+  XLSX.utils.book_append_sheet(wb, guideSheet, '使用說明');
+
+  const fileName = `行事曆模板_${rootType['名稱']}_${new Date().toISOString().substring(0,10)}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+}
+
 // ─── 遷移 ───
 async function runMigration() {
   if (!confirm(`即將進行：

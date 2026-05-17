@@ -456,6 +456,378 @@ async function confirmDeleteFromDetail() {
   }
 }
 
+// ═════════════════════════════════════════════════════════════
+// 📅 批量新增（手動）
+// ═════════════════════════════════════════════════════════════
+let _batchDates = []; // ['2026-01-05', ...]
+
+function openBatchModal() {
+  _batchDates = [];
+  document.getElementById('batch_startDate').value = '';
+  document.getElementById('batch_endDate').value = '';
+  document.querySelectorAll('.batch-wd').forEach(b => b.classList.remove('active', 'btn-info', 'text-white'));
+  document.getElementById('batch_dateChips').innerHTML = '<span class="text-muted small">尚未產生</span>';
+  document.getElementById('batch_summary').innerText = '';
+  // 重用單筆 modal 的類型 select
+  document.getElementById('batch_typeId').innerHTML = document.getElementById('evf_typeId').innerHTML;
+  document.getElementById('batch_typeId').value = '';
+  document.getElementById('batch_fieldsContainer').innerHTML = '<div class="text-muted text-center py-3">請先選擇類型</div>';
+
+  // 星期幾按鈕互動
+  document.querySelectorAll('.batch-wd').forEach(btn => {
+    btn.onclick = () => {
+      btn.classList.toggle('active');
+      btn.classList.toggle('btn-info');
+      btn.classList.toggle('text-white');
+    };
+  });
+
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('batchModal')).show();
+}
+
+function batchGenerateDates() {
+  const start = document.getElementById('batch_startDate').value;
+  const end = document.getElementById('batch_endDate').value;
+  if (!start || !end) { alert('請選擇起訖日期'); return; }
+  if (start > end) { alert('開始日期不可大於結束日期'); return; }
+
+  const selectedWds = Array.from(document.querySelectorAll('.batch-wd.active')).map(b => parseInt(b.dataset.wd));
+  const sd = new Date(start), ed = new Date(end);
+  const dates = [];
+  for (let d = new Date(sd); d <= ed; d.setDate(d.getDate() + 1)) {
+    if (selectedWds.length === 0 || selectedWds.includes(d.getDay())) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      dates.push(`${y}-${m}-${day}`);
+    }
+  }
+  _batchDates = dates;
+  renderBatchDateChips();
+}
+
+function renderBatchDateChips() {
+  const c = document.getElementById('batch_dateChips');
+  if (_batchDates.length === 0) {
+    c.innerHTML = '<span class="text-muted small">尚未產生</span>';
+    document.getElementById('batch_summary').innerText = '';
+    return;
+  }
+  c.innerHTML = _batchDates.map((d, i) =>
+    `<span class="badge bg-info text-white">${d} <button class="btn-close btn-close-white ms-1" style="font-size:.5rem;" onclick="removeBatchDate(${i})"></button></span>`
+  ).join('');
+  document.getElementById('batch_summary').innerText = `將建立 ${_batchDates.length} 筆事項`;
+}
+
+function removeBatchDate(idx) {
+  _batchDates.splice(idx, 1);
+  renderBatchDateChips();
+}
+
+async function onBatchTypeChanged() {
+  const tid = document.getElementById('batch_typeId').value;
+  const container = document.getElementById('batch_fieldsContainer');
+  if (!tid) {
+    container.innerHTML = '<div class="text-muted text-center py-3">請先選擇類型</div>';
+    return;
+  }
+  container.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm"></div></div>';
+  let fields;
+  if (_fieldsByType[tid]) fields = _fieldsByType[tid];
+  else {
+    try {
+      const res = await callAPI('cal_getFields', { typeId: tid });
+      if (!res.success) throw new Error(res.message);
+      fields = res.data.fields;
+      _fieldsByType[tid] = fields;
+    } catch (err) {
+      container.innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+      return;
+    }
+  }
+  if (fields.length === 0) {
+    container.innerHTML = '<div class="alert alert-light border text-muted">此類型沒有欄位</div>';
+    return;
+  }
+  // 給 batch 用，特別前綴 fid 避免與單筆 modal 衝突
+  container.innerHTML = fields.map(f => _renderFieldInput(f, ''))
+    .join('').replace(/data-fid="/g, 'data-bfid="');
+}
+
+async function confirmBatchAdd() {
+  if (_batchDates.length === 0) { alert('請先產生日期'); return; }
+  const typeId = document.getElementById('batch_typeId').value;
+  if (!typeId) { alert('請選擇類型'); return; }
+
+  // 收集欄位值（套用到每一筆）
+  const valuesObj = {};
+  const inputs = document.querySelectorAll('#batch_fieldsContainer [data-bfid]');
+  let missing = null;
+  inputs.forEach(el => {
+    const fid = el.dataset.bfid;
+    const required = el.dataset.req === 'true';
+    let val;
+    if (el.dataset.multi === '1') {
+      val = Array.from(el.querySelectorAll('input[type="checkbox"]:checked')).map(c => c.value).join(',');
+    } else {
+      val = el.value;
+    }
+    if (required && !val.toString().trim()) missing = el;
+    if (val) valuesObj[fid] = val;
+  });
+  if (missing) { missing.focus(); alert('有必填欄位尚未填寫'); return; }
+
+  const events = _batchDates.map(d => ({ typeId, date: d, values: valuesObj, title: '' }));
+
+  try {
+    const res = await callAPI('cal_addEventsBatch', { events });
+    if (!res.success) throw new Error(res.message || '建立失敗');
+    alert(`✅ ${res.message}`);
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('batchModal')).hide();
+    const view = _calendar.view;
+    loadEventsForRange(view.activeStart.toISOString().substring(0,10), view.activeEnd.toISOString().substring(0,10));
+  } catch (err) {
+    alert('❌ ' + err.message);
+  }
+}
+
+// ═════════════════════════════════════════════════════════════
+// 🤖 AI 解析
+// ═════════════════════════════════════════════════════════════
+let _aiParseResult = null;
+
+function openAiModal() {
+  // 只列頂層類型（AI 會自動判斷子類型）
+  const sel = document.getElementById('ai_rootTypeId');
+  const roots = _types.tree;
+  sel.innerHTML = '<option value="">-- 選擇頂層類型 --</option>' +
+    roots.map(t => `<option value="${t.typeId}">${t.icon || ''} ${t['名稱']}</option>`).join('');
+  document.getElementById('ai_rawText').value = '';
+  document.getElementById('ai_resultPreview').innerHTML = '';
+  document.getElementById('ai_confirmBtn').style.display = 'none';
+  _aiParseResult = null;
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('aiModal')).show();
+}
+
+async function runAiParse() {
+  const rootTypeId = document.getElementById('ai_rootTypeId').value;
+  const rawText = document.getElementById('ai_rawText').value.trim();
+  if (!rootTypeId) { alert('請選擇預期類型'); return; }
+  if (!rawText) { alert('請貼上要解析的文字'); return; }
+
+  const preview = document.getElementById('ai_resultPreview');
+  preview.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-warning"></div><div class="small text-muted mt-2">AI 解析中...（可能需要 5-15 秒）</div></div>';
+
+  try {
+    const res = await callAPI('cal_aiParseForType', { rootTypeId, rawText, allowMultiple: true });
+    if (!res.success) throw new Error(res.message || 'AI 解析失敗');
+    _aiParseResult = res;
+    renderAiPreview(res);
+  } catch (err) {
+    preview.innerHTML = `<div class="alert alert-danger">❌ ${err.message}</div>`;
+  }
+}
+
+function renderAiPreview(res) {
+  const events = res.events || [];
+  if (events.length === 0) {
+    document.getElementById('ai_resultPreview').innerHTML = '<div class="alert alert-warning">AI 沒有解析出任何事項</div>';
+    return;
+  }
+  let html = `<div class="alert alert-success py-2 mb-2">✅ 解析出 ${events.length} 個事項，請確認後按下方「批量建立」</div>`;
+  html += `<div class="table-responsive"><table class="table table-sm table-bordered"><thead class="table-light"><tr>
+    <th>#</th><th>日期</th><th>${res.hasSubTypes ? '子類型' : '類型'}</th><th>主要內容</th>
+  </tr></thead><tbody>`;
+  events.forEach((ev, i) => {
+    const dateValid = /^\d{4}-\d{2}-\d{2}$/.test(ev.date);
+    const subOk = res.hasSubTypes ? !!ev.subTypeId : true;
+    const valuesPreview = Object.entries(ev.values || {}).slice(0,3)
+      .map(([k,v]) => escapeHtml(String(v).substring(0,40))).join(' / ');
+    html += `<tr ${(!dateValid || !subOk) ? 'class="table-warning"' : ''}>
+      <td>${i+1}</td>
+      <td>${escapeHtml(ev.date)} ${dateValid ? '' : '<small class="text-danger">⚠ 日期格式錯</small>'}</td>
+      <td>${escapeHtml(ev.subTypeName || res.rootTypeName)} ${(res.hasSubTypes && !subOk) ? '<small class="text-danger">⚠ 找不到</small>' : ''}</td>
+      <td><small>${valuesPreview}</small></td>
+    </tr>`;
+  });
+  html += '</tbody></table></div>';
+  document.getElementById('ai_resultPreview').innerHTML = html;
+  document.getElementById('ai_confirmBtn').style.display = '';
+}
+
+async function confirmAiBatchAdd() {
+  if (!_aiParseResult || !_aiParseResult.events) return;
+  const events = _aiParseResult.events
+    .filter(ev => /^\d{4}-\d{2}-\d{2}$/.test(ev.date)) // 日期格式對才建立
+    .map(ev => ({
+      typeId: ev.subTypeId || _aiParseResult.rootTypeId, // 子類型優先
+      date: ev.date,
+      title: ev.title || '',
+      values: ev.values || {}
+    }))
+    .filter(ev => ev.typeId);
+
+  if (events.length === 0) { alert('沒有有效事項可建立'); return; }
+
+  try {
+    const res = await callAPI('cal_addEventsBatch', { events });
+    if (!res.success) throw new Error(res.message);
+    alert(`✅ ${res.message}`);
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('aiModal')).hide();
+    const view = _calendar.view;
+    loadEventsForRange(view.activeStart.toISOString().substring(0,10), view.activeEnd.toISOString().substring(0,10));
+  } catch (err) {
+    alert('❌ ' + err.message);
+  }
+}
+
+// ═════════════════════════════════════════════════════════════
+// 📤 Excel 上傳 → 預覽 → 建立
+// ═════════════════════════════════════════════════════════════
+let _excelImportRows = null; // [{typeId, date, title, values, errors}]
+
+async function handleExcelUpload(ev) {
+  const file = ev.target.files[0];
+  if (!file) return;
+
+  try {
+    const data = await file.arrayBuffer();
+    const wb = XLSX.read(data);
+    const sheetName = wb.SheetNames[0];
+    const ws = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    ev.target.value = ''; // reset，方便重傳同一檔
+
+    if (rows.length === 0) { alert('Excel 沒有資料'); return; }
+
+    // 找到對應類型（用 Sheet 名稱比對頂層類型）
+    const rootType = _types.flat.find(t => !t.parentTypeId && t['名稱'] === sheetName);
+    if (!rootType) {
+      alert(`❌ 找不到對應的類型「${sheetName}」\n請確認 Excel sheet 名稱與某個頂層類型完全相符\n（建議直接使用「欄位管理」→「匯出模板」下載的範本）`);
+      return;
+    }
+
+    // 取該類型的欄位定義
+    let fields;
+    if (_fieldsByType[rootType.typeId]) fields = _fieldsByType[rootType.typeId];
+    else {
+      const res = await callAPI('cal_getFields', { typeId: rootType.typeId });
+      if (!res.success) throw new Error(res.message);
+      fields = res.data.fields;
+      _fieldsByType[rootType.typeId] = fields;
+    }
+    // 子類型清單（依名稱對應）
+    const subTypesByName = {};
+    _types.flat.filter(t => t.parentTypeId === rootType.typeId).forEach(t => subTypesByName[t['名稱']] = t.typeId);
+
+    // 欄位名 → fieldId
+    const fieldByName = {};
+    fields.forEach(f => fieldByName[f['顯示名稱']] = f);
+    const requiredFieldNames = fields.filter(f => f.required).map(f => f['顯示名稱']);
+
+    // 逐列轉換
+    _excelImportRows = rows.map((row, idx) => {
+      const errors = [];
+      // 日期
+      let date = row['日期'] || row['date'];
+      if (date instanceof Date) {
+        date = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+      } else if (typeof date === 'number') {
+        // Excel 序列日期
+        const d = XLSX.SSF.parse_date_code(date);
+        if (d) date = `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+      } else {
+        date = String(date || '').trim();
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) errors.push('日期格式錯');
+
+      // 子類型
+      let typeId = rootType.typeId;
+      const subTypeName = String(row['子類型'] || '').trim();
+      if (subTypeName) {
+        if (subTypesByName[subTypeName]) typeId = subTypesByName[subTypeName];
+        else if (Object.keys(subTypesByName).length > 0) errors.push(`子類型「${subTypeName}」不存在`);
+      } else if (Object.keys(subTypesByName).length > 0) {
+        // 有子類型但沒指定 — 用 root（提示）
+        // 改為錯誤可能太嚴格，這裡只警告（不擋）
+      }
+
+      // 標題
+      const title = String(row['顯示標題'] || row['標題'] || '').trim();
+
+      // 欄位值
+      const values = {};
+      Object.entries(row).forEach(([col, v]) => {
+        if (['日期', 'date', '子類型', '顯示標題', '標題'].indexOf(col) !== -1) return;
+        const f = fieldByName[col];
+        if (f && v !== '' && v !== null && v !== undefined) {
+          values[f.fieldId] = (v instanceof Date) ? v.toISOString().substring(0,10) : String(v);
+        }
+      });
+
+      // 必填檢查
+      requiredFieldNames.forEach(fn => {
+        const f = fieldByName[fn];
+        if (f && !values[f.fieldId]) errors.push(`欠必填「${fn}」`);
+      });
+
+      return { idx: idx + 2, typeId, date, title, values, errors, subTypeName };
+    });
+
+    renderExcelPreview(rootType);
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('excelPreviewModal')).show();
+  } catch (err) {
+    alert('❌ Excel 解析失敗：' + err.message);
+  }
+}
+
+function renderExcelPreview(rootType) {
+  const ok = _excelImportRows.filter(r => r.errors.length === 0).length;
+  const bad = _excelImportRows.length - ok;
+  document.getElementById('excelPreviewSummary').innerText = `共 ${_excelImportRows.length} 列：可建立 ${ok}，問題 ${bad}`;
+  let html = `<div class="alert alert-info py-2 mb-2">📂 對應類型：<b>${escapeHtml(rootType['名稱'])}</b>　🟢 可建立 ${ok} 筆，🟡 問題 ${bad} 筆（有問題的列不會建立）</div>`;
+  html += '<div class="table-responsive"><table class="table table-sm table-bordered"><thead class="table-light"><tr>';
+  html += '<th>Excel 列</th><th>日期</th><th>子類型</th><th>標題</th><th>欄位值（前 3 個）</th><th>檢查</th></tr></thead><tbody>';
+  _excelImportRows.forEach(r => {
+    const valuesPreview = Object.entries(r.values).slice(0, 3)
+      .map(([fid, v]) => escapeHtml(String(v).substring(0,30))).join(' / ');
+    const cls = r.errors.length > 0 ? 'table-warning' : '';
+    const errs = r.errors.length > 0
+      ? `<span class="text-danger small">⚠ ${r.errors.join('，')}</span>`
+      : '<span class="text-success small">✓</span>';
+    html += `<tr class="${cls}">
+      <td class="text-center">${r.idx}</td>
+      <td>${escapeHtml(r.date)}</td>
+      <td>${escapeHtml(r.subTypeName || '(root)')}</td>
+      <td>${escapeHtml(r.title)}</td>
+      <td><small>${valuesPreview}</small></td>
+      <td>${errs}</td>
+    </tr>`;
+  });
+  html += '</tbody></table></div>';
+  document.getElementById('excelPreviewBody').innerHTML = html;
+  document.getElementById('excelConfirmBtn').disabled = ok === 0;
+}
+
+async function confirmExcelImport() {
+  if (!_excelImportRows) return;
+  const events = _excelImportRows
+    .filter(r => r.errors.length === 0)
+    .map(r => ({ typeId: r.typeId, date: r.date, title: r.title, values: r.values }));
+  if (events.length === 0) { alert('沒有可建立的列'); return; }
+
+  try {
+    const res = await callAPI('cal_addEventsBatch', { events });
+    if (!res.success) throw new Error(res.message);
+    alert(`✅ ${res.message}`);
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('excelPreviewModal')).hide();
+    const view = _calendar.view;
+    loadEventsForRange(view.activeStart.toISOString().substring(0,10), view.activeEnd.toISOString().substring(0,10));
+  } catch (err) {
+    alert('❌ ' + err.message);
+  }
+}
+
 // ─────────────────────────────────────────────────────────────
 // helpers
 // ─────────────────────────────────────────────────────────────
