@@ -229,6 +229,140 @@ function switchTab(tabId) {
   if(tabId === 'settings') loadPositions();
   if(tabId === 'schedule') initScheduleTab();
   if(tabId === 'teamMembers') loadTeamMembers();
+  if(tabId === 'calLink') loadCalLinkSettings();
+}
+
+// ==========================================
+// 📅 行事曆連結設定
+// ==========================================
+let _calLinkConfig = null;
+
+async function loadCalLinkSettings() {
+  document.getElementById('calLinkLoadingArea').style.display = '';
+  document.getElementById('calLinkMainArea').style.display = 'none';
+  try {
+    const res = await callAPI('getCalendarLinkConfig', {});
+    if (res.status !== 'success') throw new Error(res.message || '載入失敗');
+    _calLinkConfig = res.data;
+    renderCalLinkUI();
+  } catch (err) {
+    document.getElementById('calLinkLoadingArea').innerHTML =
+      `<div class="alert alert-danger">❌ 載入失敗：${err.message}</div>`;
+  }
+}
+
+function renderCalLinkUI() {
+  if (!_calLinkConfig) return;
+  document.getElementById('calLinkLoadingArea').style.display = 'none';
+  document.getElementById('calLinkMainArea').style.display = '';
+
+  const subTypes = _calLinkConfig.sermonSubTypes || [];
+
+  // 預設子類型下拉
+  const sel = document.getElementById('defaultSermonSubType');
+  if (!_calLinkConfig.calendarReachable) {
+    sel.innerHTML = '<option value="">⚠️ 讀不到行事曆資料（請確認跨 SS 授權）</option>';
+    sel.disabled = true;
+  } else if (subTypes.length === 0) {
+    sel.innerHTML = '<option value="">⚠️ 行事曆中還沒有「講道資訊」的子類型，請先到行事曆建立</option>';
+    sel.disabled = true;
+  } else {
+    sel.innerHTML = '<option value="">-- 不指定 --</option>' +
+      subTypes.map(t => `<option value="${t.typeId}" ${t.typeId === _calLinkConfig.defaultSermonSubTypeId ? 'selected' : ''}>${t.icon || ''} ${t.name}</option>`).join('');
+    sel.disabled = false;
+  }
+
+  // 狀態顯示
+  const statusEl = document.getElementById('defaultSubTypeStatus');
+  if (_calLinkConfig.defaultSermonSubTypeId && !_calLinkConfig.defaultIsValid) {
+    statusEl.innerHTML = '<span class="text-danger">⚠️ 目前儲存的預設子類型在行事曆中找不到（可能已被刪除），請重選</span>';
+  } else if (_calLinkConfig.defaultSermonSubTypeId) {
+    statusEl.innerHTML = '<span class="text-success">✓ 已設定</span>';
+  } else {
+    statusEl.innerText = '尚未設定，沒設的話公佈欄的講道欄位會空白';
+  }
+
+  // 新增覆寫的子類型下拉
+  const newSel = document.getElementById('newOverrideSubType');
+  newSel.innerHTML = '<option value="">-- 選子類型 --</option>' +
+    subTypes.map(t => `<option value="${t.typeId}">${t.icon || ''} ${t.name}</option>`).join('');
+
+  // 渲染覆寫清單
+  const tbody = document.getElementById('dateOverridesTbody');
+  const overrides = _calLinkConfig.overrides || {};
+  const dates = Object.keys(overrides).sort();
+  if (dates.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted p-3">尚無覆寫</td></tr>';
+  } else {
+    tbody.innerHTML = dates.map(d => {
+      const typeId = overrides[d];
+      const t = subTypes.find(x => x.typeId === typeId);
+      const label = t ? `${t.icon || ''} ${t.name}` : `<span class="text-danger">${typeId} (查無)</span>`;
+      return `<tr>
+        <td class="text-center fw-bold">${d}</td>
+        <td class="text-center">${label}</td>
+        <td class="text-center">
+          <button class="btn btn-sm btn-outline-danger" onclick="removeDateOverride('${d}')">移除</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+}
+
+async function saveDefaultSubType() {
+  const typeId = document.getElementById('defaultSermonSubType').value;
+  try {
+    const res = await callAPI('setDefaultSermonSubType', { typeId });
+    if (res.status !== 'success') throw new Error(res.message);
+    if (_calLinkConfig) _calLinkConfig.defaultSermonSubTypeId = typeId;
+    renderCalLinkUI();
+    userNotification ? userNotification.success('✅ 預設子類型已更新') : alert('✅ 預設子類型已更新');
+  } catch (err) {
+    alert('❌ ' + err.message);
+  }
+}
+
+async function addDateOverride() {
+  const date = document.getElementById('newOverrideDate').value;
+  const typeId = document.getElementById('newOverrideSubType').value;
+  if (!date) { alert('請選擇日期'); return; }
+  if (!typeId) { alert('請選子類型'); return; }
+  try {
+    const res = await callAPI('setDateOverride', { date, typeId });
+    if (res.status !== 'success') throw new Error(res.message);
+    if (_calLinkConfig) {
+      _calLinkConfig.overrides = _calLinkConfig.overrides || {};
+      _calLinkConfig.overrides[date] = typeId;
+    }
+    document.getElementById('newOverrideDate').value = '';
+    document.getElementById('newOverrideSubType').value = '';
+    renderCalLinkUI();
+  } catch (err) {
+    alert('❌ ' + err.message);
+  }
+}
+
+async function removeDateOverride(date) {
+  if (!confirm(`移除 ${date} 的覆寫？`)) return;
+  try {
+    const res = await callAPI('setDateOverride', { date, typeId: '' });
+    if (res.status !== 'success') throw new Error(res.message);
+    if (_calLinkConfig && _calLinkConfig.overrides) delete _calLinkConfig.overrides[date];
+    renderCalLinkUI();
+  } catch (err) {
+    alert('❌ ' + err.message);
+  }
+}
+
+async function clearCalLinkCacheBtn() {
+  try {
+    const res = await callAPI('clearCalendarLinkCache', {});
+    if (res.status !== 'success') throw new Error(res.message);
+    alert('✅ 已清空行事曆快取，重新載入中...');
+    await loadCalLinkSettings();
+  } catch (err) {
+    alert('❌ ' + err.message);
+  }
 }
 
 // ==========================================

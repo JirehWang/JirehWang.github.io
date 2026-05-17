@@ -22,6 +22,7 @@
     <li class="nav-item"><a class="nav-link rounded-pill fw-bold" href="#" onclick="switchTab('teamMembers')">👥 敬拜團員名單</a></li>
     <li class="nav-item"><a class="nav-link rounded-pill fw-bold" href="#" onclick="switchTab('settings')">⚙️ 位置與同工</a></li>
     <li class="nav-item"><a class="nav-link rounded-pill fw-bold" href="#" onclick="switchTab('schedule')">🗓️ 服事安排預覽</a></li>
+    <li class="nav-item"><a class="nav-link rounded-pill fw-bold" href="#" onclick="switchTab('calLink')">📅 行事曆連結</a></li>
     <li class="nav-item"><a class="nav-link rounded-pill fw-bold" href="worship_songs.html">🎵 敬拜曲目</a></li>
   </ul>
 
@@ -123,6 +124,72 @@
       </table>
     </div>
     <button class="btn btn-outline-secondary w-100 fw-bold" onclick="addPositionRow('', '', '是')">+ 新增一個位置</button>
+  </div>
+
+  <!-- 📅 行事曆連結設定 -->
+  <div id="calLink" class="tab-content">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0">行事曆連結設定</h5>
+      <button class="btn btn-sm btn-outline-secondary" onclick="clearCalLinkCacheBtn()" title="重新從教會行事曆拉資料">🔄 清快取重抓</button>
+    </div>
+
+    <div class="alert alert-info small mb-3">
+      💡 公佈欄的「題目 / 經文 / 牧師」等欄位，會從<b>教會行事曆</b>的「講道資訊」事項自動帶入。<br>
+      因為講道資訊有<b>子類型</b>（台語 / 華語 / 聯合 等），請先選一個<b>預設子類型</b>；之後也可在公佈欄中針對個別日期手動切換成別的子類型。
+    </div>
+
+    <div id="calLinkLoadingArea" class="text-center text-muted p-4">
+      <div class="spinner-border spinner-border-sm"></div> 載入中...
+    </div>
+
+    <div id="calLinkMainArea" style="display:none;">
+      <!-- 預設子類型 -->
+      <div class="card mb-3 shadow-sm border-primary">
+        <div class="card-header bg-primary text-white py-2">
+          <b>⭐ 預設講道子類型</b>
+        </div>
+        <div class="card-body">
+          <label class="form-label small fw-bold text-muted mb-1">每一個日期如果沒有特別覆寫，就用這個子類型抓行事曆</label>
+          <select id="defaultSermonSubType" class="form-select" onchange="saveDefaultSubType()">
+            <option value="">-- 先到行事曆建立講道資訊子類型 --</option>
+          </select>
+          <div id="defaultSubTypeStatus" class="form-text"></div>
+        </div>
+      </div>
+
+      <!-- 日期覆寫清單 -->
+      <div class="card shadow-sm border-warning">
+        <div class="card-header bg-warning py-2">
+          <b>📌 日期覆寫清單</b>
+        </div>
+        <div class="card-body">
+          <div class="alert alert-light small border mb-2">
+            這裡列出已經設過「特殊子類型」的日期。你也可以直接到公佈欄上對單一列做切換（將在下一階段加入）。
+          </div>
+          <table class="table table-sm table-bordered align-middle mb-2">
+            <thead class="table-light text-center">
+              <tr><th style="width: 30%;">日期</th><th style="width: 50%;">指定子類型</th><th style="width: 20%;">操作</th></tr>
+            </thead>
+            <tbody id="dateOverridesTbody">
+              <tr><td colspan="3" class="text-center text-muted p-3">尚無覆寫</td></tr>
+            </tbody>
+          </table>
+          <div class="row g-2">
+            <div class="col-md-5">
+              <input type="date" id="newOverrideDate" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-5">
+              <select id="newOverrideSubType" class="form-select form-select-sm">
+                <option value="">-- 選子類型 --</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <button class="btn btn-sm btn-warning w-100 fw-bold" onclick="addDateOverride()">➕ 加</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="schedule" class="tab-content">
