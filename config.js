@@ -122,7 +122,13 @@
     'getScheduleByDateRange':       _SIX_HOURS,  // 服事表安排（區間）
     'getPositions':                 _SIX_HOURS,  // 位置與同工
     'getTeamMembers':               _SIX_HOURS,  // 敬拜團員名單
-    'getSongs':                     _SIX_HOURS   // 敬拜曲目（順帶加上）
+    'getSongs':                     _SIX_HOURS,  // 敬拜曲目（順帶加上）
+
+    // 教會行事曆
+    'cal_getTypes':                 _SIX_HOURS,  // 事項類型（含 children 樹）
+    'cal_getFields':                _SIX_HOURS,  // 欄位定義（含繼承解析）
+    'cal_getEvents':                _SIX_HOURS,  // 事項清單（依日期/類型篩選）
+    'cal_getEvent':                 _SIX_HOURS   // 單一事項詳情
   };
 
   // 寫入時要連帶清除的 read-cache（key = 寫入 action，value = 要清掉的 read action 陣列）
@@ -165,7 +171,27 @@
     // 行事曆連結設定改變 → 公佈欄 / 服事表的「聚會名稱、聚會類別、講道資訊」會跟著變
     'setDefaultSermonSubType': ['getSchedule', 'getScheduleByDateRange'],
     'setDateOverride':         ['getSchedule', 'getScheduleByDateRange'],
-    'clearCalendarLinkCache':  ['getSchedule', 'getScheduleByDateRange']
+    'clearCalendarLinkCache':  ['getSchedule', 'getScheduleByDateRange'],
+
+    // ── 教會行事曆異動 ──
+    // 類型 / 排除欄位改變 → 影響事項本身的子類型/欄位顯示 + 敬拜團公佈欄
+    'cal_addType':             ['cal_getTypes', 'cal_getFields', 'cal_getEvents', 'cal_getEvent', 'getSchedule', 'getScheduleByDateRange'],
+    'cal_updateType':          ['cal_getTypes', 'cal_getFields', 'cal_getEvents', 'cal_getEvent', 'getSchedule', 'getScheduleByDateRange'],
+    'cal_deleteType':          ['cal_getTypes', 'cal_getFields', 'cal_getEvents', 'cal_getEvent', 'getSchedule', 'getScheduleByDateRange'],
+    // 欄位改變 → 事項顯示 + 敬拜團公佈欄
+    'cal_addField':            ['cal_getFields', 'cal_getEvents', 'cal_getEvent', 'getSchedule', 'getScheduleByDateRange'],
+    'cal_updateField':         ['cal_getFields', 'cal_getEvents', 'cal_getEvent', 'getSchedule', 'getScheduleByDateRange'],
+    'cal_deleteField':         ['cal_getFields', 'cal_getEvents', 'cal_getEvent', 'getSchedule', 'getScheduleByDateRange'],
+    'cal_reorderFields':       ['cal_getFields', 'cal_getEvents', 'cal_getEvent'],
+    // 事項 CRUD → 公佈欄要重抓
+    'cal_addEvent':            ['cal_getEvents', 'cal_getEvent', 'getSchedule', 'getScheduleByDateRange'],
+    'cal_updateEvent':         ['cal_getEvents', 'cal_getEvent', 'getSchedule', 'getScheduleByDateRange'],
+    'cal_deleteEvent':         ['cal_getEvents', 'cal_getEvent', 'getSchedule', 'getScheduleByDateRange'],
+    'cal_addEventsBatch':      ['cal_getEvents', 'cal_getEvent', 'getSchedule', 'getScheduleByDateRange'],
+    // 整批操作
+    'cal_setupSchema':         ['cal_getTypes', 'cal_getFields', 'cal_getEvents', 'cal_getEvent'],
+    'cal_migrateOldData':      ['cal_getTypes', 'cal_getFields', 'cal_getEvents', 'cal_getEvent', 'getSchedule', 'getScheduleByDateRange'],
+    'cal_clearNewData':        ['cal_getEvents', 'cal_getEvent', 'getSchedule', 'getScheduleByDateRange']
   };
 
   // Lazy-load Firebase cache module（僅在需要時 import；失敗則自動 fallback 至直接 GAS 呼叫）

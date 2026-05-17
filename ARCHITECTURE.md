@@ -110,7 +110,7 @@ cache/
 └── ...
 ```
 
-### 啟用快取的 25 個 API（TTL 統一 6 小時）
+### 啟用快取的 29 個 API（TTL 統一 6 小時）
 | 類別 | API |
 |---|---|
 | 全域 | getGroups, getGroupConfig, getWeeklyReport, getAllMembers, getAdminGroupsList |
@@ -119,6 +119,7 @@ cache/
 | 小組（管理員 / 輔助） | **getAllGroupMembers**（admin 總清單）、**getMemberSuggestions**（datalist 自動完成） |
 | 事工 | ministry_getGroups, ministry_getTemplates, ministry_getAggregatedReport, ministry_getPageConfig, ministry_getGroupMembers |
 | 敬拜團 | getSchedule, getScheduleByDateRange, getPositions, getTeamMembers, getSongs |
+| **教會行事曆** | **cal_getTypes**、**cal_getFields**、**cal_getEvents**、**cal_getEvent**（事項類型/欄位/事項清單） |
 
 ### 三層 Invalidation（讓資料即時同步）
 1. **前端**：寫入 action 自動清相關 read cache (`_INVALIDATE_ON_WRITE`)
@@ -238,6 +239,36 @@ cache/
 ---
 
 ## 📜 更新紀錄 (Changelog)
+
+### 2026-05-17（後續：教會行事曆納入 Firebase 快取）
+
+#### 🚀 新增 cacheable actions（TTL 6h）
+| Action | 用途 |
+|---|---|
+| `cal_getTypes` | 事項類型樹（含 children） |
+| `cal_getFields` | 欄位定義（含繼承解析） |
+| `cal_getEvents` | 事項清單（依日期/類型篩選；月曆翻頁高頻） |
+| `cal_getEvent` | 單一事項詳情 |
+
+#### 🧹 完整 invalidation 規則
+| 觸發 action | 失效 topics |
+|---|---|
+| `cal_addType` / `cal_updateType` / `cal_deleteType` | cal 4 個 + 敬拜團 2 個 |
+| `cal_addField` ~ `cal_deleteField` | cal_getFields / cal_getEvents / cal_getEvent + 敬拜團 2 個 |
+| `cal_reorderFields` | cal_getFields / cal_getEvents / cal_getEvent（純前端視覺，不影響敬拜團） |
+| `cal_addEvent` / `cal_updateEvent` / `cal_deleteEvent` / `cal_addEventsBatch` | cal_getEvents / cal_getEvent + 敬拜團 2 個 |
+| `cal_setupSchema` | cal 4 個 |
+| `cal_migrateOldData` | cal 4 個 + 敬拜團 2 個 |
+
+#### ⚠️ 跨 GAS 快取邊界
+- 敬拜團 GAS 用 CacheService（4h）快取 **跨 SS 讀行事曆**的結果
+- Firebase 失效只清前端 cache，**不會即時清掉敬拜團 GAS 的 CacheService**
+- 後果：行事曆改完後，敬拜團公佈欄最多等 4h 才會自動反映行事曆資料變動
+- **解法**：敬拜團 admin 「📅 行事曆連結」→「🔄 清快取重抓」可手動清
+
+#### 📊 快取 API 數量：25 → **29 個**
+
+---
 
 ### 2026-05-17（後續：主日點名介面 5 個 GET 納入快取）
 
