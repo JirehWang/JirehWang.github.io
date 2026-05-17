@@ -158,10 +158,14 @@
     'ministry_saveGroupMembers':  ['ministry_getPageConfig'],
 
     // ── 敬拜團異動 ──
-    'saveSchedule':       ['getSchedule', 'getScheduleByDateRange'],
-    'savePositions':      ['getPositions'],
-    'saveTeamMembers':    ['getTeamMembers'],
-    'saveSongs':          ['getSongs', 'getSchedule', 'getScheduleByDateRange'] // 曲目會出現在班表的「敬拜曲目」欄
+    'saveSchedule':           ['getSchedule', 'getScheduleByDateRange'],
+    'savePositions':          ['getPositions'],
+    'saveTeamMembers':        ['getTeamMembers'],
+    'saveSongs':              ['getSongs', 'getSchedule', 'getScheduleByDateRange'],
+    // 行事曆連結設定改變 → 公佈欄 / 服事表的「聚會名稱、聚會類別、講道資訊」會跟著變
+    'setDefaultSermonSubType': ['getSchedule', 'getScheduleByDateRange'],
+    'setDateOverride':         ['getSchedule', 'getScheduleByDateRange'],
+    'clearCalendarLinkCache':  ['getSchedule', 'getScheduleByDateRange']
   };
 
   // Lazy-load Firebase cache module（僅在需要時 import；失敗則自動 fallback 至直接 GAS 呼叫）
@@ -174,10 +178,12 @@
   }
 
   // 為帶 data 的 cache 計算 subkey（無 data → null 走 _default）
+  // ⚠️ 不可截斷！之前用 substring(0, 24) 會讓 {year:'2026',quarter:'Q1'}
+  //    與 {year:'2026',quarter:'Q2'} 產生同樣 subkey（差異在末尾），導致 cache 撞鍵
   function _makeSubkey(data) {
     if (!data || Object.keys(data).length === 0) return null;
     const json = JSON.stringify(data);
-    return btoa(unescape(encodeURIComponent(json))).replace(/[^a-zA-Z0-9]/g, '').substring(0, 24);
+    return btoa(unescape(encodeURIComponent(json))).replace(/[^a-zA-Z0-9]/g, '');
   }
 
   // 直接打 GAS（不走 cache）
