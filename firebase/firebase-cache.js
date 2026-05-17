@@ -21,6 +21,30 @@ function _path(topic, subkey) {
   return `${ROOT}/${topic}/${subkey || '_default'}`;
 }
 
+// 🛡️ Firebase RTDB key 限制：不可空字串、不可含 . # $ / [ ]
+//    遞迴清理物件：把不合法的 key 換掉（保留值），陣列照樣往內走
+const _BAD_KEY_RE = /[.#$/\[\]]/g;
+function _sanitizeForFirebase(val) {
+  if (val === null || val === undefined) return val;
+  if (Array.isArray(val)) return val.map(_sanitizeForFirebase);
+  if (typeof val !== 'object') return val;
+
+  const out = {};
+  for (const k in val) {
+    if (!Object.prototype.hasOwnProperty.call(val, k)) continue;
+    let safeKey = String(k);
+    if (safeKey === '') safeKey = '_empty';
+    if (_BAD_KEY_RE.test(safeKey)) safeKey = safeKey.replace(_BAD_KEY_RE, '_');
+    // 若清理後與其他 key 衝突，加序號避免覆寫
+    let finalKey = safeKey, i = 1;
+    while (Object.prototype.hasOwnProperty.call(out, finalKey)) {
+      finalKey = safeKey + '_' + (i++);
+    }
+    out[finalKey] = _sanitizeForFirebase(val[k]);
+  }
+  return out;
+}
+
 // 取得快取；過期或不存在時回傳 null
 export async function cacheGet(topic, subkey) {
   const snap = await get(ref(rtdb, _path(topic, subkey)));
@@ -31,10 +55,11 @@ export async function cacheGet(topic, subkey) {
 }
 
 // 寫入快取；ttlSeconds 為存活秒數（預設 300，傳 0 或 null 表示永久）
+// 寫入前自動清理不合法的 key（防止 GAS 回傳含空字串 key / 含 . # $ / [ ] 的物件）
 export async function cacheSet(topic, subkey, value, ttlSeconds = 300) {
   const expiresAt = ttlSeconds ? Date.now() + ttlSeconds * 1000 : null;
   await set(ref(rtdb, _path(topic, subkey)), {
-    value: value,
+    value: _sanitizeForFirebase(value),
     expiresAt: expiresAt,
     updatedAt: Date.now()
   });
