@@ -700,25 +700,31 @@ async function handleExcelUpload(ev) {
 
     if (rows.length === 0) { alert('Excel 沒有資料'); return; }
 
-    // 找到對應類型（用 Sheet 名稱比對頂層類型）
-    const rootType = _types.flat.find(t => !t.parentTypeId && t['名稱'] === sheetName);
-    if (!rootType) {
-      alert(`❌ 找不到對應的類型「${sheetName}」\n請確認 Excel sheet 名稱與某個頂層類型完全相符\n（建議直接使用「欄位管理」→「匯出模板」下載的範本）`);
+    // 找對應類型（sheet 名稱可能是頂層或子類型）
+    const matchedType = _types.flat.find(t => t['名稱'] === sheetName);
+    if (!matchedType) {
+      alert(`❌ 找不到對應的類型「${sheetName}」\n請確認 Excel sheet 名稱與某個類型（頂層或子類型）完全相符\n（建議使用「欄位管理」→「匯出模板」下載的範本）`);
       return;
     }
+    const isSubTypeSheet = !!matchedType.parentTypeId;
+    const rootType = isSubTypeSheet
+      ? _types.flat.find(t => t.typeId === matchedType.parentTypeId)
+      : matchedType;
 
-    // 取該類型的欄位定義
+    // 用「sheet 對應的那個類型」拉有效欄位（會自動包含繼承+專屬-排除）
     let fields;
-    if (_fieldsByType[rootType.typeId]) fields = _fieldsByType[rootType.typeId];
+    if (_fieldsByType[matchedType.typeId]) fields = _fieldsByType[matchedType.typeId];
     else {
-      const res = await callAPI('cal_getFields', { typeId: rootType.typeId });
+      const res = await callAPI('cal_getFields', { typeId: matchedType.typeId });
       if (!res.success) throw new Error(res.message);
       fields = res.data.fields;
-      _fieldsByType[rootType.typeId] = fields;
+      _fieldsByType[matchedType.typeId] = fields;
     }
-    // 子類型清單（依名稱對應）
+    // 子類型對應（只有頂層 sheet 才需要看「子類型」欄）
     const subTypesByName = {};
-    _types.flat.filter(t => t.parentTypeId === rootType.typeId).forEach(t => subTypesByName[t['名稱']] = t.typeId);
+    if (!isSubTypeSheet) {
+      _types.flat.filter(t => t.parentTypeId === rootType.typeId).forEach(t => subTypesByName[t['名稱']] = t.typeId);
+    }
 
     // 欄位名 → fieldId
     const fieldByName = {};
@@ -742,14 +748,20 @@ async function handleExcelUpload(ev) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) errors.push('日期格式錯');
 
       // 子類型
-      let typeId = rootType.typeId;
-      const subTypeName = String(row['子類型'] || '').trim();
-      if (subTypeName) {
-        if (subTypesByName[subTypeName]) typeId = subTypesByName[subTypeName];
-        else if (Object.keys(subTypesByName).length > 0) errors.push(`子類型「${subTypeName}」不存在`);
-      } else if (Object.keys(subTypesByName).length > 0) {
-        // 有子類型但沒指定 — 用 root（提示）
-        // 改為錯誤可能太嚴格，這裡只警告（不擋）
+      let typeId;
+      let subTypeName = '';
+      if (isSubTypeSheet) {
+        // 子類型 sheet：所有列都用該子類型
+        typeId = matchedType.typeId;
+        subTypeName = matchedType['名稱'];
+      } else {
+        // 頂層 sheet：每列「子類型」欄決定
+        typeId = rootType.typeId;
+        subTypeName = String(row['子類型'] || '').trim();
+        if (subTypeName) {
+          if (subTypesByName[subTypeName]) typeId = subTypesByName[subTypeName];
+          else if (Object.keys(subTypesByName).length > 0) errors.push(`子類型「${subTypeName}」不存在`);
+        }
       }
 
       // 標題
@@ -774,18 +786,21 @@ async function handleExcelUpload(ev) {
       return { idx: idx + 2, typeId, date, title, values, errors, subTypeName };
     });
 
-    renderExcelPreview(rootType);
+    renderExcelPreview(matchedType, isSubTypeSheet);
     bootstrap.Modal.getOrCreateInstance(document.getElementById('excelPreviewModal')).show();
   } catch (err) {
     alert('❌ Excel 解析失敗：' + err.message);
   }
 }
 
-function renderExcelPreview(rootType) {
+function renderExcelPreview(matchedType, isSubTypeSheet) {
   const ok = _excelImportRows.filter(r => r.errors.length === 0).length;
   const bad = _excelImportRows.length - ok;
   document.getElementById('excelPreviewSummary').innerText = `共 ${_excelImportRows.length} 列：可建立 ${ok}，問題 ${bad}`;
-  let html = `<div class="alert alert-info py-2 mb-2">📂 對應類型：<b>${escapeHtml(rootType['名稱'])}</b>　🟢 可建立 ${ok} 筆，🟡 問題 ${bad} 筆（有問題的列不會建立）</div>`;
+  const typeBadge = isSubTypeSheet
+    ? `<b>${escapeHtml(matchedType['名稱'])}</b> <span class="badge bg-info">子類型專用</span>`
+    : `<b>${escapeHtml(matchedType['名稱'])}</b> <span class="badge bg-secondary">頂層（每列依「子類型」欄分配）</span>`;
+  let html = `<div class="alert alert-info py-2 mb-2">📂 對應類型：${typeBadge}　🟢 可建立 ${ok} 筆，🟡 問題 ${bad} 筆（有問題的列不會建立）</div>`;
   html += '<div class="table-responsive"><table class="table table-sm table-bordered"><thead class="table-light"><tr>';
   html += '<th>Excel 列</th><th>日期</th><th>子類型</th><th>標題</th><th>欄位值（前 3 個）</th><th>檢查</th></tr></thead><tbody>';
   _excelImportRows.forEach(r => {

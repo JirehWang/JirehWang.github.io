@@ -74,7 +74,7 @@ function _renderTypeNode(type, isChild) {
         </div>
         <div class="mt-2 d-flex gap-2 flex-wrap">
           ${!isChild ? `<button class="btn btn-sm btn-outline-success" onclick="openAddTypeModal('${type.typeId}')">＋ 新增子類型</button>` : ''}
-          ${!isChild ? `<button class="btn btn-sm btn-outline-primary" onclick="openFieldsModal('${type.typeId}', '${escapeAttr(type['名稱'])}')">📝 欄位管理</button>` : ''}
+          <button class="btn btn-sm btn-outline-primary" onclick="openFieldsModal('${type.typeId}', '${escapeAttr(type['名稱'])}')">📝 欄位管理${isChild ? '（含繼承）' : ''}</button>
           <button class="btn btn-sm btn-outline-secondary" onclick='openEditTypeModal(${JSON.stringify(type).replace(/'/g, "&#39;")})'>✏️ 編輯</button>
           <button class="btn btn-sm btn-outline-danger" onclick="confirmDeleteType('${type.typeId}', '${escapeAttr(type['名稱'])}')">🗑️ 刪除</button>
         </div>
@@ -174,17 +174,44 @@ async function confirmDeleteType(typeId, name) {
   }
 }
 
-// ─── 欄位 Modal ───
+// ─── 欄位 Modal（支援頂層 + 子類型分區）───
+//
+//   _currentFieldsContext = {
+//     callerTypeId,  // 使用者按按鈕的那個 typeId（頂層或子類型）
+//     callerTypeName,
+//     isSubType,
+//     rootTypeId,
+//     subTypeId,
+//     inheritedFields, // 子類型才會有
+//     ownFields,
+//     excludedFieldIds // 子類型才會有
+//   }
+let _currentFieldsContext = null;
+
 async function openFieldsModal(typeId, typeName) {
   document.getElementById('fieldsModalTypeName').innerText = typeName;
-  _currentFieldsRootTypeId = typeId;
+  _currentFieldsContext = { callerTypeId: typeId, callerTypeName: typeName };
   document.getElementById('fieldsList').innerHTML = '<div class="text-center p-4"><div class="spinner-border spinner-border-sm"></div></div>';
   bootstrap.Modal.getOrCreateInstance(document.getElementById('fieldsModal')).show();
+  await reloadFieldsList();
+}
+
+async function reloadFieldsList() {
   try {
-    const res = await callAPI('cal_getFields', { typeId });
+    const res = await callAPI('cal_getFields', { typeId: _currentFieldsContext.callerTypeId });
     if (!res.success) throw new Error(res.message);
-    _currentFieldsList = res.data.fields;
-    _currentFieldsRootTypeId = res.data.rootTypeId;
+    const d = res.data;
+    Object.assign(_currentFieldsContext, {
+      rootTypeId:       d.rootTypeId,
+      subTypeId:        d.subTypeId,
+      isSubType:        !!d.subTypeId,
+      inheritedFields:  d.inheritedFields || [],
+      ownFields:        d.ownFields || [],
+      excludedFieldIds: d.excludedFieldIds || []
+    });
+    // 保持向後相容：_currentFieldsRootTypeId / _currentFieldsList 給匯出模板用
+    _currentFieldsRootTypeId = d.rootTypeId;
+    _currentFieldsList = d.fields; // 「有效欄位」for 匯出模板
     renderFieldsList();
   } catch (err) {
     document.getElementById('fieldsList').innerHTML = `<div class="alert alert-danger">❌ ${err.message}</div>`;
@@ -193,11 +220,89 @@ async function openFieldsModal(typeId, typeName) {
 
 function renderFieldsList() {
   const container = document.getElementById('fieldsList');
-  if (_currentFieldsList.length === 0) {
-    container.innerHTML = '<div class="text-muted text-center py-4">此類型還沒有欄位</div>';
-    return;
+  const ctx = _currentFieldsContext;
+  if (!ctx) return;
+
+  let html = '';
+
+  if (ctx.isSubType) {
+    // 繼承區
+    html += `<div class="mb-3">
+      <div class="d-flex align-items-center mb-2">
+        <div class="fw-bold text-primary"><span class="badge bg-primary me-1">繼承</span>來自父類型的欄位</div>
+        <div class="ms-auto text-muted small">取消勾選 = 此子類型不使用該欄位</div>
+      </div>`;
+    if (ctx.inheritedFields.length === 0) {
+      html += '<div class="text-muted small ps-2">父類型沒有欄位</div>';
+    } else {
+      html += ctx.inheritedFields.map(f => _renderInheritedFieldRow(f)).join('');
+    }
+    html += '</div>';
+
+    // 專屬區
+    html += `<div class="mb-2 d-flex align-items-center">
+      <div class="fw-bold text-success"><span class="badge bg-success me-1">專屬</span>此子類型專用的欄位</div>
+      <div class="ms-auto text-muted small">只在此子類型出現，不影響父類型與其他子類型</div>
+    </div>`;
+    if (ctx.ownFields.length === 0) {
+      html += '<div class="text-muted small ps-2 mb-2">尚無專屬欄位（可按下方新增）</div>';
+    } else {
+      html += ctx.ownFields.map(f => _renderFieldRow(f)).join('');
+    }
+  } else {
+    // 頂層：保留原本的簡單列表
+    if (ctx.ownFields.length === 0) {
+      html += '<div class="text-muted text-center py-4">此類型還沒有欄位</div>';
+    } else {
+      html += ctx.ownFields.map(f => _renderFieldRow(f)).join('');
+    }
   }
-  container.innerHTML = _currentFieldsList.map(f => _renderFieldRow(f)).join('');
+
+  container.innerHTML = html;
+}
+
+// 繼承欄位列（唯讀 + 排除開關）
+function _renderInheritedFieldRow(f) {
+  const opts = Array.isArray(f['下拉選項']) ? f['下拉選項'].join('，') : '';
+  const required = String(f['是否必填']).toUpperCase() === 'TRUE' || f.required;
+  return `
+    <div class="field-row ${f.excluded ? 'opacity-50 bg-light' : ''}" style="border-left: 4px solid #0d6efd;">
+      <div class="row g-2 align-items-center">
+        <div class="col-md-1 text-center">
+          <div class="form-check form-switch">
+            <input type="checkbox" class="form-check-input" ${f.excluded ? '' : 'checked'}
+                   onchange="toggleInheritedField('${f.fieldId}', this.checked)" title="是否啟用此欄位">
+          </div>
+        </div>
+        <div class="col-md-3"><b>${escapeAttr(f['顯示名稱'])}</b></div>
+        <div class="col-md-3"><span class="badge bg-light text-dark border">${_fieldTypeLabel(f['欄位類型'])}</span></div>
+        <div class="col-md-3 small text-muted">${escapeAttr(opts)}</div>
+        <div class="col-md-2 text-end small">
+          ${required ? '<span class="text-danger fw-bold">必填</span>' : '<span class="text-muted">選填</span>'}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function toggleInheritedField(fieldId, enabled) {
+  // enabled=true → 從 excludedFieldIds 移除；false → 加入
+  const ctx = _currentFieldsContext;
+  if (!ctx || !ctx.isSubType) return;
+  let excl = ctx.excludedFieldIds.slice();
+  if (enabled) excl = excl.filter(x => x !== fieldId);
+  else if (!excl.includes(fieldId)) excl.push(fieldId);
+
+  try {
+    const res = await callAPI('cal_updateType', { typeId: ctx.subTypeId, excludedFieldIds: excl });
+    if (!res.success) throw new Error(res.message);
+    ctx.excludedFieldIds = excl;
+    // 重新渲染顯示狀態
+    await reloadFieldsList();
+  } catch (err) {
+    alert('❌ ' + err.message);
+    await reloadFieldsList();
+  }
 }
 
 function _renderFieldRow(f) {
@@ -238,14 +343,19 @@ function _fieldTypeLabel(t) {
 }
 
 function openAddFieldRow() {
-  if (!_currentFieldsRootTypeId) return;
+  const ctx = _currentFieldsContext;
+  if (!ctx) return;
+  // 新欄位掛到使用者目前看到的那個類型（頂層 → 頂層；子類型 → 子類型專屬）
+  const targetTypeId = ctx.isSubType ? ctx.subTypeId : ctx.rootTypeId;
   const tempId = '_new_' + Date.now();
-  _currentFieldsList.push({
-    fieldId: tempId, typeId: _currentFieldsRootTypeId,
-    '顯示名稱': '', '欄位類型': 'text', required: false, '下拉選項': [], sortOrder: _currentFieldsList.length + 1
+  // 加到 ownFields 結尾（讓 renderFieldsList 會把它畫進「專屬」區）
+  ctx.ownFields.push({
+    fieldId: tempId, typeId: targetTypeId,
+    '顯示名稱': '', '欄位類型': 'text', required: false, '下拉選項': [],
+    sortOrder: (ctx.ownFields.length + ctx.inheritedFields.length) + 1,
+    source: 'own'
   });
   renderFieldsList();
-  // 焦點到新列
   setTimeout(() => {
     const row = document.querySelector(`.field-row[data-fid="${tempId}"]`);
     if (row) row.querySelector('input[data-k="name"]').focus();
@@ -253,6 +363,8 @@ function openAddFieldRow() {
 }
 
 async function saveFieldRow(fid) {
+  const ctx = _currentFieldsContext;
+  if (!ctx) return;
   const row = document.querySelector(`.field-row[data-fid="${fid}"]`);
   if (!row) return;
   const get = k => row.querySelector(`[data-k="${k}"]`);
@@ -260,14 +372,15 @@ async function saveFieldRow(fid) {
     name: get('name').value.trim(),
     type: get('type').value,
     required: get('required').checked,
-    options: get('options').value.trim() // 後端會自動解析逗號分隔
+    options: get('options').value.trim()
   };
   if (!data.name) { alert('請輸入欄位名稱'); return; }
 
   try {
     let res;
     if (String(fid).startsWith('_new_')) {
-      data.typeId = _currentFieldsRootTypeId;
+      // 新增 → 掛到 caller typeId（子類型或頂層）
+      data.typeId = ctx.isSubType ? ctx.subTypeId : ctx.rootTypeId;
       res = await callAPI('cal_addField', data);
       if (!res.success) throw new Error(res.message);
     } else {
@@ -275,18 +388,17 @@ async function saveFieldRow(fid) {
       res = await callAPI('cal_updateField', data);
       if (!res.success) throw new Error(res.message);
     }
-    // 重新拉
-    const r = await callAPI('cal_getFields', { typeId: _currentFieldsRootTypeId });
-    _currentFieldsList = r.data.fields;
-    renderFieldsList();
+    await reloadFieldsList();
   } catch (err) {
     alert('❌ ' + err.message);
   }
 }
 
 async function deleteFieldRow(fid, name) {
+  const ctx = _currentFieldsContext;
+  if (!ctx) return;
   if (String(fid).startsWith('_new_')) {
-    _currentFieldsList = _currentFieldsList.filter(f => f.fieldId !== fid);
+    ctx.ownFields = ctx.ownFields.filter(f => f.fieldId !== fid);
     renderFieldsList();
     return;
   }
@@ -294,62 +406,73 @@ async function deleteFieldRow(fid, name) {
   try {
     const res = await callAPI('cal_deleteField', { fieldId: fid });
     if (!res.success) throw new Error(res.message);
-    _currentFieldsList = _currentFieldsList.filter(f => f.fieldId !== fid);
-    renderFieldsList();
+    await reloadFieldsList();
   } catch (err) {
     alert('❌ ' + err.message);
   }
 }
 
-// ─── Excel 模板匯出 ───
+// ─── Excel 模板匯出（支援頂層 + 子類型）───
 function exportFieldsTemplate() {
-  if (!_currentFieldsRootTypeId || !_currentFieldsList) {
-    alert('還沒載入欄位'); return;
-  }
-  const rootType = _calTypesFlat.find(t => t.typeId === _currentFieldsRootTypeId);
-  if (!rootType) { alert('找不到類型'); return; }
+  const ctx = _currentFieldsContext;
+  if (!ctx || !_currentFieldsList) { alert('還沒載入欄位'); return; }
 
-  // 子類型清單（給說明用）
-  const subTypes = _calTypesFlat.filter(t => t.parentTypeId === _currentFieldsRootTypeId);
+  // 用「使用者按進來的那個類型」當模板主角
+  const callerType = _calTypesFlat.find(t => t.typeId === ctx.callerTypeId);
+  if (!callerType) { alert('找不到類型'); return; }
+
+  const isSubType = !!ctx.isSubType;
+  // 子類型清單（僅頂層模板才需要）
+  const subTypes = isSubType ? [] : _calTypesFlat.filter(t => t.parentTypeId === ctx.rootTypeId);
 
   // Sheet 1：資料填寫
-  // 註：不放「顯示標題」欄，系統會自動取第一個欄位的值當標題；
-  //     若日後想改，可在月曆上點開事項手動修改
-  const headers = ['日期', '子類型'].concat(_currentFieldsList.map(f => f['顯示名稱']));
-  const exampleRow = [
-    '2026-01-05',
-    subTypes.length > 0 ? subTypes[0]['名稱'] : '',
-    ..._currentFieldsList.map(f => {
-      if (f['欄位類型'] === 'select' || f['欄位類型'] === 'multiselect') {
-        const opts = Array.isArray(f['下拉選項']) ? f['下拉選項'] : [];
-        return opts.length > 0 ? opts[0] : '（範例值）';
-      }
-      if (f['欄位類型'] === 'date') return '2026-01-05';
-      if (f['欄位類型'] === 'number') return '0';
-      return f.required ? '（必填）' : '（選填）';
-    })
-  ];
+  // 頂層模板：日期 + 子類型 + 各欄位（每列可填不同子類型）
+  // 子類型模板：日期 + 各欄位（typeId 直接 = 此子類型，不需子類型欄）
+  const headers = isSubType
+    ? ['日期'].concat(_currentFieldsList.map(f => f['顯示名稱']))
+    : ['日期', '子類型'].concat(_currentFieldsList.map(f => f['顯示名稱']));
+
+  // 構造範例列的「範例值」邏輯
+  const fieldExample = f => {
+    if (f['欄位類型'] === 'select' || f['欄位類型'] === 'multiselect') {
+      const opts = Array.isArray(f['下拉選項']) ? f['下拉選項'] : [];
+      return opts.length > 0 ? opts[0] : '（範例值）';
+    }
+    if (f['欄位類型'] === 'date') return '2026-01-05';
+    if (f['欄位類型'] === 'number') return '0';
+    return f.required ? '（必填）' : '（選填）';
+  };
+
+  const exampleRow = isSubType
+    ? ['2026-01-05', ..._currentFieldsList.map(fieldExample)]
+    : ['2026-01-05', subTypes.length > 0 ? subTypes[0]['名稱'] : '', ..._currentFieldsList.map(fieldExample)];
+
   const dataSheet = XLSX.utils.aoa_to_sheet([headers, exampleRow]);
-  // 設定欄寬
   dataSheet['!cols'] = headers.map(h => ({ wch: Math.max(12, h.length * 2 + 2) }));
 
   // Sheet 2：使用說明
+  const titlePrefix = isSubType
+    ? `${callerType.icon || ''} ${callerType['名稱']}（子類型，繼承自父）`
+    : `${callerType.icon || ''} ${callerType['名稱']}`;
+
   const instructions = [
     ['📖 教會行事曆 - Excel 模板使用說明'],
     [''],
-    [`類型：${rootType.icon || ''} ${rootType['名稱']}`],
+    [`類型：${titlePrefix}`],
     [''],
     ['【填寫規則】'],
     ['1. 第一列「資料填寫」分頁的第 1 列為標題，請勿修改'],
-    ['2. 第 2 列是範例，請刪除後再填入實際資料（或保留也可以，但要記得改成正確值）'],
+    ['2. 第 2 列是範例，請刪除後再填入實際資料'],
     ['3. 從第 3 列起填入實際資料，每列 = 一個事項'],
     ['4. 日期格式：YYYY-MM-DD（例 2026-01-05）；或 Excel 日期格式'],
     [''],
     ['【欄位說明】'],
     ['欄位名稱', '型別', '是否必填', '說明'],
-    ['日期', 'date', '必填', '事項日期'],
-    ['子類型', 'text', '選填', subTypes.length > 0 ? `必須是：${subTypes.map(s => s['名稱']).join(' / ')}` : '此類型沒有子類型，可留空']
+    ['日期', 'date', '必填', '事項日期']
   ];
+  if (!isSubType && subTypes.length > 0) {
+    instructions.push(['子類型', 'text', '選填', `每列可填不同子類型；必須是：${subTypes.map(s => s['名稱']).join(' / ')}`]);
+  }
   _currentFieldsList.forEach(f => {
     let desc = '';
     if (f['欄位類型'] === 'select' || f['欄位類型'] === 'multiselect') {
@@ -368,16 +491,21 @@ function exportFieldsTemplate() {
   instructions.push(['1. 填好後存檔']);
   instructions.push(['2. 到「📅 行事曆月曆」頁面右上「📤 上傳 Excel」']);
   instructions.push(['3. 系統會解析並預覽，確認後一鍵建立']);
+  if (isSubType) {
+    instructions.push(['']);
+    instructions.push(['ℹ️ 此模板專屬子類型「' + callerType['名稱'] + '」，匯入時每列都會建為此子類型']);
+  }
 
   const guideSheet = XLSX.utils.aoa_to_sheet(instructions);
   guideSheet['!cols'] = [{wch:20},{wch:12},{wch:10},{wch:50}];
 
   const wb = XLSX.utils.book_new();
-  // 重要：第一個 Sheet 名稱 = 頂層類型名稱（上傳時用來對應）
-  XLSX.utils.book_append_sheet(wb, dataSheet, rootType['名稱']);
+  // 第 1 個 Sheet 名稱 = 此模板所代表的類型名（頂層或子類型都行）
+  // 上傳時系統會用 sheet 名稱在所有類型中比對
+  XLSX.utils.book_append_sheet(wb, dataSheet, callerType['名稱']);
   XLSX.utils.book_append_sheet(wb, guideSheet, '使用說明');
 
-  const fileName = `行事曆模板_${rootType['名稱']}_${new Date().toISOString().substring(0,10)}.xlsx`;
+  const fileName = `行事曆模板_${callerType['名稱']}_${new Date().toISOString().substring(0,10)}.xlsx`;
   XLSX.writeFile(wb, fileName);
 }
 
