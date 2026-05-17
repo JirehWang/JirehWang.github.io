@@ -224,14 +224,20 @@
       const result = await _doDirectCall(realAction, data);
 
       // 🗑️ 寫入 action 觸發整個 topic 的 cache 失效（不分 data 變體）
+      // ⚠️ 改為 await：避免使用者寫入後立刻去讀（例：改完覆寫立刻看公佈欄），
+      //    invalidation 還沒完成 → 讀到舊 cache → 看不到變動
       const toInvalidate = _INVALIDATE_ON_WRITE[realAction];
       if (toInvalidate && toInvalidate.length > 0) {
         const fb = await _getFirebaseCache();
         if (fb && fb.cacheDeleteAll) {
-          // 不 await（不影響使用者操作回應速度）
-          toInvalidate.forEach(topic => {
-            fb.cacheDeleteAll(topic).catch(() => {});
-          });
+          try {
+            await Promise.all(toInvalidate.map(topic =>
+              fb.cacheDeleteAll(topic).catch(err => {
+                console.warn('[invalidate]', topic, err);
+              })
+            ));
+            console.log('[invalidate] cleared:', toInvalidate.join(', '));
+          } catch (e) { /* 已個別 catch */ }
         }
       }
 
