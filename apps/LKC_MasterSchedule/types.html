@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>事項類型管理 - 教會行事曆</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background:#f5f7fb; }
+    .type-card { border-left: 5px solid #667eea; transition: box-shadow .2s; }
+    .type-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.08); }
+    .type-child { margin-left: 2.5rem; border-left-style: dashed; }
+    .pill { font-size: .72rem; padding: .25em .55em; border-radius: 999px; }
+    .sync-pill { background:#e7f5ff; color:#1971c2; }
+    .lock-pill { background:#fff0f6; color:#c2255c; }
+    .hidden-pill { background:#f1f3f5; color:#868e96; }
+    .field-row { padding: .5rem .75rem; border:1px solid #e9ecef; border-radius:8px; background:#fff; margin-bottom:.4rem; }
+    .field-row .field-type-badge { font-size:.7rem; padding:.15em .5em; border-radius:4px; background:#edf2ff; color:#4263eb; font-weight:600; }
+    .empty-hint { padding:3rem; text-align:center; color:#adb5bd; }
+  </style>
+</head>
+<body>
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="fw-bold mb-1">⚙️ 事項類型管理</h2>
+      <div class="text-muted small">定義「講道資訊 / 主日學 / 會議 ...」這類事項類型與每種類型的欄位</div>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="index.html" class="btn btn-outline-secondary">← 返回行事曆主頁</a>
+      <button class="btn btn-warning" onclick="runMigration()" title="把舊的『聚會 / 講道 / 事工』sheet 轉成新結構">🔄 遷移舊資料</button>
+      <button class="btn btn-primary" onclick="openAddTypeModal('')">＋ 新增頂層類型</button>
+    </div>
+  </div>
+
+  <div id="typesContainer">
+    <div class="empty-hint">
+      <div class="spinner-border text-primary mb-2"></div>
+      <div>載入中...</div>
+    </div>
+  </div>
+</div>
+
+<!-- 類型編輯 Modal -->
+<div class="modal fade" id="typeModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header bg-light">
+        <h5 class="modal-title fw-bold" id="typeModalTitle">新增類型</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="typeForm_typeId">
+        <input type="hidden" id="typeForm_parentTypeId">
+
+        <div class="mb-3">
+          <label class="form-label fw-bold">名稱 *</label>
+          <input type="text" id="typeForm_name" class="form-control" placeholder="例：主日學 / 會議">
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-3">
+            <label class="form-label fw-bold">圖示</label>
+            <input type="text" id="typeForm_icon" class="form-control text-center" placeholder="📖">
+          </div>
+          <div class="col-5">
+            <label class="form-label fw-bold">主題色</label>
+            <input type="color" id="typeForm_color" class="form-control form-control-color w-100" value="#667eea">
+          </div>
+          <div class="col-4">
+            <label class="form-label fw-bold">排序</label>
+            <input type="number" id="typeForm_sortOrder" class="form-control" min="0">
+          </div>
+        </div>
+
+        <div id="typeForm_parentOnlySection">
+          <hr>
+          <div class="fw-bold mb-2">📡 同步到下游系統</div>
+          <div class="form-check mb-1">
+            <input class="form-check-input" type="checkbox" id="typeForm_syncToAttendance">
+            <label class="form-check-label" for="typeForm_syncToAttendance">主日點名（場次選單）</label>
+          </div>
+          <div class="form-check mb-1">
+            <input class="form-check-input" type="checkbox" id="typeForm_syncToMinistry">
+            <label class="form-check-label" for="typeForm_syncToMinistry">事工管理（聚會表）</label>
+          </div>
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="typeForm_syncToWorship">
+            <label class="form-check-label" for="typeForm_syncToWorship">敬拜團（公佈欄）</label>
+          </div>
+
+          <hr>
+          <div class="mb-3">
+            <label class="form-label fw-bold">🔒 查看密碼（選填，僅頂層類型可設）</label>
+            <input type="text" id="typeForm_password" class="form-control" placeholder="留空 = 公開；設了密碼 → 看公開頁要輸入">
+            <div class="form-text">子類型自動繼承父類型密碼</div>
+          </div>
+
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="typeForm_hidden">
+            <label class="form-check-label" for="typeForm_hidden">隱藏此類型（公開頁完全不顯示，但 admin 仍可見）</label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light border" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-primary" onclick="saveType()">💾 儲存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 欄位管理 Modal -->
+<div class="modal fade" id="fieldsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header bg-light">
+        <h5 class="modal-title fw-bold"><span id="fieldsModalTypeName"></span> - 欄位管理</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info py-2 small mb-3">
+          💡 欄位定義在<b>頂層類型</b>上，子類型自動繼承。
+        </div>
+        <div id="fieldsList"></div>
+        <button class="btn btn-outline-primary w-100 mt-3" onclick="openAddFieldRow()">＋ 新增欄位</button>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light border" data-bs-dismiss="modal">關閉</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>window._GAS_KEY = 'LKC_MasterSchedule';</script>
+<script src="https://jirehwang.github.io/LKC1958_June_1.github.io/config.js"></script>
+<script src="types.js"></script>
+</body>
+</html>
