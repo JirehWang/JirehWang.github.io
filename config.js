@@ -97,11 +97,18 @@
     'getAllGroupMembers':           _SIX_HOURS,
     'getMemberSuggestions':         _SIX_HOURS,
 
-    // 主日系統 — 統計
+    // 主日系統 — 點名介面（冷啟動加速）
+    'getSmartAttendanceList':       _SIX_HOURS,  // 點名介面：會友 + 出席計數 + 同步狀態（首次載入）
+    'checkGroupStatus':             _SIX_HOURS,  // 小組點名首頁：組員 + 初始化狀態
+    'findGroupByCode':              _SIX_HOURS,  // 小組代碼 → 名稱（登入）
+    'verifyGroup':                  _SIX_HOURS,  // 小組名 + 代碼驗證（登入）
+
+    // 主日系統 — 統計 / 圖表
     'getStats':                     _SIX_HOURS,
     'getAllGroupsStats':            _SIX_HOURS,
     'getAttendanceStats':           _SIX_HOURS,
     'getAttendanceTrend':           _SIX_HOURS,
+    'getCategoryChartData':         _SIX_HOURS,  // 趨勢圖表（依分類）
 
     // 事工管理
     'ministry_getGroups':           _SIX_HOURS,
@@ -122,25 +129,26 @@
   // 使用 cacheDeleteAll 清整個 topic（包含所有 subkey），所以不分 data 變體
   const _INVALIDATE_ON_WRITE = {
     // ── 會友名單異動 ──
-    'addMember':              ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig'],
-    'updateMember':           ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig'],
-    'deleteMember':           ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig'],
+    'addMember':              ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig', 'getSmartAttendanceList'],
+    'updateMember':           ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig', 'getSmartAttendanceList'],
+    'deleteMember':           ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig', 'getSmartAttendanceList'],
 
     // ── 小組異動 ──
-    'createGroup':            ['getGroups', 'getAdminGroupsList'],
-    'updateGroupInfo':        ['getGroups', 'getAdminGroupsList'],
-    'updateMemberList':       ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'ministry_getPageConfig', 'ministry_getGroupMembers'],
-    'ministry_updateGroupMemberRoles': ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'ministry_getPageConfig', 'ministry_getGroupMembers'],
+    'createGroup':            ['getGroups', 'getAdminGroupsList', 'findGroupByCode', 'verifyGroup'],
+    'updateGroupInfo':        ['getGroups', 'getAdminGroupsList', 'findGroupByCode', 'verifyGroup'],
+    'updateMemberList':       ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'ministry_getPageConfig', 'ministry_getGroupMembers', 'checkGroupStatus'],
+    'ministry_updateGroupMemberRoles': ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'ministry_getPageConfig', 'ministry_getGroupMembers', 'checkGroupStatus'],
+    'initGroup':              ['checkGroupStatus', 'getGroups', 'getAllGroupMembers'],
 
     // ── 主日點名異動 ──
     'createAttendanceGroup':  ['getGroupConfig'],
-    'saveAttendance':         ['getWeeklyReport', 'getAttendanceStats', 'getAttendanceTrend', 'getStats', 'getAllGroupsStats'],
-    'revokeAttendance':       ['getWeeklyReport', 'getAttendanceStats', 'getAttendanceTrend', 'getStats', 'getAllGroupsStats'],
+    'saveAttendance':         ['getWeeklyReport', 'getAttendanceStats', 'getAttendanceTrend', 'getStats', 'getAllGroupsStats', 'getSmartAttendanceList', 'getCategoryChartData'],
+    'revokeAttendance':       ['getWeeklyReport', 'getAttendanceStats', 'getAttendanceTrend', 'getStats', 'getAllGroupsStats', 'getSmartAttendanceList', 'getCategoryChartData'],
 
     // ── 小組點名異動 ──
-    'submitAttendance':       ['getWeeklyReport', 'getStats', 'getAllGroupsStats'],
-    'updateAttendanceRecord': ['getWeeklyReport', 'getStats', 'getAllGroupsStats'],
-    'deleteAttendanceRecord': ['getWeeklyReport', 'getStats', 'getAllGroupsStats'],
+    'submitAttendance':       ['getWeeklyReport', 'getStats', 'getAllGroupsStats', 'checkGroupStatus', 'getCategoryChartData'],
+    'updateAttendanceRecord': ['getWeeklyReport', 'getStats', 'getAllGroupsStats', 'checkGroupStatus', 'getCategoryChartData'],
+    'deleteAttendanceRecord': ['getWeeklyReport', 'getStats', 'getAllGroupsStats', 'checkGroupStatus', 'getCategoryChartData'],
 
     // ── 事工異動 ──
     'ministry_createGroup':       ['ministry_getGroups', 'ministry_getAggregatedReport'],

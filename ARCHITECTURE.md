@@ -8,13 +8,14 @@
 
   最後更新：2026-05-17
   本次大更新：
+    - 主日點名 5 個 GET API 納入 Firebase 快取（點名介面 / 小組首頁 / 圖表 / 登入驗證）
     - 敬拜團 5 個 GET API 全部納入 Firebase 快取（公佈欄/服事表/位置/團員/曲目）
     - 敬拜團：新增「敬拜團員名單」分頁（從主日會友拉選，正式/實習狀態）
     - 敬拜團：「位置與同工」改為標籤式多選，資料來源綁定敬拜團員名單
     - 共用可搜尋浮動下拉元件（替代 HTML5 datalist，UX 強化）
     - 小組移除成員時同步更新主日的「所屬小組 / 身分」
     - 小組統計（單日）補入「當日有出席但已不在組」的歷史成員
-    - 快取 API 數量：15 → 20
+    - 快取 API 數量：15 → 25
 -->
 
 # 🏛️ 教會系統架構文件（測試版）
@@ -109,14 +110,15 @@ cache/
 └── ...
 ```
 
-### 啟用快取的 20 個 API（TTL 統一 6 小時）
+### 啟用快取的 25 個 API（TTL 統一 6 小時）
 | 類別 | API |
 |---|---|
 | 全域 | getGroups, getGroupConfig, getWeeklyReport, getAllMembers, getAdminGroupsList |
-| 統計 | getStats, getAllGroupsStats, getAttendanceStats, getAttendanceTrend |
+| **主日點名介面** | **getSmartAttendanceList**（點名介面首載）、**checkGroupStatus**（小組首頁）、**findGroupByCode** / **verifyGroup**（登入驗證） |
+| 統計 / 圖表 | getStats, getAllGroupsStats, getAttendanceStats, getAttendanceTrend, **getCategoryChartData** |
 | 小組（管理員 / 輔助） | **getAllGroupMembers**（admin 總清單）、**getMemberSuggestions**（datalist 自動完成） |
 | 事工 | ministry_getGroups, ministry_getTemplates, ministry_getAggregatedReport, ministry_getPageConfig, ministry_getGroupMembers |
-| **敬拜團** | **getSchedule**（公佈欄 / 服事表季度）、**getScheduleByDateRange**（區間）、**getPositions**（位置與同工）、**getTeamMembers**（敬拜團員名單）、**getSongs**（敬拜曲目） |
+| 敬拜團 | getSchedule, getScheduleByDateRange, getPositions, getTeamMembers, getSongs |
 
 ### 三層 Invalidation（讓資料即時同步）
 1. **前端**：寫入 action 自動清相關 read cache (`_INVALIDATE_ON_WRITE`)
@@ -236,6 +238,39 @@ cache/
 ---
 
 ## 📜 更新紀錄 (Changelog)
+
+### 2026-05-17（後續：主日點名介面 5 個 GET 納入快取）
+
+#### 🚀 新增 cacheable actions（TTL 6h）
+| Action | 用途 | 加速效果 |
+|---|---|---|
+| `getSmartAttendanceList` | 點名介面開啟時抓會友 + 出席計數 + 同步狀態 | 🔥 主日點名首載 |
+| `checkGroupStatus` | 小組點名首頁抓組員 + 啟用狀態 | 🔥 小組首載 |
+| `getCategoryChartData` | 趨勢圖表（依分類） | Chart 頁面 |
+| `findGroupByCode` | 小組代碼 → 名稱對應（登入） | 登入流程 |
+| `verifyGroup` | 小組名 + 代碼驗證 | 同上 |
+
+#### 🧹 對應的寫入失效規則（已併入既有規則）
+| 觸發 action | 新增失效 topic |
+|---|---|
+| `addMember` / `updateMember` / `deleteMember` | + `getSmartAttendanceList` |
+| `createGroup` / `updateGroupInfo` | + `findGroupByCode`、`verifyGroup` |
+| `updateMemberList` / `ministry_updateGroupMemberRoles` | + `checkGroupStatus` |
+| `initGroup`（新增條目） | `checkGroupStatus`、`getGroups`、`getAllGroupMembers` |
+| `saveAttendance` / `revokeAttendance` | + `getSmartAttendanceList`、`getCategoryChartData` |
+| `submitAttendance` / `updateAttendanceRecord` / `deleteAttendanceRecord` | + `checkGroupStatus`、`getCategoryChartData` |
+
+#### 🛡️ 為何不會影響操作
+- **`getSmartAttendanceList`**：點名介面開啟時抓一次，之後是 client-side 即時更新 +  `getQuickSyncData`（**未快取**）持續輪詢補差量
+- **`checkGroupStatus`**：小組首頁開啟時抓一次，之後動作完全走 client state
+- **不快取的 `getQuickSyncData`、`syncClickToServer`** 確保多裝置即時同步不受影響
+
+#### 📊 快取 API 數量：20 → **25 個**
+
+#### 📁 影響檔案
+- `config.js` — _CACHEABLE_ACTIONS 加 5 條、_INVALIDATE_ON_WRITE 加/擴 8 條
+
+---
 
 ### 2026-05-17（後續：敬拜團納入 Firebase 快取層）
 
