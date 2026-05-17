@@ -323,35 +323,46 @@ function _renderInheritedFieldRow(f) {
   `;
 }
 
+// 樂觀更新版：不 reload，只動本地狀態與該列 DOM
 async function toggleInheritedField(fieldId, enabled) {
-  // enabled=true → 從 excludedFieldIds 移除；false → 加入
   const ctx = _currentFieldsContext;
   if (!ctx || !ctx.isSubType) return;
 
-  // 找到對應的欄位名稱顯示在 toast
   const f = (ctx.inheritedFields || []).find(x => x.fieldId === fieldId);
   const fname = f ? f['顯示名稱'] : '欄位';
+  const wasExcluded = ctx.excludedFieldIds.includes(fieldId);
 
-  let excl = ctx.excludedFieldIds.slice();
-  if (enabled) excl = excl.filter(x => x !== fieldId);
-  else if (!excl.includes(fieldId)) excl.push(fieldId);
+  // 1️⃣ 樂觀更新：先改本地狀態 + 只動該列 DOM 樣式
+  if (enabled) {
+    ctx.excludedFieldIds = ctx.excludedFieldIds.filter(x => x !== fieldId);
+  } else if (!ctx.excludedFieldIds.includes(fieldId)) {
+    ctx.excludedFieldIds.push(fieldId);
+  }
+  if (f) f.excluded = !enabled;
+  const rowDiv = document.querySelector(`input[onchange*="${fieldId}"]`)?.closest('.field-row');
+  if (rowDiv) {
+    rowDiv.classList.toggle('opacity-50', !enabled);
+    rowDiv.classList.toggle('bg-light', !enabled);
+  }
 
-  // 防呆：寫入期間鎖定該 checkbox
-  const checkbox = document.querySelector(`input[onchange*="${fieldId}"]`);
-  if (checkbox) checkbox.disabled = true;
-
+  // 2️⃣ 背景送 API
   showLoadingToast((enabled ? '啟用' : '排除') + `「${fname}」中...`);
   try {
-    const res = await callAPI('cal_updateType', { typeId: ctx.subTypeId, excludedFieldIds: excl });
+    const res = await callAPI('cal_updateType', { typeId: ctx.subTypeId, excludedFieldIds: ctx.excludedFieldIds });
     if (!res.success) throw new Error(res.message);
-    ctx.excludedFieldIds = excl;
-    await reloadFieldsList();
-    showToast((enabled ? '✅ 已啟用「' : '✅ 已排除「') + fname + '」', 'success', 1800);
+    showToast((enabled ? '✅ 已啟用「' : '✅ 已排除「') + fname + '」', 'success', 1500);
   } catch (err) {
+    // 失敗 → 回復本地狀態 + 視覺
+    if (enabled && !ctx.excludedFieldIds.includes(fieldId)) ctx.excludedFieldIds.push(fieldId);
+    else ctx.excludedFieldIds = ctx.excludedFieldIds.filter(x => x !== fieldId);
+    if (f) f.excluded = wasExcluded;
+    if (rowDiv) {
+      rowDiv.classList.toggle('opacity-50', wasExcluded);
+      rowDiv.classList.toggle('bg-light', wasExcluded);
+      const checkbox = rowDiv.querySelector('input[type="checkbox"]');
+      if (checkbox) checkbox.checked = !wasExcluded;
+    }
     showToast('❌ 儲存失敗：' + err.message, 'error', 4000);
-    await reloadFieldsList();
-  } finally {
-    if (checkbox) checkbox.disabled = false;
   }
 }
 
@@ -427,42 +438,83 @@ async function saveFieldRow(fid) {
   if (!data.name) { alert('請輸入欄位名稱'); return; }
 
   const isNew = String(fid).startsWith('_new_');
-  showLoadingToast(isNew ? '新增欄位中...' : '儲存欄位中...');
+  // 鎖住該列的儲存按鈕，其他列可繼續操作
+  const saveBtn = row.querySelector('button.btn-success');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.innerText = '⏳'; }
+
+  showLoadingToast(isNew ? `新增「${data.name}」中...` : `儲存「${data.name}」中...`);
   try {
     let res;
     if (isNew) {
       data.typeId = ctx.isSubType ? ctx.subTypeId : ctx.rootTypeId;
       res = await callAPI('cal_addField', data);
       if (!res.success) throw new Error(res.message);
+      // 替換臨時 ID 為真 ID（不 reload）
+      const idx = ctx.ownFields.findIndex(f => f.fieldId === fid);
+      if (idx !== -1) {
+        Object.assign(ctx.ownFields[idx], {
+          fieldId: res.fieldId,
+          '顯示名稱': data.name,
+          '欄位類型': data.type,
+          required: data.required,
+          '下拉選項': (data.options || '').split(/[,，]/).map(s => s.trim()).filter(Boolean)
+        });
+      }
+      row.dataset.fid = res.fieldId;
+      const delBtn = row.querySelector('.btn-outline-danger');
+      if (delBtn) delBtn.setAttribute('onclick', `deleteFieldRow('${res.fieldId}', ${JSON.stringify(data.name)})`);
+      if (saveBtn) saveBtn.setAttribute('onclick', `saveFieldRow('${res.fieldId}')`);
+      showToast(`✅ 已新增「${data.name}」`, 'success', 1500);
     } else {
       data.fieldId = fid;
       res = await callAPI('cal_updateField', data);
       if (!res.success) throw new Error(res.message);
+      // 同步更新本地狀態（不 reload）
+      const arr = (ctx.ownFields || []).find(f => f.fieldId === fid)
+                || (ctx.inheritedFields || []).find(f => f.fieldId === fid);
+      if (arr) Object.assign(arr, {
+        '顯示名稱': data.name,
+        '欄位類型': data.type,
+        required: data.required,
+        '下拉選項': (data.options || '').split(/[,，]/).map(s => s.trim()).filter(Boolean)
+      });
+      showToast(`✅ 已更新「${data.name}」`, 'success', 1500);
     }
-    await reloadFieldsList();
-    showToast(isNew ? `✅ 已新增欄位「${data.name}」` : `✅ 已更新欄位「${data.name}」`, 'success');
   } catch (err) {
     showToast('❌ ' + err.message, 'error', 4000);
+  } finally {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.innerText = '💾'; }
   }
 }
 
 async function deleteFieldRow(fid, name) {
   const ctx = _currentFieldsContext;
   if (!ctx) return;
+  const row = document.querySelector(`.field-row[data-fid="${fid}"]`);
+
+  // 新增中還沒儲存 → 純前端移除
   if (String(fid).startsWith('_new_')) {
     ctx.ownFields = ctx.ownFields.filter(f => f.fieldId !== fid);
-    renderFieldsList();
+    if (row) row.remove();
     return;
   }
   if (!confirm(`確定刪除欄位「${name}」？\n⚠️ 所有事項中此欄位的值也會一併清除`)) return;
-  showLoadingToast('刪除中...');
+
+  // 樂觀刪除：先移 DOM 與本地，失敗才還原
+  const backup = ctx.ownFields.find(f => f.fieldId === fid);
+  ctx.ownFields = ctx.ownFields.filter(f => f.fieldId !== fid);
+  if (row) row.remove();
+
+  showLoadingToast(`刪除「${name}」中...`);
   try {
     const res = await callAPI('cal_deleteField', { fieldId: fid });
     if (!res.success) throw new Error(res.message);
-    await reloadFieldsList();
     showToast(`✅ 已刪除「${name}」`, 'success');
   } catch (err) {
-    showToast('❌ ' + err.message, 'error', 4000);
+    // 失敗 → 還原（重 render 比較簡單，因為列已經被移掉了）
+    if (backup) ctx.ownFields.push(backup);
+    renderFieldsList();
+    showToast('❌ 刪除失敗：' + err.message, 'error', 4000);
   }
 }
 
