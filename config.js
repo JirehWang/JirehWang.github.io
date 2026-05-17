@@ -108,7 +108,14 @@
     'ministry_getTemplates':        _SIX_HOURS,
     'ministry_getAggregatedReport': _SIX_HOURS,
     'ministry_getPageConfig':       _SIX_HOURS,
-    'ministry_getGroupMembers':     _SIX_HOURS
+    'ministry_getGroupMembers':     _SIX_HOURS,
+
+    // 敬拜團
+    'getSchedule':                  _SIX_HOURS,  // 公佈欄總表 + 服事表安排（季度）
+    'getScheduleByDateRange':       _SIX_HOURS,  // 服事表安排（區間）
+    'getPositions':                 _SIX_HOURS,  // 位置與同工
+    'getTeamMembers':               _SIX_HOURS,  // 敬拜團員名單
+    'getSongs':                     _SIX_HOURS   // 敬拜曲目（順帶加上）
   };
 
   // 寫入時要連帶清除的 read-cache（key = 寫入 action，value = 要清掉的 read action 陣列）
@@ -140,7 +147,13 @@
     'ministry_toggleGroupStatus': ['ministry_getGroups'],
     'ministry_saveSheetData':     ['ministry_getAggregatedReport', 'ministry_getPageConfig'],
     'ministry_saveGroupPrompt':   ['ministry_getPageConfig'],
-    'ministry_saveGroupMembers':  ['ministry_getPageConfig']
+    'ministry_saveGroupMembers':  ['ministry_getPageConfig'],
+
+    // ── 敬拜團異動 ──
+    'saveSchedule':       ['getSchedule', 'getScheduleByDateRange'],
+    'savePositions':      ['getPositions'],
+    'saveTeamMembers':    ['getTeamMembers'],
+    'saveSongs':          ['getSongs', 'getSchedule', 'getScheduleByDateRange'] // 曲目會出現在班表的「敬拜曲目」欄
   };
 
   // Lazy-load Firebase cache module（僅在需要時 import；失敗則自動 fallback 至直接 GAS 呼叫）

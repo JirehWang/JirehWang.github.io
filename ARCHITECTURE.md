@@ -8,12 +8,13 @@
 
   最後更新：2026-05-17
   本次大更新：
+    - 敬拜團 5 個 GET API 全部納入 Firebase 快取（公佈欄/服事表/位置/團員/曲目）
     - 敬拜團：新增「敬拜團員名單」分頁（從主日會友拉選，正式/實習狀態）
     - 敬拜團：「位置與同工」改為標籤式多選，資料來源綁定敬拜團員名單
     - 共用可搜尋浮動下拉元件（替代 HTML5 datalist，UX 強化）
     - 小組移除成員時同步更新主日的「所屬小組 / 身分」
     - 小組統計（單日）補入「當日有出席但已不在組」的歷史成員
-    - 前次更新：主日 members.html 簡化、Firebase Service Account 整合
+    - 快取 API 數量：15 → 20
 -->
 
 # 🏛️ 教會系統架構文件（測試版）
@@ -108,13 +109,14 @@ cache/
 └── ...
 ```
 
-### 啟用快取的 15 個 API（TTL 統一 6 小時）
+### 啟用快取的 20 個 API（TTL 統一 6 小時）
 | 類別 | API |
 |---|---|
 | 全域 | getGroups, getGroupConfig, getWeeklyReport, getAllMembers, getAdminGroupsList |
 | 統計 | getStats, getAllGroupsStats, getAttendanceStats, getAttendanceTrend |
 | 小組（管理員 / 輔助） | **getAllGroupMembers**（admin 總清單）、**getMemberSuggestions**（datalist 自動完成） |
-| 事工 | ministry_getGroups, ministry_getTemplates, ministry_getAggregatedReport, ministry_getPageConfig |
+| 事工 | ministry_getGroups, ministry_getTemplates, ministry_getAggregatedReport, ministry_getPageConfig, ministry_getGroupMembers |
+| **敬拜團** | **getSchedule**（公佈欄 / 服事表季度）、**getScheduleByDateRange**（區間）、**getPositions**（位置與同工）、**getTeamMembers**（敬拜團員名單）、**getSongs**（敬拜曲目） |
 
 ### 三層 Invalidation（讓資料即時同步）
 1. **前端**：寫入 action 自動清相關 read cache (`_INVALIDATE_ON_WRITE`)
@@ -234,6 +236,40 @@ cache/
 ---
 
 ## 📜 更新紀錄 (Changelog)
+
+### 2026-05-17（後續：敬拜團納入 Firebase 快取層）
+
+#### 🚀 敬拜團 GET API 全部走 Firebase 快取
+| 模組 | 對應 action | TTL |
+|---|---|---|
+| 公佈欄總表 | `getSchedule` | 6h |
+| 服事表安排（季度） | `getSchedule` | 6h |
+| 服事表安排（區間） | `getScheduleByDateRange` | 6h |
+| 位置與同工 | `getPositions` | 6h |
+| 敬拜團員名單 | `getTeamMembers` | 6h |
+| 敬拜曲目 | `getSongs` | 6h |
+| 主日會友候選（datalist） | `getMemberSuggestions` | 6h（與主日共享 cache topic，因為兩者讀的是同一份主日「會友名單」） |
+
+#### 🧹 對應的寫入失效規則
+| 寫入 action | 失效的 cache topic |
+|---|---|
+| `saveSchedule` | `getSchedule`、`getScheduleByDateRange` |
+| `savePositions` | `getPositions` |
+| `saveTeamMembers` | `getTeamMembers` |
+| `saveSongs` | `getSongs`、`getSchedule`、`getScheduleByDateRange`（曲目會出現在班表「敬拜曲目」欄） |
+
+#### 📝 注意事項
+- 敬拜團 GAS 與主系統 GAS 共用同一個 Firebase RTDB cache topic 命名空間（`cache/{action}/{subkey}`）— 因為敬拜團的 action 名稱（`getSchedule` 等）目前**沒有被任何其他 GAS 使用**，所以不會衝突。
+- 敬拜團 GAS 目前**尚未整合 `FirebaseSync.js`**，所以：
+  - 前端寫入 → ✅ 立即失效（透過 `_INVALIDATE_ON_WRITE`）
+  - 試算表手動編輯 → ⚠️ **無 onEdit invalidation**，最多等 6 小時 TTL 自然到期
+  - 若需強一致性，未來可把 FirebaseSync 移植到敬拜團 GAS（Phase 6 整合時順便做）
+- 快取 API 數量：15 → **20 個**
+
+#### 📁 影響檔案
+- `config.js` — 中央路由設定加入 5 個新 cacheable action + 4 條 invalidate 規則
+
+---
 
 ### 2026-05-17（敬拜團 UX 改造 + 小組同步修補）
 
