@@ -46,11 +46,18 @@ function _sanitizeForFirebase(val) {
 }
 
 // 取得快取；過期或不存在時回傳 null
+// ♻️ 自我清理：讀到過期 entry 順手 remove，避免長期累積殭屍資料
+//    （不 await 刪除，不影響回應速度）
 export async function cacheGet(topic, subkey) {
-  const snap = await get(ref(rtdb, _path(topic, subkey)));
+  const path = _path(topic, subkey);
+  const snap = await get(ref(rtdb, path));
   if (!snap.exists()) return null;
   const data = snap.val();
-  if (data && data.expiresAt && data.expiresAt < Date.now()) return null;
+  if (data && data.expiresAt && data.expiresAt < Date.now()) {
+    // 過期 → 順手刪掉
+    remove(ref(rtdb, path)).catch(() => {});
+    return null;
+  }
   return data ? data.value : null;
 }
 
