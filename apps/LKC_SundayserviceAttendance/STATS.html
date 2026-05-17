@@ -84,7 +84,14 @@
       <div class="col-12">
         <div class="input-group input-group-sm shadow-sm">
           <span class="input-group-text bg-white">🔍</span>
-          <input type="text" id="statsNameSearch" class="form-control" placeholder="輸入姓名，快速過濾下方表格..." onkeyup="filterStatsTable()">
+          <input type="text" id="statsNameSearch" class="form-control"
+                 placeholder="輸入姓名即時過濾（注音/拼音可直接輸入）..."
+                 autocomplete="off"
+                 oninput="filterStatsTable()"
+                 oncompositionend="filterStatsTable()">
+          <button type="button" class="btn btn-outline-secondary" id="statsNameClearBtn"
+                  style="display:none;"
+                  onclick="document.getElementById('statsNameSearch').value=''; filterStatsTable();">✕</button>
         </div>
       </div>
     </div>

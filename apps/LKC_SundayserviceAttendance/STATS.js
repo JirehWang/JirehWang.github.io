@@ -217,16 +217,57 @@
   function filterStatsTable() {
     const searchInput = document.getElementById('statsNameSearch');
     if (!searchInput) return;
-    const kw = searchInput.value.trim().toLowerCase();
+    const rawKw = searchInput.value;
+    const kw = rawKw.trim().toLowerCase();
+
+    // 「✕ 清除」按鈕顯示控制
+    const clearBtn = document.getElementById('statsNameClearBtn');
+    if (clearBtn) clearBtn.style.display = rawKw ? '' : 'none';
+
     const tbody = document.getElementById('statsTableBody');
     if (!tbody) return;
-    tbody.querySelectorAll('tr.stat-row').forEach(row => {
+
+    const rows = tbody.querySelectorAll('tr.stat-row');
+
+    // 表格內沒有資料 → 提示使用者先按「開始查詢」
+    if (rows.length === 0) {
+      if (kw) {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center p-4 text-muted">
+          🔍 您輸入了「<b class="text-primary">${rawKw}</b>」
+          <br><small>請先選擇日期 / 類別 / 群組後按「🔍 開始查詢」載入資料，搜尋會自動套用。</small>
+        </td></tr>`;
+      }
+      return;
+    }
+
+    // 即時過濾現有列
+    let matchCount = 0;
+    rows.forEach(row => {
       const nameCell = row.querySelector('.stat-name');
       if (nameCell) {
         const name = nameCell.innerText.trim().toLowerCase();
-        row.style.display = (kw === "" || name.includes(kw)) ? '' : 'none';
+        const match = (kw === "" || name.includes(kw));
+        row.style.display = match ? '' : 'none';
+        if (match) matchCount++;
       }
     });
+
+    // 過濾後一筆都沒有 → 在表格末尾顯示「無相符」提示
+    let emptyTip = document.getElementById('statsFilterEmptyTip');
+    if (kw && matchCount === 0) {
+      if (!emptyTip) {
+        emptyTip = document.createElement('tr');
+        emptyTip.id = 'statsFilterEmptyTip';
+        emptyTip.innerHTML = `<td colspan="4" class="text-center p-3 text-muted bg-light">
+          🔍 查無姓名含「<b class="text-danger">${rawKw}</b>」的人</td>`;
+        tbody.appendChild(emptyTip);
+      } else {
+        emptyTip.querySelector('b').innerText = rawKw;
+        emptyTip.style.display = '';
+      }
+    } else if (emptyTip) {
+      emptyTip.style.display = 'none';
+    }
   }
 
   function exportToCSV() {
