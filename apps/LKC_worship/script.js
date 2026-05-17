@@ -420,9 +420,15 @@ async function reloadScheduleDates() {
 
 async function clearCalLinkCacheBtn() {
   try {
+    // 1. 清 GAS 端的跨 SS 行事曆 cache（CacheService）
     const res = await callAPI('clearCalendarLinkCache', {});
     if (res.status !== 'success') throw new Error(res.message);
-    alert('✅ 已清空行事曆快取，重新載入中...');
+    // 2. 連帶清 Firebase 的 getSchedule / getScheduleByDateRange（避免舊資料卡住）
+    if (typeof window.churchAPIInvalidate === 'function') {
+      await window.churchAPIInvalidate('getSchedule');
+      await window.churchAPIInvalidate('getScheduleByDateRange');
+    }
+    alert('✅ 已清空所有快取（GAS + Firebase），重新載入中...');
     await loadCalLinkSettings();
   } catch (err) {
     alert('❌ ' + err.message);
