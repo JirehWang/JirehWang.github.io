@@ -628,49 +628,176 @@ async function runAiParse() {
   }
 }
 
-function renderAiPreview(res) {
+async function renderAiPreview(res) {
   const events = res.events || [];
+  const container = document.getElementById('ai_resultPreview');
+
   if (events.length === 0) {
-    document.getElementById('ai_resultPreview').innerHTML = '<div class="alert alert-warning">AI 沒有解析出任何事項</div>';
+    container.innerHTML = '<div class="alert alert-warning">AI 沒有解析出任何事項，請檢查貼上的文字</div>';
+    document.getElementById('ai_confirmBtn').style.display = 'none';
     return;
   }
-  let html = `<div class="alert alert-success py-2 mb-2">✅ 解析出 ${events.length} 個事項，請確認後按下方「批量建立」</div>`;
-  html += `<div class="table-responsive"><table class="table table-sm table-bordered"><thead class="table-light"><tr>
-    <th>#</th><th>日期</th><th>${res.hasSubTypes ? '子類型' : '類型'}</th><th>主要內容</th>
-  </tr></thead><tbody>`;
+
+  // 先取頂層類型的欄位（每張卡片渲染輸入用）
+  const rootTypeId = res.rootTypeId;
+  let fields;
+  if (_fieldsByType[rootTypeId]) {
+    fields = _fieldsByType[rootTypeId];
+  } else {
+    container.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm"></div> 載入欄位定義...</div>';
+    try {
+      const fr = await callAPI('cal_getFields', { typeId: rootTypeId });
+      if (!fr.success) throw new Error(fr.message);
+      fields = fr.data.fields;
+      _fieldsByType[rootTypeId] = fields;
+    } catch (err) {
+      container.innerHTML = `<div class="alert alert-danger">欄位載入失敗：${err.message}</div>`;
+      return;
+    }
+  }
+
+  const rootType = _types.flat.find(t => t.typeId === rootTypeId);
+  const subTypes = _types.flat.filter(t => t.parentTypeId === rootTypeId);
+
+  let html = `<div class="alert alert-success py-2 mb-3">
+    ✅ AI 解析出 <b>${events.length}</b> 個事項，請逐筆檢查並修改，按下方「批量建立」即建檔
+    <button class="btn btn-sm btn-outline-secondary float-end" onclick="addAiEventCard()" title="手動再加一筆">＋ 加一筆</button>
+  </div>`;
+
   events.forEach((ev, i) => {
-    const dateValid = /^\d{4}-\d{2}-\d{2}$/.test(ev.date);
-    const subOk = res.hasSubTypes ? !!ev.subTypeId : true;
-    const valuesPreview = Object.entries(ev.values || {}).slice(0,3)
-      .map(([k,v]) => escapeHtml(String(v).substring(0,40))).join(' / ');
-    html += `<tr ${(!dateValid || !subOk) ? 'class="table-warning"' : ''}>
-      <td>${i+1}</td>
-      <td>${escapeHtml(ev.date)} ${dateValid ? '' : '<small class="text-danger">⚠ 日期格式錯</small>'}</td>
-      <td>${escapeHtml(ev.subTypeName || res.rootTypeName)} ${(res.hasSubTypes && !subOk) ? '<small class="text-danger">⚠ 找不到</small>' : ''}</td>
-      <td><small>${valuesPreview}</small></td>
-    </tr>`;
+    html += _renderAiCard(ev, i, rootType, subTypes, fields);
   });
-  html += '</tbody></table></div>';
-  document.getElementById('ai_resultPreview').innerHTML = html;
+  container.innerHTML = html;
   document.getElementById('ai_confirmBtn').style.display = '';
+  document.getElementById('ai_confirmBtn').innerText = `💾 批量建立 (${events.length})`;
+}
+
+function _renderAiCard(ev, i, rootType, subTypes, fields) {
+  const color = (rootType && rootType.color) || '#667eea';
+  const dateValid = /^\d{4}-\d{2}-\d{2}$/.test(ev.date);
+  const fieldsHtml = fields.map(f => _renderFieldInput(f, (ev.values || {})[f.fieldId] || '')).join('');
+  const subTypeOpts = subTypes.map(s =>
+    `<option value="${s.typeId}" ${s.typeId === ev.subTypeId ? 'selected' : ''}>${s.icon || ''} ${s['名稱']}</option>`
+  ).join('');
+  const rootName = rootType ? rootType['名稱'] : '';
+  const rootIcon = rootType ? (rootType.icon || '') : '';
+
+  return `<div class="card mb-2 ai-event-card" data-aiidx="${i}" style="border-left: 4px solid ${color};">
+    <div class="card-body py-2 px-3">
+      <div class="d-flex align-items-center mb-2">
+        <span class="badge bg-secondary me-2">#${i+1}</span>
+        <strong style="color:${color}">${rootIcon} ${escapeHtml(rootName)}</strong>
+        ${dateValid ? '' : '<span class="badge bg-warning text-dark ms-2">⚠ 日期格式有問題</span>'}
+        <button class="btn btn-sm btn-outline-danger ms-auto" onclick="removeAiEventCard(${i})" title="從清單移除此筆">✕ 移除</button>
+      </div>
+      <div class="row g-2 mb-2">
+        <div class="col-md-${subTypes.length > 0 ? '4' : '6'}">
+          <label class="form-label small mb-1 fw-bold">📅 日期</label>
+          <input type="date" class="form-control form-control-sm ai-date" value="${escapeAttr(ev.date)}">
+        </div>
+        ${subTypes.length > 0 ? `
+        <div class="col-md-4">
+          <label class="form-label small mb-1 fw-bold">📂 子類型</label>
+          <select class="form-select form-select-sm ai-subtype">
+            ${subTypeOpts}
+          </select>
+        </div>` : ''}
+        <div class="col-md-${subTypes.length > 0 ? '4' : '6'}">
+          <label class="form-label small mb-1 fw-bold">🏷️ 標題（選填）</label>
+          <input type="text" class="form-control form-control-sm ai-title" value="${escapeAttr(ev.title || '')}" placeholder="留空 = 自動">
+        </div>
+      </div>
+      <div class="ai-card-fields">
+        ${fieldsHtml}
+      </div>
+    </div>
+  </div>`;
+}
+
+function removeAiEventCard(idx) {
+  if (!_aiParseResult || !_aiParseResult.events) return;
+  _syncAiEventsFromDom(); // 先把現在 DOM 上的所有編輯寫回，避免其他卡片的修改遺失
+  _aiParseResult.events.splice(idx, 1);
+  renderAiPreview(_aiParseResult);
+}
+
+function addAiEventCard() {
+  if (!_aiParseResult || !_aiParseResult.events) return;
+  _syncAiEventsFromDom();
+  const subTypes = _types.flat.filter(t => t.parentTypeId === _aiParseResult.rootTypeId);
+  _aiParseResult.events.push({
+    date: new Date().toISOString().substring(0, 10),
+    subTypeId: subTypes[0] ? subTypes[0].typeId : '',
+    subTypeName: subTypes[0] ? subTypes[0]['名稱'] : '',
+    title: '',
+    values: {}
+  });
+  renderAiPreview(_aiParseResult);
+}
+
+// 把所有卡片目前 DOM 上的值寫回 _aiParseResult.events
+function _syncAiEventsFromDom() {
+  if (!_aiParseResult) return;
+  const cards = document.querySelectorAll('#ai_resultPreview .ai-event-card');
+  cards.forEach(card => {
+    const idx = parseInt(card.dataset.aiidx);
+    if (isNaN(idx) || !_aiParseResult.events[idx]) return;
+    const ev = _aiParseResult.events[idx];
+    ev.date = card.querySelector('.ai-date').value;
+    ev.title = card.querySelector('.ai-title').value;
+    const sub = card.querySelector('.ai-subtype');
+    if (sub) {
+      ev.subTypeId = sub.value;
+      ev.subTypeName = sub.options[sub.selectedIndex] ? sub.options[sub.selectedIndex].text : '';
+    }
+    ev.values = {};
+    card.querySelectorAll('.ai-card-fields [data-fid]').forEach(el => {
+      const fid = el.dataset.fid;
+      let val;
+      if (el.dataset.multi === '1') {
+        val = Array.from(el.querySelectorAll('input[type="checkbox"]:checked')).map(c => c.value).join(',');
+      } else {
+        val = el.value;
+      }
+      if (val) ev.values[fid] = val;
+    });
+  });
 }
 
 async function confirmAiBatchAdd() {
   if (!_aiParseResult || !_aiParseResult.events) return;
-  const events = _aiParseResult.events
-    .filter(ev => /^\d{4}-\d{2}-\d{2}$/.test(ev.date)) // 日期格式對才建立
-    .map(ev => ({
-      typeId: ev.subTypeId || _aiParseResult.rootTypeId, // 子類型優先
-      date: ev.date,
-      title: ev.title || '',
-      values: ev.values || {}
-    }))
-    .filter(ev => ev.typeId);
+  _syncAiEventsFromDom();
 
-  if (events.length === 0) { alert('沒有有效事項可建立'); return; }
+  const fields = _fieldsByType[_aiParseResult.rootTypeId] || [];
+  const requiredFids = fields.filter(f => f.required).map(f => f.fieldId);
+
+  const errors = [];
+  const payload = [];
+  _aiParseResult.events.forEach((ev, i) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ev.date)) { errors.push(`第 ${i+1} 筆：日期格式錯`); return; }
+    const typeId = ev.subTypeId || _aiParseResult.rootTypeId;
+    const miss = requiredFids.filter(fid => !ev.values || !ev.values[fid]);
+    if (miss.length > 0) {
+      const names = miss.map(fid => {
+        const f = fields.find(x => x.fieldId === fid);
+        return f ? f['顯示名稱'] : fid;
+      }).join('、');
+      errors.push(`第 ${i+1} 筆：必填欄位「${names}」未填`);
+      return;
+    }
+    payload.push({ typeId, date: ev.date, title: ev.title || '', values: ev.values || {} });
+  });
+
+  if (payload.length === 0) {
+    alert('❌ 沒有有效事項可建立\n\n' + errors.join('\n'));
+    return;
+  }
+  if (errors.length > 0) {
+    if (!confirm(`⚠️ 有 ${errors.length} 筆有問題，將被跳過：\n\n${errors.join('\n')}\n\n仍要建立其他 ${payload.length} 筆嗎？`)) return;
+  }
 
   try {
-    const res = await callAPI('cal_addEventsBatch', { events });
+    const res = await callAPI('cal_addEventsBatch', { events: payload });
     if (!res.success) throw new Error(res.message);
     alert(`✅ ${res.message}`);
     bootstrap.Modal.getOrCreateInstance(document.getElementById('aiModal')).hide();
