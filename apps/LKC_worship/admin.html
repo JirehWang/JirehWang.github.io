@@ -157,34 +157,25 @@
         </div>
       </div>
 
-      <!-- 日期覆寫清單 -->
+      <!-- 服事表日期 ↔ 子類型對應 -->
       <div class="card shadow-sm border-warning">
-        <div class="card-header bg-warning py-2">
-          <b>📌 日期覆寫清單</b>
+        <div class="card-header bg-warning py-2 d-flex justify-content-between align-items-center">
+          <b>📌 服事表日期 ↔ 子類型對應</b>
+          <div class="d-flex align-items-center gap-2">
+            <select id="dateFilterSelect" class="form-select form-select-sm" onchange="renderScheduleDateList()" style="width:auto;">
+              <option value="all">全部日期</option>
+              <option value="overrides">僅顯示已覆寫</option>
+            </select>
+            <button class="btn btn-sm btn-outline-secondary" onclick="reloadScheduleDates()" title="重新拉服事表日期">🔄</button>
+          </div>
         </div>
         <div class="card-body">
           <div class="alert alert-light small border mb-2">
-            這裡列出已經設過「特殊子類型」的日期。你也可以直接到公佈欄上對單一列做切換（將在下一階段加入）。
+            清單來自「<b>服事表總表</b>」既有的日期。每一個日期左邊顯示<b>實際採用的子類型</b>（覆寫優先，否則用預設）。要改某天用別的子類型，直接在那一列下拉切換即可。
           </div>
-          <table class="table table-sm table-bordered align-middle mb-2">
-            <thead class="table-light text-center">
-              <tr><th style="width: 30%;">日期</th><th style="width: 50%;">指定子類型</th><th style="width: 20%;">操作</th></tr>
-            </thead>
-            <tbody id="dateOverridesTbody">
-              <tr><td colspan="3" class="text-center text-muted p-3">尚無覆寫</td></tr>
-            </tbody>
-          </table>
-          <div class="row g-2">
-            <div class="col-md-5">
-              <input type="date" id="newOverrideDate" class="form-control form-control-sm">
-            </div>
-            <div class="col-md-5">
-              <select id="newOverrideSubType" class="form-select form-select-sm">
-                <option value="">-- 選子類型 --</option>
-              </select>
-            </div>
-            <div class="col-md-2">
-              <button class="btn btn-sm btn-warning w-100 fw-bold" onclick="addDateOverride()">➕ 加</button>
+          <div id="scheduleDateListContainer" class="table-responsive" style="max-height:480px;">
+            <div class="text-center text-muted p-3">
+              <div class="spinner-border spinner-border-sm"></div> 載入服事表日期中...
             </div>
           </div>
         </div>

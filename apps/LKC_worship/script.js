@@ -236,15 +236,22 @@ function switchTab(tabId) {
 // 📅 行事曆連結設定
 // ==========================================
 let _calLinkConfig = null;
+let _scheduleDates = null; // [{date, name, type, year, quarter}, ...]
 
 async function loadCalLinkSettings() {
   document.getElementById('calLinkLoadingArea').style.display = '';
   document.getElementById('calLinkMainArea').style.display = 'none';
   try {
-    const res = await callAPI('getCalendarLinkConfig', {});
-    if (res.status !== 'success') throw new Error(res.message || '載入失敗');
-    _calLinkConfig = res.data;
+    const [cfgRes, datesRes] = await Promise.all([
+      callAPI('getCalendarLinkConfig', {}),
+      callAPI('getScheduleDates', {})
+    ]);
+    if (cfgRes.status !== 'success') throw new Error(cfgRes.message || '載入連結設定失敗');
+    if (datesRes.status !== 'success') throw new Error(datesRes.message || '載入服事表日期失敗');
+    _calLinkConfig = cfgRes.data;
+    _scheduleDates = datesRes.data || [];
     renderCalLinkUI();
+    renderScheduleDateList();
   } catch (err) {
     document.getElementById('calLinkLoadingArea').innerHTML =
       `<div class="alert alert-danger">❌ 載入失敗：${err.message}</div>`;
@@ -281,31 +288,109 @@ function renderCalLinkUI() {
   } else {
     statusEl.innerText = '尚未設定，沒設的話公佈欄的講道欄位會空白';
   }
+}
 
-  // 新增覆寫的子類型下拉
-  const newSel = document.getElementById('newOverrideSubType');
-  newSel.innerHTML = '<option value="">-- 選子類型 --</option>' +
-    subTypes.map(t => `<option value="${t.typeId}">${t.icon || ''} ${t.name}</option>`).join('');
+// 渲染服事表日期清單（取代舊「日期覆寫清單」）
+function renderScheduleDateList() {
+  const container = document.getElementById('scheduleDateListContainer');
+  if (!container) return;
 
-  // 渲染覆寫清單
-  const tbody = document.getElementById('dateOverridesTbody');
-  const overrides = _calLinkConfig.overrides || {};
-  const dates = Object.keys(overrides).sort();
-  if (dates.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted p-3">尚無覆寫</td></tr>';
-  } else {
-    tbody.innerHTML = dates.map(d => {
-      const typeId = overrides[d];
-      const t = subTypes.find(x => x.typeId === typeId);
-      const label = t ? `${t.icon || ''} ${t.name}` : `<span class="text-danger">${typeId} (查無)</span>`;
-      return `<tr>
-        <td class="text-center fw-bold">${d}</td>
-        <td class="text-center">${label}</td>
-        <td class="text-center">
-          <button class="btn btn-sm btn-outline-danger" onclick="removeDateOverride('${d}')">移除</button>
-        </td>
-      </tr>`;
-    }).join('');
+  if (!_scheduleDates || _scheduleDates.length === 0) {
+    container.innerHTML = '<div class="alert alert-light text-muted text-center m-2">服事表還沒有任何日期</div>';
+    return;
+  }
+
+  const subTypes = (_calLinkConfig && _calLinkConfig.sermonSubTypes) || [];
+  const overrides = (_calLinkConfig && _calLinkConfig.overrides) || {};
+  const defaultId = (_calLinkConfig && _calLinkConfig.defaultSermonSubTypeId) || '';
+
+  if (subTypes.length === 0) {
+    container.innerHTML = '<div class="alert alert-warning m-2">⚠️ 行事曆中沒有「講道資訊」子類型，無法做覆寫對應</div>';
+    return;
+  }
+
+  // 篩選
+  const mode = document.getElementById('dateFilterSelect').value;
+  let rows = _scheduleDates;
+  if (mode === 'overrides') {
+    rows = rows.filter(r => !!overrides[r.date]);
+  }
+  if (rows.length === 0) {
+    container.innerHTML = '<div class="alert alert-light text-muted text-center m-2">無符合條件的日期</div>';
+    return;
+  }
+
+  // 表格
+  let html = `<table class="table table-sm table-bordered align-middle mb-0">
+    <thead class="table-light text-center sticky-top" style="top:0; z-index:5;">
+      <tr>
+        <th style="width: 14%;">日期</th>
+        <th style="width: 20%;">聚會名稱</th>
+        <th style="width: 12%;">類別</th>
+        <th style="width: 14%;">實際採用</th>
+        <th style="width: 32%;">覆寫子類型</th>
+        <th style="width: 8%;">狀態</th>
+      </tr>
+    </thead><tbody>`;
+  rows.forEach(r => {
+    const ov = overrides[r.date] || '';
+    const effective = ov || defaultId;
+    const effObj = subTypes.find(t => t.typeId === effective);
+    const isOverridden = !!ov;
+    const stateBadge = isOverridden
+      ? `<span class="badge bg-warning text-dark">覆寫</span>`
+      : (defaultId
+          ? `<span class="badge bg-secondary">預設</span>`
+          : `<span class="badge bg-danger">無</span>`);
+
+    let effectiveLabel;
+    if (effObj) effectiveLabel = `${effObj.icon || ''} ${effObj.name}`;
+    else if (effective) effectiveLabel = `<span class="text-danger">查無</span>`;
+    else effectiveLabel = `<span class="text-muted">－</span>`;
+
+    const selOpts = `<option value="">使用預設</option>` +
+      subTypes.map(t => `<option value="${t.typeId}" ${t.typeId === ov ? 'selected' : ''}>${t.icon || ''} ${t.name}</option>`).join('');
+
+    html += `<tr ${isOverridden ? 'class="table-warning"' : ''}>
+      <td class="text-center fw-bold"><small>${r.date}</small></td>
+      <td><small>${escapeHtmlSafe(r.name || '-')}</small></td>
+      <td class="text-center"><small class="text-muted">${escapeHtmlSafe(r.type || '-')}</small></td>
+      <td class="text-center"><small>${effectiveLabel}</small></td>
+      <td>
+        <select class="form-select form-select-sm" onchange="changeDateOverride('${r.date}', this.value, this)">
+          ${selOpts}
+        </select>
+      </td>
+      <td class="text-center">${stateBadge}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function escapeHtmlSafe(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// 表格內下拉改變時觸發
+async function changeDateOverride(date, typeId, selectEl) {
+  // 先樂觀更新（UI 不會 reload 整個表）
+  const old = (_calLinkConfig.overrides && _calLinkConfig.overrides[date]) || '';
+  if (selectEl) selectEl.disabled = true;
+  try {
+    const res = await callAPI('setDateOverride', { date, typeId });
+    if (res.status !== 'success') throw new Error(res.message);
+    if (!_calLinkConfig.overrides) _calLinkConfig.overrides = {};
+    if (typeId) _calLinkConfig.overrides[date] = typeId;
+    else delete _calLinkConfig.overrides[date];
+    // 只重渲染清單（保留下拉狀態）
+    renderScheduleDateList();
+  } catch (err) {
+    alert('❌ ' + err.message);
+    if (selectEl) selectEl.value = old; // 回復
+  } finally {
+    if (selectEl) selectEl.disabled = false;
   }
 }
 
@@ -316,39 +401,18 @@ async function saveDefaultSubType() {
     if (res.status !== 'success') throw new Error(res.message);
     if (_calLinkConfig) _calLinkConfig.defaultSermonSubTypeId = typeId;
     renderCalLinkUI();
-    userNotification ? userNotification.success('✅ 預設子類型已更新') : alert('✅ 預設子類型已更新');
+    renderScheduleDateList(); // 預設變了，每列「實際採用」也要更新
   } catch (err) {
     alert('❌ ' + err.message);
   }
 }
 
-async function addDateOverride() {
-  const date = document.getElementById('newOverrideDate').value;
-  const typeId = document.getElementById('newOverrideSubType').value;
-  if (!date) { alert('請選擇日期'); return; }
-  if (!typeId) { alert('請選子類型'); return; }
+async function reloadScheduleDates() {
   try {
-    const res = await callAPI('setDateOverride', { date, typeId });
+    const res = await callAPI('getScheduleDates', {});
     if (res.status !== 'success') throw new Error(res.message);
-    if (_calLinkConfig) {
-      _calLinkConfig.overrides = _calLinkConfig.overrides || {};
-      _calLinkConfig.overrides[date] = typeId;
-    }
-    document.getElementById('newOverrideDate').value = '';
-    document.getElementById('newOverrideSubType').value = '';
-    renderCalLinkUI();
-  } catch (err) {
-    alert('❌ ' + err.message);
-  }
-}
-
-async function removeDateOverride(date) {
-  if (!confirm(`移除 ${date} 的覆寫？`)) return;
-  try {
-    const res = await callAPI('setDateOverride', { date, typeId: '' });
-    if (res.status !== 'success') throw new Error(res.message);
-    if (_calLinkConfig && _calLinkConfig.overrides) delete _calLinkConfig.overrides[date];
-    renderCalLinkUI();
+    _scheduleDates = res.data || [];
+    renderScheduleDateList();
   } catch (err) {
     alert('❌ ' + err.message);
   }
