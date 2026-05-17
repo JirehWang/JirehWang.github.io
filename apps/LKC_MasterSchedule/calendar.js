@@ -599,7 +599,9 @@ let _aiParseResult = null;
 function openAiModal() {
   // 只列頂層類型（AI 會自動判斷子類型）
   const sel = document.getElementById('ai_rootTypeId');
-  const roots = _types.tree;
+  // 後端回傳 data.types（不是 .tree）；同時 fallback 從 flat 過濾頂層
+  const roots = (_types && (_types.types || _types.tree)) ||
+                ((_types && _types.flat) ? _types.flat.filter(t => !t.parentTypeId) : []);
   sel.innerHTML = '<option value="">-- 選擇頂層類型 --</option>' +
     roots.map(t => `<option value="${t.typeId}">${t.icon || ''} ${t['名稱']}</option>`).join('');
   document.getElementById('ai_rawText').value = '';
