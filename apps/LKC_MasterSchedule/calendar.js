@@ -9,6 +9,7 @@ let _selectableTypes = []; // 可被選為事項類型的（葉子節點 或 無
 let _activeTypeIds = new Set(); // 當前篩選顯示的 typeIds
 let _fieldsByType = {}; // typeId → fields (cache)
 let _currentDetailEvent = null;
+let _isInitialLoad = true;
 
 async function callAPI(action, data) {
   if (typeof window.churchAPI !== 'function') throw new Error('config.js 尚未載入');
@@ -16,8 +17,11 @@ async function callAPI(action, data) {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
+  // 並行發送這兩個請求（不等待類型載完就讓月曆先發抓事項的請求）
+  const typesPromise = loadTypesAndChips();
   initCalendar();
-  await loadTypesAndChips();
+  await typesPromise;
+  _isInitialLoad = false;
 });
 
 // ─────────────────────────────────────────────────────────────
@@ -41,7 +45,7 @@ function initCalendar() {
 
     datesSet: function(info) {
       // 翻頁時重新拉
-      loadEventsForRange(info.startStr.substring(0,10), info.endStr.substring(0,10));
+      loadEventsForRange(info.startStr.split('T')[0], info.endStr.split('T')[0]);
     },
 
     dateClick: function(info) {
@@ -93,11 +97,6 @@ async function loadTypesAndChips() {
   populateTypeSelect();
   // 預設全選
   _activeTypeIds = new Set(_selectableTypes.map(t => t.typeId));
-  // 觸發載入當前月事項
-  if (_calendar) {
-    const view = _calendar.view;
-    loadEventsForRange(view.activeStart.toISOString().substring(0,10), view.activeEnd.toISOString().substring(0,10));
-  }
 }
 
 function renderTypeChips() {
@@ -141,7 +140,7 @@ function toggleChip(typeId) {
   });
   // 重新載當前範圍
   const view = _calendar.view;
-  loadEventsForRange(view.activeStart.toISOString().substring(0,10), view.activeEnd.toISOString().substring(0,10));
+  loadEventsForRange(window.formatYMD(view.activeStart), window.formatYMD(view.activeEnd));
 }
 
 function toggleAllChips(on) {
@@ -151,7 +150,7 @@ function toggleAllChips(on) {
     el.classList.toggle('off', !_activeTypeIds.has(el.dataset.tid));
   });
   const view = _calendar.view;
-  loadEventsForRange(view.activeStart.toISOString().substring(0,10), view.activeEnd.toISOString().substring(0,10));
+  loadEventsForRange(window.formatYMD(view.activeStart), window.formatYMD(view.activeEnd));
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -162,7 +161,7 @@ async function loadEventsForRange(startDate, endDate) {
     const req = { startDate, endDate };
     if (_activeTypeIds.size > 0 && _activeTypeIds.size < _selectableTypes.length) {
       req.typeIds = Array.from(_activeTypeIds);
-    } else if (_activeTypeIds.size === 0) {
+    } else if (_activeTypeIds.size === 0 && !_isInitialLoad) {
       // 全不選 → 清空
       _calendar.removeAllEvents();
       return;
@@ -228,7 +227,7 @@ function openAddEventModal(dateStr) {
   document.getElementById('eventModalTitle').innerText = '新增事項';
   document.getElementById('evf_eventId').value = '';
   document.getElementById('evf_typeId').value = '';
-  document.getElementById('evf_date').value = dateStr || new Date().toISOString().substring(0, 10);
+  document.getElementById('evf_date').value = dateStr || window.formatYMD(new Date());
   document.getElementById('evf_title').value = '';
   document.getElementById('evf_fieldsContainer').innerHTML =
     '<div class="text-muted text-center py-4">請先選擇事項類型，下方會顯示對應欄位</div>';
@@ -389,7 +388,7 @@ async function saveEvent() {
     bootstrap.Modal.getOrCreateInstance(document.getElementById('eventModal')).hide();
     // 重新拉當前範圍
     const view = _calendar.view;
-    loadEventsForRange(view.activeStart.toISOString().substring(0,10), view.activeEnd.toISOString().substring(0,10));
+    loadEventsForRange(window.formatYMD(view.activeStart), window.formatYMD(view.activeEnd));
   } catch (err) {
     alert('❌ ' + err.message);
   }
@@ -404,7 +403,7 @@ async function deleteEvent() {
     if (!res.success) throw new Error(res.message);
     bootstrap.Modal.getOrCreateInstance(document.getElementById('eventModal')).hide();
     const view = _calendar.view;
-    loadEventsForRange(view.activeStart.toISOString().substring(0,10), view.activeEnd.toISOString().substring(0,10));
+    loadEventsForRange(window.formatYMD(view.activeStart), window.formatYMD(view.activeEnd));
   } catch (err) {
     alert('❌ ' + err.message);
   }
@@ -450,7 +449,7 @@ async function confirmDeleteFromDetail() {
     if (!res.success) throw new Error(res.message);
     bootstrap.Modal.getOrCreateInstance(document.getElementById('eventDetailModal')).hide();
     const view = _calendar.view;
-    loadEventsForRange(view.activeStart.toISOString().substring(0,10), view.activeEnd.toISOString().substring(0,10));
+    loadEventsForRange(window.formatYMD(view.activeStart), window.formatYMD(view.activeEnd));
   } catch (err) {
     alert('❌ ' + err.message);
   }
