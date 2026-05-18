@@ -88,6 +88,9 @@
         <button id="manageGroupRolesBtn" class="btn btn-sm btn-outline-success shadow-sm hidden" onclick="openGroupRoleModal()">
           🧑‍🤝‍🧑 設定組員身分
         </button>
+        <button class="btn btn-sm btn-outline-dark shadow-sm" onclick="exportBlankTemplate()">📥 匯出 Excel 模板</button>
+        <button class="btn btn-sm btn-outline-success shadow-sm" onclick="document.getElementById('xlsxImportInput').click()">📤 匯入 Excel 填寫</button>
+        <input type="file" id="xlsxImportInput" accept=".xlsx, .xls" style="display: none;" onchange="importExcelFile(this)">
       </div>
 
       <div id="promptSettings" class="hidden mb-3 p-3 bg-light border border-secondary border-opacity-25 rounded shadow-sm">

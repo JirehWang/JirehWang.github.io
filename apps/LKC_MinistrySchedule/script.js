@@ -1489,3 +1489,199 @@ function downloadAggregatedExcel(matrix, fileName) {
   XLSX.writeFile(wb, `${fileName}_${today}.xlsx`);
   getNotifier().success("✅ Excel 已下載");
 }
+
+
+// ============================================================
+//  📥 匯出空白 Excel 模板
+// ============================================================
+function exportBlankTemplate() {
+  if (!currentTableHeaders || currentTableHeaders.length === 0) {
+    getNotifier().warning("⚠️ 找不到表格標題，請先載入排班表！");
+    return;
+  }
+  const blankRow = currentTableHeaders.map(() => "");
+  const data = [currentTableHeaders, blankRow, blankRow, blankRow, blankRow, blankRow];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "填寫模板");
+  XLSX.writeFile(wb, `${activeGroupName}_Excel填寫模板.xlsx`);
+  getNotifier().success("✅ Excel 模板已下載！請填寫日期後匯入。");
+}
+
+
+// ============================================================
+//  📅 容錯日期解析（支援民國曆、西元、兩位年份、僅月日）
+// ============================================================
+function parseGregorianDate(rawStr) {
+  if (!rawStr || typeof rawStr !== 'string') return null;
+
+  const s = rawStr
+    .replace(/[（(][一二三四五六日][）)]/g, '')
+    .replace(/[（(][A-Za-z]{3}[）)]/gi, '')
+    .replace(/星期[一二三四五六日]/g, '')
+    .trim();
+
+  const parts = s.match(/\d+/g);
+  if (!parts) return null;
+
+  let year, month, day;
+
+  if (parts.length >= 3) {
+    const p1 = parseInt(parts[0]);
+    const p2 = parseInt(parts[1]);
+    const p3 = parseInt(parts[2]);
+
+    let rawYear, rawMonth, rawDay;
+    if (p1 > 31) {
+      rawYear = p1; rawMonth = p2; rawDay = p3;
+    } else if (p3 > 31) {
+      rawYear = p3; rawMonth = p2; rawDay = p1;
+    } else {
+      rawYear = p1; rawMonth = p2; rawDay = p3;
+    }
+
+    // <= 99: 2-digit Gregorian abbrev (26 → 2026)
+    // 100-200: ROC (民國) year (115 → 2026)
+    // > 200: 4-digit Gregorian
+    if (rawYear <= 99) {
+      year = 2000 + rawYear;
+    } else if (rawYear <= 200) {
+      year = rawYear + 1911;
+    } else {
+      year = rawYear;
+    }
+    month = rawMonth;
+    day = rawDay;
+
+  } else if (parts.length === 2) {
+    year = new Date().getFullYear();
+    month = parseInt(parts[0]);
+    day = parseInt(parts[1]);
+  } else {
+    return null;
+  }
+
+  if (!year || !month || !day) return null;
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+
+// ============================================================
+//  📤 匯入 Excel 填寫
+// ============================================================
+async function importExcelFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  getNotifier().showLoading("⏳ 正在解析 Excel...");
+
+  try {
+    const buffer = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(file);
+    });
+
+    const wb = XLSX.read(buffer, { type: "array", cellDates: true, cellNF: false, cellText: false });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+
+    if (!rows || rows.length < 2) {
+      getNotifier().warning("⚠️ Excel 檔案沒有資料列！");
+      return;
+    }
+
+    // Normalize headers for case-insensitive, space-agnostic matching
+    const normalize = h => String(h || "").trim().toLowerCase().replace(/\s/g, "");
+    const excelHeaders = rows[0].map(normalize);
+    const localHeaders = currentTableHeaders.map(normalize);
+
+    // Build mapping: excelColIdx → localColIdx
+    const colMap = {};
+    excelHeaders.forEach((eh, ei) => {
+      const li = localHeaders.findIndex(lh => lh === eh);
+      if (li !== -1) colMap[ei] = li;
+    });
+
+    const dateLocalIdx = currentTableHeaders.findIndex(h => h.includes("日期"));
+    if (dateLocalIdx === -1) {
+      getNotifier().error("❌ 找不到「日期」欄位！");
+      return;
+    }
+
+    // Find which Excel column maps to the local date column
+    let dateExcelIdx = -1;
+    for (const [ei, li] of Object.entries(colMap)) {
+      if (parseInt(li) === dateLocalIdx) { dateExcelIdx = parseInt(ei); break; }
+    }
+
+    const parsedRows = [];
+    let skippedCount = 0;
+
+    for (let r = 1; r < rows.length; r++) {
+      const row = rows[r];
+      if (!row || row.every(cell => cell === "" || cell == null)) continue;
+
+      // Parse date value
+      let dateStr = null;
+      if (dateExcelIdx !== -1) {
+        const rawDate = row[dateExcelIdx];
+        if (rawDate instanceof Date) {
+          const y = rawDate.getFullYear();
+          const m = String(rawDate.getMonth() + 1).padStart(2, '0');
+          const d = String(rawDate.getDate()).padStart(2, '0');
+          dateStr = `${y}-${m}-${d}`;
+        } else if (rawDate !== "" && rawDate != null) {
+          dateStr = parseGregorianDate(String(rawDate));
+        }
+      }
+
+      if (!dateStr) {
+        skippedCount++;
+        console.warn(`[importExcel] 第 ${r + 1} 列日期無效或缺失，已略過`, row);
+        continue;
+      }
+
+      // Build row object keyed by local header names
+      const rowObj = {};
+      for (const [ei, li] of Object.entries(colMap)) {
+        const header = currentTableHeaders[li];
+        let val = row[parseInt(ei)];
+        if (val instanceof Date) {
+          const y = val.getFullYear();
+          const m = String(val.getMonth() + 1).padStart(2, '0');
+          const d = String(val.getDate()).padStart(2, '0');
+          val = `${y}-${m}-${d}`;
+        } else {
+          val = val == null ? "" : String(val);
+        }
+        rowObj[header] = val;
+      }
+      // Ensure date is in canonical YYYY-MM-DD format
+      rowObj[currentTableHeaders[dateLocalIdx]] = dateStr;
+      parsedRows.push(rowObj);
+    }
+
+    if (parsedRows.length === 0) {
+      getNotifier().warning(`⚠️ 沒有可匯入的資料！（${skippedCount} 筆因日期無效被略過）`);
+      return;
+    }
+
+    fillTableWithData(parsedRows);
+
+    if (skippedCount > 0) {
+      getNotifier().warning(`⚠️ 已匯入 ${parsedRows.length} 筆，另有 ${skippedCount} 筆因日期無效被略過。`);
+    } else {
+      getNotifier().success(`✅ 已成功匯入 ${parsedRows.length} 筆排班資料！`);
+    }
+  } catch (err) {
+    console.error("[importExcel] 解析失敗：", err);
+    getNotifier().error("❌ Excel 解析失敗：" + err.message);
+  } finally {
+    getNotifier().hideLoading();
+    input.value = "";
+  }
+}
