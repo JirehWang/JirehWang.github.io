@@ -41,6 +41,7 @@ let bulletinModalInstance = null;
 let localCustomMembers = [];
 let currentTemplate = "";
 let currentEventData = [];
+let currentSermonSettings = { useSermon: false, sermonType: "華語/聯合" };
 
 // 預覽布告欄 modal 目前的篩選後矩陣（給下載 Excel 用）
 let _currentBulletinFiltered = null;
@@ -359,18 +360,34 @@ function renderTable(data) {
     currentGroupMembers = localCustomMembers.map(m => m.name);
 
     if (currentTemplate === "新家人服事表模板") {
-      currentCoreMembers = localCustomMembers.filter(m => m.role === "小家長").map(m => m.name);
-      let parentNames = currentCoreMembers.join(", ");
-      let normalNames = localCustomMembers.filter(m => m.role === "一般同工").map(m => m.name).join(", ");
+      const parentNames = localCustomMembers.filter(m => m.role === "小家長").map(m => m.name).join(", ");
+      const normalNames = localCustomMembers.filter(m => m.role === "一般同工").map(m => m.name).join(", ");
       currentAutoRoleRules = `【系統強制權限】：\n小家長 (${parentNames})：可排所有服事。\n一般同工 (${normalNames})：不可排特定帶領服事。`;
     }
   } else if (memberBtn) {
     memberBtn.classList.add('hidden');
   }
 
-  // 小組/團契模板才顯示「設定組員身分」按鈕（直接編輯 master）
+  // 小組/團契模板才顯示「設定組員身分」按鈕與「講道連動設定」按鈕
   if (groupRoleBtn) {
     groupRoleBtn.classList.toggle('hidden', !isGroupOrFellowship);
+  }
+  const sermonBtn = document.getElementById('sermonSettingsBtn');
+  if (sermonBtn) {
+    sermonBtn.classList.toggle('hidden', !isGroupOrFellowship);
+  }
+
+  if (isGroupOrFellowship) {
+    currentSermonSettings = data.sermonSettings || { useSermon: false, sermonType: "華語/聯合" };
+    const useSermonToggle = document.getElementById('useSermonToggle');
+    if (useSermonToggle) {
+      useSermonToggle.checked = currentSermonSettings.useSermon === true;
+      toggleSermonTypeSelect();
+    }
+    const sermonTypeSelect = document.getElementById('sermonTypeSelect');
+    if (sermonTypeSelect) {
+      sermonTypeSelect.value = currentSermonSettings.sermonType || "華語/聯合";
+    }
   }
 
   const promptInput = document.getElementById('groupPromptInput');
@@ -379,6 +396,16 @@ function renderTable(data) {
   let rawHeaders = data.matrix[0].map(h => h.toString().trim());
   let validColCount = rawHeaders.length;
   while (validColCount > 0 && rawHeaders[validColCount - 1] === "") validColCount--;
+
+  // 自動補齊「套用講道」欄位
+  if (isGroupOrFellowship) {
+    const hasSermonLinkHeader = rawHeaders.slice(0, validColCount).some(h => h === "套用講道");
+    if (!hasSermonLinkHeader) {
+      rawHeaders[validColCount] = "套用講道";
+      validColCount++;
+    }
+  }
+
   currentTableHeaders = rawHeaders.slice(0, validColCount);
 
   let datalistHTML = "";
@@ -410,6 +437,17 @@ function renderTable(data) {
   const rows = data.matrix.slice(1);
   let validRows = rows.filter(r => r.some(cell => cell.toString().trim() !== ""));
 
+  // 補齊行矩陣長度與預設值
+  const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
+  validRows.forEach(row => {
+    while (row.length < validColCount) {
+      row.push("");
+    }
+    if (isGroupOrFellowship && sermonLinkColIdx !== -1 && !row[sermonLinkColIdx]) {
+      row[sermonLinkColIdx] = currentSermonSettings.useSermon ? "Y" : "N";
+    }
+  });
+
   const dateColIdx = currentTableHeaders.findIndex(h => h.includes("日期"));
   const nameColIdx = currentTableHeaders.findIndex(h => h.includes("聚會名稱"));
   const catColIdx = currentTableHeaders.findIndex(h => h.includes("聚會類別"));
@@ -423,6 +461,7 @@ function renderTable(data) {
         newRow[dateColIdx] = event.date;
         if (nameColIdx !== -1) newRow[nameColIdx] = event.name;
         if (catColIdx !== -1) newRow[catColIdx] = event.category;
+        if (sermonLinkColIdx !== -1) newRow[sermonLinkColIdx] = currentSermonSettings.useSermon ? "Y" : "N";
         validRows.push(newRow);
       }
     });
@@ -434,7 +473,11 @@ function renderTable(data) {
     });
   }
 
-  if (validRows.length === 0) validRows.push(new Array(validColCount).fill(""));
+  if (validRows.length === 0) {
+    const emptyRow = new Array(validColCount).fill("");
+    if (sermonLinkColIdx !== -1) emptyRow[sermonLinkColIdx] = currentSermonSettings.useSermon ? "Y" : "N";
+    validRows.push(emptyRow);
+  }
 
   validRows.forEach((rowData) => html += createRowHTML(rowData, gridTemplate));
 
@@ -443,6 +486,17 @@ function renderTable(data) {
 
   document.getElementById('dynamicFormContainer').innerHTML = html;
   initGridInteraction();
+
+  // 載入時，針對所有有勾選連動講道的列，進行一次講道資料的自動套用初始化
+  document.querySelectorAll('.record-row').forEach(rowDiv => {
+    if (sermonLinkColIdx !== -1) {
+      const cb = rowDiv.querySelector(`input.grid-checkbox[data-c="${sermonLinkColIdx}"]`);
+      if (cb && cb.checked && dateColIdx !== -1) {
+        const dVal = rowDiv.querySelector(`input.grid-input[data-c="${dateColIdx}"]`).value.trim();
+        updateRowSermonState(rowDiv, true, dVal);
+      }
+    }
+  });
 }
 
 
@@ -453,14 +507,26 @@ function createRowHTML(rowData, gridTemplate) {
   if (!gridTemplate) gridTemplate = `repeat(${currentTableHeaders.length}, minmax(130px, 1fr)) 40px`;
   let rowHtml = `<div class="record-row align-items-center" style="display: grid; grid-template-columns: ${gridTemplate}; gap: 10px;">`;
 
+  const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
+  const isRowSermonLinked = sermonLinkColIdx !== -1 && 
+    (rowData[sermonLinkColIdx] === 'Y' || rowData[sermonLinkColIdx] === 'true' || rowData[sermonLinkColIdx] === true);
+
   currentTableHeaders.forEach((header, cIdx) => {
+    const val = rowData[cIdx] || "";
+    if (header === "套用講道") {
+      rowHtml += `<div class="d-flex align-items-center justify-content-center"><input type="checkbox" class="grid-checkbox" data-c="${cIdx}" ${isRowSermonLinked ? 'checked' : ''} onchange="onSermonLinkChange(this)"></div>`;
+      return;
+    }
+
     let listAttr = "";
     let extraClass = "";
     let inputType = "text";
     if (header.includes("日期")) inputType = "date";
 
+    const isSermonField = header === "主題" || header === "經文" || header === "話語分享" || header === "講員";
+    const readonlyAttr = (isRowSermonLinked && isSermonField) ? "readonly" : "";
+
     if (currentTemplate === "團契聚會表模板") {
-      // 團契聚會表模板：破冰敬拜用全體名單，司會用核心名單，其餘手填
       const allDropdownCols = ["破冰", "敬拜"];
       const coreDropdownCols = ["司會"];
       const isAllCol = allDropdownCols.some(c => header.includes(c));
@@ -475,7 +541,6 @@ function createRowHTML(rowData, gridTemplate) {
       }
 
     } else if (currentTemplate !== "小組聚會表模板") {
-      // 新家人服事表模板 / 其他自訂模板
       if (header.includes("日期") || header.includes("聚會名稱") || header.includes("聚會類別")) {
         listAttr = "";
         extraClass = "";
@@ -493,7 +558,6 @@ function createRowHTML(rowData, gridTemplate) {
       }
 
     } else {
-      // 小組聚會表模板
       const allDropdownCols = ["破冰", "敬拜", "分享"];
       const coreDropdownCols = ["話語", "領會", "主領", "帶領"];
       const isAllCol = allDropdownCols.some(c => header.includes(c));
@@ -508,8 +572,7 @@ function createRowHTML(rowData, gridTemplate) {
       }
     }
 
-    const val = rowData[cIdx] || "";
-    rowHtml += `<input type="${inputType}" class="grid-input ${extraClass}" data-c="${cIdx}" value="${val}" title="${val}" ${listAttr}>`;
+    rowHtml += `<input type="${inputType}" class="grid-input ${extraClass}" data-c="${cIdx}" value="${val}" title="${val}" ${listAttr} ${readonlyAttr}>`;
   });
 
   rowHtml += `<button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteRow(this)" title="刪除此列">✖</button></div>`;
@@ -522,7 +585,14 @@ function createRowHTML(rowData, gridTemplate) {
 function addNewRow() {
   const container = document.getElementById('rowsContainer');
   const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = createRowHTML([]);
+  
+  const defaultRow = Array(currentTableHeaders.length).fill("");
+  const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
+  if (sermonLinkColIdx !== -1) {
+    defaultRow[sermonLinkColIdx] = currentSermonSettings.useSermon ? "Y" : "N";
+  }
+  
+  tempDiv.innerHTML = createRowHTML(defaultRow);
   container.appendChild(tempDiv.firstElementChild);
 }
 
@@ -538,6 +608,27 @@ function deleteRow(btnElement) {
 // ============================================================
 function initGridInteraction() {
   const container = document.getElementById('rowsContainer');
+  if (!container) return;
+
+  // 監聽日期變更：若是連動講道的列，日期變更後自動重新抓取講道資訊
+  container.addEventListener('change', (e) => {
+    const target = e.target;
+    if (target.classList.contains('grid-input')) {
+      const cIdx = parseInt(target.dataset.c);
+      const header = currentTableHeaders[cIdx];
+      if (header && header.includes("日期")) {
+        const rowDiv = target.closest('.record-row');
+        const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
+        if (sermonLinkColIdx !== -1) {
+          const checkbox = rowDiv.querySelector(`input.grid-checkbox[data-c="${sermonLinkColIdx}"]`);
+          if (checkbox && checkbox.checked) {
+            updateRowSermonState(rowDiv, true, target.value.trim());
+          }
+        }
+      }
+    }
+  });
+
   container.addEventListener('paste', (e) => {
     const target = e.target;
     if (!target.classList.contains('grid-input')) return;
@@ -553,14 +644,30 @@ function initGridInteraction() {
       for (let i = 0; i < rows.length; i++) {
         if (currentRowIndex + i >= container.children.length) addNewRow();
         const targetRowDiv = container.children[currentRowIndex + i];
-        const inputs = targetRowDiv.querySelectorAll('.grid-input');
         const cols = rows[i].split('\t');
         for (let j = 0; j < cols.length; j++) {
           const c = startC + j;
-          if (c < inputs.length) {
-            inputs[c].value = cols[j];
-            inputs[c].classList.add('highlight');
-            setTimeout(() => inputs[c].classList.remove('highlight'), 2000);
+          const input = targetRowDiv.querySelector(`input[data-c="${c}"]`);
+          if (input) {
+            if (input.type === 'checkbox') {
+              input.checked = (cols[j] === 'Y' || cols[j] === 'true' || cols[j] === true);
+              onSermonLinkChange(input);
+            } else {
+              input.value = cols[j];
+              input.classList.add('highlight');
+              setTimeout(() => input.classList.remove('highlight'), 2000);
+              
+              // 貼上日期時，如果同列的勾選框是勾選狀態，觸發重算講道
+              if (currentTableHeaders[c] && currentTableHeaders[c].includes("日期")) {
+                const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
+                if (sermonLinkColIdx !== -1) {
+                  const checkbox = targetRowDiv.querySelector(`input.grid-checkbox[data-c="${sermonLinkColIdx}"]`);
+                  if (checkbox && checkbox.checked) {
+                    updateRowSermonState(targetRowDiv, true, cols[j].trim());
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -667,10 +774,14 @@ function fillTableWithData(parsedRows) {
   const container = document.getElementById('rowsContainer');
   const dateColIdx = currentTableHeaders.findIndex(h => h.includes("日期"));
 
-  // 預先快取目前所有 row 與其 inputs，避免每筆 parsedRow 都重新 querySelectorAll → O(N²)
+  // 預先快取目前所有 row 與其 inputsMap (cIdx -> input/checkbox)
   const rowCache = Array.from(container.querySelectorAll('.record-row')).map(rowDiv => ({
     rowDiv,
-    inputs: rowDiv.querySelectorAll('.grid-input')
+    inputsMap: Array.from(rowDiv.querySelectorAll('input')).reduce((map, input) => {
+      const c = input.dataset.c;
+      if (c !== undefined) map[c] = input;
+      return map;
+    }, {})
   }));
 
   parsedRows.forEach(rowData => {
@@ -680,7 +791,7 @@ function fillTableWithData(parsedRows) {
     // 先嘗試比對日期
     if (aiDate && dateColIdx !== -1) {
       target = rowCache.find(r => {
-        const di = r.inputs[dateColIdx];
+        const di = r.inputsMap[dateColIdx];
         return di && di.value.trim() === aiDate;
       });
     }
@@ -688,10 +799,10 @@ function fillTableWithData(parsedRows) {
     // 找不到日期相符的 → 找完全空白的列
     if (!target) {
       target = rowCache.find(r => {
-        for (let i = 0; i < r.inputs.length; i++) {
-          if (r.inputs[i].value.trim() !== "") return false;
-        }
-        return true;
+        return Object.values(r.inputsMap).every(input => {
+          if (input.type === 'checkbox') return true; // 勾選框不視為內容填寫
+          return input.value.trim() === "";
+        });
       });
     }
 
@@ -699,19 +810,43 @@ function fillTableWithData(parsedRows) {
     if (!target) {
       addNewRow();
       const rowDiv = container.lastElementChild;
-      target = { rowDiv, inputs: rowDiv.querySelectorAll('.grid-input') };
+      target = {
+        rowDiv,
+        inputsMap: Array.from(rowDiv.querySelectorAll('input')).reduce((map, input) => {
+          const c = input.dataset.c;
+          if (c !== undefined) map[c] = input;
+          return map;
+        }, {})
+      };
       rowCache.push(target);
     }
 
     currentTableHeaders.forEach((header, colIdx) => {
       const val = rowData[header];
-      if (val && val !== "") {
-        const input = target.inputs[colIdx];
-        input.value = val;
-        input.classList.add('highlight');
-        setTimeout(() => input.classList.remove('highlight'), 2000);
+      if (val !== undefined && val !== null && val !== "") {
+        const input = target.inputsMap[colIdx];
+        if (input) {
+          if (input.type === 'checkbox') {
+            input.checked = (val === 'Y' || val === 'true' || val === true);
+            onSermonLinkChange(input);
+          } else {
+            input.value = val;
+            input.classList.add('highlight');
+            setTimeout(() => input.classList.remove('highlight'), 2000);
+          }
+        }
       }
     });
+
+    // 填充完後，若是連動講道的列，觸發重算/代入講道資訊
+    const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
+    if (sermonLinkColIdx !== -1 && dateColIdx !== -1) {
+      const cb = target.inputsMap[sermonLinkColIdx];
+      const dInput = target.inputsMap[dateColIdx];
+      if (cb && cb.checked && dInput && dInput.value) {
+        updateRowSermonState(target.rowDiv, true, dInput.value.trim());
+      }
+    }
   });
 }
 
@@ -731,8 +866,20 @@ async function saveData() {
   try {
     const matrix = [currentTableHeaders];
     document.querySelectorAll('.record-row').forEach(rowDiv => {
-      const row = Array.from(rowDiv.querySelectorAll('.grid-input')).map(i => i.value);
-      if (row.some(v => v.trim() !== "")) matrix.push(row);
+      const row = [];
+      currentTableHeaders.forEach((header, cIdx) => {
+        if (header === "套用講道") {
+          const cb = rowDiv.querySelector(`input.grid-checkbox[data-c="${cIdx}"]`);
+          row.push(cb && cb.checked ? "Y" : "N");
+        } else {
+          const input = rowDiv.querySelector(`input.grid-input[data-c="${cIdx}"]`);
+          row.push(input ? input.value : "");
+        }
+      });
+      // 只要有任何非「套用講道」的欄位有內容，即視為有效列
+      if (row.some((v, idx) => currentTableHeaders[idx] !== "套用講道" && v.trim() !== "")) {
+        matrix.push(row);
+      }
     });
 
     while (matrix.length <= 50) matrix.push(Array(currentTableHeaders.length).fill(""));
@@ -1685,3 +1832,177 @@ async function importExcelFile(input) {
     input.value = "";
   }
 }
+
+// ============================================================
+//  📢 講道資訊連動設定與連動邏輯
+// ============================================================
+function toggleSermonTypeSelect() {
+  const useSermonToggle = document.getElementById('useSermonToggle');
+  const sermonTypeCol = document.getElementById('sermonTypeCol');
+  if (useSermonToggle && sermonTypeCol) {
+    sermonTypeCol.style.opacity = useSermonToggle.checked ? "1" : "0.5";
+    sermonTypeCol.style.pointerEvents = useSermonToggle.checked ? "auto" : "none";
+  }
+}
+
+async function saveSermonSettings() {
+  if (getUIState().isLocked('saveSermonSettings')) return;
+  getUIState().lock('saveSermonSettings');
+
+  const useSermon = document.getElementById('useSermonToggle').checked;
+  const sermonType = document.getElementById('sermonTypeSelect').value;
+
+  getNotifier().showLoading("💾 儲存設定中...");
+  try {
+    await fetchAPI("saveSermonSettings", {
+      id: currentId,
+      sermonSettings: { useSermon, sermonType }
+    });
+
+    currentSermonSettings = { useSermon, sermonType };
+    getNotifier().success("✅ 講道資訊連動設定已更新！");
+    
+    // 如果關閉連動，提示是否將所有核取框取消勾選
+    // 如果開啟連動，提示是否將所有核取框勾選
+    const actionWord = useSermon ? "勾選" : "取消勾選";
+    if (confirm(`講道連動設定已更新！是否要自動將目前畫面中所有列的「套用講道」一併 ${actionWord}？`)) {
+      const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
+      if (sermonLinkColIdx !== -1) {
+        document.querySelectorAll('.record-row').forEach(rowDiv => {
+          const cb = rowDiv.querySelector(`input.grid-checkbox[data-c="${sermonLinkColIdx}"]`);
+          if (cb) {
+            cb.checked = useSermon;
+            onSermonLinkChange(cb);
+          }
+        });
+      }
+    }
+  } catch (err) {
+    handleAPIError(err);
+  } finally {
+    getNotifier().hideLoading();
+    getUIState().unlock('saveSermonSettings');
+  }
+}
+
+function onSermonLinkChange(checkbox) {
+  const rowDiv = checkbox.closest('.record-row');
+  const dateColIdx = currentTableHeaders.findIndex(h => h.includes("日期"));
+  if (dateColIdx === -1) return;
+  const dateInput = rowDiv.querySelector(`input[data-c="${dateColIdx}"]`);
+  const dateVal = dateInput ? dateInput.value.trim() : "";
+
+  updateRowSermonState(rowDiv, checkbox.checked, dateVal);
+}
+
+function updateRowSermonState(rowDiv, isChecked, dateStr) {
+  // 找出這一列中所有 grid-input
+  const inputsMap = Array.from(rowDiv.querySelectorAll('.grid-input')).reduce((map, input) => {
+    const c = input.dataset.c;
+    if (c !== undefined) map[c] = input;
+    return map;
+  }, {});
+
+  const fields = ["主題", "經文", "話語分享", "講員"];
+  const fieldIndices = {};
+  fields.forEach(f => {
+    fieldIndices[f] = currentTableHeaders.indexOf(f);
+  });
+
+  if (isChecked) {
+    // 設為唯讀
+    fields.forEach(f => {
+      const idx = fieldIndices[f];
+      if (idx !== -1 && inputsMap[idx]) {
+        inputsMap[idx].readOnly = true;
+      }
+    });
+
+    // 尋找對應講道資訊並套用
+    if (dateStr) {
+      const sermon = findSermonForDate(dateStr, currentSermonSettings.sermonType);
+      if (sermon) {
+        fields.forEach(f => {
+          const idx = fieldIndices[f];
+          if (idx !== -1 && inputsMap[idx]) {
+            let val = "";
+            if (f === "主題") val = sermon.title || "";
+            else if (f === "經文") val = sermon.scripture || "";
+            else if (f === "話語分享" || f === "講員") val = sermon.speaker || "";
+            inputsMap[idx].value = val;
+            inputsMap[idx].title = val;
+            inputsMap[idx].classList.add('highlight');
+            setTimeout(() => inputsMap[idx].classList.remove('highlight'), 1000);
+          }
+        });
+        return;
+      }
+    }
+    // 未設定日期或查無講道，則清空欄位值
+    fields.forEach(f => {
+      const idx = fieldIndices[f];
+      if (idx !== -1 && inputsMap[idx]) {
+        inputsMap[idx].value = "";
+        inputsMap[idx].title = "";
+      }
+    });
+  } else {
+    // 取消勾選：設為可編輯
+    fields.forEach(f => {
+      const idx = fieldIndices[f];
+      if (idx !== -1 && inputsMap[idx]) {
+        inputsMap[idx].readOnly = false;
+      }
+    });
+  }
+}
+
+function findSermonForDate(dateStr, sermonType) {
+  if (!dateStr || !currentEventData || currentEventData.length === 0) return null;
+
+  // 1. 往前推的那個週日 (當週週日，即 dateStr 往前找的第一個週日，若本身為週日則是當天)
+  const dateObj = new Date(dateStr);
+  if (isNaN(dateObj.getTime())) return null;
+
+  // 星期天 getDay() 回傳 0，減去 getDay() 天數即可得到當週週日
+  dateObj.setDate(dateObj.getDate() - dateObj.getDay());
+  
+  const y = dateObj.getFullYear();
+  const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const d = String(dateObj.getDate()).padStart(2, '0');
+  const sundayStr = `${y}-${m}-${d}`;
+
+  // 2. 篩選出該週日的所有行事曆活動
+  const sundayEvents = currentEventData.filter(ev => ev.date === sundayStr);
+  if (sundayEvents.length === 0) return null;
+
+  // 3. 收集所有活動中的講道資訊
+  const sermons = [];
+  sundayEvents.forEach(ev => {
+    if (ev.sermons && ev.sermons.length > 0) {
+      sermons.push(...ev.sermons);
+    }
+  });
+
+  if (sermons.length === 0) return null;
+
+  // 4. 根據 sermonType 連動對應類別的講道
+  // 「華語/聯合」優先匹配「華語」，其次匹配「聯合」
+  // 「台語/聯合」優先匹配「台語」，其次匹配「聯合」
+  const isTaiwanese = sermonType === "台語/聯合";
+  const primaryLang = isTaiwanese ? "台語" : "華語";
+
+  let match = sermons.find(s => s.type === primaryLang);
+  if (!match) match = sermons.find(s => s.type === "聯合");
+  
+  // 若都沒有，則隨機匹配第一個
+  if (!match) match = sermons[0];
+
+  return match;
+}
+
+// 註冊至全域 window，確保 inline HTML 呼叫無誤
+window.toggleSermonTypeSelect = toggleSermonTypeSelect;
+window.saveSermonSettings = saveSermonSettings;
+window.onSermonLinkChange = onSermonLinkChange;
+
