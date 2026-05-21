@@ -2015,14 +2015,15 @@ function findSermonForDate(dateStr, sermonType) {
 
   if (sermons.length === 0) return null;
 
-  // 4. 根據 sermonType 連動對應類別的講道
-  // 「華語/聯合」優先匹配「華語」，其次匹配「聯合」
-  // 「台語/聯合」優先匹配「台語」，其次匹配「聯合」
-  const isTaiwanese = sermonType === "台語/聯合";
-  const primaryLang = isTaiwanese ? "台語" : "華語";
-
-  let match = sermons.find(s => s.type && s.type.indexOf(primaryLang) !== -1);
-  if (!match) match = sermons.find(s => s.type && s.type.indexOf("聯合") !== -1);
+  // 4. 根據 sermonType 連動對應類別的講道 (例如 "華語/聯合" 拆成 "華語" 與 "聯合" 依序尋找)
+  const targetTypes = (sermonType || "").split('/');
+  let match = null;
+  for (const t of targetTypes) {
+    const trimmed = t.trim();
+    if (!trimmed) continue;
+    match = sermons.find(s => s.type && s.type.indexOf(trimmed) !== -1);
+    if (match) break;
+  }
   
   // 若都沒有，則隨機匹配第一個
   if (!match) match = sermons[0];

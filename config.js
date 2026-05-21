@@ -162,6 +162,8 @@
     'ministry_saveSheetData':     ['ministry_getAggregatedReport', 'ministry_getPageConfig'],
     'ministry_saveGroupPrompt':   ['ministry_getPageConfig'],
     'ministry_saveGroupMembers':  ['ministry_getPageConfig'],
+    'ministry_saveSermonSettings': ['ministry_getPageConfig'],
+    'ministry_forceRefreshEvents': ['ministry_getPageConfig'],
 
     // ── 敬拜團異動 ──
     'saveSchedule':           ['getSchedule', 'getScheduleByDateRange'],
