@@ -2031,8 +2031,53 @@ function findSermonForDate(dateStr, sermonType) {
   return match;
 }
 
+async function forceSyncSermonData() {
+  if (getUIState().isLocked('forceSyncSermonData')) return;
+  getUIState().lock('forceSyncSermonData');
+
+  getNotifier().showLoading("🔄 正在重新同步外部講道行事曆，請稍候...");
+  try {
+    const res = await fetchAPI("forceRefreshEvents", {});
+    const count = (res && res.count !== undefined) ? res.count : 0;
+    
+    // 重新載入當前頁面的 PageConfig 以更新前端的 currentEventData
+    const pageData = await fetchAPI('getPageConfig', { id: currentId });
+    currentEventData = (pageData.eventData || []).map(ev => {
+      if (ev.date) {
+        const normalized = parseGregorianDate(String(ev.date));
+        if (normalized) {
+          ev.date = normalized;
+        }
+      }
+      return ev;
+    });
+    
+    // 重新整理目前畫面上所有勾選了「套用講道」的列
+    const dateColIdx = currentTableHeaders.findIndex(h => h.includes("日期"));
+    const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
+    
+    document.querySelectorAll('.record-row').forEach(rowDiv => {
+      if (sermonLinkColIdx !== -1) {
+        const cb = rowDiv.querySelector(`input.grid-checkbox[data-c="${sermonLinkColIdx}"]`);
+        if (cb && cb.checked && dateColIdx !== -1) {
+          const dVal = rowDiv.querySelector(`input.grid-input[data-c="${dateColIdx}"]`).value.trim();
+          updateRowSermonState(rowDiv, true, dVal);
+        }
+      }
+    });
+
+    getNotifier().success(`✅ 同步完成！已更新 ${count} 筆講道日期資料。`);
+  } catch (err) {
+    handleAPIError(err);
+  } finally {
+    getNotifier().hideLoading();
+    getUIState().unlock('forceSyncSermonData');
+  }
+}
+
 // 註冊至全域 window，確保 inline HTML 呼叫無誤
 window.toggleSermonTypeSelect = toggleSermonTypeSelect;
 window.saveSermonSettings = saveSermonSettings;
 window.onSermonLinkChange = onSermonLinkChange;
+window.forceSyncSermonData = forceSyncSermonData;
 
