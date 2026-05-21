@@ -346,7 +346,15 @@ function renderTable(data) {
   currentCoreMembers = data.coreMembers || [];
   currentGroupPrompt = data.groupPrompt || "";
   currentAutoRoleRules = data.autoRoleRules || "";
-  currentEventData = data.eventData || [];
+  currentEventData = (data.eventData || []).map(ev => {
+    if (ev.date) {
+      const normalized = parseGregorianDate(String(ev.date));
+      if (normalized) {
+        ev.date = normalized;
+      }
+    }
+    return ev;
+  });
 
   currentTemplate = data.template || "";
   localCustomMembers = data.customMembers || [];
@@ -523,7 +531,7 @@ function createRowHTML(rowData, gridTemplate) {
     let inputType = "text";
     if (header.includes("日期")) inputType = "date";
 
-    const isSermonField = header === "主題" || header === "經文" || header === "話語分享" || header === "講員";
+    const isSermonField = header === "主題" || header === "經文";
     const readonlyAttr = (isRowSermonLinked && isSermonField) ? "readonly" : "";
 
     if (currentTemplate === "團契聚會表模板") {
@@ -1903,7 +1911,8 @@ function updateRowSermonState(rowDiv, isChecked, dateStr) {
     return map;
   }, {});
 
-  const fields = ["主題", "經文", "話語分享", "講員"];
+  // 只連動「主題」和「經文」，話語分享不受講道連動影響
+  const fields = ["主題", "經文"];
   const fieldIndices = {};
   fields.forEach(f => {
     fieldIndices[f] = currentTableHeaders.indexOf(f);
@@ -1928,7 +1937,6 @@ function updateRowSermonState(rowDiv, isChecked, dateStr) {
             let val = "";
             if (f === "主題") val = sermon.title || "";
             else if (f === "經文") val = sermon.scripture || "";
-            else if (f === "話語分享" || f === "講員") val = sermon.speaker || "";
             inputsMap[idx].value = val;
             inputsMap[idx].title = val;
             inputsMap[idx].classList.add('highlight');
@@ -1961,15 +1969,23 @@ function findSermonForDate(dateStr, sermonType) {
   if (!dateStr || !currentEventData || currentEventData.length === 0) return null;
 
   // 1. 往前推的那個週日 (當週週日，即 dateStr 往前找的第一個週日，若本身為週日則是當天)
-  const dateObj = new Date(dateStr);
+  const canonicalDate = parseGregorianDate(dateStr);
+  if (!canonicalDate) return null;
+
+  const parts = canonicalDate.split("-");
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1; // Date.UTC month is 0-11
+  const day = parseInt(parts[2], 10);
+
+  const dateObj = new Date(Date.UTC(year, month, day));
   if (isNaN(dateObj.getTime())) return null;
 
-  // 星期天 getDay() 回傳 0，減去 getDay() 天數即可得到當週週日
-  dateObj.setDate(dateObj.getDate() - dateObj.getDay());
+  // getUTCDay() 回傳 0-6 (星期天為 0)，減去 getUTCDay() 即可得到當週週日
+  dateObj.setUTCDate(dateObj.getUTCDate() - dateObj.getUTCDay());
   
-  const y = dateObj.getFullYear();
-  const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-  const d = String(dateObj.getDate()).padStart(2, '0');
+  const y = dateObj.getUTCFullYear();
+  const m = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(dateObj.getUTCDate()).padStart(2, '0');
   const sundayStr = `${y}-${m}-${d}`;
 
   // 2. 篩選出該週日的所有行事曆活動
@@ -1992,8 +2008,8 @@ function findSermonForDate(dateStr, sermonType) {
   const isTaiwanese = sermonType === "台語/聯合";
   const primaryLang = isTaiwanese ? "台語" : "華語";
 
-  let match = sermons.find(s => s.type === primaryLang);
-  if (!match) match = sermons.find(s => s.type === "聯合");
+  let match = sermons.find(s => s.type && s.type.indexOf(primaryLang) !== -1);
+  if (!match) match = sermons.find(s => s.type && s.type.indexOf("聯合") !== -1);
   
   // 若都沒有，則隨機匹配第一個
   if (!match) match = sermons[0];
