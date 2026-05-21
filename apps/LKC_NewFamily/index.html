@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta name="robots" content="noindex, nofollow">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>新家人管理系統</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="title-block">
+        <h1>新家人管理系統</h1>
+        <p>填寫後列入追蹤中，結案後移到已結案。</p>
+      </div>
+      <nav class="tabs" aria-label="功能切換">
+        <button class="tab active" type="button" data-tab="form">表單填寫</button>
+        <button class="tab" type="button" data-tab="tracking">追蹤中</button>
+      </nav>
+    </header>
+
+    <section id="formPanel" class="panel">
+      <form id="newFamilyForm">
+        <div class="form-grid">
+          <div class="field">
+            <label for="name">新家人姓名</label>
+            <input id="name" name="新家人姓名" autocomplete="name" required>
+          </div>
+
+          <div class="field">
+            <label for="meeting">參加的聚會是</label>
+            <select id="meeting" name="參加的聚會是" required>
+              <option value="">請選擇</option>
+              <option>主日崇拜</option>
+              <option>青年聚會</option>
+              <option>小組聚會</option>
+              <option>禱告會</option>
+              <option>其他</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="gender">新家人性別</label>
+            <select id="gender" name="新家人性別">
+              <option value="">請選擇</option>
+              <option>男</option>
+              <option>女</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="job">新家人工作</label>
+            <input id="job" name="新家人工作" autocomplete="organization-title">
+          </div>
+
+          <div class="field">
+            <label for="age">年齡 -</label>
+            <input id="age" name="年齡 -" inputmode="numeric">
+          </div>
+
+          <div class="field">
+            <label for="worshipBefore">有參加過基督教的崇拜嗎 ?</label>
+            <select id="worshipBefore" name="有參加過基督教的崇拜嗎 ?">
+              <option value="">請選擇</option>
+              <option>有</option>
+              <option>沒有</option>
+              <option>不確定</option>
+            </select>
+          </div>
+
+          <div class="field full">
+            <label for="reason">今天為什麼來到林口教會的呢 ?</label>
+            <textarea id="reason" name="今天為什麼來到林口教會的呢 ?&#10;(朋友介紹請於其他填入朋友的姓名)" placeholder="例如：朋友介紹、路過、網路搜尋、活動邀請等"></textarea>
+          </div>
+
+          <div class="field">
+            <label for="careWorker">關懷同工</label>
+            <input id="careWorker" name="關懷同工">
+          </div>
+
+          <div class="field">
+            <label for="inviter">邀約人</label>
+            <input id="inviter" name="邀約人">
+          </div>
+
+          <div class="field full">
+            <label for="address">地址</label>
+            <input id="address" name="地址" autocomplete="street-address">
+          </div>
+
+          <div class="field">
+            <label for="tel">市話</label>
+            <input id="tel" name="市話" inputmode="tel" autocomplete="tel">
+          </div>
+
+          <div class="field">
+            <label for="mobile">手機</label>
+            <input id="mobile" name="手機" inputmode="tel" autocomplete="tel">
+          </div>
+
+          <div class="field">
+            <label for="date">日期</label>
+            <input id="date" name="日期" type="date">
+          </div>
+        </div>
+
+        <input type="hidden" name="落戶狀態" value="追蹤中">
+
+        <div class="actions">
+          <button class="btn secondary" type="reset">清除</button>
+          <button id="submitBtn" class="btn primary" type="submit">送出表單</button>
+        </div>
+        <div id="formNotice" class="notice" role="status"></div>
+      </form>
+    </section>
+
+    <section id="trackingPanel" class="panel" hidden>
+      <div class="table-toolbar">
+        <div>
+          <strong>追蹤中個案</strong>
+          <span id="caseCount" class="notice"></span>
+        </div>
+        <div class="actions compact">
+          <button id="refreshBtn" class="btn secondary" type="button">重新整理</button>
+          <button id="closeBtn" class="btn danger" type="button">確認結案</button>
+        </div>
+      </div>
+      <div id="trackingContent" class="empty">載入中...</div>
+      <div id="trackingNotice" class="notice" role="status"></div>
+    </section>
+  </main>
+
+  <script src="api-config.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
