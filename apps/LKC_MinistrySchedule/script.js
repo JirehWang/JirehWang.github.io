@@ -1918,6 +1918,8 @@ function updateRowSermonState(rowDiv, isChecked, dateStr) {
     fieldIndices[f] = currentTableHeaders.indexOf(f);
   });
 
+  console.log(`[SermonLink] updateRowSermonState: isChecked=${isChecked}, dateStr="${dateStr}", sermonType="${currentSermonSettings ? currentSermonSettings.sermonType : 'undefined'}"`);
+
   if (isChecked) {
     // 設為唯讀
     fields.forEach(f => {
@@ -1930,6 +1932,7 @@ function updateRowSermonState(rowDiv, isChecked, dateStr) {
     // 尋找對應講道資訊並套用
     if (dateStr) {
       const sermon = findSermonForDate(dateStr, currentSermonSettings.sermonType);
+      console.log(`[SermonLink] findSermonForDate returned:`, sermon);
       if (sermon) {
         fields.forEach(f => {
           const idx = fieldIndices[f];
@@ -1966,11 +1969,15 @@ function updateRowSermonState(rowDiv, isChecked, dateStr) {
 }
 
 function findSermonForDate(dateStr, sermonType) {
+  console.log(`[SermonLink] findSermonForDate details - dateStr: "${dateStr}", sermonType: "${sermonType}". currentEventData size: ${currentEventData ? currentEventData.length : 0}`);
   if (!dateStr || !currentEventData || currentEventData.length === 0) return null;
 
   // 1. 往前推的那個週日 (當週週日，即 dateStr 往前找的第一個週日，若本身為週日則是當天)
   const canonicalDate = parseGregorianDate(dateStr);
-  if (!canonicalDate) return null;
+  if (!canonicalDate) {
+    console.warn(`[SermonLink] parseGregorianDate returned null for dateStr: "${dateStr}"`);
+    return null;
+  }
 
   const parts = canonicalDate.split("-");
   const year = parseInt(parts[0], 10);
@@ -1978,7 +1985,10 @@ function findSermonForDate(dateStr, sermonType) {
   const day = parseInt(parts[2], 10);
 
   const dateObj = new Date(Date.UTC(year, month, day));
-  if (isNaN(dateObj.getTime())) return null;
+  if (isNaN(dateObj.getTime())) {
+    console.error(`[SermonLink] Invalid Date constructed from:`, parts);
+    return null;
+  }
 
   // getUTCDay() 回傳 0-6 (星期天為 0)，減去 getUTCDay() 即可得到當週週日
   dateObj.setUTCDate(dateObj.getUTCDate() - dateObj.getUTCDay());
@@ -1987,9 +1997,11 @@ function findSermonForDate(dateStr, sermonType) {
   const m = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
   const d = String(dateObj.getUTCDate()).padStart(2, '0');
   const sundayStr = `${y}-${m}-${d}`;
+  console.log(`[SermonLink] Computed Sunday: "${sundayStr}"`);
 
   // 2. 篩選出該週日的所有行事曆活動
   const sundayEvents = currentEventData.filter(ev => ev.date === sundayStr);
+  console.log(`[SermonLink] Filtered Sunday events for "${sundayStr}":`, sundayEvents);
   if (sundayEvents.length === 0) return null;
 
   // 3. 收集所有活動中的講道資訊
@@ -1999,6 +2011,7 @@ function findSermonForDate(dateStr, sermonType) {
       sermons.push(...ev.sermons);
     }
   });
+  console.log(`[SermonLink] Sermons list for "${sundayStr}":`, sermons);
 
   if (sermons.length === 0) return null;
 
@@ -2013,6 +2026,7 @@ function findSermonForDate(dateStr, sermonType) {
   
   // 若都沒有，則隨機匹配第一個
   if (!match) match = sermons[0];
+  console.log(`[SermonLink] Selected sermon match:`, match);
 
   return match;
 }
