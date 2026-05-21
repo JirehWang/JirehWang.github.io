@@ -18,9 +18,15 @@ const trackingContent = document.getElementById('trackingContent');
 const caseCount = document.getElementById('caseCount');
 const dateField = document.getElementById('date');
 const meetingSelect = document.getElementById('meeting');
+const settlementStatusSelect = document.getElementById('settlementStatus');
+const closedNotice = document.getElementById('closedNotice');
+const closedContent = document.getElementById('closedContent');
+const closedCount = document.getElementById('closedCount');
+const closedSearchBtn = document.getElementById('closedSearchBtn');
 
 dateField.valueAsDate = new Date();
 loadMeetingOptions();
+loadSettlementStatusOptions();
 
 document.querySelectorAll('.tab').forEach(button => {
   button.addEventListener('click', () => switchTab(button.dataset.tab));
@@ -45,6 +51,7 @@ form.addEventListener('submit', async event => {
 
 refreshBtn.addEventListener('click', loadTrackingCases);
 closeBtn.addEventListener('click', closeSelectedCases);
+closedSearchBtn.addEventListener('click', loadClosedCases);
 
 async function callApi(action, data = {}) {
   const apiUrl = window.NEW_FAMILY_API_URL || '';
@@ -88,6 +95,27 @@ async function callSundayAttendanceApi(action, data = {}) {
   return result.data || result;
 }
 
+async function callGroupAttendanceApi(action, data = {}) {
+  const apiUrl = window.GROUP_ATTENDANCE_API_URL || '';
+  const token = window.NEW_FAMILY_AUTH_TOKEN || '';
+
+  if (!apiUrl) {
+    throw new Error('尚未設定小組點名 API URL');
+  }
+
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action, token, data })
+  });
+
+  const result = await response.json();
+  if (!result.success) {
+    throw new Error(result.message || '小組清單讀取失敗');
+  }
+  return result;
+}
+
 async function loadMeetingOptions() {
   meetingSelect.disabled = true;
   meetingSelect.innerHTML = '<option value="">載入聚會清單中...</option>';
@@ -121,6 +149,36 @@ function flattenMeetingOptions(groupConfig) {
   });
 }
 
+async function loadSettlementStatusOptions() {
+  settlementStatusSelect.disabled = true;
+  settlementStatusSelect.innerHTML = '<option value="">載入小組清單中...</option>';
+
+  try {
+    const result = await callGroupAttendanceApi('getGroups');
+    const groupNames = (result.groups || [])
+      .map(group => String(group.name || '').trim())
+      .filter(Boolean);
+
+    settlementStatusSelect.innerHTML = '<option value="">請選擇</option>';
+    groupNames.forEach(name => {
+      const option = document.createElement('option');
+      option.value = name;
+      option.textContent = name;
+      settlementStatusSelect.appendChild(option);
+    });
+
+    const visitOption = document.createElement('option');
+    visitOption.value = '請安拜訪';
+    visitOption.textContent = '請安拜訪';
+    settlementStatusSelect.appendChild(visitOption);
+  } catch (error) {
+    settlementStatusSelect.innerHTML = '<option value="請安拜訪">請安拜訪</option>';
+    setNotice(formNotice, error.message || String(error), 'error');
+  } finally {
+    settlementStatusSelect.disabled = false;
+  }
+}
+
 function switchTab(tabName) {
   document.querySelectorAll('.tab').forEach(button => {
     button.classList.toggle('active', button.dataset.tab === tabName);
@@ -128,8 +186,10 @@ function switchTab(tabName) {
 
   document.getElementById('formPanel').hidden = tabName !== 'form';
   document.getElementById('trackingPanel').hidden = tabName !== 'tracking';
+  document.getElementById('closedPanel').hidden = tabName !== 'closed';
 
   if (tabName === 'tracking') loadTrackingCases();
+  if (tabName === 'closed') loadClosedCases();
 }
 
 async function loadTrackingCases() {
@@ -161,20 +221,65 @@ function renderTrackingCases(rows) {
     return;
   }
 
+  trackingContent.className = 'table-wrap';
+  trackingContent.textContent = '';
+  trackingContent.appendChild(buildCaseTable(rows, true));
+}
+
+async function loadClosedCases() {
+  setNotice(closedNotice, '');
+  closedContent.className = 'empty';
+  closedContent.textContent = '載入中...';
+  closedSearchBtn.disabled = true;
+
+  try {
+    const result = await callApi('getClosedCases', {
+      name: document.getElementById('closedName').value,
+      startDate: document.getElementById('closedStartDate').value,
+      endDate: document.getElementById('closedEndDate').value
+    });
+    renderClosedCases(result.data || []);
+  } catch (error) {
+    closedContent.className = 'empty';
+    closedContent.textContent = '讀取失敗';
+    setNotice(closedNotice, error.message || String(error), 'error');
+  } finally {
+    closedSearchBtn.disabled = false;
+  }
+}
+
+function renderClosedCases(rows) {
+  closedCount.textContent = `共 ${rows.length} 筆`;
+
+  if (!rows.length) {
+    closedContent.className = 'empty';
+    closedContent.textContent = '沒有符合條件的已結案資料';
+    return;
+  }
+
+  closedContent.className = 'table-wrap';
+  closedContent.textContent = '';
+  closedContent.appendChild(buildCaseTable(rows, false));
+}
+
+function buildCaseTable(rows, selectable) {
   const table = document.createElement('table');
   const thead = document.createElement('thead');
   const tbody = document.createElement('tbody');
   const headRow = document.createElement('tr');
 
-  headRow.innerHTML = `<th class="check-cell">結案</th>${visibleColumns.map(column => `<th>${escapeHtml(column)}</th>`).join('')}`;
+  headRow.innerHTML = `${selectable ? '<th class="check-cell">結案</th>' : ''}${visibleColumns.map(column => `<th>${escapeHtml(column)}</th>`).join('')}`;
   thead.appendChild(headRow);
 
   rows.forEach(item => {
     const row = document.createElement('tr');
-    const checkboxCell = document.createElement('td');
-    checkboxCell.className = 'check-cell';
-    checkboxCell.innerHTML = `<input type="checkbox" value="${item.rowNumber}" aria-label="勾選 ${escapeHtml(item['新家人姓名'] || '此筆資料')} 結案">`;
-    row.appendChild(checkboxCell);
+
+    if (selectable) {
+      const checkboxCell = document.createElement('td');
+      checkboxCell.className = 'check-cell';
+      checkboxCell.innerHTML = `<input type="checkbox" value="${item.rowNumber}" aria-label="勾選 ${escapeHtml(item['新家人姓名'] || '此筆資料')} 結案">`;
+      row.appendChild(checkboxCell);
+    }
 
     visibleColumns.forEach(column => {
       const cell = document.createElement('td');
@@ -187,10 +292,7 @@ function renderTrackingCases(rows) {
 
   table.appendChild(thead);
   table.appendChild(tbody);
-
-  trackingContent.className = 'table-wrap';
-  trackingContent.textContent = '';
-  trackingContent.appendChild(table);
+  return table;
 }
 
 async function closeSelectedCases() {

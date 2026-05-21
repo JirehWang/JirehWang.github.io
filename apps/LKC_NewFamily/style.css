@@ -102,6 +102,13 @@ textarea {
   gap: 16px;
 }
 
+.filter-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -286,6 +293,10 @@ tr:last-child td {
   }
 
   .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-grid {
     grid-template-columns: 1fr;
   }
 

@@ -17,6 +17,7 @@
       <nav class="tabs" aria-label="功能切換">
         <button class="tab active" type="button" data-tab="form">表單填寫</button>
         <button class="tab" type="button" data-tab="tracking">追蹤中</button>
+        <button class="tab" type="button" data-tab="closed">已結案</button>
       </nav>
     </header>
 
@@ -98,9 +99,14 @@
             <label for="date">日期</label>
             <input id="date" name="日期" type="date">
           </div>
-        </div>
 
-        <input type="hidden" name="落戶狀態" value="追蹤中">
+          <div class="field">
+            <label for="settlementStatus">落戶狀態</label>
+            <select id="settlementStatus" name="落戶狀態" required>
+              <option value="">載入小組清單中...</option>
+            </select>
+          </div>
+        </div>
 
         <div class="actions">
           <button class="btn secondary" type="reset">清除</button>
@@ -123,6 +129,36 @@
       </div>
       <div id="trackingContent" class="empty">載入中...</div>
       <div id="trackingNotice" class="notice" role="status"></div>
+    </section>
+
+    <section id="closedPanel" class="panel" hidden>
+      <div class="table-toolbar">
+        <div>
+          <strong>已結案個案</strong>
+          <span id="closedCount" class="notice"></span>
+        </div>
+        <div class="actions compact">
+          <button id="closedSearchBtn" class="btn primary" type="button">查詢</button>
+        </div>
+      </div>
+
+      <div class="filter-grid">
+        <div class="field">
+          <label for="closedName">姓名搜尋</label>
+          <input id="closedName" placeholder="輸入姓名關鍵字">
+        </div>
+        <div class="field">
+          <label for="closedStartDate">起始日期</label>
+          <input id="closedStartDate" type="date">
+        </div>
+        <div class="field">
+          <label for="closedEndDate">結束日期</label>
+          <input id="closedEndDate" type="date">
+        </div>
+      </div>
+
+      <div id="closedContent" class="empty">請設定條件後查詢，或直接查詢全部已結案資料。</div>
+      <div id="closedNotice" class="notice" role="status"></div>
     </section>
   </main>
 
