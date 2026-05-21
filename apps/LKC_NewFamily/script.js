@@ -17,8 +17,10 @@ const closeBtn = document.getElementById('closeBtn');
 const trackingContent = document.getElementById('trackingContent');
 const caseCount = document.getElementById('caseCount');
 const dateField = document.getElementById('date');
+const meetingSelect = document.getElementById('meeting');
 
 dateField.valueAsDate = new Date();
+loadMeetingOptions();
 
 document.querySelectorAll('.tab').forEach(button => {
   button.addEventListener('click', () => switchTab(button.dataset.tab));
@@ -63,6 +65,60 @@ async function callApi(action, data = {}) {
     throw new Error(result.message || '操作失敗');
   }
   return result;
+}
+
+async function callSundayAttendanceApi(action, data = {}) {
+  const apiUrl = window.SUNDAY_ATTENDANCE_API_URL || '';
+  const token = window.NEW_FAMILY_AUTH_TOKEN || '';
+
+  if (!apiUrl) {
+    throw new Error('尚未設定主日出席 API URL');
+  }
+
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action, token, data })
+  });
+
+  const result = await response.json();
+  if (result.status === 'error' || result.error) {
+    throw new Error(result.message || result.error || '聚會清單讀取失敗');
+  }
+  return result.data || result;
+}
+
+async function loadMeetingOptions() {
+  meetingSelect.disabled = true;
+  meetingSelect.innerHTML = '<option value="">載入聚會清單中...</option>';
+
+  try {
+    const groupConfig = await callSundayAttendanceApi('getGroupConfig');
+    const options = flattenMeetingOptions(groupConfig);
+
+    meetingSelect.innerHTML = '<option value="">請選擇</option>';
+    options.forEach(item => {
+      const option = document.createElement('option');
+      option.value = item.name;
+      option.textContent = `${item.category} / ${item.name}`;
+      meetingSelect.appendChild(option);
+    });
+  } catch (error) {
+    meetingSelect.innerHTML = '<option value="">聚會清單讀取失敗</option>';
+    setNotice(formNotice, error.message || String(error), 'error');
+  } finally {
+    meetingSelect.disabled = false;
+  }
+}
+
+function flattenMeetingOptions(groupConfig) {
+  return Object.entries(groupConfig || {}).flatMap(([category, names]) => {
+    if (!Array.isArray(names)) return [];
+    return names
+      .filter(Boolean)
+      .map(name => ({ category, name: String(name).trim() }))
+      .filter(item => item.name);
+  });
 }
 
 function switchTab(tabName) {
