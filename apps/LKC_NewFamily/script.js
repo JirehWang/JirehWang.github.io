@@ -60,12 +60,6 @@ let firebaseCacheModulePromise = null;
 
 const newFamilyCacheTtl = 19800;
 const newFamilyListActions = new Set(['getTrackingCases', 'getClosedCases']);
-const newFamilyWriteActions = new Set([
-  'submitNewFamily',
-  'updateTrackingCase',
-  'markTrackingMemberStatuses',
-  'closeCases'
-]);
 
 dateField.valueAsDate = new Date();
 loadMeetingOptions();
@@ -111,10 +105,6 @@ async function callApi(action, data = {}) {
     throw new Error('尚未設定 GAS Web App URL，請先填入 api-config.js');
   }
 
-  if (newFamilyWriteActions.has(action)) {
-    await invalidateNewFamilyListCaches();
-  }
-
   const response = await fetch(apiUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -137,8 +127,8 @@ async function callCachedListApi(action, data = {}) {
     const cache = await getFirebaseCacheModule();
     return await cache.cacheGetOrFetch(
       action,
-      buildNewFamilyCacheKey(data),
-      () => callApi(action, data),
+      '_default',
+      () => callApi(action),
       newFamilyCacheTtl
     );
   } catch (error) {
@@ -152,35 +142,6 @@ function getFirebaseCacheModule() {
     firebaseCacheModulePromise = import('../../firebase/firebase-cache.js');
   }
   return firebaseCacheModulePromise;
-}
-
-function buildNewFamilyCacheKey(filters) {
-  const normalized = {
-    name: String(filters.name || '').trim(),
-    startDate: String(filters.startDate || '').trim(),
-    endDate: String(filters.endDate || '').trim()
-  };
-
-  if (!normalized.name && !normalized.startDate && !normalized.endDate) {
-    return '_default';
-  }
-
-  let hash = 2166136261;
-  const text = JSON.stringify(normalized);
-  for (let index = 0; index < text.length; index++) {
-    hash ^= text.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return 'filter_' + (hash >>> 0).toString(36);
-}
-
-async function invalidateNewFamilyListCaches() {
-  try {
-    const cache = await getFirebaseCacheModule();
-    await Promise.all(Array.from(newFamilyListActions, action => cache.cacheDeleteAll(action)));
-  } catch (error) {
-    console.warn('[new-family-cache] invalidation skipped', error);
-  }
 }
 
 async function callSundayAttendanceApi(action, data = {}) {
@@ -314,12 +275,13 @@ async function loadTrackingCases() {
   closeBtn.disabled = true;
 
   try {
-    const result = await callCachedListApi('getTrackingCases', {
+    const filters = {
       name: document.getElementById('trackingName').value,
       startDate: document.getElementById('trackingStartDate').value,
       endDate: document.getElementById('trackingEndDate').value
-    });
-    renderTrackingCases(result.data || []);
+    };
+    const result = await callCachedListApi('getTrackingCases');
+    renderTrackingCases(filterCases(result.data || [], filters));
   } catch (error) {
     trackingContent.className = 'empty';
     trackingContent.textContent = '讀取失敗';
@@ -428,12 +390,13 @@ async function loadClosedCases() {
   closedSearchBtn.disabled = true;
 
   try {
-    const result = await callCachedListApi('getClosedCases', {
+    const filters = {
       name: document.getElementById('closedName').value,
       startDate: document.getElementById('closedStartDate').value,
       endDate: document.getElementById('closedEndDate').value
-    });
-    renderClosedCases(result.data || []);
+    };
+    const result = await callCachedListApi('getClosedCases');
+    renderClosedCases(filterCases(result.data || [], filters));
   } catch (error) {
     closedContent.className = 'empty';
     closedContent.textContent = '讀取失敗';
@@ -455,6 +418,22 @@ function renderClosedCases(rows) {
   closedContent.className = 'table-wrap';
   closedContent.textContent = '';
   closedContent.appendChild(buildCaseTable(rows, false));
+}
+
+function filterCases(rows, filters) {
+  const name = String(filters.name || '').trim().toLowerCase();
+  const startDate = String(filters.startDate || '').trim();
+  const endDate = String(filters.endDate || '').trim();
+
+  return rows.filter(item => {
+    const caseName = String(item['新家人姓名'] || '').toLowerCase();
+    const caseDate = String(item['日期'] || '').trim();
+
+    if (name && !caseName.includes(name)) return false;
+    if (startDate && (!caseDate || caseDate < startDate)) return false;
+    if (endDate && (!caseDate || caseDate > endDate)) return false;
+    return true;
+  });
 }
 
 function buildCaseTable(rows, selectable) {
