@@ -56,6 +56,16 @@ let meetingOptions = [];
 let settlementOptions = ['請安拜訪'];
 let editingCase = null;
 let trackingCases = [];
+let firebaseCacheModulePromise = null;
+
+const newFamilyCacheTtl = 19800;
+const newFamilyListActions = new Set(['getTrackingCases', 'getClosedCases']);
+const newFamilyWriteActions = new Set([
+  'submitNewFamily',
+  'updateTrackingCase',
+  'markTrackingMemberStatuses',
+  'closeCases'
+]);
 
 dateField.valueAsDate = new Date();
 loadMeetingOptions();
@@ -101,6 +111,10 @@ async function callApi(action, data = {}) {
     throw new Error('尚未設定 GAS Web App URL，請先填入 api-config.js');
   }
 
+  if (newFamilyWriteActions.has(action)) {
+    await invalidateNewFamilyListCaches();
+  }
+
   const response = await fetch(apiUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -112,6 +126,61 @@ async function callApi(action, data = {}) {
     throw new Error(result.message || '操作失敗');
   }
   return result;
+}
+
+async function callCachedListApi(action, data = {}) {
+  if (!newFamilyListActions.has(action)) {
+    return callApi(action, data);
+  }
+
+  try {
+    const cache = await getFirebaseCacheModule();
+    return await cache.cacheGetOrFetch(
+      action,
+      buildNewFamilyCacheKey(data),
+      () => callApi(action, data),
+      newFamilyCacheTtl
+    );
+  } catch (error) {
+    console.warn('[new-family-cache] fallback to GAS', error);
+    return callApi(action, data);
+  }
+}
+
+function getFirebaseCacheModule() {
+  if (!firebaseCacheModulePromise) {
+    firebaseCacheModulePromise = import('../../firebase/firebase-cache.js');
+  }
+  return firebaseCacheModulePromise;
+}
+
+function buildNewFamilyCacheKey(filters) {
+  const normalized = {
+    name: String(filters.name || '').trim(),
+    startDate: String(filters.startDate || '').trim(),
+    endDate: String(filters.endDate || '').trim()
+  };
+
+  if (!normalized.name && !normalized.startDate && !normalized.endDate) {
+    return '_default';
+  }
+
+  let hash = 2166136261;
+  const text = JSON.stringify(normalized);
+  for (let index = 0; index < text.length; index++) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return 'filter_' + (hash >>> 0).toString(36);
+}
+
+async function invalidateNewFamilyListCaches() {
+  try {
+    const cache = await getFirebaseCacheModule();
+    await Promise.all(Array.from(newFamilyListActions, action => cache.cacheDeleteAll(action)));
+  } catch (error) {
+    console.warn('[new-family-cache] invalidation skipped', error);
+  }
 }
 
 async function callSundayAttendanceApi(action, data = {}) {
@@ -245,7 +314,7 @@ async function loadTrackingCases() {
   closeBtn.disabled = true;
 
   try {
-    const result = await callApi('getTrackingCases', {
+    const result = await callCachedListApi('getTrackingCases', {
       name: document.getElementById('trackingName').value,
       startDate: document.getElementById('trackingStartDate').value,
       endDate: document.getElementById('trackingEndDate').value
@@ -359,7 +428,7 @@ async function loadClosedCases() {
   closedSearchBtn.disabled = true;
 
   try {
-    const result = await callApi('getClosedCases', {
+    const result = await callCachedListApi('getClosedCases', {
       name: document.getElementById('closedName').value,
       startDate: document.getElementById('closedStartDate').value,
       endDate: document.getElementById('closedEndDate').value
