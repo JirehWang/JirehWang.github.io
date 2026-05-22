@@ -6,7 +6,8 @@ const visibleColumns = [
   '邀約人',
   '日期',
   '落戶狀態',
-  '備註'
+  '備註',
+  '會友名單狀態'
 ];
 
 const editFields = [
@@ -25,7 +26,8 @@ const editFields = [
   { name: '日期', label: '日期', inputType: 'date' },
   { name: '落戶狀態', label: '落戶狀態', type: 'settlement' },
   { name: '邀約人', label: '邀約人' },
-  { name: '備註', label: '備註', type: 'textarea', full: true }
+  { name: '備註', label: '備註', type: 'textarea', full: true },
+  { name: '會友名單狀態', label: '會友名單狀態', type: 'select', options: ['已加入', '已存在'] }
 ];
 
 const form = document.getElementById('newFamilyForm');
@@ -315,17 +317,33 @@ async function addSelectedMembers() {
       }) || '');
       results.push({
         ok: message.includes('成功'),
+        duplicate: message.includes('已存在'),
+        rowNumber: item.rowNumber,
         name,
         message
       });
     }
 
     const successCount = results.filter(item => item.ok).length;
-    const failed = results.filter(item => !item.ok);
+    const duplicateCount = results.filter(item => item.duplicate).length;
+    const memberStatuses = results
+      .filter(item => item.ok || item.duplicate)
+      .map(item => ({
+        rowNumber: item.rowNumber,
+        status: item.ok ? '已加入' : '已存在'
+      }));
+
+    if (memberStatuses.length) {
+      await callApi('markTrackingMemberStatuses', { items: memberStatuses });
+      await loadTrackingCases();
+    }
+
+    const failed = results.filter(item => !item.ok && !item.duplicate);
     const suffix = failed.length
       ? `；未加入：${failed.map(item => `${item.name} ${item.message}`).join('、')}`
       : '';
-    setNotice(trackingNotice, `已加入會友名單 ${successCount} 位${suffix}`, failed.length ? 'error' : 'success');
+    const duplicateText = duplicateCount ? `，已存在 ${duplicateCount} 位` : '';
+    setNotice(trackingNotice, `已加入會友名單 ${successCount} 位${duplicateText}${suffix}`, failed.length ? 'error' : 'success');
   } catch (error) {
     setNotice(trackingNotice, error.message || String(error), 'error');
   } finally {
