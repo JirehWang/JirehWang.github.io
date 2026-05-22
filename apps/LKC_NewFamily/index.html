@@ -100,11 +100,9 @@
             <input id="date" name="日期" type="date">
           </div>
 
-          <div class="field">
-            <label for="settlementStatus">落戶狀態</label>
-            <select id="settlementStatus" name="落戶狀態" required>
-              <option value="">載入小組清單中...</option>
-            </select>
+          <div class="field full">
+            <label for="note">備註</label>
+            <textarea id="note" name="備註" placeholder="補充關懷資訊或交接備註"></textarea>
           </div>
         </div>
 
@@ -123,8 +121,22 @@
           <span id="caseCount" class="notice"></span>
         </div>
         <div class="actions compact">
-          <button id="refreshBtn" class="btn secondary" type="button">重新整理</button>
+          <button id="trackingSearchBtn" class="btn primary" type="button">查詢</button>
           <button id="closeBtn" class="btn danger" type="button">確認結案</button>
+        </div>
+      </div>
+      <div class="filter-grid">
+        <div class="field">
+          <label for="trackingName">姓名搜尋</label>
+          <input id="trackingName" placeholder="輸入姓名關鍵字">
+        </div>
+        <div class="field">
+          <label for="trackingStartDate">起始日期</label>
+          <input id="trackingStartDate" type="date">
+        </div>
+        <div class="field">
+          <label for="trackingEndDate">結束日期</label>
+          <input id="trackingEndDate" type="date">
         </div>
       </div>
       <div id="trackingContent" class="empty">載入中...</div>
@@ -161,6 +173,26 @@
       <div id="closedNotice" class="notice" role="status"></div>
     </section>
   </main>
+
+  <div id="editModal" class="modal-backdrop" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+      <div class="modal-header">
+        <div>
+          <h2 id="editTitle">編輯追蹤中資料</h2>
+          <p id="editSubtitle"></p>
+        </div>
+        <button id="editCloseBtn" class="icon-btn" type="button" aria-label="關閉編輯視窗">&times;</button>
+      </div>
+      <form id="editCaseForm">
+        <div id="editFields" class="form-grid"></div>
+        <div class="actions">
+          <button id="editCancelBtn" class="btn secondary" type="button">取消</button>
+          <button id="editSaveBtn" class="btn primary" type="submit">儲存修改</button>
+        </div>
+        <div id="editNotice" class="notice" role="status"></div>
+      </form>
+    </section>
+  </div>
 
   <script src="api-config.js"></script>
   <script src="script.js"></script>

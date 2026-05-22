@@ -195,6 +195,18 @@ textarea:focus {
   cursor: wait;
 }
 
+.icon-btn {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  width: 40px;
+  height: 40px;
+  background: #fff;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 25px;
+  line-height: 1;
+}
+
 .notice {
   min-height: 28px;
   margin-top: 14px;
@@ -264,6 +276,16 @@ tr:last-child td {
   height: 18px;
 }
 
+.action-cell {
+  width: 92px;
+}
+
+.action-cell .btn {
+  min-height: 34px;
+  padding: 0 11px;
+  font-size: 13px;
+}
+
 .empty {
   padding: 26px;
   text-align: center;
@@ -271,6 +293,52 @@ tr:last-child td {
   background: #fff;
   border: 1px dashed var(--line);
   border-radius: 8px;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  overflow-y: auto;
+  background: rgba(20, 31, 28, 0.56);
+}
+
+.modal-backdrop[hidden] {
+  display: none;
+}
+
+.modal {
+  width: min(920px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  background: var(--surface);
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  box-shadow: 0 24px 70px rgba(16, 30, 25, 0.28);
+  padding: 22px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 21px;
+  letter-spacing: 0;
+}
+
+.modal-header p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 14px;
 }
 
 @media (max-width: 720px) {
@@ -307,5 +375,14 @@ tr:last-child td {
 
   .btn {
     width: 100%;
+  }
+
+  .action-cell .btn,
+  .icon-btn {
+    width: auto;
+  }
+
+  .modal {
+    padding: 16px;
   }
 }

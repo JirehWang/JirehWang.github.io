@@ -5,24 +5,53 @@ const visibleColumns = [
   '關懷同工',
   '邀約人',
   '日期',
-  '落戶狀態'
+  '落戶狀態',
+  '備註'
+];
+
+const editFields = [
+  { name: '新家人姓名', label: '新家人姓名', required: true },
+  { name: '參加的聚會是', label: '參加的聚會是', type: 'meeting', required: true },
+  { name: '新家人性別', label: '新家人性別', type: 'select', options: ['男', '女'] },
+  { name: '新家人工作', label: '新家人工作' },
+  { name: '年齡 -', label: '年齡 -' },
+  { name: '有參加過基督教的崇拜嗎 ?', label: '有參加過基督教的崇拜嗎 ?', type: 'select', options: ['有', '沒有', '不確定'] },
+  { name: '今天為什麼來到林口教會的呢 ?\n(朋友介紹請於其他填入朋友的姓名)', label: '今天為什麼來到林口教會的呢 ?', type: 'textarea', full: true },
+  { name: '表單號', label: '表單號' },
+  { name: '關懷同工', label: '關懷同工' },
+  { name: '地址', label: '地址', full: true },
+  { name: '市話', label: '市話' },
+  { name: '手機', label: '手機' },
+  { name: '日期', label: '日期', inputType: 'date' },
+  { name: '落戶狀態', label: '落戶狀態', type: 'settlement' },
+  { name: '邀約人', label: '邀約人' },
+  { name: '備註', label: '備註', type: 'textarea', full: true }
 ];
 
 const form = document.getElementById('newFamilyForm');
 const formNotice = document.getElementById('formNotice');
 const trackingNotice = document.getElementById('trackingNotice');
 const submitBtn = document.getElementById('submitBtn');
-const refreshBtn = document.getElementById('refreshBtn');
+const trackingSearchBtn = document.getElementById('trackingSearchBtn');
 const closeBtn = document.getElementById('closeBtn');
 const trackingContent = document.getElementById('trackingContent');
 const caseCount = document.getElementById('caseCount');
 const dateField = document.getElementById('date');
 const meetingSelect = document.getElementById('meeting');
-const settlementStatusSelect = document.getElementById('settlementStatus');
 const closedNotice = document.getElementById('closedNotice');
 const closedContent = document.getElementById('closedContent');
 const closedCount = document.getElementById('closedCount');
 const closedSearchBtn = document.getElementById('closedSearchBtn');
+const editModal = document.getElementById('editModal');
+const editCaseForm = document.getElementById('editCaseForm');
+const editFieldContainer = document.getElementById('editFields');
+const editNotice = document.getElementById('editNotice');
+const editSaveBtn = document.getElementById('editSaveBtn');
+const editSubtitle = document.getElementById('editSubtitle');
+
+let meetingOptions = [];
+let settlementOptions = ['請安拜訪'];
+let editingCase = null;
 
 dateField.valueAsDate = new Date();
 loadMeetingOptions();
@@ -49,9 +78,15 @@ form.addEventListener('submit', async event => {
   }
 });
 
-refreshBtn.addEventListener('click', loadTrackingCases);
+trackingSearchBtn.addEventListener('click', loadTrackingCases);
 closeBtn.addEventListener('click', closeSelectedCases);
 closedSearchBtn.addEventListener('click', loadClosedCases);
+document.getElementById('editCloseBtn').addEventListener('click', closeEditModal);
+document.getElementById('editCancelBtn').addEventListener('click', closeEditModal);
+editModal.addEventListener('click', event => {
+  if (event.target === editModal) closeEditModal();
+});
+editCaseForm.addEventListener('submit', saveTrackingCase);
 
 async function callApi(action, data = {}) {
   const apiUrl = window.NEW_FAMILY_API_URL || '';
@@ -123,6 +158,7 @@ async function loadMeetingOptions() {
   try {
     const groupConfig = await callSundayAttendanceApi('getGroupConfig');
     const options = flattenMeetingOptions(groupConfig);
+    meetingOptions = options;
 
     meetingSelect.innerHTML = '<option value="">請選擇</option>';
     options.forEach(item => {
@@ -150,32 +186,15 @@ function flattenMeetingOptions(groupConfig) {
 }
 
 async function loadSettlementStatusOptions() {
-  settlementStatusSelect.disabled = true;
-  settlementStatusSelect.innerHTML = '<option value="">載入小組清單中...</option>';
-
   try {
     const result = await callGroupAttendanceApi('getGroups');
     const groupNames = (result.groups || [])
       .map(group => String(group.name || '').trim())
       .filter(Boolean);
-
-    settlementStatusSelect.innerHTML = '<option value="">請選擇</option>';
-    groupNames.forEach(name => {
-      const option = document.createElement('option');
-      option.value = name;
-      option.textContent = name;
-      settlementStatusSelect.appendChild(option);
-    });
-
-    const visitOption = document.createElement('option');
-    visitOption.value = '請安拜訪';
-    visitOption.textContent = '請安拜訪';
-    settlementStatusSelect.appendChild(visitOption);
+    settlementOptions = Array.from(new Set([...groupNames, '請安拜訪']));
   } catch (error) {
-    settlementStatusSelect.innerHTML = '<option value="請安拜訪">請安拜訪</option>';
+    settlementOptions = ['請安拜訪'];
     setNotice(formNotice, error.message || String(error), 'error');
-  } finally {
-    settlementStatusSelect.disabled = false;
   }
 }
 
@@ -196,18 +215,22 @@ async function loadTrackingCases() {
   setNotice(trackingNotice, '');
   trackingContent.className = 'empty';
   trackingContent.textContent = '載入中...';
-  refreshBtn.disabled = true;
+  trackingSearchBtn.disabled = true;
   closeBtn.disabled = true;
 
   try {
-    const result = await callApi('getTrackingCases');
+    const result = await callApi('getTrackingCases', {
+      name: document.getElementById('trackingName').value,
+      startDate: document.getElementById('trackingStartDate').value,
+      endDate: document.getElementById('trackingEndDate').value
+    });
     renderTrackingCases(result.data || []);
   } catch (error) {
     trackingContent.className = 'empty';
     trackingContent.textContent = '讀取失敗';
     setNotice(trackingNotice, error.message || String(error), 'error');
   } finally {
-    refreshBtn.disabled = false;
+    trackingSearchBtn.disabled = false;
     closeBtn.disabled = false;
   }
 }
@@ -268,7 +291,7 @@ function buildCaseTable(rows, selectable) {
   const tbody = document.createElement('tbody');
   const headRow = document.createElement('tr');
 
-  headRow.innerHTML = `${selectable ? '<th class="check-cell">結案</th>' : ''}${visibleColumns.map(column => `<th>${escapeHtml(column)}</th>`).join('')}`;
+  headRow.innerHTML = `${selectable ? '<th class="check-cell">結案</th><th class="action-cell">編輯</th>' : ''}${visibleColumns.map(column => `<th>${escapeHtml(column)}</th>`).join('')}`;
   thead.appendChild(headRow);
 
   rows.forEach(item => {
@@ -279,6 +302,16 @@ function buildCaseTable(rows, selectable) {
       checkboxCell.className = 'check-cell';
       checkboxCell.innerHTML = `<input type="checkbox" value="${item.rowNumber}" aria-label="勾選 ${escapeHtml(item['新家人姓名'] || '此筆資料')} 結案">`;
       row.appendChild(checkboxCell);
+
+      const editCell = document.createElement('td');
+      editCell.className = 'action-cell';
+      const editButton = document.createElement('button');
+      editButton.type = 'button';
+      editButton.className = 'btn secondary';
+      editButton.textContent = '編輯';
+      editButton.addEventListener('click', () => openEditModal(item));
+      editCell.appendChild(editButton);
+      row.appendChild(editCell);
     }
 
     visibleColumns.forEach(column => {
@@ -293,6 +326,127 @@ function buildCaseTable(rows, selectable) {
   table.appendChild(thead);
   table.appendChild(tbody);
   return table;
+}
+
+function openEditModal(item) {
+  editingCase = item;
+  editSubtitle.textContent = item['新家人姓名']
+    ? `${item['新家人姓名']}，表單號 ${item['表單號'] || '未填'}`
+    : `表單號 ${item['表單號'] || '未填'}`;
+  setNotice(editNotice, '');
+  editFieldContainer.textContent = '';
+
+  editFields.forEach((field, index) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = `field ${field.full ? 'full' : ''}`.trim();
+
+    const label = document.createElement('label');
+    label.textContent = field.label;
+    label.htmlFor = `edit-field-${index}`;
+
+    const control = createEditControl(field, item[field.name] || '');
+    control.id = `edit-field-${index}`;
+    control.name = field.name;
+    if (field.required) control.required = true;
+
+    wrapper.appendChild(label);
+    wrapper.appendChild(control);
+    editFieldContainer.appendChild(wrapper);
+  });
+
+  editModal.hidden = false;
+}
+
+function closeEditModal() {
+  editingCase = null;
+  editModal.hidden = true;
+  editCaseForm.reset();
+  editFieldContainer.textContent = '';
+  setNotice(editNotice, '');
+}
+
+function createEditControl(field, value) {
+  if (field.type === 'textarea') {
+    const textarea = document.createElement('textarea');
+    textarea.value = value;
+    return textarea;
+  }
+
+  if (field.type === 'meeting') {
+    return createSelectControl(
+      meetingOptions.map(item => ({ value: item.name, text: `${item.category} / ${item.name}` })),
+      value
+    );
+  }
+
+  if (field.type === 'settlement') {
+    return createSelectControl(
+      settlementOptions.map(name => ({ value: name, text: name })),
+      value
+    );
+  }
+
+  if (field.type === 'select') {
+    return createSelectControl(
+      field.options.map(option => ({ value: option, text: option })),
+      value
+    );
+  }
+
+  const input = document.createElement('input');
+  input.type = field.inputType || 'text';
+  input.value = value;
+  return input;
+}
+
+function createSelectControl(options, value) {
+  const select = document.createElement('select');
+  const blank = document.createElement('option');
+  blank.value = '';
+  blank.textContent = '請選擇';
+  select.appendChild(blank);
+
+  const values = new Set();
+  options.forEach(item => {
+    if (!item.value || values.has(item.value)) return;
+    values.add(item.value);
+    const option = document.createElement('option');
+    option.value = item.value;
+    option.textContent = item.text;
+    select.appendChild(option);
+  });
+
+  if (value && !values.has(value)) {
+    const current = document.createElement('option');
+    current.value = value;
+    current.textContent = value;
+    select.appendChild(current);
+  }
+
+  select.value = value;
+  return select;
+}
+
+async function saveTrackingCase(event) {
+  event.preventDefault();
+  if (!editingCase) return;
+
+  setNotice(editNotice, '儲存中...');
+  editSaveBtn.disabled = true;
+
+  try {
+    const result = await callApi('updateTrackingCase', {
+      rowNumber: editingCase.rowNumber,
+      values: Object.fromEntries(new FormData(editCaseForm).entries())
+    });
+    setNotice(trackingNotice, result.message, 'success');
+    closeEditModal();
+    await loadTrackingCases();
+  } catch (error) {
+    setNotice(editNotice, error.message || String(error), 'error');
+  } finally {
+    editSaveBtn.disabled = false;
+  }
 }
 
 async function closeSelectedCases() {
