@@ -33,6 +33,7 @@ const formNotice = document.getElementById('formNotice');
 const trackingNotice = document.getElementById('trackingNotice');
 const submitBtn = document.getElementById('submitBtn');
 const trackingSearchBtn = document.getElementById('trackingSearchBtn');
+const addMembersBtn = document.getElementById('addMembersBtn');
 const closeBtn = document.getElementById('closeBtn');
 const trackingContent = document.getElementById('trackingContent');
 const caseCount = document.getElementById('caseCount');
@@ -52,6 +53,7 @@ const editSubtitle = document.getElementById('editSubtitle');
 let meetingOptions = [];
 let settlementOptions = ['請安拜訪'];
 let editingCase = null;
+let trackingCases = [];
 
 dateField.valueAsDate = new Date();
 loadMeetingOptions();
@@ -79,6 +81,7 @@ form.addEventListener('submit', async event => {
 });
 
 trackingSearchBtn.addEventListener('click', loadTrackingCases);
+addMembersBtn.addEventListener('click', addSelectedMembers);
 closeBtn.addEventListener('click', closeSelectedCases);
 closedSearchBtn.addEventListener('click', loadClosedCases);
 document.getElementById('editCloseBtn').addEventListener('click', closeEditModal);
@@ -128,6 +131,26 @@ async function callSundayAttendanceApi(action, data = {}) {
     throw new Error(result.message || result.error || '聚會清單讀取失敗');
   }
   return result.data || result;
+}
+
+async function callSundayAttendancePayloadApi(action, payload) {
+  const apiUrl = window.SUNDAY_ATTENDANCE_API_URL || '';
+
+  if (!apiUrl) {
+    throw new Error('尚未設定主日出席 API URL');
+  }
+
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action, payload })
+  });
+
+  const result = await response.json();
+  if (result.error) {
+    throw new Error(result.error);
+  }
+  return result.data;
 }
 
 async function callGroupAttendanceApi(action, data = {}) {
@@ -216,6 +239,7 @@ async function loadTrackingCases() {
   trackingContent.className = 'empty';
   trackingContent.textContent = '載入中...';
   trackingSearchBtn.disabled = true;
+  addMembersBtn.disabled = true;
   closeBtn.disabled = true;
 
   try {
@@ -231,11 +255,13 @@ async function loadTrackingCases() {
     setNotice(trackingNotice, error.message || String(error), 'error');
   } finally {
     trackingSearchBtn.disabled = false;
+    addMembersBtn.disabled = false;
     closeBtn.disabled = false;
   }
 }
 
 function renderTrackingCases(rows) {
+  trackingCases = rows;
   caseCount.textContent = `共 ${rows.length} 筆`;
 
   if (!rows.length) {
@@ -247,6 +273,65 @@ function renderTrackingCases(rows) {
   trackingContent.className = 'table-wrap';
   trackingContent.textContent = '';
   trackingContent.appendChild(buildCaseTable(rows, true));
+}
+
+async function addSelectedMembers() {
+  const selectedCases = getSelectedTrackingCases();
+
+  if (!selectedCases.length) {
+    setNotice(trackingNotice, '請先勾選要加入會友名單的資料', 'error');
+    return;
+  }
+
+  const selectedNames = selectedCases
+    .map(item => item['新家人姓名'])
+    .filter(Boolean);
+  if (!selectedNames.length) {
+    setNotice(trackingNotice, '勾選資料沒有可加入的姓名', 'error');
+    return;
+  }
+
+  if (!confirm(`確認將 ${selectedNames.length} 位加入會友名單嗎？`)) return;
+
+  addMembersBtn.disabled = true;
+  closeBtn.disabled = true;
+  setNotice(trackingNotice, '加入會友名單中...');
+
+  try {
+    const results = [];
+
+    for (const item of selectedCases) {
+      const name = String(item['新家人姓名'] || '').trim();
+      if (!name) {
+        results.push({ ok: false, name: '未填姓名', message: '略過未填姓名資料' });
+        continue;
+      }
+
+      const message = String(await callSundayAttendancePayloadApi('addMember', {
+        name,
+        gender: item['新家人性別'] || '',
+        note: item['備註'] || '',
+        isExcluded: false
+      }) || '');
+      results.push({
+        ok: message.includes('成功'),
+        name,
+        message
+      });
+    }
+
+    const successCount = results.filter(item => item.ok).length;
+    const failed = results.filter(item => !item.ok);
+    const suffix = failed.length
+      ? `；未加入：${failed.map(item => `${item.name} ${item.message}`).join('、')}`
+      : '';
+    setNotice(trackingNotice, `已加入會友名單 ${successCount} 位${suffix}`, failed.length ? 'error' : 'success');
+  } catch (error) {
+    setNotice(trackingNotice, error.message || String(error), 'error');
+  } finally {
+    addMembersBtn.disabled = false;
+    closeBtn.disabled = false;
+  }
 }
 
 async function loadClosedCases() {
@@ -450,8 +535,7 @@ async function saveTrackingCase(event) {
 }
 
 async function closeSelectedCases() {
-  const selected = Array.from(trackingContent.querySelectorAll('input[type="checkbox"]:checked'))
-    .map(input => Number(input.value));
+  const selected = getSelectedTrackingCases().map(item => item.rowNumber);
 
   if (!selected.length) {
     setNotice(trackingNotice, '請先勾選要結案的資料', 'error');
@@ -472,6 +556,12 @@ async function closeSelectedCases() {
   } finally {
     closeBtn.disabled = false;
   }
+}
+
+function getSelectedTrackingCases() {
+  const selectedRows = new Set(Array.from(trackingContent.querySelectorAll('input[type="checkbox"]:checked'))
+    .map(input => Number(input.value)));
+  return trackingCases.filter(item => selectedRows.has(Number(item.rowNumber)));
 }
 
 function setNotice(element, message, type) {
