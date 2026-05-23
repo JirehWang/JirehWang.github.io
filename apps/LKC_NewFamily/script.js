@@ -1,4 +1,4 @@
-const visibleColumns = [
+const trackingColumns = [
   '新家人姓名',
   '參加的聚會是',
   '手機',
@@ -11,6 +11,8 @@ const visibleColumns = [
   '點名系統代碼',
   '主日點名小組'
 ];
+
+const closedColumns = trackingColumns.filter(column => column !== '主日點名小組');
 
 const editFields = [
   { name: '新家人姓名', label: '新家人姓名', required: true },
@@ -338,7 +340,7 @@ function renderTrackingCases(rows) {
 
   trackingContent.className = 'table-wrap';
   trackingContent.textContent = '';
-  trackingContent.appendChild(buildCaseTable(rows, true));
+  trackingContent.appendChild(buildCaseTable(rows, true, trackingColumns));
 }
 
 async function addSelectedMembers() {
@@ -535,7 +537,7 @@ function renderClosedCases(rows) {
 
   closedContent.className = 'table-wrap';
   closedContent.textContent = '';
-  closedContent.appendChild(buildCaseTable(rows, false));
+  closedContent.appendChild(buildCaseTable(rows, false, closedColumns));
 }
 
 async function refreshAnalysisPreview() {
@@ -557,7 +559,7 @@ async function refreshAnalysisPreview() {
 
     analysisPreview.className = 'table-wrap analysis-table';
     analysisPreview.textContent = '';
-    analysisPreview.appendChild(buildAnalysisPivotTable(buildSettlementPivot(rows), rows.length));
+    analysisPreview.appendChild(buildAnalysisDetailTable(rows));
   } catch (error) {
     analysisPreview.textContent = '分析資料讀取失敗';
     setNotice(analysisNotice, error.message || String(error), 'error');
@@ -583,11 +585,6 @@ async function openAnalysisModal() {
     pivotWrap.className = 'table-wrap analysis-table';
     pivotWrap.appendChild(buildAnalysisPivotTable(pivot, rows.length));
     analysisModalContent.appendChild(pivotWrap);
-
-    const detailWrap = document.createElement('div');
-    detailWrap.className = 'table-wrap analysis-table';
-    detailWrap.appendChild(buildAnalysisDetailTable(rows));
-    analysisModalContent.appendChild(detailWrap);
 
     analysisModal.hidden = false;
   } catch (error) {
@@ -671,11 +668,9 @@ function normalizeSettlementStatus(value) {
 function buildAnalysisSummary(rows, pivot) {
   const summary = document.createElement('div');
   summary.className = 'analysis-summary';
-  const topStatus = pivot[0] ? `${pivot[0].status} (${pivot[0].count})` : '無';
   summary.innerHTML = `
     <div class="summary-item"><span>總清單人數</span><strong>${rows.length}</strong></div>
     <div class="summary-item"><span>落戶狀態種類</span><strong>${pivot.length}</strong></div>
-    <div class="summary-item"><span>最多狀態</span><strong>${escapeHtml(topStatus)}</strong></div>
   `;
   return summary;
 }
@@ -730,13 +725,13 @@ function filterCases(rows, filters) {
   });
 }
 
-function buildCaseTable(rows, selectable) {
+function buildCaseTable(rows, selectable, columns) {
   const table = document.createElement('table');
   const thead = document.createElement('thead');
   const tbody = document.createElement('tbody');
   const headRow = document.createElement('tr');
 
-  headRow.innerHTML = `${selectable ? '<th class="check-cell">結案</th><th class="action-cell">編輯</th>' : ''}${visibleColumns.map(column => `<th>${escapeHtml(column)}</th>`).join('')}`;
+  headRow.innerHTML = `${selectable ? '<th class="check-cell">結案</th><th class="action-cell">編輯</th>' : ''}${columns.map(column => `<th>${escapeHtml(getColumnLabel(column))}</th>`).join('')}`;
   thead.appendChild(headRow);
 
   rows.forEach(item => {
@@ -759,7 +754,7 @@ function buildCaseTable(rows, selectable) {
       row.appendChild(editCell);
     }
 
-    visibleColumns.forEach(column => {
+    columns.forEach(column => {
       const cell = document.createElement('td');
       if (column === '主日點名小組') {
         cell.appendChild(buildSundayGroupTag(item[column] || ''));
@@ -787,6 +782,10 @@ function buildSundayGroupTag(value) {
   tag.setAttribute('aria-label', groupName ? `主日點名小組：${groupName}` : '主日點名尚無小組');
   tag.addEventListener('click', () => tag.classList.toggle('expanded'));
   return tag;
+}
+
+function getColumnLabel(column) {
+  return column === '主日點名小組' ? '現行小組' : column;
 }
 
 function shortenGroupName(groupName) {
