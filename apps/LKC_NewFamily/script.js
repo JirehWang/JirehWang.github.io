@@ -8,7 +8,8 @@ const visibleColumns = [
   '落戶狀態',
   '備註',
   '會友名單狀態',
-  '點名系統代碼'
+  '點名系統代碼',
+  '主日點名小組'
 ];
 
 const editFields = [
@@ -70,6 +71,7 @@ let settlementOptions = ['請安拜訪'];
 let editingCase = null;
 let trackingCases = [];
 let firebaseCacheModulePromise = null;
+let memberDirectoryPromise = null;
 
 const newFamilyCacheTtl = 19800;
 const newFamilyListActions = new Set(['getTrackingCases', 'getClosedCases']);
@@ -311,7 +313,8 @@ async function loadTrackingCases() {
       endDate: document.getElementById('trackingEndDate').value
     };
     const result = await callCachedListApi('getTrackingCases');
-    renderTrackingCases(filterCases(result.data || [], filters));
+    const rows = await enrichRowsWithSundayGroups(filterCases(result.data || [], filters));
+    renderTrackingCases(rows);
   } catch (error) {
     trackingContent.className = 'empty';
     trackingContent.textContent = '讀取失敗';
@@ -378,14 +381,18 @@ async function addSelectedMembers() {
       }) || '');
       let memberCode = extractMemberCode(message);
       const duplicate = message.includes('已存在');
-      if (!memberCode && duplicate) {
-        memberCode = await findExistingMemberCode(name);
+      if (message.includes('成功')) {
+        memberDirectoryPromise = null;
       }
+      const existingMember = await findMemberRecord(name, memberCode);
+      if (!memberCode && duplicate) memberCode = existingMember.memberCode;
+      const sundayGroup = existingMember.sundayGroup || '';
       results.push({
         ok: message.includes('成功'),
         duplicate,
         rowNumber: item.rowNumber,
         memberCode,
+        sundayGroup,
         name,
         message
       });
@@ -398,7 +405,8 @@ async function addSelectedMembers() {
       .map(item => ({
         rowNumber: item.rowNumber,
         status: item.ok ? '已加入' : '已存在',
-        memberCode: item.memberCode || ''
+        memberCode: item.memberCode || '',
+        sundayGroup: item.sundayGroup || ''
       }));
 
     if (memberStatuses.length) {
@@ -430,16 +438,66 @@ function extractMemberCode(message) {
   return match ? match[1].toUpperCase() : '';
 }
 
-async function findExistingMemberCode(name) {
+async function getMemberDirectory() {
+  if (!memberDirectoryPromise) {
+    memberDirectoryPromise = callSundayAttendancePayloadApi('getAllMembers', {})
+      .then(members => {
+        const byName = new Map();
+        const byCode = new Map();
+        (Array.isArray(members) ? members : []).forEach(member => {
+          const name = String(member[0] || '').trim();
+          const memberCode = String(member[7] || '').trim();
+          const sundayGroup = String(member[8] || '').trim();
+          const record = { name, memberCode, sundayGroup };
+          if (name) byName.set(name, record);
+          if (memberCode) byCode.set(memberCode, record);
+        });
+        return { byName, byCode };
+      })
+      .catch(error => {
+        memberDirectoryPromise = null;
+        throw error;
+      });
+  }
+  return memberDirectoryPromise;
+}
+
+async function findMemberRecord(name, memberCode) {
   try {
-    const members = await callSundayAttendancePayloadApi('getAllMembers', {});
+    const directory = await getMemberDirectory();
     const targetName = String(name || '').trim();
-    const row = (Array.isArray(members) ? members : [])
-      .find(member => String(member[0] || '').trim() === targetName);
-    return row && row[7] ? String(row[7]).trim() : '';
+    const targetCode = String(memberCode || '').trim();
+    return directory.byCode.get(targetCode) || directory.byName.get(targetName) || {
+      name: targetName,
+      memberCode: targetCode,
+      sundayGroup: ''
+    };
   } catch (error) {
-    console.warn('[new-family] existing member code lookup failed', error);
-    return '';
+    console.warn('[new-family] member lookup failed', error);
+    return {
+      name: String(name || '').trim(),
+      memberCode: String(memberCode || '').trim(),
+      sundayGroup: ''
+    };
+  }
+}
+
+async function enrichRowsWithSundayGroups(rows) {
+  try {
+    const directory = await getMemberDirectory();
+    return rows.map(item => {
+      const memberCode = String(item['點名系統代碼'] || '').trim();
+      const name = String(item['新家人姓名'] || '').trim();
+      const member = directory.byCode.get(memberCode) || directory.byName.get(name);
+      if (!member || !member.sundayGroup) return item;
+      return {
+        ...item,
+        '主日點名小組': member.sundayGroup
+      };
+    });
+  } catch (error) {
+    console.warn('[new-family] sunday group enrich skipped', error);
+    return rows;
   }
 }
 
@@ -703,7 +761,11 @@ function buildCaseTable(rows, selectable) {
 
     visibleColumns.forEach(column => {
       const cell = document.createElement('td');
-      cell.textContent = item[column] || '';
+      if (column === '主日點名小組') {
+        cell.appendChild(buildSundayGroupTag(item[column] || ''));
+      } else {
+        cell.textContent = item[column] || '';
+      }
       row.appendChild(cell);
     });
 
@@ -713,6 +775,23 @@ function buildCaseTable(rows, selectable) {
   table.appendChild(thead);
   table.appendChild(tbody);
   return table;
+}
+
+function buildSundayGroupTag(value) {
+  const groupName = String(value || '').trim();
+  const tag = document.createElement('button');
+  tag.type = 'button';
+  tag.className = groupName ? 'group-tag' : 'group-tag empty-tag';
+  tag.textContent = groupName ? shortenGroupName(groupName) : '未';
+  tag.title = groupName || '主日點名尚無小組';
+  tag.setAttribute('aria-label', groupName ? `主日點名小組：${groupName}` : '主日點名尚無小組');
+  tag.addEventListener('click', () => tag.classList.toggle('expanded'));
+  return tag;
+}
+
+function shortenGroupName(groupName) {
+  const normalized = String(groupName || '').trim();
+  return normalized.length > 4 ? `${normalized.slice(0, 3)}...` : normalized;
 }
 
 function openEditModal(item) {

@@ -328,6 +328,41 @@ tr:last-child td {
   font-size: 13px;
 }
 
+.group-tag {
+  display: inline-flex;
+  align-items: center;
+  max-width: 78px;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid rgba(39, 107, 90, 0.24);
+  border-radius: 999px;
+  background: #eef4f1;
+  color: var(--primary-strong);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.group-tag:hover,
+.group-tag:focus,
+.group-tag.expanded {
+  max-width: 260px;
+  outline: none;
+}
+
+.group-tag.expanded {
+  white-space: normal;
+}
+
+.empty-tag {
+  border-color: var(--line);
+  background: #fff;
+  color: var(--muted);
+}
+
 .empty {
   padding: 26px;
   text-align: center;
