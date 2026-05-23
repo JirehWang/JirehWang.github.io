@@ -18,6 +18,7 @@
         <button class="tab active" type="button" data-tab="form">表單填寫</button>
         <button class="tab" type="button" data-tab="tracking">追蹤中</button>
         <button class="tab" type="button" data-tab="closed">已結案</button>
+        <button class="tab" type="button" data-tab="analysis">落戶分析</button>
       </nav>
     </header>
 
@@ -180,6 +181,54 @@
       <div id="closedContent" class="empty">請設定條件後查詢，或直接查詢全部已結案資料。</div>
       <div id="closedNotice" class="notice" role="status"></div>
     </section>
+
+    <section id="analysisPanel" class="panel" hidden>
+      <div class="table-toolbar">
+        <div>
+          <strong>新朋友落戶分析</strong>
+          <span id="analysisCount" class="notice"></span>
+        </div>
+        <div class="actions compact">
+          <button id="analysisOpenBtn" class="btn primary" type="button">查看落戶分析</button>
+        </div>
+      </div>
+
+      <div class="analysis-controls">
+        <div class="field year-field">
+          <label for="analysisYear">年度</label>
+          <input id="analysisYear" type="number" min="2000" max="2100" step="1">
+        </div>
+        <div class="quick-ranges" aria-label="快捷日期範圍">
+          <button class="btn secondary" type="button" data-analysis-range="year">全年</button>
+          <button class="btn secondary" type="button" data-analysis-range="h1">上半年</button>
+          <button class="btn secondary" type="button" data-analysis-range="h2">下半年</button>
+          <button class="btn secondary" type="button" data-analysis-range="q1">Q1</button>
+          <button class="btn secondary" type="button" data-analysis-range="q2">Q2</button>
+          <button class="btn secondary" type="button" data-analysis-range="q3">Q3</button>
+          <button class="btn secondary" type="button" data-analysis-range="q4">Q4</button>
+        </div>
+      </div>
+
+      <div class="filter-grid">
+        <div class="field">
+          <label for="analysisStartDate">起始日期</label>
+          <input id="analysisStartDate" type="date">
+        </div>
+        <div class="field">
+          <label for="analysisEndDate">結束日期</label>
+          <input id="analysisEndDate" type="date">
+        </div>
+        <div class="field">
+          <label for="analysisStatusFilter">落戶狀態</label>
+          <select id="analysisStatusFilter">
+            <option value="">全部</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="analysisPreview" class="empty">請選擇日期範圍後查看分析。</div>
+      <div id="analysisNotice" class="notice" role="status"></div>
+    </section>
   </main>
 
   <div id="editModal" class="modal-backdrop" hidden>
@@ -199,6 +248,22 @@
         </div>
         <div id="editNotice" class="notice" role="status"></div>
       </form>
+    </section>
+  </div>
+
+  <div id="analysisModal" class="modal-backdrop" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="analysisTitle">
+      <div class="modal-header">
+        <div>
+          <h2 id="analysisTitle">新朋友落戶分析</h2>
+          <p id="analysisSubtitle"></p>
+        </div>
+        <button id="analysisCloseBtn" class="icon-btn" type="button" aria-label="關閉分析視窗">&times;</button>
+      </div>
+      <div id="analysisModalContent"></div>
+      <div class="actions">
+        <button id="analysisDoneBtn" class="btn primary" type="button">完成</button>
+      </div>
     </section>
   </div>
 

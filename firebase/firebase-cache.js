@@ -23,7 +23,7 @@ function _path(topic, subkey) {
 
 // 🛡️ Firebase RTDB key 限制：不可空字串、不可含 . # $ / [ ]
 //    遞迴清理物件：把不合法的 key 換掉（保留值），陣列照樣往內走
-const _BAD_KEY_RE = /[.#$/\[\]]/g;
+const _BAD_KEY_RE = /[.#$/\[\]\u0000-\u001f\u007f]/g;
 function _sanitizeForFirebase(val) {
   if (val === null || val === undefined) return val;
   if (Array.isArray(val)) return val.map(_sanitizeForFirebase);

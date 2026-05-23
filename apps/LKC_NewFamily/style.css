@@ -109,6 +109,24 @@ textarea {
   margin-bottom: 14px;
 }
 
+.analysis-controls {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.quick-ranges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+}
+
+.quick-ranges .btn {
+  min-height: 44px;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -319,6 +337,41 @@ tr:last-child td {
   border-radius: 8px;
 }
 
+.analysis-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.summary-item {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fbfa;
+}
+
+.summary-item span {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.summary-item strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 24px;
+}
+
+.analysis-table {
+  margin-top: 14px;
+}
+
+.analysis-table table {
+  min-width: 680px;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -389,6 +442,11 @@ tr:last-child td {
   }
 
   .filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .analysis-controls,
+  .analysis-summary {
     grid-template-columns: 1fr;
   }
 

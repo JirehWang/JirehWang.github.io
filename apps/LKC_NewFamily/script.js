@@ -53,6 +53,17 @@ const editFieldContainer = document.getElementById('editFields');
 const editNotice = document.getElementById('editNotice');
 const editSaveBtn = document.getElementById('editSaveBtn');
 const editSubtitle = document.getElementById('editSubtitle');
+const analysisCount = document.getElementById('analysisCount');
+const analysisOpenBtn = document.getElementById('analysisOpenBtn');
+const analysisPreview = document.getElementById('analysisPreview');
+const analysisNotice = document.getElementById('analysisNotice');
+const analysisYear = document.getElementById('analysisYear');
+const analysisStartDate = document.getElementById('analysisStartDate');
+const analysisEndDate = document.getElementById('analysisEndDate');
+const analysisStatusFilter = document.getElementById('analysisStatusFilter');
+const analysisModal = document.getElementById('analysisModal');
+const analysisSubtitle = document.getElementById('analysisSubtitle');
+const analysisModalContent = document.getElementById('analysisModalContent');
 
 let meetingOptions = [];
 let settlementOptions = ['請安拜訪'];
@@ -64,8 +75,10 @@ const newFamilyCacheTtl = 19800;
 const newFamilyListActions = new Set(['getTrackingCases', 'getClosedCases']);
 
 dateField.valueAsDate = new Date();
+analysisYear.value = new Date().getFullYear();
 loadMeetingOptions();
 loadSettlementStatusOptions();
+setAnalysisRange('year');
 
 document.querySelectorAll('.tab').forEach(button => {
   button.addEventListener('click', () => switchTab(button.dataset.tab));
@@ -92,10 +105,23 @@ trackingSearchBtn.addEventListener('click', loadTrackingCases);
 addMembersBtn.addEventListener('click', addSelectedMembers);
 closeBtn.addEventListener('click', closeSelectedCases);
 closedSearchBtn.addEventListener('click', loadClosedCases);
+analysisOpenBtn.addEventListener('click', openAnalysisModal);
+analysisYear.addEventListener('change', () => setAnalysisRange('year'));
+analysisStartDate.addEventListener('change', refreshAnalysisPreview);
+analysisEndDate.addEventListener('change', refreshAnalysisPreview);
+analysisStatusFilter.addEventListener('change', refreshAnalysisPreview);
+document.querySelectorAll('[data-analysis-range]').forEach(button => {
+  button.addEventListener('click', () => setAnalysisRange(button.dataset.analysisRange));
+});
 document.getElementById('editCloseBtn').addEventListener('click', closeEditModal);
 document.getElementById('editCancelBtn').addEventListener('click', closeEditModal);
+document.getElementById('analysisCloseBtn').addEventListener('click', closeAnalysisModal);
+document.getElementById('analysisDoneBtn').addEventListener('click', closeAnalysisModal);
 editModal.addEventListener('click', event => {
   if (event.target === editModal) closeEditModal();
+});
+analysisModal.addEventListener('click', event => {
+  if (event.target === analysisModal) closeAnalysisModal();
 });
 editCaseForm.addEventListener('submit', saveTrackingCase);
 
@@ -263,9 +289,11 @@ function switchTab(tabName) {
   document.getElementById('formPanel').hidden = tabName !== 'form';
   document.getElementById('trackingPanel').hidden = tabName !== 'tracking';
   document.getElementById('closedPanel').hidden = tabName !== 'closed';
+  document.getElementById('analysisPanel').hidden = tabName !== 'analysis';
 
   if (tabName === 'tracking') loadTrackingCases();
   if (tabName === 'closed') loadClosedCases();
+  if (tabName === 'analysis') refreshAnalysisPreview();
 }
 
 async function loadTrackingCases() {
@@ -450,6 +478,182 @@ function renderClosedCases(rows) {
   closedContent.className = 'table-wrap';
   closedContent.textContent = '';
   closedContent.appendChild(buildCaseTable(rows, false));
+}
+
+async function refreshAnalysisPreview() {
+  setNotice(analysisNotice, '');
+  analysisPreview.className = 'empty';
+  analysisPreview.textContent = '載入分析資料中...';
+  analysisOpenBtn.disabled = true;
+
+  try {
+    const dateRows = await getAnalysisDateRows();
+    populateAnalysisStatusFilter(dateRows);
+    const rows = filterAnalysisRowsByStatus(dateRows);
+    analysisCount.textContent = `共 ${rows.length} 筆`;
+
+    if (!rows.length) {
+      analysisPreview.textContent = '這個範圍沒有已結案的新朋友資料';
+      return;
+    }
+
+    analysisPreview.className = 'table-wrap analysis-table';
+    analysisPreview.textContent = '';
+    analysisPreview.appendChild(buildAnalysisPivotTable(buildSettlementPivot(rows), rows.length));
+  } catch (error) {
+    analysisPreview.textContent = '分析資料讀取失敗';
+    setNotice(analysisNotice, error.message || String(error), 'error');
+  } finally {
+    analysisOpenBtn.disabled = false;
+  }
+}
+
+async function openAnalysisModal() {
+  setNotice(analysisNotice, '');
+  analysisOpenBtn.disabled = true;
+
+  try {
+    const dateRows = await getAnalysisDateRows();
+    const rows = filterAnalysisRowsByStatus(dateRows);
+    const pivot = buildSettlementPivot(rows);
+
+    analysisSubtitle.textContent = `${analysisStartDate.value || '不限'} 至 ${analysisEndDate.value || '不限'}`;
+    analysisModalContent.textContent = '';
+    analysisModalContent.appendChild(buildAnalysisSummary(rows, pivot));
+
+    const pivotWrap = document.createElement('div');
+    pivotWrap.className = 'table-wrap analysis-table';
+    pivotWrap.appendChild(buildAnalysisPivotTable(pivot, rows.length));
+    analysisModalContent.appendChild(pivotWrap);
+
+    const detailWrap = document.createElement('div');
+    detailWrap.className = 'table-wrap analysis-table';
+    detailWrap.appendChild(buildAnalysisDetailTable(rows));
+    analysisModalContent.appendChild(detailWrap);
+
+    analysisModal.hidden = false;
+  } catch (error) {
+    setNotice(analysisNotice, error.message || String(error), 'error');
+  } finally {
+    analysisOpenBtn.disabled = false;
+  }
+}
+
+function closeAnalysisModal() {
+  analysisModal.hidden = true;
+  analysisModalContent.textContent = '';
+}
+
+async function getAnalysisDateRows() {
+  const result = await callCachedListApi('getClosedCases');
+  const filters = {
+    startDate: analysisStartDate.value,
+    endDate: analysisEndDate.value
+  };
+  return filterCases(result.data || [], filters);
+}
+
+function filterAnalysisRowsByStatus(rows) {
+  const status = analysisStatusFilter.value;
+  return status
+    ? rows.filter(item => normalizeSettlementStatus(item['落戶狀態']) === status)
+    : rows;
+}
+
+function setAnalysisRange(rangeKey) {
+  const year = Number(analysisYear.value) || new Date().getFullYear();
+  const ranges = {
+    year: ['01-01', '12-31'],
+    h1: ['01-01', '06-30'],
+    h2: ['07-01', '12-31'],
+    q1: ['01-01', '03-31'],
+    q2: ['04-01', '06-30'],
+    q3: ['07-01', '09-30'],
+    q4: ['10-01', '12-31']
+  };
+  const range = ranges[rangeKey] || ranges.year;
+  analysisStartDate.value = `${year}-${range[0]}`;
+  analysisEndDate.value = `${year}-${range[1]}`;
+
+  if (!document.getElementById('analysisPanel').hidden) {
+    refreshAnalysisPreview();
+  }
+}
+
+function populateAnalysisStatusFilter(rows) {
+  const current = analysisStatusFilter.value;
+  const statuses = Array.from(new Set(rows.map(item => normalizeSettlementStatus(item['落戶狀態'])))).sort();
+  analysisStatusFilter.innerHTML = '<option value="">全部</option>';
+  statuses.forEach(status => {
+    const option = document.createElement('option');
+    option.value = status;
+    option.textContent = status;
+    analysisStatusFilter.appendChild(option);
+  });
+  if (statuses.includes(current)) {
+    analysisStatusFilter.value = current;
+  }
+}
+
+function buildSettlementPivot(rows) {
+  const counts = new Map();
+  rows.forEach(item => {
+    const status = normalizeSettlementStatus(item['落戶狀態']);
+    counts.set(status, (counts.get(status) || 0) + 1);
+  });
+  return Array.from(counts.entries())
+    .map(([status, count]) => ({ status, count }))
+    .sort((a, b) => b.count - a.count || a.status.localeCompare(b.status));
+}
+
+function normalizeSettlementStatus(value) {
+  return String(value || '').trim() || '未填落戶狀態';
+}
+
+function buildAnalysisSummary(rows, pivot) {
+  const summary = document.createElement('div');
+  summary.className = 'analysis-summary';
+  const topStatus = pivot[0] ? `${pivot[0].status} (${pivot[0].count})` : '無';
+  summary.innerHTML = `
+    <div class="summary-item"><span>總清單人數</span><strong>${rows.length}</strong></div>
+    <div class="summary-item"><span>落戶狀態種類</span><strong>${pivot.length}</strong></div>
+    <div class="summary-item"><span>最多狀態</span><strong>${escapeHtml(topStatus)}</strong></div>
+  `;
+  return summary;
+}
+
+function buildAnalysisPivotTable(pivot, total) {
+  const table = document.createElement('table');
+  const body = pivot.length
+    ? pivot.map(item => {
+      const percent = total ? Math.round((item.count / total) * 1000) / 10 : 0;
+      return `<tr><td>${escapeHtml(item.status)}</td><td>${item.count}</td><td>${percent}%</td></tr>`;
+    }).join('')
+    : '<tr><td colspan="3">沒有符合範圍的資料</td></tr>';
+  table.innerHTML = `
+    <thead><tr><th>落戶狀態</th><th>人數</th><th>比例</th></tr></thead>
+    <tbody>${body}</tbody>
+  `;
+  return table;
+}
+
+function buildAnalysisDetailTable(rows) {
+  const table = document.createElement('table');
+  const body = rows.length
+    ? rows.map(item => `
+      <tr>
+        <td>${escapeHtml(item['新家人姓名'] || '')}</td>
+        <td>${escapeHtml(item['日期'] || '')}</td>
+        <td>${escapeHtml(normalizeSettlementStatus(item['落戶狀態']))}</td>
+        <td>${escapeHtml(item['點名系統代碼'] || '')}</td>
+      </tr>
+    `).join('')
+    : '<tr><td colspan="4">沒有符合範圍的明細</td></tr>';
+  table.innerHTML = `
+    <thead><tr><th>姓名</th><th>日期</th><th>落戶狀態</th><th>點名系統代碼</th></tr></thead>
+    <tbody>${body}</tbody>
+  `;
+  return table;
 }
 
 function filterCases(rows, filters) {
