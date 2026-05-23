@@ -80,6 +80,7 @@ let currentAnalysisPivot = [];
 
 const newFamilyCacheTtl = 19800;
 const newFamilyListActions = new Set(['getTrackingCases', 'getClosedCases']);
+const stoppedAttendanceStatus = '停止聚會';
 
 dateField.valueAsDate = new Date();
 analysisYear.value = new Date().getFullYear();
@@ -454,7 +455,8 @@ async function getMemberDirectory() {
           const name = String(member[0] || '').trim();
           const memberCode = String(member[7] || '').trim();
           const sundayGroup = String(member[8] || '').trim();
-          const record = { name, memberCode, sundayGroup };
+          const isExcluded = normalizeBoolean(member[4]);
+          const record = { name, memberCode, sundayGroup, isExcluded };
           if (name) byName.set(name, record);
           if (memberCode) byCode.set(memberCode, record);
         });
@@ -476,33 +478,38 @@ async function findMemberRecord(name, memberCode) {
     return directory.byCode.get(targetCode) || directory.byName.get(targetName) || {
       name: targetName,
       memberCode: targetCode,
-      sundayGroup: ''
+      sundayGroup: '',
+      isExcluded: false
     };
   } catch (error) {
     console.warn('[new-family] member lookup failed', error);
     return {
       name: String(name || '').trim(),
       memberCode: String(memberCode || '').trim(),
-      sundayGroup: ''
+      sundayGroup: '',
+      isExcluded: false
     };
   }
 }
 
-async function enrichRowsWithSundayGroups(rows) {
+async function enrichRowsWithSundayMemberData(rows) {
   try {
     const directory = await getMemberDirectory();
     return rows.map(item => {
       const memberCode = String(item['點名系統代碼'] || '').trim();
       const name = String(item['新家人姓名'] || '').trim();
       const member = directory.byCode.get(memberCode) || directory.byName.get(name);
-      if (!member || !member.sundayGroup) return item;
+      if (!member) return item;
       return {
         ...item,
-        '主日點名小組': member.sundayGroup
+        '主日點名小組': member.sundayGroup || item['主日點名小組'] || '',
+        displaySettlementStatus: member.isExcluded
+          ? stoppedAttendanceStatus
+          : normalizeSettlementStatus(item['落戶狀態'])
       };
     });
   } catch (error) {
-    console.warn('[new-family] sunday group enrich skipped', error);
+    console.warn('[new-family] sunday member enrich skipped', error);
     return rows;
   }
 }
@@ -520,7 +527,8 @@ async function loadClosedCases() {
       endDate: document.getElementById('closedEndDate').value
     };
     const result = await callCachedListApi('getClosedCases');
-    renderClosedCases(filterCases(result.data || [], filters));
+    const rows = await enrichRowsWithSundayMemberData(filterCases(result.data || [], filters));
+    renderClosedCases(rows);
   } catch (error) {
     closedContent.className = 'empty';
     closedContent.textContent = '讀取失敗';
@@ -625,7 +633,7 @@ async function exportAnalysisDetail() {
     const data = rows.map(item => ({
       姓名: item['新家人姓名'] || '',
       日期: item['日期'] || '',
-      落戶狀態: normalizeSettlementStatus(item['落戶狀態']),
+      落戶狀態: getDisplaySettlementStatus(item),
       點名系統代碼: item['點名系統代碼'] || '',
       現行小組: item['主日點名小組'] || ''
     }));
@@ -943,13 +951,13 @@ async function getAnalysisDateRows() {
     startDate: analysisStartDate.value,
     endDate: analysisEndDate.value
   };
-  return enrichRowsWithSundayGroups(filterCases(result.data || [], filters));
+  return enrichRowsWithSundayMemberData(filterCases(result.data || [], filters));
 }
 
 function filterAnalysisRowsByStatus(rows) {
   const status = analysisStatusFilter.value;
   return status
-    ? rows.filter(item => normalizeSettlementStatus(item['落戶狀態']) === status)
+    ? rows.filter(item => getDisplaySettlementStatus(item) === status)
     : rows;
 }
 
@@ -975,7 +983,7 @@ function setAnalysisRange(rangeKey) {
 
 function populateAnalysisStatusFilter(rows) {
   const current = analysisStatusFilter.value;
-  const statuses = Array.from(new Set(rows.map(item => normalizeSettlementStatus(item['落戶狀態'])))).sort();
+  const statuses = Array.from(new Set(rows.map(item => getDisplaySettlementStatus(item)))).sort();
   analysisStatusFilter.innerHTML = '<option value="">全部</option>';
   statuses.forEach(status => {
     const option = document.createElement('option');
@@ -991,7 +999,7 @@ function populateAnalysisStatusFilter(rows) {
 function buildSettlementPivot(rows) {
   const counts = new Map();
   rows.forEach(item => {
-    const status = normalizeSettlementStatus(item['落戶狀態']);
+    const status = getDisplaySettlementStatus(item);
     counts.set(status, (counts.get(status) || 0) + 1);
   });
   return Array.from(counts.entries())
@@ -1001,6 +1009,18 @@ function buildSettlementPivot(rows) {
 
 function normalizeSettlementStatus(value) {
   return String(value || '').trim() || '未填落戶狀態';
+}
+
+function getDisplaySettlementStatus(item) {
+  return item && item.displaySettlementStatus
+    ? item.displaySettlementStatus
+    : normalizeSettlementStatus(item && item['落戶狀態']);
+}
+
+function normalizeBoolean(value) {
+  if (value === true) return true;
+  const text = String(value || '').trim().toLowerCase();
+  return ['true', 'yes', 'y', '1', '是'].includes(text);
 }
 
 function buildAnalysisSummary(rows, pivot) {
@@ -1045,7 +1065,7 @@ function buildAnalysisDetailTable(rows) {
     ['新家人姓名', '日期', '落戶狀態', '點名系統代碼'].forEach(column => {
       const cell = document.createElement('td');
       cell.textContent = column === '落戶狀態'
-        ? normalizeSettlementStatus(item[column])
+        ? getDisplaySettlementStatus(item)
         : item[column] || '';
       row.appendChild(cell);
     });
@@ -1106,6 +1126,8 @@ function buildCaseTable(rows, selectable, columns) {
       const cell = document.createElement('td');
       if (column === '主日點名小組') {
         cell.appendChild(buildSundayGroupTag(item[column] || ''));
+      } else if (column === '落戶狀態') {
+        cell.textContent = getDisplaySettlementStatus(item);
       } else {
         cell.textContent = item[column] || '';
       }
