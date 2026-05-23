@@ -8,8 +8,7 @@ const trackingColumns = [
   '落戶狀態',
   '備註',
   '會友名單狀態',
-  '點名系統代碼',
-  '主日點名小組'
+  '點名系統代碼'
 ];
 
 const closedColumns = trackingColumns.filter(column => column !== '主日點名小組');
@@ -315,8 +314,7 @@ async function loadTrackingCases() {
       endDate: document.getElementById('trackingEndDate').value
     };
     const result = await callCachedListApi('getTrackingCases');
-    const rows = await enrichRowsWithSundayGroups(filterCases(result.data || [], filters));
-    renderTrackingCases(rows);
+    renderTrackingCases(filterCases(result.data || [], filters));
   } catch (error) {
     trackingContent.className = 'empty';
     trackingContent.textContent = '讀取失敗';
@@ -605,7 +603,7 @@ async function getAnalysisDateRows() {
     startDate: analysisStartDate.value,
     endDate: analysisEndDate.value
   };
-  return filterCases(result.data || [], filters);
+  return enrichRowsWithSundayGroups(filterCases(result.data || [], filters));
 }
 
 function filterAnalysisRowsByStatus(rows) {
@@ -692,20 +690,30 @@ function buildAnalysisPivotTable(pivot, total) {
 
 function buildAnalysisDetailTable(rows) {
   const table = document.createElement('table');
-  const body = rows.length
-    ? rows.map(item => `
-      <tr>
-        <td>${escapeHtml(item['新家人姓名'] || '')}</td>
-        <td>${escapeHtml(item['日期'] || '')}</td>
-        <td>${escapeHtml(normalizeSettlementStatus(item['落戶狀態']))}</td>
-        <td>${escapeHtml(item['點名系統代碼'] || '')}</td>
-      </tr>
-    `).join('')
-    : '<tr><td colspan="4">沒有符合範圍的明細</td></tr>';
   table.innerHTML = `
-    <thead><tr><th>姓名</th><th>日期</th><th>落戶狀態</th><th>點名系統代碼</th></tr></thead>
-    <tbody>${body}</tbody>
+    <thead><tr><th>姓名</th><th>日期</th><th>落戶狀態</th><th>點名系統代碼</th><th>現行小組</th></tr></thead>
+    <tbody></tbody>
   `;
+  const tbody = table.querySelector('tbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="5">沒有符合範圍的明細</td></tr>';
+    return table;
+  }
+
+  rows.forEach(item => {
+    const row = document.createElement('tr');
+    ['新家人姓名', '日期', '落戶狀態', '點名系統代碼'].forEach(column => {
+      const cell = document.createElement('td');
+      cell.textContent = column === '落戶狀態'
+        ? normalizeSettlementStatus(item[column])
+        : item[column] || '';
+      row.appendChild(cell);
+    });
+    const groupCell = document.createElement('td');
+    groupCell.appendChild(buildSundayGroupTag(item['主日點名小組'] || ''));
+    row.appendChild(groupCell);
+    tbody.appendChild(row);
+  });
   return table;
 }
 
