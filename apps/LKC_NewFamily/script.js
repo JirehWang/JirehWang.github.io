@@ -7,7 +7,8 @@ const visibleColumns = [
   '日期',
   '落戶狀態',
   '備註',
-  '會友名單狀態'
+  '會友名單狀態',
+  '點名系統代碼'
 ];
 
 const editFields = [
@@ -27,7 +28,8 @@ const editFields = [
   { name: '落戶狀態', label: '落戶狀態', type: 'settlement' },
   { name: '邀約人', label: '邀約人' },
   { name: '備註', label: '備註', type: 'textarea', full: true },
-  { name: '會友名單狀態', label: '會友名單狀態', type: 'select', options: ['已加入', '已存在'] }
+  { name: '會友名單狀態', label: '會友名單狀態', type: 'select', options: ['已加入', '已存在'] },
+  { name: '點名系統代碼', label: '點名系統代碼' }
 ];
 
 const form = document.getElementById('newFamilyForm');
@@ -346,10 +348,16 @@ async function addSelectedMembers() {
         note: item['備註'] || '',
         isExcluded: false
       }) || '');
+      let memberCode = extractMemberCode(message);
+      const duplicate = message.includes('已存在');
+      if (!memberCode && duplicate) {
+        memberCode = await findExistingMemberCode(name);
+      }
       results.push({
         ok: message.includes('成功'),
-        duplicate: message.includes('已存在'),
+        duplicate,
         rowNumber: item.rowNumber,
+        memberCode,
         name,
         message
       });
@@ -361,7 +369,8 @@ async function addSelectedMembers() {
       .filter(item => item.ok || item.duplicate)
       .map(item => ({
         rowNumber: item.rowNumber,
-        status: item.ok ? '已加入' : '已存在'
+        status: item.ok ? '已加入' : '已存在',
+        memberCode: item.memberCode || ''
       }));
 
     if (memberStatuses.length) {
@@ -374,12 +383,35 @@ async function addSelectedMembers() {
       ? `；未加入：${failed.map(item => `${item.name} ${item.message}`).join('、')}`
       : '';
     const duplicateText = duplicateCount ? `，已存在 ${duplicateCount} 位` : '';
-    setNotice(trackingNotice, `已加入會友名單 ${successCount} 位${duplicateText}${suffix}`, failed.length ? 'error' : 'success');
+    const codeText = results
+      .filter(item => (item.ok || item.duplicate) && item.memberCode)
+      .map(item => `${item.name} ${item.memberCode}`)
+      .join('、');
+    const codeSuffix = codeText ? `；代碼：${codeText}` : '';
+    setNotice(trackingNotice, `已加入會友名單 ${successCount} 位${duplicateText}${codeSuffix}${suffix}`, failed.length ? 'error' : 'success');
   } catch (error) {
     setNotice(trackingNotice, error.message || String(error), 'error');
   } finally {
     addMembersBtn.disabled = false;
     closeBtn.disabled = false;
+  }
+}
+
+function extractMemberCode(message) {
+  const match = String(message || '').match(/編號[:：]\s*([A-Z]+\d+)/i);
+  return match ? match[1].toUpperCase() : '';
+}
+
+async function findExistingMemberCode(name) {
+  try {
+    const members = await callSundayAttendancePayloadApi('getAllMembers', {});
+    const targetName = String(name || '').trim();
+    const row = (Array.isArray(members) ? members : [])
+      .find(member => String(member[0] || '').trim() === targetName);
+    return row && row[7] ? String(row[7]).trim() : '';
+  } catch (error) {
+    console.warn('[new-family] existing member code lookup failed', error);
+    return '';
   }
 }
 
