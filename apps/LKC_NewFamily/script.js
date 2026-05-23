@@ -66,6 +66,8 @@ const analysisStatusFilter = document.getElementById('analysisStatusFilter');
 const analysisModal = document.getElementById('analysisModal');
 const analysisSubtitle = document.getElementById('analysisSubtitle');
 const analysisModalContent = document.getElementById('analysisModalContent');
+const analysisExportDetailBtn = document.getElementById('analysisExportDetailBtn');
+const analysisExportSummaryBtn = document.getElementById('analysisExportSummaryBtn');
 
 let meetingOptions = [];
 let settlementOptions = ['請安拜訪'];
@@ -73,6 +75,8 @@ let editingCase = null;
 let trackingCases = [];
 let firebaseCacheModulePromise = null;
 let memberDirectoryPromise = null;
+let currentAnalysisRows = [];
+let currentAnalysisPivot = [];
 
 const newFamilyCacheTtl = 19800;
 const newFamilyListActions = new Set(['getTrackingCases', 'getClosedCases']);
@@ -109,6 +113,8 @@ addMembersBtn.addEventListener('click', addSelectedMembers);
 closeBtn.addEventListener('click', closeSelectedCases);
 closedSearchBtn.addEventListener('click', loadClosedCases);
 analysisOpenBtn.addEventListener('click', openAnalysisModal);
+analysisExportDetailBtn.addEventListener('click', exportAnalysisDetail);
+analysisExportSummaryBtn.addEventListener('click', exportAnalysisSummary);
 analysisYear.addEventListener('change', () => setAnalysisRange('year'));
 analysisStartDate.addEventListener('change', refreshAnalysisPreview);
 analysisEndDate.addEventListener('change', refreshAnalysisPreview);
@@ -543,11 +549,14 @@ async function refreshAnalysisPreview() {
   analysisPreview.className = 'empty';
   analysisPreview.textContent = '載入分析資料中...';
   analysisOpenBtn.disabled = true;
+  analysisExportDetailBtn.disabled = true;
 
   try {
     const dateRows = await getAnalysisDateRows();
     populateAnalysisStatusFilter(dateRows);
     const rows = filterAnalysisRowsByStatus(dateRows);
+    currentAnalysisRows = rows;
+    currentAnalysisPivot = buildSettlementPivot(rows);
     analysisCount.textContent = `共 ${rows.length} 筆`;
 
     if (!rows.length) {
@@ -559,10 +568,13 @@ async function refreshAnalysisPreview() {
     analysisPreview.textContent = '';
     analysisPreview.appendChild(buildAnalysisDetailTable(rows));
   } catch (error) {
+    currentAnalysisRows = [];
+    currentAnalysisPivot = [];
     analysisPreview.textContent = '分析資料讀取失敗';
     setNotice(analysisNotice, error.message || String(error), 'error');
   } finally {
     analysisOpenBtn.disabled = false;
+    analysisExportDetailBtn.disabled = !currentAnalysisRows.length;
   }
 }
 
@@ -574,6 +586,8 @@ async function openAnalysisModal() {
     const dateRows = await getAnalysisDateRows();
     const rows = filterAnalysisRowsByStatus(dateRows);
     const pivot = buildSettlementPivot(rows);
+    currentAnalysisRows = rows;
+    currentAnalysisPivot = pivot;
 
     analysisSubtitle.textContent = `${analysisStartDate.value || '不限'} 至 ${analysisEndDate.value || '不限'}`;
     analysisModalContent.textContent = '';
@@ -585,6 +599,7 @@ async function openAnalysisModal() {
     analysisModalContent.appendChild(pivotWrap);
 
     analysisModal.hidden = false;
+    analysisExportSummaryBtn.disabled = !rows.length;
   } catch (error) {
     setNotice(analysisNotice, error.message || String(error), 'error');
   } finally {
@@ -596,6 +611,331 @@ function closeAnalysisModal() {
   analysisModal.hidden = true;
   analysisModalContent.textContent = '';
 }
+
+async function exportAnalysisDetail() {
+  try {
+    const rows = currentAnalysisRows.length
+      ? currentAnalysisRows
+      : filterAnalysisRowsByStatus(await getAnalysisDateRows());
+    if (!rows.length) {
+      setNotice(analysisNotice, '沒有可匯出的明細資料', 'error');
+      return;
+    }
+
+    const data = rows.map(item => ({
+      姓名: item['新家人姓名'] || '',
+      日期: item['日期'] || '',
+      落戶狀態: normalizeSettlementStatus(item['落戶狀態']),
+      點名系統代碼: item['點名系統代碼'] || '',
+      現行小組: item['主日點名小組'] || ''
+    }));
+    exportWorkbook(
+      [{ name: '落戶明細', rows: data }],
+      `新朋友落戶明細_${getAnalysisRangeLabel()}`
+    );
+  } catch (error) {
+    setNotice(analysisNotice, error.message || String(error), 'error');
+  }
+}
+
+async function exportAnalysisSummary() {
+  try {
+    const rows = currentAnalysisRows.length
+      ? currentAnalysisRows
+      : filterAnalysisRowsByStatus(await getAnalysisDateRows());
+    const pivot = currentAnalysisPivot.length ? currentAnalysisPivot : buildSettlementPivot(rows);
+    if (!rows.length) {
+      setNotice(analysisNotice, '沒有可匯出的統計資料', 'error');
+      return;
+    }
+
+    const rangeLabel = getAnalysisRangeLabel();
+    exportWorkbook([
+      {
+        name: '統計摘要',
+        rows: [
+          { 項目: '起始日期', 數值: analysisStartDate.value || '不限' },
+          { 項目: '結束日期', 數值: analysisEndDate.value || '不限' },
+          { 項目: '落戶狀態篩選', 數值: analysisStatusFilter.value || '全部' },
+          { 項目: '總清單人數', 數值: rows.length },
+          { 項目: '落戶狀態種類', 數值: pivot.length }
+        ]
+      },
+      {
+        name: '落戶狀態統計',
+        rows: pivot.map(item => ({
+          落戶狀態: item.status,
+          人數: item.count,
+          比例: rows.length ? `${Math.round((item.count / rows.length) * 1000) / 10}%` : '0%'
+        }))
+      }
+    ], `新朋友落戶統計_${rangeLabel}`);
+  } catch (error) {
+    setNotice(analysisNotice, error.message || String(error), 'error');
+  }
+}
+
+function exportWorkbook(sheets, filenameBase) {
+  const blob = createXlsxBlob(sheets);
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${sanitizeFilename(filenameBase)}.xlsx`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function getAnalysisRangeLabel() {
+  return `${analysisStartDate.value || 'all'}_${analysisEndDate.value || 'all'}`;
+}
+
+function sanitizeFilename(value) {
+  return String(value || 'export')
+    .replace(/[\\/:*?"<>|]/g, '-')
+    .replace(/\s+/g, '_');
+}
+
+function createXlsxBlob(sheets) {
+  const files = {};
+  const safeSheets = sheets.map((sheet, index) => ({
+    name: sanitizeSheetName(sheet.name || `Sheet${index + 1}`),
+    rows: rowsToMatrix(sheet.rows || [])
+  }));
+
+  files['[Content_Types].xml'] = buildContentTypesXml(safeSheets.length);
+  files['_rels/.rels'] = [
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">',
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>',
+    '</Relationships>'
+  ].join('');
+  files['xl/workbook.xml'] = buildWorkbookXml(safeSheets);
+  files['xl/_rels/workbook.xml.rels'] = buildWorkbookRelsXml(safeSheets.length);
+
+  safeSheets.forEach((sheet, index) => {
+    files[`xl/worksheets/sheet${index + 1}.xml`] = buildWorksheetXml(sheet.rows);
+  });
+
+  return new Blob([buildZip(files)], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  });
+}
+
+function rowsToMatrix(rows) {
+  if (!rows.length) return [[]];
+  const headers = Object.keys(rows[0]);
+  return [
+    headers,
+    ...rows.map(row => headers.map(header => row[header] === undefined || row[header] === null ? '' : row[header]))
+  ];
+}
+
+function buildContentTypesXml(sheetCount) {
+  const sheetOverrides = Array.from({ length: sheetCount }, (_, index) =>
+    `<Override PartName="/xl/worksheets/sheet${index + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`
+  ).join('');
+  return [
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">',
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>',
+    '<Default Extension="xml" ContentType="application/xml"/>',
+    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>',
+    sheetOverrides,
+    '</Types>'
+  ].join('');
+}
+
+function buildWorkbookXml(sheets) {
+  const sheetTags = sheets.map((sheet, index) =>
+    `<sheet name="${escapeXmlAttribute(sheet.name)}" sheetId="${index + 1}" r:id="rId${index + 1}"/>`
+  ).join('');
+  return [
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+    '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">',
+    `<sheets>${sheetTags}</sheets>`,
+    '</workbook>'
+  ].join('');
+}
+
+function buildWorkbookRelsXml(sheetCount) {
+  const relations = Array.from({ length: sheetCount }, (_, index) =>
+    `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${index + 1}.xml"/>`
+  ).join('');
+  return [
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">',
+    relations,
+    '</Relationships>'
+  ].join('');
+}
+
+function buildWorksheetXml(rows) {
+  const rowXml = rows.map((row, rowIndex) => {
+    const cellXml = row.map((value, columnIndex) => buildCellXml(value, columnIndex, rowIndex)).join('');
+    return `<row r="${rowIndex + 1}">${cellXml}</row>`;
+  }).join('');
+  return [
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">',
+    `<sheetData>${rowXml}</sheetData>`,
+    '</worksheet>'
+  ].join('');
+}
+
+function buildCellXml(value, columnIndex, rowIndex) {
+  const reference = `${columnName(columnIndex)}${rowIndex + 1}`;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return `<c r="${reference}"><v>${value}</v></c>`;
+  }
+  return `<c r="${reference}" t="inlineStr"><is><t>${escapeXmlText(value)}</t></is></c>`;
+}
+
+function columnName(index) {
+  let name = '';
+  let value = index + 1;
+  while (value > 0) {
+    const remainder = (value - 1) % 26;
+    name = String.fromCharCode(65 + remainder) + name;
+    value = Math.floor((value - 1) / 26);
+  }
+  return name;
+}
+
+function sanitizeSheetName(value) {
+  return String(value || 'Sheet')
+    .replace(/[:\\/?*\[\]]/g, ' ')
+    .slice(0, 31)
+    .trim() || 'Sheet';
+}
+
+function escapeXmlText(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function escapeXmlAttribute(value) {
+  return escapeXmlText(value).replace(/"/g, '&quot;');
+}
+
+function buildZip(files) {
+  const encoder = new TextEncoder();
+  const chunks = [];
+  const centralDirectory = [];
+  let offset = 0;
+  const entries = Object.entries(files).map(([name, content]) => ({
+    name,
+    nameBytes: encoder.encode(name),
+    data: encoder.encode(content)
+  }));
+
+  entries.forEach(entry => {
+    const crc = crc32(entry.data);
+    const localHeader = zipLocalHeader(entry, crc);
+    chunks.push(localHeader, entry.nameBytes, entry.data);
+    centralDirectory.push({ entry, crc, offset });
+    offset += localHeader.length + entry.nameBytes.length + entry.data.length;
+  });
+
+  const centralStart = offset;
+  centralDirectory.forEach(item => {
+    const centralHeader = zipCentralHeader(item.entry, item.crc, item.offset);
+    chunks.push(centralHeader, item.entry.nameBytes);
+    offset += centralHeader.length + item.entry.nameBytes.length;
+  });
+
+  const centralSize = offset - centralStart;
+  chunks.push(zipEndRecord(entries.length, centralSize, centralStart));
+  return concatUint8Arrays(chunks);
+}
+
+function zipLocalHeader(entry, crc) {
+  const buffer = new ArrayBuffer(30);
+  const view = new DataView(buffer);
+  view.setUint32(0, 0x04034b50, true);
+  view.setUint16(4, 20, true);
+  view.setUint16(6, 0, true);
+  view.setUint16(8, 0, true);
+  view.setUint16(10, 0, true);
+  view.setUint16(12, 0, true);
+  view.setUint32(14, crc, true);
+  view.setUint32(18, entry.data.length, true);
+  view.setUint32(22, entry.data.length, true);
+  view.setUint16(26, entry.nameBytes.length, true);
+  view.setUint16(28, 0, true);
+  return new Uint8Array(buffer);
+}
+
+function zipCentralHeader(entry, crc, localOffset) {
+  const buffer = new ArrayBuffer(46);
+  const view = new DataView(buffer);
+  view.setUint32(0, 0x02014b50, true);
+  view.setUint16(4, 20, true);
+  view.setUint16(6, 20, true);
+  view.setUint16(8, 0, true);
+  view.setUint16(10, 0, true);
+  view.setUint16(12, 0, true);
+  view.setUint16(14, 0, true);
+  view.setUint32(16, crc, true);
+  view.setUint32(20, entry.data.length, true);
+  view.setUint32(24, entry.data.length, true);
+  view.setUint16(28, entry.nameBytes.length, true);
+  view.setUint16(30, 0, true);
+  view.setUint16(32, 0, true);
+  view.setUint16(34, 0, true);
+  view.setUint16(36, 0, true);
+  view.setUint32(38, 0, true);
+  view.setUint32(42, localOffset, true);
+  return new Uint8Array(buffer);
+}
+
+function zipEndRecord(entryCount, centralSize, centralStart) {
+  const buffer = new ArrayBuffer(22);
+  const view = new DataView(buffer);
+  view.setUint32(0, 0x06054b50, true);
+  view.setUint16(4, 0, true);
+  view.setUint16(6, 0, true);
+  view.setUint16(8, entryCount, true);
+  view.setUint16(10, entryCount, true);
+  view.setUint32(12, centralSize, true);
+  view.setUint32(16, centralStart, true);
+  view.setUint16(20, 0, true);
+  return new Uint8Array(buffer);
+}
+
+function concatUint8Arrays(parts) {
+  const total = parts.reduce((sum, part) => sum + part.length, 0);
+  const output = new Uint8Array(total);
+  let offset = 0;
+  parts.forEach(part => {
+    output.set(part, offset);
+    offset += part.length;
+  });
+  return output;
+}
+
+function crc32(data) {
+  let crc = -1;
+  for (let index = 0; index < data.length; index++) {
+    crc = (crc >>> 8) ^ crc32Table[(crc ^ data[index]) & 0xff];
+  }
+  return (crc ^ -1) >>> 0;
+}
+
+const crc32Table = (() => {
+  const table = new Uint32Array(256);
+  for (let index = 0; index < 256; index++) {
+    let value = index;
+    for (let bit = 0; bit < 8; bit++) {
+      value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+    }
+    table[index] = value >>> 0;
+  }
+  return table;
+})();
 
 async function getAnalysisDateRows() {
   const result = await callCachedListApi('getClosedCases');
