@@ -406,12 +406,14 @@ function renderTrendResult(data, threshold) {
         const badgeColor = '#dc3545';
         const arrow = '↓';
         const cardBg = '#fffdf2';
+        const groupBadge = r.inGroup ? `<span class="badge bg-success ms-1 px-1 shadow-sm" style="font-size:0.65em;">小組</span>` : '';
         const warningHtml = r.missingThreeWeeks ? `<span class="text-danger fw-bold">${r.warningDesc}</span>` : '';
 
         return `
         <div style="border:1px solid #dee2e6; border-radius:8px; padding:10px 12px; margin-bottom:10px; background:${cardBg};">
           <div class="d-flex justify-content-between align-items-center mb-1">
             <span class="fw-bold" style="font-size:0.95rem;">${r.name}
+              ${groupBadge}
               <span style="color:${gColor}; font-size:0.8rem; margin-left:4px;">${gender}</span>
             </span>
             <span class="badge" style="background:${badgeColor}; font-size:0.8rem;">${arrow} ${changePct}% (衰退指數: ${r.dropScore})</span>
@@ -465,13 +467,13 @@ function renderTrendResult(data, threshold) {
     csvRows.push(['近期區間', data.periodRecent, '場次', data.sessionsRecent]);
     csvRows.push(['衰退幅度門檻', threshold + '%']);
     csvRows.push([]);
-    csvRows.push(['類別', '姓名', '性別', '歷史出席率', '近期出席率', '衰退幅度', '連續缺席場數', '衰退指數', '備註']);
+    csvRows.push(['類別', '姓名', '性別', '小組', '歷史出席率', '近期出席率', '衰退幅度', '連續缺席場數', '衰退指數', '備註']);
 
     const dropped = (data.details || []).filter(function(r) { return r.rateDrop >= threshold && r.dropScore > 0; });
     dropped.sort(function(a, b) { return b.dropScore - a.dropScore; });
 
     dropped.forEach(function(r) {
-      csvRows.push(['出席減少', r.name, r.gender, r.historyRate + '%', r.recentRate + '%', r.rateDrop + '%', r.consecutiveMisses, r.dropScore, r.warningDesc || '']);
+      csvRows.push(['出席減少', r.name, r.gender, r.inGroup ? '是' : '否', r.historyRate + '%', r.recentRate + '%', r.rateDrop + '%', r.consecutiveMisses, r.dropScore, r.warningDesc || '']);
     });
 
     const csvString = "\uFEFF" + csvRows.map(function(row) { return row.join(','); }).join('\n');
