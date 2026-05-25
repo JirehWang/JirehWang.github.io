@@ -32,12 +32,6 @@
     }
 
     if (writeActions.has(action)) {
-      if (action === 'cal_aiParseForType') {
-        return {
-          success: false,
-          message: 'AI import to Notion is not enabled yet. Please use manual input first.'
-        };
-      }
       const res = await originalChurchAPI('notion_' + action, data || {});
       return normalizeNotionCalendarResponse(action, res);
     }

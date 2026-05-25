@@ -41,6 +41,8 @@ function handleNotionCalendarAction(action, data) {
       return notion_cal_deleteEvent(data || {});
     case 'notion_cal_addEventsBatch':
       return notion_cal_addEventsBatch(data || {});
+    case 'notion_cal_aiParseForType':
+      return notion_cal_aiParseForType(data || {});
     case 'notion_cal_addType':
       return notion_cal_addType(data || {});
     case 'notion_cal_updateType':
@@ -236,6 +238,101 @@ function notion_cal_addEventsBatch(data) {
     success: true,
     message: '已新增 ' + created.length + ' 筆到 Notion',
     eventIds: created
+  };
+}
+
+function notion_cal_aiParseForType(data) {
+  if (!data || !data.rootTypeId) return { success: false, message: 'Missing rootTypeId' };
+  if (!data.rawText || !String(data.rawText).trim()) return { success: false, message: 'Missing rawText' };
+
+  const typesRes = notion_cal_getTypes();
+  const flatTypes = (typesRes.data && typesRes.data.flat) || [];
+  const rootType = flatTypes.find(t => t.typeId === data.rootTypeId) ||
+    flatTypes.find(t => !t.parentTypeId && t.name === data.rootTypeId);
+  if (!rootType) return { success: false, message: '找不到指定的 Notion 活動類型' };
+
+  const subTypes = flatTypes.filter(t => t.parentTypeId === rootType.typeId);
+  const fieldsRes = notion_cal_getFields({ typeId: rootType.typeId });
+  const fields = ((fieldsRes.data && fieldsRes.data.fields) || [])
+    .filter(f => f.fieldId !== NOTION_PROP.subtype)
+    .filter(f => f.fieldId !== NOTION_PROP.public)
+    .filter(f => f.fieldId !== NOTION_PROP.status)
+    .filter(f => f.fieldId !== NOTION_PROP.note);
+
+  const fieldsDesc = fields.map(f => {
+    const options = Array.isArray(f.options) && f.options.length ? ' options=[' + f.options.join(', ') + ']' : '';
+    return '  - "' + f.fieldId + '": ' + f.name + ' (' + f.type + ')' + options;
+  }).join('\n') || '  - "' + NOTION_PROP.displayTitle + '": 顯示標題 (text)';
+
+  const subTypesDesc = subTypes.length
+    ? '\n可用子類型，請只使用其中一個作為 subTypeName：\n' +
+      subTypes.map(s => '  - "' + s.name + '"').join('\n')
+    : '';
+
+  const allowMultiple = data.allowMultiple !== false;
+  const sampleSubType = subTypes[0] ? subTypes[0].name : '';
+  const prompt = [
+    '你是教會行事曆資料整理助手。請從使用者貼上的文字中，整理出可匯入 Notion 行事曆的 JSON。',
+    '活動類型是：' + rootType.name,
+    '可用欄位如下，values 的 key 必須使用欄位 id：',
+    fieldsDesc,
+    subTypesDesc,
+    '',
+    '規則：',
+    '1. 日期一律輸出 YYYY-MM-DD。',
+    '2. ' + (allowMultiple ? '如果文字中有多筆行程，請輸出多個 events。' : '只輸出一個 event。'),
+    '3. 找不到的欄位請留空字串，不要捏造。',
+    '4. title 是月曆上顯示的短標題；若不確定可留空。',
+    '5. 只輸出 JSON，不要 markdown，不要解釋。',
+    '',
+    '格式：',
+    '{',
+    '  "events": [',
+    '    {',
+    '      "date": "2026-01-05",',
+    '      "subTypeName": "' + sampleSubType + '",',
+    '      "title": "",',
+    '      "values": {',
+    fields.slice(0, 2).map(f => '        "' + f.fieldId + '": ""').join(',\n'),
+    '      }',
+    '    }',
+    '  ]',
+    '}'
+  ].join('\n');
+
+  const aiResult = callGeminiApi(prompt, data.rawText);
+  let parsed;
+  try {
+    parsed = JSON.parse(aiResult);
+  } catch (err) {
+    const match = String(aiResult || '').match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        parsed = JSON.parse(match[0]);
+      } catch (innerErr) {}
+    }
+    if (!parsed) throw new Error('AI 回傳無法解析為 JSON：' + String(aiResult || '').substring(0, 200));
+  }
+
+  const subTypesByName = {};
+  subTypes.forEach(s => subTypesByName[s.name] = s.typeId);
+  const events = (Array.isArray(parsed.events) ? parsed.events : []).map(ev => {
+    const subTypeId = ev.subTypeName ? subTypesByName[ev.subTypeName] : '';
+    return {
+      date: ev.date || '',
+      subTypeName: ev.subTypeName || '',
+      subTypeId: subTypeId || (subTypes.length === 0 ? rootType.typeId : ''),
+      title: ev.title || '',
+      values: ev.values || {}
+    };
+  });
+
+  return {
+    success: true,
+    rootTypeId: rootType.typeId,
+    rootTypeName: rootType.name,
+    events: events,
+    hasSubTypes: subTypes.length > 0
   };
 }
 
