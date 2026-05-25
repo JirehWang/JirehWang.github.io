@@ -49,16 +49,27 @@ function handleNotionCalendarAction(action, data) {
 function notion_cal_getTypes() {
   const db = notionGetDatabase_();
   const typeOptions = (((db.properties || {})[NOTION_PROP.type] || {}).select || {}).options || [];
+  const subTypeOptions = (((db.properties || {})[NOTION_PROP.subtype] || {}).select || {}).options || [];
+  const subTypesByRoot = notionSubTypesByRoot_(subTypeOptions);
   const roots = typeOptions
     .filter(opt => NOTION_ROOT_TYPES.indexOf(opt.name) !== -1)
-    .map(opt => notionTypeFromOption_(opt, ''));
+    .map(opt => {
+      const root = notionTypeFromOption_(opt, '');
+      root.children = (subTypesByRoot[opt.name] || []).map(child => notionTypeFromOption_(child, opt.name));
+      return root;
+    });
+  const flat = [];
+  roots.forEach(root => {
+    flat.push(root);
+    (root.children || []).forEach(child => flat.push(child));
+  });
 
   return {
     success: true,
     data: {
       types: roots,
       tree: roots,
-      flat: roots
+      flat: flat
     }
   };
 }
@@ -108,11 +119,25 @@ function notion_cal_getEvents(data) {
     filters.push({ property: NOTION_PROP.date, date: { before: data.endDate } });
   }
   if (data && data.typeIds && data.typeIds.length) {
-    filters.push({
-      or: data.typeIds.map(typeId => ({
+    const typeIds = data.typeIds.map(String);
+    const rootTypes = typeIds.filter(id => NOTION_ROOT_TYPES.indexOf(id) !== -1);
+    const subTypes = typeIds.filter(id => NOTION_ROOT_TYPES.indexOf(id) === -1);
+    const orFilters = [];
+    rootTypes.forEach(typeId => {
+      orFilters.push({
         property: NOTION_PROP.type,
         select: { equals: typeId }
-      }))
+      });
+    });
+    subTypes.forEach(typeId => {
+      const normalized = notionNormalizeTypeInput_(typeId);
+      orFilters.push({
+        property: NOTION_PROP.subtype,
+        select: { equals: normalized.subType || typeId }
+      });
+    });
+    filters.push({
+      or: orFilters
     });
   }
   if (filters.length === 1) payload.filter = filters[0];
@@ -204,7 +229,10 @@ function notion_cal_addEventsBatch(data) {
 
 function notionBuildPageProperties_(data) {
   const values = data.values || {};
-  const title = data.title || values[NOTION_PROP.displayTitle] || data.typeId || '未命名活動';
+  const normalized = notionNormalizeTypeInput_(data.typeId);
+  const rootType = normalized.rootType || data.typeId;
+  const subType = values[NOTION_PROP.subtype] || normalized.subType || '';
+  const title = data.title || values[NOTION_PROP.displayTitle] || subType || rootType || '未命名活動';
 
   const props = {};
   props[NOTION_PROP.title] = { title: [{ text: { content: String(title) } }] };
@@ -214,10 +242,10 @@ function notionBuildPageProperties_(data) {
   }
 
   if (data.typeId !== undefined) {
-    props[NOTION_PROP.type] = data.typeId ? { select: { name: String(data.typeId) } } : { select: null };
+    props[NOTION_PROP.type] = rootType ? { select: { name: String(rootType) } } : { select: null };
   }
 
-  notionSetProp_(props, NOTION_PROP.subtype, values[NOTION_PROP.subtype], 'select');
+  notionSetProp_(props, NOTION_PROP.subtype, subType, 'select');
   notionSetProp_(props, NOTION_PROP.displayTitle, values[NOTION_PROP.displayTitle], 'text');
   notionSetProp_(props, NOTION_PROP.location, values[NOTION_PROP.location], 'text');
   notionSetProp_(props, NOTION_PROP.ministry, values[NOTION_PROP.ministry], 'text');
@@ -281,8 +309,9 @@ function notionPageToCalendarEvent_(page) {
 }
 
 function notionTypeFromOption_(opt, parentTypeId) {
+  const id = parentTypeId ? parentTypeId + '::' + opt.name : opt.name;
   const type = {
-    typeId: opt.name,
+    typeId: id,
     parentTypeId: parentTypeId || '',
     icon: notionTypeIcon_(opt.name),
     color: notionTypeColor_(opt.name),
@@ -293,6 +322,37 @@ function notionTypeFromOption_(opt, parentTypeId) {
   type['?迂'] = opt.name;
   type.name = opt.name;
   return type;
+}
+
+function notionSubTypesByRoot_(subTypeOptions) {
+  const groups = {
+    '聚會名稱': ['聚會名稱'],
+    '講道資訊': ['台語', '華語', '聯合'],
+    '會議': ['長執會', '小會', '幼兒園董事會', '同工會議', '牧區會議']
+  };
+  const byName = {};
+  subTypeOptions.forEach(opt => byName[opt.name] = opt);
+  const result = {};
+  Object.keys(groups).forEach(root => {
+    result[root] = groups[root]
+      .filter(name => byName[name])
+      .map(name => byName[name]);
+  });
+  return result;
+}
+
+function notionNormalizeTypeInput_(typeId) {
+  const text = String(typeId || '');
+  if (text.indexOf('::') !== -1) {
+    const parts = text.split('::');
+    return { rootType: parts[0], subType: parts.slice(1).join('::') };
+  }
+  if (NOTION_ROOT_TYPES.indexOf(text) !== -1) return { rootType: text, subType: '' };
+  const meetingSubTypes = ['長執會', '小會', '幼兒園董事會', '同工會議', '牧區會議'];
+  if (meetingSubTypes.indexOf(text) !== -1) return { rootType: '會議', subType: text };
+  const sermonSubTypes = ['台語', '華語', '聯合'];
+  if (sermonSubTypes.indexOf(text) !== -1) return { rootType: '講道資訊', subType: text };
+  return { rootType: '聚會名稱', subType: text };
 }
 
 function notionFieldFromProperty_(name, prop, sortOrder) {
