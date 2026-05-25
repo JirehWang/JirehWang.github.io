@@ -41,6 +41,17 @@ function handleNotionCalendarAction(action, data) {
       return notion_cal_deleteEvent(data || {});
     case 'notion_cal_addEventsBatch':
       return notion_cal_addEventsBatch(data || {});
+    case 'notion_cal_addType':
+      return notion_cal_addType(data || {});
+    case 'notion_cal_updateType':
+      return notion_cal_updateType(data || {});
+    case 'notion_cal_deleteType':
+      return notion_cal_deleteType(data || {});
+    case 'notion_cal_addField':
+    case 'notion_cal_updateField':
+    case 'notion_cal_deleteField':
+    case 'notion_cal_reorderFields':
+      return notion_cal_fieldsReadOnly_(action);
     default:
       return { success: false, message: 'Unknown Notion calendar action: ' + action };
   }
@@ -51,8 +62,9 @@ function notion_cal_getTypes() {
   const typeOptions = (((db.properties || {})[NOTION_PROP.type] || {}).select || {}).options || [];
   const subTypeOptions = (((db.properties || {})[NOTION_PROP.subtype] || {}).select || {}).options || [];
   const subTypesByRoot = notionSubTypesByRoot_(subTypeOptions);
+  const rootTypes = notionRootTypes_();
   const roots = typeOptions
-    .filter(opt => NOTION_ROOT_TYPES.indexOf(opt.name) !== -1)
+    .filter(opt => rootTypes.indexOf(opt.name) !== -1)
     .map(opt => {
       const root = notionTypeFromOption_(opt, '');
       root.children = (subTypesByRoot[opt.name] || []).map(child => notionTypeFromOption_(child, opt.name));
@@ -227,6 +239,109 @@ function notion_cal_addEventsBatch(data) {
   };
 }
 
+function notion_cal_addType(data) {
+  const name = String(data.name || '').trim();
+  if (!name) return { success: false, message: '類型名稱不可空白' };
+
+  const parentTypeId = String(data.parentTypeId || '').trim();
+  if (!parentTypeId) {
+    notionUpsertSelectOption_(NOTION_PROP.type, name, data.color);
+    const groups = notionGetSubTypeGroups_();
+    if (!groups[name]) groups[name] = [];
+    notionSaveSubTypeGroups_(groups);
+    return {
+      success: true,
+      typeId: name,
+      message: '已新增到 Notion 活動類型'
+    };
+  }
+
+  const parent = notionNormalizeTypeInput_(parentTypeId).rootType || parentTypeId;
+  notionUpsertSelectOption_(NOTION_PROP.subtype, name, data.color);
+  const groups = notionGetSubTypeGroups_();
+  groups[parent] = groups[parent] || [];
+  if (groups[parent].indexOf(name) === -1) groups[parent].push(name);
+  notionSaveSubTypeGroups_(groups);
+
+  return {
+    success: true,
+    typeId: parent + '::' + name,
+    message: '已新增到 Notion 子類型'
+  };
+}
+
+function notion_cal_updateType(data) {
+  if (!data || !data.typeId) return { success: false, message: 'Missing typeId' };
+  if (data.name === undefined && data.color === undefined && data.excludedFieldIds !== undefined) {
+    return { success: true, message: 'Notion 欄位繼承設定已略過' };
+  }
+
+  const parsed = notionNormalizeTypeInput_(data.typeId);
+  const oldRoot = parsed.rootType || data.typeId;
+  const oldSub = parsed.subType || '';
+  const nextName = String(data.name || oldSub || oldRoot).trim();
+  if (!nextName) return { success: false, message: '類型名稱不可空白' };
+
+  const groups = notionGetSubTypeGroups_();
+  if (oldSub) {
+    notionUpsertSelectOption_(NOTION_PROP.subtype, nextName, data.color);
+    groups[oldRoot] = groups[oldRoot] || [];
+    const idx = groups[oldRoot].indexOf(oldSub);
+    if (idx === -1 && groups[oldRoot].indexOf(nextName) === -1) groups[oldRoot].push(nextName);
+    if (idx !== -1) groups[oldRoot][idx] = nextName;
+    notionSaveSubTypeGroups_(groups);
+    return {
+      success: true,
+      typeId: oldRoot + '::' + nextName,
+      message: '已更新 Notion 子類型'
+    };
+  }
+
+  notionUpsertSelectOption_(NOTION_PROP.type, nextName, data.color);
+  if (oldRoot !== nextName) {
+    groups[nextName] = groups[oldRoot] || [];
+    delete groups[oldRoot];
+    notionSaveSubTypeGroups_(groups);
+  }
+  return {
+    success: true,
+    typeId: nextName,
+    message: '已更新 Notion 活動類型；舊 select 選項會保留在 Notion 中'
+  };
+}
+
+function notion_cal_deleteType(data) {
+  if (!data || !data.typeId) return { success: false, message: 'Missing typeId' };
+
+  const parsed = notionNormalizeTypeInput_(data.typeId);
+  const root = parsed.rootType || data.typeId;
+  const sub = parsed.subType || '';
+  const groups = notionGetSubTypeGroups_();
+
+  if (sub) {
+    groups[root] = (groups[root] || []).filter(name => name !== sub);
+    notionSaveSubTypeGroups_(groups);
+    return {
+      success: true,
+      message: '已從 GitHub 事項管理隱藏；Notion 的 select 選項仍保留，避免影響既有資料'
+    };
+  }
+
+  delete groups[root];
+  notionSaveSubTypeGroups_(groups);
+  return {
+    success: true,
+    message: '已從 GitHub 事項管理隱藏；Notion 的活動類型選項仍保留，避免影響既有資料'
+  };
+}
+
+function notion_cal_fieldsReadOnly_(action) {
+  return {
+    success: false,
+    message: '目前 Notion 欄位請直接在 Notion 資料庫調整；前端先支援類型與子類型管理。'
+  };
+}
+
 function notionBuildPageProperties_(data) {
   const values = data.values || {};
   const normalized = notionNormalizeTypeInput_(data.typeId);
@@ -325,11 +440,7 @@ function notionTypeFromOption_(opt, parentTypeId) {
 }
 
 function notionSubTypesByRoot_(subTypeOptions) {
-  const groups = {
-    '聚會名稱': ['聚會名稱'],
-    '講道資訊': ['台語', '華語', '聯合'],
-    '會議': ['長執會', '小會', '幼兒園董事會', '同工會議', '牧區會議']
-  };
+  const groups = notionGetSubTypeGroups_();
   const byName = {};
   subTypeOptions.forEach(opt => byName[opt.name] = opt);
   const result = {};
@@ -347,11 +458,11 @@ function notionNormalizeTypeInput_(typeId) {
     const parts = text.split('::');
     return { rootType: parts[0], subType: parts.slice(1).join('::') };
   }
-  if (NOTION_ROOT_TYPES.indexOf(text) !== -1) return { rootType: text, subType: '' };
-  const meetingSubTypes = ['長執會', '小會', '幼兒園董事會', '同工會議', '牧區會議'];
-  if (meetingSubTypes.indexOf(text) !== -1) return { rootType: '會議', subType: text };
-  const sermonSubTypes = ['台語', '華語', '聯合'];
-  if (sermonSubTypes.indexOf(text) !== -1) return { rootType: '講道資訊', subType: text };
+  if (notionRootTypes_().indexOf(text) !== -1) return { rootType: text, subType: '' };
+  const groups = notionGetSubTypeGroups_();
+  for (const root in groups) {
+    if ((groups[root] || []).indexOf(text) !== -1) return { rootType: root, subType: text };
+  }
   return { rootType: '聚會名稱', subType: text };
 }
 
@@ -394,6 +505,97 @@ function notionValueRow_(name, value, fieldType) {
     fieldType: fieldType || 'text',
     value: value || ''
   };
+}
+
+function notionRootTypes_() {
+  const groups = notionGetSubTypeGroups_();
+  const roots = NOTION_ROOT_TYPES.slice();
+  Object.keys(groups).forEach(name => {
+    if (roots.indexOf(name) === -1) roots.push(name);
+  });
+  return roots;
+}
+
+function notionGetSubTypeGroups_() {
+  const defaults = {
+    '聚會名稱': ['聚會名稱'],
+    '講道資訊': ['台語', '華語', '聯合'],
+    '會議': ['長執會', '小會', '幼兒園董事會', '同工會議', '牧區會議']
+  };
+  const raw = PropertiesService.getScriptProperties().getProperty('NOTION_SUBTYPE_GROUPS');
+  if (!raw) return defaults;
+  try {
+    const parsed = JSON.parse(raw);
+    Object.keys(defaults).forEach(root => {
+      if (!Array.isArray(parsed[root])) parsed[root] = defaults[root];
+    });
+    return parsed;
+  } catch (err) {
+    return defaults;
+  }
+}
+
+function notionSaveSubTypeGroups_(groups) {
+  PropertiesService.getScriptProperties().setProperty('NOTION_SUBTYPE_GROUPS', JSON.stringify(groups || {}));
+}
+
+function notionUpsertSelectOption_(propertyName, optionName, color) {
+  const db = notionGetDatabase_();
+  const prop = (db.properties || {})[propertyName];
+  if (!prop || prop.type !== 'select') {
+    throw new Error('Notion property is not select: ' + propertyName);
+  }
+
+  const options = ((prop.select || {}).options || []).map(opt => ({
+    id: opt.id,
+    name: opt.name,
+    color: opt.color || 'default'
+  }));
+  const existing = options.find(opt => opt.name === optionName);
+  if (!existing) {
+    options.push({
+      name: optionName,
+      color: notionOptionColor_(color)
+    });
+  }
+  notionUpdateSelectOptions_(propertyName, options);
+}
+
+function notionUpdateSelectOptions_(propertyName, options) {
+  const clean = options.map(opt => {
+    const item = {
+      name: opt.name,
+      color: opt.color || 'default'
+    };
+    if (opt.id) item.id = opt.id;
+    return item;
+  });
+  const payload = { properties: {} };
+  payload.properties[propertyName] = { select: { options: clean } };
+  notionFetch_('/databases/' + notionDatabaseId_(), 'patch', payload);
+}
+
+function notionOptionColor_(value) {
+  const text = String(value || '').trim().toLowerCase();
+  if (['default', 'gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'].indexOf(text) !== -1) {
+    return text;
+  }
+  if (/^#/.test(text)) {
+    const hex = text.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return 'default';
+    if (r > 200 && g < 120 && b < 140) return 'red';
+    if (r > 210 && g > 120 && b < 100) return 'orange';
+    if (r > 190 && g > 170 && b < 110) return 'yellow';
+    if (g > r && g > b) return 'green';
+    if (b > r && b > g) return 'blue';
+    if (r > 150 && b > 150) return 'purple';
+    if (r > 180 && b > 130) return 'pink';
+    return 'gray';
+  }
+  return 'default';
 }
 
 function notionGetDatabase_() {

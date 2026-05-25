@@ -17,6 +17,13 @@
     'cal_updateEvent',
     'cal_deleteEvent',
     'cal_addEventsBatch',
+    'cal_addType',
+    'cal_updateType',
+    'cal_deleteType',
+    'cal_addField',
+    'cal_updateField',
+    'cal_deleteField',
+    'cal_reorderFields',
     'cal_aiParseForType'
   ]);
 
