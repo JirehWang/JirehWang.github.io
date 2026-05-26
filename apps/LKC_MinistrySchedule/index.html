@@ -183,12 +183,12 @@
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <div id="promptSettings" class="mb-3 p-3 bg-light border border-secondary border-opacity-25 rounded shadow-sm">
-            <label class="form-label small fw-bold text-primary">班表規則</label>
-            <textarea id="groupPromptInput" class="form-control mb-2" rows="2" placeholder="例如：破冰和敬拜必須是同一人、話語分享只能排小明或阿華..."></textarea>
-            <div class="d-flex justify-content-end">
-              <button class="btn btn-sm btn-primary" onclick="saveGroupPrompt()">儲存規則</button>
+          <div class="d-flex justify-content-between align-items-center gap-2 mb-3 p-3 bg-light border border-secondary border-opacity-25 rounded shadow-sm">
+            <div>
+              <div class="fw-bold text-primary">班表規則</div>
+              <div class="small text-muted">AI 解析會套用目前儲存的班表規則。</div>
             </div>
+            <button class="btn btn-outline-primary fw-bold" type="button" onclick="openScheduleRuleModal()">設定班表規則</button>
           </div>
 
           <div class="ai-box shadow-sm mb-0">
@@ -198,6 +198,24 @@
               <button class="btn btn-success fw-bold" onclick="processAI()">AI 解析</button>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="scheduleRuleModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title fw-bold">班表規則</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <textarea id="groupPromptInput" class="form-control schedule-rule-textarea" rows="12" placeholder="例如：破冰和敬拜必須是同一人、話語分享只能排小明或阿華..."></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-primary fw-bold" onclick="saveGroupPrompt()">儲存規則</button>
         </div>
       </div>
     </div>
@@ -268,6 +286,16 @@
             </div>
           </div>
           <div class="form-text mt-3">系統會依目前表格欄位產生空白列；若已有相同日期，會略過。</div>
+          <div class="quarter-options mt-3">
+            <label class="form-check">
+              <input id="quarterUseAI" class="form-check-input" type="checkbox">
+              <span class="form-check-label fw-bold">使用 AI 進行排班</span>
+            </label>
+            <label class="form-check">
+              <input id="quarterUseSermon" class="form-check-input" type="checkbox">
+              <span class="form-check-label fw-bold">本次新增日期套用講道</span>
+            </label>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-light" data-bs-dismiss="modal">取消</button>

@@ -577,7 +577,10 @@ function renderTable(data) {
   let html = datalistHTML;
   html += `<div class="record-grid-header fw-bold text-muted mb-2 px-1" style="display: grid; grid-template-columns: ${gridTemplate}; gap: 10px;">`;
   currentTableHeaders.forEach(h => html += `<div>${h}</div>`);
-  html += `<div class="text-center">操作</div></div>`;
+  html += `<div class="text-center">刪除</div></div>`;
+  html += `<div class="d-flex justify-content-end mb-2">
+    <button type="button" class="btn btn-sm btn-outline-danger fw-bold" onclick="deleteSelectedRows()">刪除勾選列</button>
+  </div>`;
   html += `<div id="rowsContainer" class="d-flex flex-column gap-2">`;
 
   const sourceHeaders = data.matrix[0].map(h => h.toString().trim());
@@ -724,7 +727,7 @@ function createRowHTML(rowData, gridTemplate) {
     rowHtml += `<input type="${inputType}" class="grid-input ${extraClass}" data-c="${cIdx}" value="${val}" title="${val}" ${listAttr} ${readonlyAttr}>`;
   });
 
-  rowHtml += `<button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteRow(this)" title="刪除此列">✖</button></div>`;
+  rowHtml += `<div class="d-flex justify-content-center"><input type="checkbox" class="form-check-input row-delete-checkbox" title="勾選後可批次刪除"></div></div>`;
   return rowHtml;
 }
 
@@ -749,6 +752,17 @@ function deleteRow(btnElement) {
   if (confirm("確定要刪除這筆排班資料嗎？")) {
     btnElement.parentElement.remove();
   }
+}
+
+function deleteSelectedRows() {
+  const selected = Array.from(document.querySelectorAll('.row-delete-checkbox:checked'));
+  if (selected.length === 0) {
+    getNotifier().warning("⚠️ 請先勾選要刪除的列");
+    return;
+  }
+  if (!confirm(`確定要刪除 ${selected.length} 列資料嗎？`)) return;
+  selected.forEach(checkbox => checkbox.closest('.record-row')?.remove());
+  getNotifier().success(`✅ 已刪除 ${selected.length} 列`);
 }
 
 function collectVisibleMatrix() {
@@ -788,9 +802,11 @@ function rerenderWithMatrix(matrix) {
 function openQuarterModal() {
   const yearInput = document.getElementById('quarterYear');
   const quarterSelect = document.getElementById('quarterNumber');
+  const sermonCheckbox = document.getElementById('quarterUseSermon');
   const now = new Date();
   if (yearInput && !yearInput.value) yearInput.value = now.getFullYear();
   if (quarterSelect && !quarterSelect.value) quarterSelect.value = String(Math.floor(now.getMonth() / 3) + 1);
+  if (sermonCheckbox) sermonCheckbox.checked = currentSermonSettings.useSermon === true;
   new bootstrap.Modal(document.getElementById('quarterModal')).show();
 }
 
@@ -798,7 +814,10 @@ function generateQuarterRows() {
   const year = Number(document.getElementById('quarterYear').value);
   const quarter = Number(document.getElementById('quarterNumber').value);
   const weekday = Number(document.getElementById('quarterWeekday').value);
+  const useAI = document.getElementById('quarterUseAI').checked;
+  const useSermonForNewRows = document.getElementById('quarterUseSermon').checked;
   const dateColIdx = currentTableHeaders.findIndex(h => h.includes("日期"));
+  const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
   if (!year || dateColIdx === -1) {
     getNotifier().warning("⚠️ 需要年度與日期欄位才能產生季度資料");
     return;
@@ -824,18 +843,38 @@ function generateQuarterRows() {
   });
 
   let added = 0;
+  const addedDates = [];
   dates.forEach(date => {
     if (existingDates.has(date)) return;
     const row = Array(currentTableHeaders.length).fill("");
     row[dateColIdx] = date;
+    if (sermonLinkColIdx !== -1) row[sermonLinkColIdx] = useSermonForNewRows ? "Y" : "N";
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = createRowHTML(row);
-    document.getElementById('rowsContainer').appendChild(tempDiv.firstElementChild);
+    const rowEl = tempDiv.firstElementChild;
+    document.getElementById('rowsContainer').appendChild(rowEl);
+    if (sermonLinkColIdx !== -1 && useSermonForNewRows) {
+      updateRowSermonState(rowEl, true, date);
+    }
+    addedDates.push(date);
     added++;
   });
 
   bootstrap.Modal.getInstance(document.getElementById('quarterModal'))?.hide();
   getNotifier().success(`✅ 已新增 ${added} 筆季度聚會日期`);
+
+  if (useAI && addedDates.length > 0) {
+    const aiBox = document.getElementById('aiRawText');
+    if (aiBox) {
+      aiBox.value = [
+        `請依照目前儲存的班表規則，為 ${year} 年第 ${quarter} 季以下日期進行排班。`,
+        "請保留日期，不要新增或刪除日期。",
+        "",
+        addedDates.map(date => `- ${date}`).join("\n")
+      ].join("\n");
+      processAI();
+    }
+  }
 }
 
 function openAiScheduleModal() {
@@ -844,6 +883,15 @@ function openAiScheduleModal() {
   setTimeout(() => {
     const box = document.getElementById('aiRawText');
     if (box) box.focus();
+  }, 180);
+}
+
+function openScheduleRuleModal() {
+  const modal = new bootstrap.Modal(document.getElementById('scheduleRuleModal'));
+  modal.show();
+  setTimeout(() => {
+    const input = document.getElementById('groupPromptInput');
+    if (input) input.focus();
   }, 180);
 }
 

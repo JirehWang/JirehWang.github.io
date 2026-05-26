@@ -112,6 +112,21 @@ body { background-color: #f4f7f6; padding: 20px; font-family: "Microsoft JhengHe
   font-size: 0.9rem;
 }
 
+.schedule-rule-textarea {
+  min-height: 280px;
+  resize: vertical;
+}
+
+.quarter-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #d9dee8;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
 .date-filter-toolbar {
   flex-wrap: wrap;
 }
@@ -270,6 +285,7 @@ body { background-color: #f4f7f6; padding: 20px; font-family: "Microsoft JhengHe
 @media (max-width: 900px) {
   .ministry-primary-actions,
   .settings-action-grid,
+  .quarter-options,
   .field-settings-row {
     grid-template-columns: 1fr;
   }
