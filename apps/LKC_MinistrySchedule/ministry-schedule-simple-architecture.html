@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>小組/團契排班功能簡化架構</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --paper: #ffffff;
+      --ink: #1f2937;
+      --muted: #667085;
+      --line: #d9dee8;
+      --blue: #176b87;
+      --blue-soft: #e7f4f8;
+      --green: #2f855a;
+      --green-soft: #ecfdf3;
+      --amber: #a16207;
+      --amber-soft: #fffaeb;
+      --gray-soft: #f8fafc;
+      --shadow: 0 12px 28px rgba(16, 24, 40, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Microsoft JhengHei", "Noto Sans TC", Arial, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      letter-spacing: 0;
+      line-height: 1.65;
+    }
+
+    .page {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 32px 20px 56px;
+    }
+
+    .hero {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 28px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 30px;
+      line-height: 1.25;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 21px;
+      line-height: 1.35;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      font-size: 17px;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .section {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      margin-top: 18px;
+      overflow: hidden;
+    }
+
+    .section-head {
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--line);
+      background: var(--gray-soft);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .section-body {
+      padding: 22px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--blue);
+      background: var(--blue-soft);
+      white-space: nowrap;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      background: #fff;
+    }
+
+    .card.meeting {
+      border-left: 5px solid var(--green);
+    }
+
+    .card.ministry {
+      border-left: 5px solid var(--blue);
+    }
+
+    .big-action {
+      min-height: 138px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 8px;
+      text-align: center;
+      background: #fff;
+      border: 2px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+    }
+
+    .big-action strong {
+      font-size: 22px;
+      line-height: 1.25;
+    }
+
+    .field-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .field {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 999px;
+      padding: 5px 11px;
+      font-weight: 800;
+      font-size: 14px;
+    }
+
+    .field.required {
+      background: var(--amber-soft);
+      color: var(--amber);
+      border-color: #f0c66c;
+    }
+
+    .flow {
+      display: grid;
+      gap: 14px;
+    }
+
+    .flow-row {
+      display: grid;
+      grid-template-columns: 1fr 36px 1fr;
+      align-items: stretch;
+      gap: 12px;
+    }
+
+    .flow-box {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 15px;
+      background: #fff;
+      min-height: 86px;
+    }
+
+    .flow-box strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 16px;
+    }
+
+    .flow-box span {
+      display: block;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--blue);
+      font-size: 24px;
+      font-weight: 900;
+    }
+
+    .wide-flow {
+      border: 2px solid var(--blue);
+      background: var(--blue-soft);
+      color: #0f4f68;
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+      font-weight: 900;
+    }
+
+    .admin-ui {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .list-panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .list-title {
+      background: var(--gray-soft);
+      border-bottom: 1px solid var(--line);
+      padding: 12px 14px;
+      font-weight: 900;
+    }
+
+    .list-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      font-weight: 800;
+    }
+
+    .list-item:last-child { border-bottom: 0; }
+
+    .handle {
+      color: var(--muted);
+      font-weight: 900;
+    }
+
+    pre {
+      margin: 0;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #111827;
+      color: #f9fafb;
+      padding: 16px;
+      overflow-x: auto;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    code {
+      font-family: Consolas, "Courier New", monospace;
+    }
+
+    .note {
+      background: var(--green-soft);
+      border: 1px solid #9bd6ad;
+      color: #276749;
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-weight: 800;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 22px;
+    }
+
+    li { margin: 6px 0; }
+
+    @media (max-width: 880px) {
+      .grid-2,
+      .grid-3,
+      .admin-ui,
+      .flow-row {
+        grid-template-columns: 1fr;
+      }
+
+      .arrow {
+        transform: rotate(90deg);
+        min-height: 28px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <h1>小組/團契排班功能簡化架構</h1>
+      <p>目標：平常使用只保留三個大入口；欄位長什麼樣子，由管理介面一次設定。新增分頁時先套用初始模板，之後再讓使用者客製欄位。</p>
+    </header>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>一、使用者主畫面</h2>
+        <span class="badge">給長輩使用</span>
+      </div>
+      <div class="section-body">
+        <div class="grid-3">
+          <div class="big-action">
+            <strong>新增一季聚會</strong>
+            <p>選年度、季度、星期幾，系統自動產生一季日期。</p>
+          </div>
+          <div class="big-action">
+            <strong>貼上排班內容</strong>
+            <p>貼 LINE、Word、Excel 文字，系統依目前欄位解析。</p>
+          </div>
+          <div class="big-action">
+            <strong>下載空白表格</strong>
+            <p>下載 Excel，欄位順序依管理介面設定。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>二、初始模板</h2>
+        <span class="badge">新增分頁時使用</span>
+      </div>
+      <div class="section-body">
+        <div class="grid-2">
+          <div class="card meeting">
+            <h3>聚會型模板</h3>
+            <p>小組、團契、聚會類分頁使用。</p>
+            <div class="field-list">
+              <span class="field required">日期</span>
+              <span class="field">主題</span>
+              <span class="field">經文</span>
+              <span class="field">地點</span>
+              <span class="field">敬拜</span>
+              <span class="field">話語分享</span>
+            </div>
+          </div>
+          <div class="card ministry">
+            <h3>事工型模板</h3>
+            <p>非小組團契的服事分頁使用。</p>
+            <div class="field-list">
+              <span class="field required">日期</span>
+              <span class="field">地點</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>三、新增分頁流程</h2>
+        <span class="badge">先有第一版</span>
+      </div>
+      <div class="section-body">
+        <div class="flow">
+          <div class="flow-row">
+            <div class="flow-box">
+              <strong>建立新分頁</strong>
+              <span>輸入 ID、顯示名稱。</span>
+            </div>
+            <div class="arrow">→</div>
+            <div class="flow-box">
+              <strong>選擇表格類型</strong>
+              <span>只需要選「聚會型模板」或「事工型模板」。</span>
+            </div>
+          </div>
+
+          <div class="wide-flow">系統依初始模板建立第一版 pageFieldConfig</div>
+
+          <div class="flow-row">
+            <div class="flow-box">
+              <strong>建立分頁完成</strong>
+              <span>使用者可以立刻開始新增一季聚會、貼上排班內容或下載空白表格。</span>
+            </div>
+            <div class="arrow">→</div>
+            <div class="flow-box">
+              <strong>之後再客製</strong>
+              <span>需要破冰、司會、點心等欄位時，到「表格欄位設定」新增並排序。</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>四、表格欄位設定管理介面</h2>
+        <span class="badge">給管理者使用</span>
+      </div>
+      <div class="section-body">
+        <div class="admin-ui">
+          <div class="list-panel">
+            <div class="list-title">目前使用中的欄位，可拖曳排序</div>
+            <div class="list-item"><span><span class="handle">::</span> 日期</span><span>必要</span></div>
+            <div class="list-item"><span><span class="handle">::</span> 地點</span><span>啟用</span></div>
+            <div class="list-item"><span><span class="handle">::</span> 敬拜</span><span>啟用</span></div>
+            <div class="list-item"><span><span class="handle">::</span> 破冰</span><span>自訂</span></div>
+            <div class="list-item"><span><span class="handle">::</span> 話語分享</span><span>啟用</span></div>
+            <div class="list-item"><span><span class="handle">::</span> 主題</span><span>啟用</span></div>
+            <div class="list-item"><span><span class="handle">::</span> 經文</span><span>啟用</span></div>
+          </div>
+
+          <div class="list-panel">
+            <div class="list-title">管理操作</div>
+            <div class="list-item"><span>新增自訂欄位</span><span>例如：點心</span></div>
+            <div class="list-item"><span>停用欄位</span><span>不可停用日期</span></div>
+            <div class="list-item"><span>調整順序</span><span>拖曳欄位</span></div>
+            <div class="list-item"><span>儲存設定</span><span>套用到此分頁</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>五、共用資料流</h2>
+        <span class="badge">所有入口共用欄位設定</span>
+      </div>
+      <div class="section-body">
+        <div class="flow">
+          <div class="flow-row">
+            <div class="flow-box">
+              <strong>pageFieldConfig</strong>
+              <span>此分頁目前啟用的欄位、順序、必要欄位。</span>
+            </div>
+            <div class="arrow">→</div>
+            <div class="flow-box">
+              <strong>新增一季聚會</strong>
+              <span>依欄位設定產生季度空白列。</span>
+            </div>
+          </div>
+
+          <div class="flow-row">
+            <div class="flow-box">
+              <strong>pageFieldConfig</strong>
+              <span>同一份設定。</span>
+            </div>
+            <div class="arrow">→</div>
+            <div class="flow-box">
+              <strong>貼上排班內容 / AI 解析</strong>
+              <span>AI 只解析目前啟用的欄位。</span>
+            </div>
+          </div>
+
+          <div class="flow-row">
+            <div class="flow-box">
+              <strong>pageFieldConfig</strong>
+              <span>同一份設定。</span>
+            </div>
+            <div class="arrow">→</div>
+            <div class="flow-box">
+              <strong>下載空白表格</strong>
+              <span>Excel 欄位與順序依設定輸出。</span>
+            </div>
+          </div>
+
+          <div class="wide-flow">表格渲染、儲存、布告欄、總表也都以 pageFieldConfig.fields 為準</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>六、資料結構建議</h2>
+        <span class="badge">可直接給 AI</span>
+      </div>
+      <div class="section-body">
+        <pre><code>const initialFieldTemplates = {
+  "聚會型模板": {
+    defaultFields: ["日期", "主題", "經文", "地點", "敬拜", "話語分享"],
+    requiredFields: ["日期"]
+  },
+
+  "事工型模板": {
+    defaultFields: ["日期", "地點"],
+    requiredFields: ["日期"]
+  }
+};
+
+const pageFieldConfig = {
+  pageId: "VN01",
+  fieldTemplateType: "聚會型模板",
+  fields: ["日期", "主題", "經文", "地點", "敬拜", "話語分享"],
+  requiredFields: ["日期"],
+  customFields: [],
+  updatedAt: "2026-05-26T00:00:00+08:00"
+};
+
+// 使用者新增自訂欄位並調整順序後
+const customizedPageFieldConfig = {
+  pageId: "VN01",
+  fieldTemplateType: "聚會型模板",
+  fields: ["日期", "地點", "破冰", "敬拜", "話語分享", "主題", "經文", "點心"],
+  requiredFields: ["日期"],
+  customFields: ["破冰", "點心"],
+  updatedAt: "2026-05-26T00:00:00+08:00"
+};</code></pre>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>七、給 AI 的修改需求</h2>
+        <span class="badge">實作規格</span>
+      </div>
+      <div class="section-body">
+        <ul>
+          <li>主畫面只保留三個大入口：新增一季聚會、貼上排班內容、下載空白表格。</li>
+          <li>新增分頁時，只選擇「聚會型模板」或「事工型模板」，系統依模板建立第一版欄位設定。</li>
+          <li>新增「表格欄位設定」管理介面，支援新增自訂欄位、停用欄位、拖曳排序、儲存設定。</li>
+          <li>optional 欄位不預先定義，由使用者按「新增欄位」後自行命名。</li>
+          <li>requiredFields 不可刪除或停用，目前至少保留「日期」。</li>
+          <li>表格渲染、Excel 匯出、AI 解析、資料儲存、布告欄、總表都使用同一份 pageFieldConfig.fields。</li>
+          <li>若分頁沒有自訂 pageFieldConfig，則使用 initialFieldTemplates 的 defaultFields。</li>
+        </ul>
+        <div class="note" style="margin-top: 16px;">核心原則：平常使用只問「你要做什麼」，欄位長什麼樣子交給管理介面一次設定。</div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
