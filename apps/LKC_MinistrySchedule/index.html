@@ -63,32 +63,34 @@
 
     <div id="reportSection" class="card-custom hidden">
       
-      <div class="toolbar d-flex flex-wrap justify-content-between align-items-center mb-3 gap-3">
-        <h4 id="groupTitle" class="text-primary m-0 fw-bold">載入中...</h4>
-        
-        <div class="date-filter-toolbar d-flex align-items-center gap-2 bg-light p-2 rounded border shadow-sm">
-          <span class="text-muted small fw-bold ms-1">📅 日期區間：</span>
-          <select id="dateQuickYear" class="form-select form-select-sm date-quick-year" aria-label="篩選年度"></select>
-          <select id="dateQuickQuarter" class="form-select form-select-sm date-quick-quarter" aria-label="篩選季度">
-            <option value="1">Q1</option>
-            <option value="2">Q2</option>
-            <option value="3">Q3</option>
-            <option value="4">Q4</option>
-          </select>
-          <button class="btn btn-sm btn-outline-primary" onclick="applyQuarterDateFilter()">套用季度</button>
-          <button class="btn btn-sm btn-outline-primary" onclick="applyYearDateFilter()">全年</button>
-          <input type="date" id="startDate" class="form-control form-control-sm" style="width: 125px;">
-          <span class="text-muted">~</span>
-          <input type="date" id="endDate" class="form-control form-control-sm" style="width: 125px;">
-          <button class="btn btn-sm btn-secondary" onclick="filterByDate()">篩選</button>
-          <button class="btn btn-sm btn-outline-danger" onclick="clearDateFilter()">清除</button>
-        </div>
-        
-        <div class="d-flex gap-2">
-          <button class="btn btn-info text-white shadow shadow-sm fw-bold" onclick="showBulletinBoard()">📋 預覽布告欄</button>
-          <button class="btn btn-primary px-4 shadow shadow-sm" onclick="saveData()">💾 儲存變更</button>
+      <div class="report-header mb-3">
+        <div>
+          <h4 id="groupTitle" class="text-primary m-0 fw-bold">載入中...</h4>
+          <div class="text-muted small mt-1">排班資料編輯</div>
         </div>
 
+        <div class="report-header-actions">
+          <button class="btn btn-outline-info fw-bold" onclick="showBulletinBoard()">預覽布告欄</button>
+          <button class="btn btn-primary px-4 fw-bold" onclick="saveData()">儲存變更</button>
+        </div>
+      </div>
+
+      <div class="date-filter-toolbar mb-3">
+        <span class="date-filter-label">日期區間</span>
+        <select id="dateQuickYear" class="form-select form-select-sm date-quick-year" aria-label="篩選年度"></select>
+        <select id="dateQuickQuarter" class="form-select form-select-sm date-quick-quarter" aria-label="篩選季度">
+          <option value="1">Q1</option>
+          <option value="2">Q2</option>
+          <option value="3">Q3</option>
+          <option value="4">Q4</option>
+        </select>
+        <button class="btn btn-sm btn-outline-primary" onclick="applyQuarterDateFilter()">套用季度</button>
+        <button class="btn btn-sm btn-outline-primary" onclick="applyYearDateFilter()">全年</button>
+        <input type="date" id="startDate" class="form-control form-control-sm date-input">
+        <span class="text-muted">~</span>
+        <input type="date" id="endDate" class="form-control form-control-sm date-input">
+        <button class="btn btn-sm btn-secondary" onclick="filterByDate()">篩選</button>
+        <button class="btn btn-sm btn-outline-danger" onclick="clearDateFilter()">清除</button>
       </div>
 
       <div class="ministry-primary-actions mb-3">
