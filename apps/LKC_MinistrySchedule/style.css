@@ -211,6 +211,11 @@ body { background-color: #eef3f5; padding: 20px; font-family: "Microsoft JhengHe
   justify-content: flex-end;
 }
 
+#dynamicFormContainer {
+  overscroll-behavior-x: contain;
+  scrollbar-gutter: stable;
+}
+
 /* =========================================
    🌟 動態輸入列排版 (取代舊的 Table)
 ========================================= */
@@ -218,12 +223,14 @@ body { background-color: #eef3f5; padding: 20px; font-family: "Microsoft JhengHe
   font-size: 0.95rem;
   border-bottom: 2px solid #dee2e6;
   padding-bottom: 8px;
+  min-width: max-content;
 }
 
 .record-row {
   transition: background-color 0.2s;
-  padding: 6px 0;
+  padding: 8px 0;
   border-bottom: 1px solid #f1f3f5;
+  min-width: max-content;
 }
 
 .record-row:hover {
@@ -232,6 +239,7 @@ body { background-color: #eef3f5; padding: 20px; font-family: "Microsoft JhengHe
 
 .grid-input {
   width: 100%;
+  min-height: 40px;
   border: 1px solid #ced4da;
   border-radius: 6px;
   padding: 8px 12px;
@@ -339,5 +347,33 @@ body { background-color: #eef3f5; padding: 20px; font-family: "Microsoft JhengHe
 
   .field-settings-actions {
     justify-content: flex-start;
+  }
+}
+
+@media (max-width: 768px) {
+  #dynamicFormContainer {
+    padding: 12px !important;
+    border-radius: 8px;
+  }
+
+  .record-grid-header {
+    font-size: 0.86rem;
+    padding: 0 0 10px;
+  }
+
+  .record-row {
+    gap: 12px !important;
+    padding: 10px 0;
+  }
+
+  .grid-input {
+    font-size: 16px;
+    min-height: 44px;
+  }
+
+  .row-delete-checkbox,
+  .grid-checkbox {
+    width: 1.45em;
+    height: 1.45em;
   }
 }

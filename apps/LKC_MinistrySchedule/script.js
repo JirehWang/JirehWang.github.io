@@ -572,7 +572,7 @@ function renderTable(data) {
     }
   }
 
-  const gridTemplate = `repeat(${validColCount}, minmax(130px, 1fr)) 40px`;
+  const gridTemplate = buildRecordGridTemplate(validColCount);
 
   let html = datalistHTML;
   html += `<div class="record-grid-header fw-bold text-muted mb-2 px-1" style="display: grid; grid-template-columns: ${gridTemplate}; gap: 10px;">`;
@@ -656,7 +656,7 @@ function renderTable(data) {
 //  🧩 建立表單列 HTML
 // ============================================================
 function createRowHTML(rowData, gridTemplate) {
-  if (!gridTemplate) gridTemplate = `repeat(${currentTableHeaders.length}, minmax(130px, 1fr)) 40px`;
+  if (!gridTemplate) gridTemplate = buildRecordGridTemplate(currentTableHeaders.length);
   let rowHtml = `<div class="record-row align-items-center" style="display: grid; grid-template-columns: ${gridTemplate}; gap: 10px;">`;
 
   const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
@@ -729,6 +729,13 @@ function createRowHTML(rowData, gridTemplate) {
 
   rowHtml += `<div class="d-flex justify-content-center"><input type="checkbox" class="form-check-input row-delete-checkbox" title="勾選後可批次刪除"></div></div>`;
   return rowHtml;
+}
+
+function buildRecordGridTemplate(columnCount) {
+  const isNarrow = window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+  const inputMinWidth = isNarrow ? 168 : 136;
+  const actionWidth = isNarrow ? 64 : 48;
+  return `repeat(${columnCount}, minmax(${inputMinWidth}px, 1fr)) ${actionWidth}px`;
 }
 
 // ============================================================
