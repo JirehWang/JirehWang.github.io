@@ -488,6 +488,7 @@ function renderTable(data) {
 
   currentTemplate = data.template || "";
   localCustomMembers = data.customMembers || [];
+  updateTemplateSpecificLabels();
 
   const memberBtn = document.getElementById('manageMembersBtn');
   const groupRoleBtn = document.getElementById('manageGroupRolesBtn');
@@ -806,14 +807,38 @@ function rerenderWithMatrix(matrix) {
   });
 }
 
+function isMeetingTemplate() {
+  return currentTemplate === "小組聚會表模板" || currentTemplate === "團契聚會表模板";
+}
+
+function updateTemplateSpecificLabels() {
+  const serviceMode = !isMeetingTemplate();
+  const quarterTitle = serviceMode ? "新增一季服事表" : "新增一季聚會";
+  const settingsTitle = serviceMode ? "服事表設定" : "聚會表設定";
+
+  const quarterActionTitle = document.getElementById('quarterActionTitle');
+  const quarterModalTitle = document.getElementById('quarterModalTitle');
+  const settingsActionTitle = document.getElementById('scheduleSettingsActionTitle');
+  const settingsModalTitle = document.getElementById('scheduleSettingsModalTitle');
+
+  if (quarterActionTitle) quarterActionTitle.innerText = quarterTitle;
+  if (quarterModalTitle) quarterModalTitle.innerText = quarterTitle;
+  if (settingsActionTitle) settingsActionTitle.innerText = settingsTitle;
+  if (settingsModalTitle) settingsModalTitle.innerText = settingsTitle;
+}
+
 function openQuarterModal() {
   const yearInput = document.getElementById('quarterYear');
   const quarterSelect = document.getElementById('quarterNumber');
   const sermonCheckbox = document.getElementById('quarterUseSermon');
+  const sermonRow = document.getElementById('quarterUseSermonRow');
   const now = new Date();
   if (yearInput && !yearInput.value) yearInput.value = now.getFullYear();
   if (quarterSelect && !quarterSelect.value) quarterSelect.value = String(Math.floor(now.getMonth() / 3) + 1);
-  if (sermonCheckbox) sermonCheckbox.checked = currentSermonSettings.useSermon === true;
+  const meetingMode = isMeetingTemplate();
+  if (sermonRow) sermonRow.classList.toggle('hidden', !meetingMode);
+  if (sermonCheckbox) sermonCheckbox.checked = meetingMode && currentSermonSettings.useSermon === true;
+  updateTemplateSpecificLabels();
   new bootstrap.Modal(document.getElementById('quarterModal')).show();
 }
 
@@ -822,7 +847,7 @@ function generateQuarterRows() {
   const quarter = Number(document.getElementById('quarterNumber').value);
   const weekday = Number(document.getElementById('quarterWeekday').value);
   const useAI = document.getElementById('quarterUseAI').checked;
-  const useSermonForNewRows = document.getElementById('quarterUseSermon').checked;
+  const useSermonForNewRows = isMeetingTemplate() && document.getElementById('quarterUseSermon').checked;
   const dateColIdx = currentTableHeaders.findIndex(h => h.includes("日期"));
   const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
   if (!year || dateColIdx === -1) {

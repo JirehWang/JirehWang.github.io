@@ -95,7 +95,7 @@
 
       <div class="ministry-primary-actions mb-3">
         <button class="ministry-action-card" type="button" onclick="openQuarterModal()">
-          <strong>新增一季聚會</strong>
+          <strong id="quarterActionTitle">新增一季聚會</strong>
           <span>選年度、季度、星期幾，自動產生一季日期。</span>
         </button>
         <button class="ministry-action-card" type="button" onclick="openAiScheduleModal()">
@@ -112,7 +112,7 @@
           <input type="file" id="xlsxImportInput" accept=".xlsx, .xls" style="display: none;" onchange="importExcelFile(this)">
         </div>
         <button class="ministry-action-card" type="button" onclick="openScheduleSettingsModal()">
-          <strong>聚會表設定</strong>
+          <strong id="scheduleSettingsActionTitle">聚會表設定</strong>
           <span>表格欄位、人員名單、講道連動集中管理。</span>
         </button>
       </div>
@@ -126,7 +126,7 @@
     <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content">
         <div class="modal-header bg-primary text-white">
-          <h5 class="modal-title fw-bold">聚會表設定</h5>
+          <h5 id="scheduleSettingsModalTitle" class="modal-title fw-bold">聚會表設定</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
@@ -256,7 +256,7 @@
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header bg-success text-white">
-          <h5 class="modal-title fw-bold">新增一季聚會</h5>
+          <h5 id="quarterModalTitle" class="modal-title fw-bold">新增一季聚會</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
@@ -293,7 +293,7 @@
               <input id="quarterUseAI" class="form-check-input" type="checkbox">
               <span class="form-check-label fw-bold">使用 AI 進行排班</span>
             </label>
-            <label class="form-check">
+            <label id="quarterUseSermonRow" class="form-check">
               <input id="quarterUseSermon" class="form-check-input" type="checkbox">
               <span class="form-check-label fw-bold">本次新增日期套用講道</span>
             </label>
