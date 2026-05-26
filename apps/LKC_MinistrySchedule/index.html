@@ -46,8 +46,13 @@
           <input id="newName" class="form-control" placeholder="例如: 葡萄樹A組" required>
         </div>
         <div class="mb-3">
-          <label class="form-label text-muted small fw-bold">分類屬性 (選擇模板)</label>
-          <select id="templateSelect" class="form-select" required></select>
+          <label class="form-label text-muted small fw-bold">表格類型</label>
+          <select id="templateSelect" class="form-select" required>
+            <option value="" disabled selected>選擇表格類型</option>
+            <option value="聚會型模板">聚會型模板</option>
+            <option value="事工型模板">事工型模板</option>
+          </select>
+          <div class="form-text">建立後會先套用初始欄位，之後可在「表格欄位設定」調整。</div>
         </div>
         <div class="d-flex gap-2">
           <button type="submit" class="btn btn-success flex-grow-1">確認建立</button>
@@ -77,7 +82,25 @@
 
       </div>
 
-      <div class="mb-3 d-flex gap-2 flex-wrap">
+      <div class="ministry-primary-actions mb-3">
+        <button class="ministry-action-card" type="button" onclick="openQuarterModal()">
+          <strong>新增一季聚會</strong>
+          <span>選年度、季度、星期幾，自動產生一季日期。</span>
+        </button>
+        <button class="ministry-action-card" type="button" onclick="focusPasteBox()">
+          <strong>貼上排班內容</strong>
+          <span>貼 LINE、Word、Excel 文字，依目前欄位解析。</span>
+        </button>
+        <button class="ministry-action-card" type="button" onclick="exportBlankTemplate()">
+          <strong>下載空白表格</strong>
+          <span>Excel 欄位順序依表格欄位設定輸出。</span>
+        </button>
+      </div>
+
+      <div class="mb-3 d-flex gap-2 flex-wrap ministry-secondary-tools">
+        <button class="btn btn-sm btn-outline-primary shadow-sm fw-bold" onclick="openFieldSettingsModal()">
+          🧩 表格欄位設定
+        </button>
         <button class="btn btn-sm btn-outline-secondary shadow-sm" onclick="document.getElementById('promptSettings').classList.toggle('hidden')">
           ⚙️ 設定小組專屬 AI 排班規則
         </button>
@@ -91,7 +114,6 @@
         <button id="manageGroupRolesBtn" class="btn btn-sm btn-outline-success shadow-sm hidden" onclick="openGroupRoleModal()">
           🧑‍🤝‍🧑 設定組員身分
         </button>
-        <button class="btn btn-sm btn-outline-dark shadow-sm" onclick="exportBlankTemplate()">📥 匯出 Excel 模板</button>
         <button class="btn btn-sm btn-outline-success shadow-sm" onclick="document.getElementById('xlsxImportInput').click()">📤 匯入 Excel 填寫</button>
         <input type="file" id="xlsxImportInput" accept=".xlsx, .xls" style="display: none;" onchange="importExcelFile(this)">
       </div>
@@ -170,6 +192,75 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
           <button type="button" class="btn btn-primary fw-bold" onclick="saveMembersToServer()">💾 儲存名單</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="quarterModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title fw-bold">新增一季聚會</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-4">
+              <label class="form-label small fw-bold text-muted">年度</label>
+              <input id="quarterYear" type="number" class="form-control" min="2000" max="2100">
+            </div>
+            <div class="col-4">
+              <label class="form-label small fw-bold text-muted">季度</label>
+              <select id="quarterNumber" class="form-select">
+                <option value="1">第一季</option>
+                <option value="2">第二季</option>
+                <option value="3">第三季</option>
+                <option value="4">第四季</option>
+              </select>
+            </div>
+            <div class="col-4">
+              <label class="form-label small fw-bold text-muted">星期</label>
+              <select id="quarterWeekday" class="form-select">
+                <option value="0">週日</option>
+                <option value="1">週一</option>
+                <option value="2">週二</option>
+                <option value="3">週三</option>
+                <option value="4">週四</option>
+                <option value="5">週五</option>
+                <option value="6">週六</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-text mt-3">系統會依目前表格欄位產生空白列；若已有相同日期，會略過。</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-success fw-bold" onclick="generateQuarterRows()">產生日期</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="fieldSettingsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title fw-bold">表格欄位設定</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="d-flex gap-2 mb-3">
+            <input id="newFieldName" class="form-control" placeholder="新增自訂欄位，例如：點心、司會、破冰">
+            <button class="btn btn-success fw-bold" type="button" onclick="addCustomField()">新增欄位</button>
+          </div>
+          <div id="fieldSettingsList" class="field-settings-list"></div>
+          <div class="alert alert-info small mt-3 mb-0">「日期」為必要欄位，不可停用。儲存欄位設定後，表格渲染、AI 解析、匯出、布告欄與總表都會依同一份欄位順序運作。</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" onclick="applyInitialTemplateFields()">補齊初始模板欄位</button>
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-primary fw-bold" onclick="saveFieldSettings()">儲存設定</button>
         </div>
       </div>
     </div>

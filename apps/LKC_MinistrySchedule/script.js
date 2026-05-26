@@ -42,9 +42,125 @@ let localCustomMembers = [];
 let currentTemplate = "";
 let currentEventData = [];
 let currentSermonSettings = { useSermon: false, sermonType: "華語/聯合" };
+let currentPageFieldConfig = null;
+let fieldSettingsDraft = null;
+let availableMinistryTemplates = [];
 
 // 預覽布告欄 modal 目前的篩選後矩陣（給下載 Excel 用）
 let _currentBulletinFiltered = null;
+
+const initialFieldTemplates = {
+  "聚會型模板": {
+    defaultFields: ["日期", "主題", "經文", "地點", "敬拜", "話語分享"],
+    requiredFields: ["日期"]
+  },
+  "事工型模板": {
+    defaultFields: ["日期", "地點"],
+    requiredFields: ["日期"]
+  }
+};
+
+const fieldTemplateBackendMap = {
+  "聚會型模板": "小組聚會表模板",
+  "事工型模板": "事工型模板"
+};
+
+function getBackendTemplateForFieldType(fieldTemplateType) {
+  const preferred = fieldTemplateBackendMap[fieldTemplateType] || fieldTemplateType;
+  if (!availableMinistryTemplates.length || availableMinistryTemplates.includes(preferred)) return preferred;
+  if (fieldTemplateType === "聚會型模板") {
+    return availableMinistryTemplates.find(t => t.includes("小組") || t.includes("團契")) || availableMinistryTemplates[0];
+  }
+  return availableMinistryTemplates.find(t => !t.includes("小組") && !t.includes("團契")) || availableMinistryTemplates[0];
+}
+
+function getFieldTemplateType(templateName) {
+  if (templateName === "小組聚會表模板" || templateName === "團契聚會表模板" || templateName === "聚會型模板") {
+    return "聚會型模板";
+  }
+  return "事工型模板";
+}
+
+function getFieldConfigStorageKey(pageId = currentId) {
+  return `ministry.pageFieldConfig.${pageId || "new"}`;
+}
+
+function getEnabledFieldsFromConfig(config) {
+  if (!config || !Array.isArray(config.fields)) return [];
+  return config.fields.filter(field => field && field.enabled !== false).map(field => field.name);
+}
+
+function getRequiredFields(config) {
+  return (config && Array.isArray(config.requiredFields) && config.requiredFields.length)
+    ? config.requiredFields
+    : ["日期"];
+}
+
+function normalizeFieldConfig(rawConfig, templateType, pageId) {
+  const template = initialFieldTemplates[templateType] || initialFieldTemplates["事工型模板"];
+  const requiredFields = Array.from(new Set([...(rawConfig && rawConfig.requiredFields || []), ...template.requiredFields]));
+  const sourceFields = Array.isArray(rawConfig && rawConfig.fields) && rawConfig.fields.length
+    ? rawConfig.fields
+    : template.defaultFields.map(name => ({ name, enabled: true }));
+
+  const seen = new Set();
+  const fields = [];
+  sourceFields.forEach(field => {
+    const name = typeof field === "string" ? field : field && field.name;
+    if (!name || seen.has(name)) return;
+    seen.add(name);
+    fields.push({
+      name,
+      enabled: requiredFields.includes(name) ? true : (typeof field === "object" && field.enabled === false ? false : true),
+      custom: typeof field === "object" ? field.custom === true : !template.defaultFields.includes(name)
+    });
+  });
+  requiredFields.forEach(name => {
+    if (!seen.has(name)) {
+      seen.add(name);
+      fields.unshift({ name, enabled: true, custom: false });
+    }
+  });
+
+  return {
+    pageId: pageId || "",
+    fieldTemplateType: templateType,
+    fields,
+    requiredFields,
+    customFields: fields.filter(field => field.custom).map(field => field.name),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function buildPageFieldConfig(data, rawHeaders) {
+  const templateType = getFieldTemplateType(data.template || "");
+  const storageKey = getFieldConfigStorageKey();
+  const stored = localStorage.getItem(storageKey);
+  if (stored) {
+    try {
+      return normalizeFieldConfig(JSON.parse(stored), templateType, currentId);
+    } catch (e) {
+      localStorage.removeItem(storageKey);
+    }
+  }
+
+  if (data.pageFieldConfig) {
+    return normalizeFieldConfig(data.pageFieldConfig, data.pageFieldConfig.fieldTemplateType || templateType, currentId);
+  }
+
+  const existingHeaders = (rawHeaders || []).map(h => String(h || "").trim()).filter(Boolean);
+  const template = initialFieldTemplates[templateType] || initialFieldTemplates["事工型模板"];
+  const fields = existingHeaders.length ? existingHeaders : template.defaultFields;
+  return normalizeFieldConfig({
+    fields: fields.map(name => ({ name, enabled: true, custom: !template.defaultFields.includes(name) })),
+    requiredFields: template.requiredFields
+  }, templateType, currentId);
+}
+
+function savePageFieldConfigLocally(config) {
+  currentPageFieldConfig = normalizeFieldConfig(config, config.fieldTemplateType || getFieldTemplateType(currentTemplate), currentId);
+  localStorage.setItem(getFieldConfigStorageKey(), JSON.stringify(currentPageFieldConfig));
+}
 
 
 // ============================================================
@@ -251,6 +367,7 @@ async function loadAdminData() {
       fetchAPI('getGroups', {}),
       fetchAPI('getTemplates', {})
     ]);
+    availableMinistryTemplates = Array.isArray(templates) ? templates : [];
 
     const div = document.getElementById('groupButtons');
     const base = window.location.href.split('?')[0];
@@ -291,7 +408,11 @@ async function loadAdminData() {
     }
 
     div.innerHTML = html || '<p class="text-center text-muted">目前尚無資料</p>';
-    document.getElementById('templateSelect').innerHTML = '<option value="" disabled selected>選擇模板</option>' + templates.map(t => `<option value="${t}">${t}</option>`).join('');
+    document.getElementById('templateSelect').innerHTML = `
+      <option value="" disabled selected>選擇表格類型</option>
+      <option value="聚會型模板">聚會型模板</option>
+      <option value="事工型模板">事工型模板</option>
+    `;
 
     getNotifier().success("✅ 儀表板已載入");
   } catch (err) {
@@ -332,6 +453,14 @@ function filterGroups() {
     }
     header.style.display = hasVisible ? "" : "none";
   });
+}
+
+function remapRowToCurrentHeaders(row, sourceHeaders) {
+  const mapped = currentTableHeaders.map(header => {
+    const idx = sourceHeaders.indexOf(header);
+    return idx !== -1 ? (row[idx] || "") : "";
+  });
+  return mapped;
 }
 
 
@@ -401,9 +530,17 @@ function renderTable(data) {
   const promptInput = document.getElementById('groupPromptInput');
   if (promptInput) promptInput.value = currentGroupPrompt;
 
+  if (!data.matrix || !Array.isArray(data.matrix) || data.matrix.length === 0) {
+    const templateType = getFieldTemplateType(currentTemplate);
+    data.matrix = [initialFieldTemplates[templateType].defaultFields.slice()];
+  }
+
   let rawHeaders = data.matrix[0].map(h => h.toString().trim());
   let validColCount = rawHeaders.length;
   while (validColCount > 0 && rawHeaders[validColCount - 1] === "") validColCount--;
+  currentPageFieldConfig = buildPageFieldConfig(data, rawHeaders.slice(0, validColCount));
+  rawHeaders = getEnabledFieldsFromConfig(currentPageFieldConfig);
+  validColCount = rawHeaders.length;
 
   // 自動補齊「套用講道」欄位
   if (isGroupOrFellowship) {
@@ -442,8 +579,11 @@ function renderTable(data) {
   html += `<div class="text-center">操作</div></div>`;
   html += `<div id="rowsContainer" class="d-flex flex-column gap-2">`;
 
+  const sourceHeaders = data.matrix[0].map(h => h.toString().trim());
   const rows = data.matrix.slice(1);
-  let validRows = rows.filter(r => r.some(cell => cell.toString().trim() !== ""));
+  let validRows = rows
+    .filter(r => r.some(cell => cell.toString().trim() !== ""))
+    .map(row => remapRowToCurrentHeaders(row, sourceHeaders));
 
   // 補齊行矩陣長度與預設值
   const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
@@ -607,6 +747,198 @@ function addNewRow() {
 function deleteRow(btnElement) {
   if (confirm("確定要刪除這筆排班資料嗎？")) {
     btnElement.parentElement.remove();
+  }
+}
+
+function collectVisibleMatrix() {
+  const matrix = [currentTableHeaders.slice()];
+  document.querySelectorAll('.record-row').forEach(rowDiv => {
+    const row = [];
+    currentTableHeaders.forEach((header, cIdx) => {
+      const input = rowDiv.querySelector(`[data-c="${cIdx}"]`);
+      if (!input) {
+        row.push("");
+      } else if (input.type === 'checkbox') {
+        row.push(input.checked ? "Y" : "N");
+      } else {
+        row.push(input.value.trim());
+      }
+    });
+    matrix.push(row);
+  });
+  return matrix;
+}
+
+function rerenderWithMatrix(matrix) {
+  renderTable({
+    groupName: activeGroupName,
+    template: currentTemplate,
+    matrix,
+    members: currentGroupMembers,
+    coreMembers: currentCoreMembers,
+    customMembers: localCustomMembers,
+    groupPrompt: currentGroupPrompt,
+    autoRoleRules: currentAutoRoleRules,
+    eventData: currentEventData,
+    sermonSettings: currentSermonSettings
+  });
+}
+
+function openQuarterModal() {
+  const yearInput = document.getElementById('quarterYear');
+  const quarterSelect = document.getElementById('quarterNumber');
+  const now = new Date();
+  if (yearInput && !yearInput.value) yearInput.value = now.getFullYear();
+  if (quarterSelect && !quarterSelect.value) quarterSelect.value = String(Math.floor(now.getMonth() / 3) + 1);
+  new bootstrap.Modal(document.getElementById('quarterModal')).show();
+}
+
+function generateQuarterRows() {
+  const year = Number(document.getElementById('quarterYear').value);
+  const quarter = Number(document.getElementById('quarterNumber').value);
+  const weekday = Number(document.getElementById('quarterWeekday').value);
+  const dateColIdx = currentTableHeaders.findIndex(h => h.includes("日期"));
+  if (!year || dateColIdx === -1) {
+    getNotifier().warning("⚠️ 需要年度與日期欄位才能產生季度資料");
+    return;
+  }
+
+  const startMonth = (quarter - 1) * 3;
+  const start = new Date(year, startMonth, 1);
+  const end = new Date(year, startMonth + 3, 0);
+  const dates = [];
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    if (d.getDay() === weekday) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      dates.push(`${y}-${m}-${day}`);
+    }
+  }
+
+  const existingDates = new Set();
+  document.querySelectorAll('.record-row').forEach(rowDiv => {
+    const input = rowDiv.querySelector(`.grid-input[data-c="${dateColIdx}"]`);
+    if (input && input.value.trim()) existingDates.add(input.value.trim());
+  });
+
+  let added = 0;
+  dates.forEach(date => {
+    if (existingDates.has(date)) return;
+    const row = Array(currentTableHeaders.length).fill("");
+    row[dateColIdx] = date;
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = createRowHTML(row);
+    document.getElementById('rowsContainer').appendChild(tempDiv.firstElementChild);
+    added++;
+  });
+
+  bootstrap.Modal.getInstance(document.getElementById('quarterModal'))?.hide();
+  getNotifier().success(`✅ 已新增 ${added} 筆季度聚會日期`);
+}
+
+function focusPasteBox() {
+  const box = document.getElementById('aiRawText');
+  if (!box) return;
+  box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  box.focus();
+}
+
+function openFieldSettingsModal() {
+  fieldSettingsDraft = JSON.parse(JSON.stringify(currentPageFieldConfig || normalizeFieldConfig(null, getFieldTemplateType(currentTemplate), currentId)));
+  renderFieldSettingsList();
+  new bootstrap.Modal(document.getElementById('fieldSettingsModal')).show();
+}
+
+function renderFieldSettingsList() {
+  const list = document.getElementById('fieldSettingsList');
+  const required = getRequiredFields(fieldSettingsDraft);
+  list.innerHTML = fieldSettingsDraft.fields.map((field, idx) => {
+    const isRequired = required.includes(field.name);
+    return `
+      <div class="field-settings-row">
+        <div class="field-settings-name">${field.name}${isRequired ? ' <span class="field-settings-required">必要</span>' : ''}</div>
+        <div class="form-check form-switch m-0">
+          <input class="form-check-input" type="checkbox" ${field.enabled !== false ? 'checked' : ''} ${isRequired ? 'disabled' : ''} onchange="toggleDraftField(${idx}, this.checked)">
+        </div>
+        <div class="text-muted small">${field.custom ? '自訂' : '模板'}</div>
+        <div class="field-settings-actions">
+          <button class="btn btn-sm btn-outline-secondary" type="button" onclick="moveDraftField(${idx}, -1)" ${idx === 0 ? 'disabled' : ''}>↑</button>
+          <button class="btn btn-sm btn-outline-secondary" type="button" onclick="moveDraftField(${idx}, 1)" ${idx === fieldSettingsDraft.fields.length - 1 ? 'disabled' : ''}>↓</button>
+          <button class="btn btn-sm btn-outline-danger" type="button" onclick="removeDraftField(${idx})" ${isRequired ? 'disabled' : ''}>刪除</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleDraftField(idx, checked) {
+  const required = getRequiredFields(fieldSettingsDraft);
+  if (required.includes(fieldSettingsDraft.fields[idx].name)) return;
+  fieldSettingsDraft.fields[idx].enabled = checked;
+}
+
+function moveDraftField(idx, delta) {
+  const next = idx + delta;
+  if (next < 0 || next >= fieldSettingsDraft.fields.length) return;
+  const copy = fieldSettingsDraft.fields.slice();
+  [copy[idx], copy[next]] = [copy[next], copy[idx]];
+  fieldSettingsDraft.fields = copy;
+  renderFieldSettingsList();
+}
+
+function removeDraftField(idx) {
+  const required = getRequiredFields(fieldSettingsDraft);
+  if (required.includes(fieldSettingsDraft.fields[idx].name)) return;
+  fieldSettingsDraft.fields.splice(idx, 1);
+  renderFieldSettingsList();
+}
+
+function addCustomField() {
+  const input = document.getElementById('newFieldName');
+  const name = input.value.trim();
+  if (!name) return;
+  if (fieldSettingsDraft.fields.some(field => field.name === name)) {
+    getNotifier().warning("⚠️ 此欄位已存在");
+    return;
+  }
+  fieldSettingsDraft.fields.push({ name, enabled: true, custom: true });
+  input.value = "";
+  renderFieldSettingsList();
+}
+
+function applyInitialTemplateFields() {
+  const templateType = fieldSettingsDraft.fieldTemplateType || getFieldTemplateType(currentTemplate);
+  const template = initialFieldTemplates[templateType];
+  const existing = new Set(fieldSettingsDraft.fields.map(field => field.name));
+  let added = 0;
+  template.defaultFields.forEach(name => {
+    if (existing.has(name)) return;
+    fieldSettingsDraft.fields.push({ name, enabled: true, custom: false });
+    existing.add(name);
+    added++;
+  });
+  fieldSettingsDraft.requiredFields = Array.from(new Set([
+    ...(fieldSettingsDraft.requiredFields || []),
+    ...template.requiredFields
+  ]));
+  renderFieldSettingsList();
+  getNotifier().success(added ? `✅ 已補齊 ${added} 個初始欄位` : "✅ 初始模板欄位已完整");
+}
+
+function saveFieldSettings() {
+  const previousHeaders = currentTableHeaders.slice();
+  const previousRows = collectVisibleMatrix().slice(1);
+  savePageFieldConfigLocally(fieldSettingsDraft);
+  const nextHeaders = getEnabledFieldsFromConfig(currentPageFieldConfig);
+  currentTableHeaders = nextHeaders;
+  const nextRows = previousRows.map(row => remapRowToCurrentHeaders(row, previousHeaders));
+  rerenderWithMatrix([nextHeaders, ...nextRows]);
+  bootstrap.Modal.getInstance(document.getElementById('fieldSettingsModal'))?.hide();
+  getNotifier().success("✅ 欄位設定已套用，請記得儲存變更");
+  if (currentId) {
+    fetchAPI("savePageFieldConfig", { id: currentId, pageFieldConfig: currentPageFieldConfig })
+      .catch(err => console.warn("pageFieldConfig 暫存於瀏覽器，後端尚未儲存：", err));
   }
 }
 
@@ -949,11 +1281,21 @@ if (createForm) {
 
     getNotifier().showLoading("建立中...");
     try {
+      const fieldTemplateType = document.getElementById('templateSelect').value;
+      const nextId = document.getElementById('newId').value.trim();
+      const template = initialFieldTemplates[fieldTemplateType] || initialFieldTemplates["事工型模板"];
+      const firstConfig = normalizeFieldConfig({
+        fields: template.defaultFields.map(name => ({ name, enabled: true, custom: false })),
+        requiredFields: template.requiredFields
+      }, fieldTemplateType, nextId);
       await fetchAPI("createGroup", {
-        id: document.getElementById('newId').value,
+        id: nextId,
         name: document.getElementById('newName').value,
-        template: document.getElementById('templateSelect').value
+        template: getBackendTemplateForFieldType(fieldTemplateType),
+        fieldTemplateType,
+        pageFieldConfig: firstConfig
       });
+      localStorage.setItem(getFieldConfigStorageKey(nextId), JSON.stringify(firstConfig));
       location.reload();
     } catch (err) {
       handleAPIError(err);
