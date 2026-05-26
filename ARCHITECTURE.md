@@ -6,8 +6,11 @@
   完整架構設計，並對比原始（test repo 既有 README 描述的）舊架構，
   方便日後維護與正式版上線的決策參考。
 
-  最後更新：2026-05-24
+  最後更新：2026-05-26
   本次大更新：
+    - 補上新家人管理系統：GitHub Pages 前端 + 獨立 GAS + 追蹤中/已結案試算表
+    - 新家人追蹤清單與已結案清單納入 Firebase RTDB 快取（GAS keep-warm + onEdit 刷新）
+    - 補上教會行事曆 Notion proxy 現況：notion_cal_* action 已在本機 GAS 端開發
     - 主日出席「出席頻率變化分析」姓名旁補上小組綠色標籤，匯出 CSV 也加入小組欄位
     - 主日點名 5 個 GET API 納入 Firebase 快取（點名介面 / 小組首頁 / 圖表 / 登入驗證）
     - 敬拜團 5 個 GET API 全部納入 Firebase 快取（公佈欄/服事表/位置/團員/曲目）
@@ -16,7 +19,7 @@
     - 共用可搜尋浮動下拉元件（替代 HTML5 datalist，UX 強化）
     - 小組移除成員時同步更新主日的「所屬小組 / 身分」
     - 小組統計（單日）補入「當日有出席但已不在組」的歷史成員
-    - 快取 API 數量：15 → 25
+    - 快取 API 數量：29 → 31
 -->
 
 # 🏛️ 教會系統架構文件（測試版）
@@ -45,7 +48,7 @@
                          ▼
 ┌──────────────────────────────────────────────────────────────┐
 │             真實來源：Google Sheets                           │
-│             (主日 / 小組 / 事工 / 教會行事曆 4 份試算表)       │
+│             (主日 / 小組 / 事工 / 教會行事曆 / 新家人 5 份試算表) │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -60,6 +63,7 @@
 | 事工管理 | `LKC_MinistrySchedule_TEST` | **主日_測試版 GAS**（action 加 `ministry_` 前綴） | ✓ 已併入 |
 | 教會行事曆 | `LKC_MasterSchedule` | 教會行事曆 GAS（獨立） | ⏸ 待整合 |
 | 敬拜團 | `LKC_worship` | 敬拜團 GAS（獨立，含「敬拜團員名單」） | ⏸ 待整合（已強化前端） |
+| 新家人管理 | `LKC_NewFamily` | 新家人管理 GAS（獨立） | ⏸ 獨立運作（已快取） |
 | 車號查詢 | `LKC_WhosCar` | 車號查詢 GAS（獨立） | ⏸ 暫擱置 |
 | 週報管理 | `LKC_SundayBulletin` | 週報 GAS（獨立） | ⏸ 暫擱置 |
 
@@ -89,6 +93,11 @@
 - 聚會資料、事工細項、講道資訊
 - 事工系統 openById 唯讀
 
+### 5. 新家人管理試算表
+- 「追蹤中」：前端表單送出後建立的新家人追蹤案件。
+- 「已結案」：追蹤完成後從「追蹤中」移入的歷史案件。
+- 會友狀態欄位會同步參照主日「會友名單」，保存「會友名單狀態」、「點名系統代碼」與「主日點名小組」。
+
 ---
 
 ## 🏷️ 前端路由機制
@@ -111,7 +120,7 @@ cache/
 └── ...
 ```
 
-### 啟用快取的 29 個 API（TTL 統一 6 小時）
+### 啟用快取的 31 個 API（多數 TTL 6 小時；新家人清單 TTL 5.5 小時）
 | 類別 | API |
 |---|---|
 | 全域 | getGroups, getGroupConfig, getWeeklyReport, getAllMembers, getAdminGroupsList |
@@ -121,6 +130,7 @@ cache/
 | 事工 | ministry_getGroups, ministry_getTemplates, ministry_getAggregatedReport, ministry_getPageConfig, ministry_getGroupMembers |
 | 敬拜團 | getSchedule, getScheduleByDateRange, getPositions, getTeamMembers, getSongs |
 | **教會行事曆** | **cal_getTypes**、**cal_getFields**、**cal_getEvents**、**cal_getEvent**（事項類型/欄位/事項清單） |
+| **新家人管理** | **getTrackingCases**、**getClosedCases**（追蹤中/已結案完整清單，前端再做姓名與日期篩選） |
 
 ### 三層 Invalidation（讓資料即時同步）
 1. **前端**：寫入 action 自動清相關 read cache (`_INVALIDATE_ON_WRITE`)
@@ -152,7 +162,7 @@ cache/
 | **會友身分** | 存在小組 `_名單` 的身分欄 | 存在主日「會友名單」的「身分」欄（支援多組格式） | 主日為單一真實來源 |
 | **多組支援** | 一人只能屬一組 | **所屬小組**「、」分隔 / **身分**「核心同工(A組)、一般同工(B組)」 | 反映實際情況（一人多組） |
 | **GAS 冷啟動延遲** | 5-7 秒（每次首頁開啟） | < 1 秒（keepWarm 5 分鐘 trigger） | 確保 runtime 永遠熱機 |
-| **快取層** | 無 | Firebase RTDB（13 API 走 cache，TTL 6h，3 層 invalidation） | 毫秒級回應、減少 GAS quota |
+| **快取層** | 無 | Firebase RTDB（31 API 走 cache，TTL 以 6h 為主，3 層 invalidation） | 毫秒級回應、減少 GAS quota |
 | **GAS 內部 cache** | 無 | CacheService（成員名單 / 點名計數 / 群組設定） | 同次請求內共用、降 Sheet I/O |
 | **事工 → 小組名單** | openById 跨 SS 讀取（~500ms） | 直接呼叫 `getCachedMembers()` 過濾 | 整合後同 GAS function call |
 | **Gemini AI 程式** | 教會行事曆 + 事工管理各寫一份 | 共用 `GeminiHelper.js` | 維護成本減半 |
@@ -181,6 +191,7 @@ cache/
 | 主 GAS | Apps Script 雲端（測試 deployment ID `AKfycbxBOFeLiX...`） | `clasp push` + `clasp deploy` |
 | 教會行事曆 GAS | 獨立 Apps Script | `clasp push`（個別） |
 | 敬拜團 GAS | 獨立 Apps Script | 同上 |
+| 新家人管理 GAS | 獨立 Apps Script（deployment ID `AKfycbzU4f0X...`） | `clasp push`（個別） |
 | 車號 / 週報 GAS | 獨立 Apps Script | 同上 |
 | Firebase RTDB | `lkc1958june1-default-rtdb.asia-southeast1` | 由前端/GAS 自動寫入 |
 
@@ -233,6 +244,7 @@ cache/
 | Phase 4.6：安全強化 | ✅ 完成 | Service Account / HTTP Referrer / .gitignore |
 | Phase 4.7：小組移除同步 + 統計補歷史 | ✅ 完成 | 主日身分/組別與點名歷史一致 |
 | Phase 4.8：敬拜團員名單 + 位置選人改造 | ✅ 完成 | 敬拜團員清單為單一來源、可搜尋下拉 |
+| Phase 4.9：新家人管理系統上線 + Firebase 清單快取 | ✅ 完成 | 追蹤中/已結案清單快取、前端篩選、結案流程 |
 | Phase 5：教會行事曆併入主 GAS | ⏸ 待測試副本 | 預計併入後再消滅一個獨立 GAS |
 | Phase 6：敬拜團併入主 GAS | ⏸ 規劃中 | 與事工共用 GeminiHelper |
 | Phase 7：正式版切換 | ⏸ 待測試穩定 | 把 _TEST 改為正式版 GAS / 試算表 ID |
@@ -240,6 +252,30 @@ cache/
 ---
 
 ## 📜 更新紀錄 (Changelog)
+
+### 2026-05-26（文件同步：LKC 本機狀態 vs GitHub/MD）
+
+#### ✅ GitHub 狀態
+- `origin/main` 已同步到最新，遠端新增 `apps/LKC_MinistrySchedule/ministry-schedule-simple-architecture.html`。
+- 工作樹僅有本次文件更新與既有未追蹤 `.claude/`；`.claude/` 不納入此次提交。
+
+#### 🆕 新家人管理系統
+- 本機來源：`D:\program\LKC\新家人管理系統`。
+- GitHub Pages 前端：`apps/LKC_NewFamily`。
+- 獨立 GAS 提供 `submitNewFamily`、`getTrackingCases`、`getClosedCases`、`updateTrackingCase`、`markTrackingMemberStatuses`、`syncExistingMemberCodes`、`closeCases`。
+- 目標試算表 ID：`1ZSixQ9-T8_sNkYviTfP_GXgVk_8k_Lgs6YWStFRtFK8`。
+- 追蹤中與已結案清單已納入 Firebase RTDB cache，topic 為 `getTrackingCases` / `getClosedCases`，TTL 5.5 小時，並由 4 小時 keep-warm trigger 與 onEdit trigger 刷新。
+
+#### 🧭 教會行事曆 Notion proxy
+- 本機 `D:\program\LKC\教會行事曆\NotionProxy.js` 已新增 `notion_cal_*` action，支援 Notion database 讀寫、批次新增、AI 解析，以及類型/子類型管理。
+- `notion_cal_addField`、`notion_cal_updateField`、`notion_cal_deleteField`、`notion_cal_reorderFields` 目前回傳唯讀處理，欄位結構仍以 Notion database properties 為來源。
+- 這部分目前屬 GAS 本機/雲端狀態記錄，尚未等同於 GitHub Pages 前端全面切換到 Notion。
+
+#### 📁 影響檔案
+- `ARCHITECTURE.md`
+- `apps/LKC_NewFamily/README.md`
+
+---
 
 ### 2026-05-24（主日出席：出席頻率變化分析補小組標籤）
 
