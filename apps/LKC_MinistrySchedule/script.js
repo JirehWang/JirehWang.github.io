@@ -2429,7 +2429,8 @@ function findSermonForDate(dateStr, sermonType) {
   console.log(`[SermonLink] findSermonForDate details - dateStr: "${dateStr}", sermonType: "${sermonType}". currentEventData size: ${currentEventData ? currentEventData.length : 0}`);
   if (!dateStr || !currentEventData || currentEventData.length === 0) return null;
 
-  // 1. 往前推的那個週日 (當週週日，即 dateStr 往前找的第一個週日，若本身為週日則是當天)
+  // 1. 往前推到可作為小組分享主題的講道週日。
+  //    若聚會日期本身是週日，使用再前一個週日，避免同一天上午講道被下午小組直接套用。
   const canonicalDate = parseGregorianDate(dateStr);
   if (!canonicalDate) {
     console.warn(`[SermonLink] parseGregorianDate returned null for dateStr: "${dateStr}"`);
@@ -2447,8 +2448,11 @@ function findSermonForDate(dateStr, sermonType) {
     return null;
   }
 
-  // getUTCDay() 回傳 0-6 (星期天為 0)，減去 getUTCDay() 即可得到當週週日
-  dateObj.setUTCDate(dateObj.getUTCDate() - dateObj.getUTCDay());
+  // getUTCDay() 回傳 0-6 (星期天為 0)。
+  // 週日聚會要取前一週；其他日子取當週往前最近的週日。
+  const daysSinceSunday = dateObj.getUTCDay();
+  const offsetDays = daysSinceSunday === 0 ? 7 : daysSinceSunday;
+  dateObj.setUTCDate(dateObj.getUTCDate() - offsetDays);
   
   const y = dateObj.getUTCFullYear();
   const m = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
