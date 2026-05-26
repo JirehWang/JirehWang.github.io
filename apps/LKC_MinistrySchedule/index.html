@@ -66,8 +66,17 @@
       <div class="toolbar d-flex flex-wrap justify-content-between align-items-center mb-3 gap-3">
         <h4 id="groupTitle" class="text-primary m-0 fw-bold">載入中...</h4>
         
-        <div class="d-flex align-items-center gap-2 bg-light p-2 rounded border shadow-sm">
+        <div class="date-filter-toolbar d-flex align-items-center gap-2 bg-light p-2 rounded border shadow-sm">
           <span class="text-muted small fw-bold ms-1">📅 日期區間：</span>
+          <select id="dateQuickYear" class="form-select form-select-sm date-quick-year" aria-label="篩選年度"></select>
+          <select id="dateQuickQuarter" class="form-select form-select-sm date-quick-quarter" aria-label="篩選季度">
+            <option value="1">Q1</option>
+            <option value="2">Q2</option>
+            <option value="3">Q3</option>
+            <option value="4">Q4</option>
+          </select>
+          <button class="btn btn-sm btn-outline-primary" onclick="applyQuarterDateFilter()">套用季度</button>
+          <button class="btn btn-sm btn-outline-primary" onclick="applyYearDateFilter()">全年</button>
           <input type="date" id="startDate" class="form-control form-control-sm" style="width: 125px;">
           <span class="text-muted">~</span>
           <input type="date" id="endDate" class="form-control form-control-sm" style="width: 125px;">
@@ -87,83 +96,109 @@
           <strong>新增一季聚會</strong>
           <span>選年度、季度、星期幾，自動產生一季日期。</span>
         </button>
-        <button class="ministry-action-card" type="button" onclick="focusPasteBox()">
+        <button class="ministry-action-card" type="button" onclick="openAiScheduleModal()">
           <strong>貼上排班內容</strong>
           <span>貼 LINE、Word、Excel 文字，依目前欄位解析。</span>
         </button>
-        <button class="ministry-action-card" type="button" onclick="exportBlankTemplate()">
+        <div class="ministry-action-card ministry-file-card">
           <strong>下載空白表格</strong>
-          <span>Excel 欄位順序依表格欄位設定輸出。</span>
-        </button>
-      </div>
-
-      <div class="mb-3 d-flex gap-2 flex-wrap ministry-secondary-tools">
-        <button class="btn btn-sm btn-outline-primary shadow-sm fw-bold" onclick="openFieldSettingsModal()">
-          🧩 表格欄位設定
-        </button>
-        <button class="btn btn-sm btn-outline-secondary shadow-sm" onclick="document.getElementById('promptSettings').classList.toggle('hidden')">
-          ⚙️ 設定小組專屬 AI 排班規則
-        </button>
-        <button id="sermonSettingsBtn" class="btn btn-sm btn-outline-info shadow-sm hidden" onclick="document.getElementById('sermonSettingsSection').classList.toggle('hidden')">
-          📢 講道資訊連動設定
-        </button>
-        <button id="manageMembersBtn" class="btn btn-sm btn-outline-primary shadow-sm hidden" onclick="openMemberModal()">
-          👥 管理同工名單
-        </button>
-        <!-- 小組/團契模板專屬：直接編輯 master 成員身分 -->
-        <button id="manageGroupRolesBtn" class="btn btn-sm btn-outline-success shadow-sm hidden" onclick="openGroupRoleModal()">
-          🧑‍🤝‍🧑 設定組員身分
-        </button>
-        <button class="btn btn-sm btn-outline-success shadow-sm" onclick="document.getElementById('xlsxImportInput').click()">📤 匯入 Excel 填寫</button>
-        <input type="file" id="xlsxImportInput" accept=".xlsx, .xls" style="display: none;" onchange="importExcelFile(this)">
-      </div>
-
-      <div id="promptSettings" class="hidden mb-3 p-3 bg-light border border-secondary border-opacity-25 rounded shadow-sm">
-        <label class="form-label small fw-bold text-primary">告訴 AI 這個小組的排班限制</label>
-        <textarea id="groupPromptInput" class="form-control mb-2" rows="2" placeholder="例如：破冰和敬拜必須是同一人、話語分享只能排小明或阿華..."></textarea>
-        <div class="d-flex justify-content-end">
-          <button class="btn btn-sm btn-primary" onclick="saveGroupPrompt()">💾 儲存規則</button>
+          <span>依目前欄位匯出，或匯入已填寫 Excel。</span>
+          <div class="ministry-file-actions">
+            <button class="btn btn-outline-dark fw-bold" type="button" onclick="exportBlankTemplate()">匯出</button>
+            <button class="btn btn-outline-success fw-bold" type="button" onclick="document.getElementById('xlsxImportInput').click()">匯入</button>
+          </div>
+          <input type="file" id="xlsxImportInput" accept=".xlsx, .xls" style="display: none;" onchange="importExcelFile(this)">
         </div>
-      </div>
-
-      <div id="sermonSettingsSection" class="hidden mb-3 p-3 bg-light border border-info border-opacity-25 rounded shadow-sm">
-        <h6 class="fw-bold text-info mb-3">📢 講道資訊連動設定</h6>
-        <div class="row g-3 align-items-center">
-          <div class="col-auto">
-            <div class="form-check form-switch m-0">
-              <input class="form-check-input" type="checkbox" id="useSermonToggle" onchange="toggleSermonTypeSelect()">
-              <label class="form-check-label fw-bold text-muted small" for="useSermonToggle">啟用講道資訊連動</label>
-            </div>
-          </div>
-          <div class="col-auto" id="sermonTypeCol">
-            <div class="d-flex align-items-center gap-2">
-              <span class="text-muted small fw-bold">套用語言類別：</span>
-              <select id="sermonTypeSelect" class="form-select form-select-sm" style="width: 150px;">
-                <option value="華語/聯合">華語/聯合</option>
-                <option value="台語/聯合">台語/聯合</option>
-              </select>
-            </div>
-          </div>
-          <div class="col-auto ms-auto">
-            <button class="btn btn-sm btn-info text-white fw-bold shadow-sm" onclick="saveSermonSettings()">💾 儲存設定</button>
-            <button class="btn btn-sm btn-outline-primary fw-bold shadow-sm ms-2" onclick="forceSyncSermonData()">🔄 同步最新講道資料</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="ai-box shadow-sm">
-        <div class="row g-2 align-items-center">
-          <div class="col-md-10">
-            <textarea id="aiRawText" class="form-control" rows="3" placeholder="💡 您可以：&#10;1. 【直接貼上】已經打好的排班文字，讓 AI 自動填入。&#10;2. 【對話生成】輸入條件讓 AI 自動排班（例：排第三季每個週五，地點在A區，破冰自動挑，話語分享只排小明和阿華）"></textarea>
-          </div>
-          <div class="col-md-2 d-grid">
-            <button class="btn btn-success fw-bold" onclick="processAI()">🤖 AI 解析</button>
-          </div>
-        </div>
-        <div id="aiStatus" class="form-text text-muted mt-2">✨ 貼上排班文字或輸入排班條件後，點擊解析，系統將自動處理。</div>
+        <button class="ministry-action-card" type="button" onclick="openScheduleSettingsModal()">
+          <strong>聚會表設定</strong>
+          <span>表格欄位、人員名單、講道連動集中管理。</span>
+        </button>
       </div>
 
       <div id="dynamicFormContainer" class="p-3 bg-white border rounded shadow-sm" style="overflow-x: auto; min-height: 300px;">
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="scheduleSettingsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title fw-bold">聚會表設定</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="settings-action-grid">
+            <button class="settings-action" type="button" onclick="openFieldSettingsModal()">
+              <strong>表格欄位設定</strong>
+              <span>新增欄位、停用欄位、調整順序。</span>
+            </button>
+            <button id="manageMembersBtn" class="settings-action hidden" type="button" onclick="openMemberModal()">
+              <strong>管理同工名單</strong>
+              <span>維護此分頁可排班的人員。</span>
+            </button>
+            <button id="manageGroupRolesBtn" class="settings-action hidden" type="button" onclick="openGroupRoleModal()">
+              <strong>設定組員身分</strong>
+              <span>小組/團契分頁使用，寫回主日會友名單。</span>
+            </button>
+          </div>
+
+          <div id="sermonSettingsSection" class="hidden mt-3 p-3 bg-light border border-info border-opacity-25 rounded shadow-sm">
+            <h6 class="fw-bold text-info mb-3">講道資訊連動設定</h6>
+            <div class="row g-3 align-items-center">
+              <div class="col-auto">
+                <div class="form-check form-switch m-0">
+                  <input class="form-check-input" type="checkbox" id="useSermonToggle" onchange="toggleSermonTypeSelect()">
+                  <label class="form-check-label fw-bold text-muted small" for="useSermonToggle">啟用講道資訊連動</label>
+                </div>
+              </div>
+              <div class="col-auto" id="sermonTypeCol">
+                <div class="d-flex align-items-center gap-2">
+                  <span class="text-muted small fw-bold">套用語言類別：</span>
+                  <select id="sermonTypeSelect" class="form-select form-select-sm" style="width: 150px;">
+                    <option value="華語/聯合">華語/聯合</option>
+                    <option value="台語/聯合">台語/聯合</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-auto ms-auto">
+                <button class="btn btn-sm btn-info text-white fw-bold shadow-sm" onclick="saveSermonSettings()">儲存設定</button>
+                <button class="btn btn-sm btn-outline-primary fw-bold shadow-sm ms-2" onclick="forceSyncSermonData()">同步最新講道資料</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="aiScheduleModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title fw-bold">貼上排班內容</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div id="promptSettings" class="mb-3 p-3 bg-light border border-secondary border-opacity-25 rounded shadow-sm">
+            <label class="form-label small fw-bold text-primary">班表規則</label>
+            <textarea id="groupPromptInput" class="form-control mb-2" rows="2" placeholder="例如：破冰和敬拜必須是同一人、話語分享只能排小明或阿華..."></textarea>
+            <div class="d-flex justify-content-end">
+              <button class="btn btn-sm btn-primary" onclick="saveGroupPrompt()">儲存規則</button>
+            </div>
+          </div>
+
+          <div class="ai-box shadow-sm mb-0">
+            <textarea id="aiRawText" class="form-control" rows="6" placeholder="可貼上已打好的排班文字，或輸入排班條件讓 AI 自動排班。"></textarea>
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+              <div id="aiStatus" class="form-text text-muted">貼上排班文字或輸入排班條件後，點擊解析。</div>
+              <button class="btn btn-success fw-bold" onclick="processAI()">AI 解析</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

@@ -341,6 +341,7 @@ window.onload = async () => {
     await loadAdminData();
   } else {
     showSection('reportSection');
+    initDateQuickFilter();
     try {
       const data = await fetchAPI('getPageConfig', { id: currentId });
       renderTable(data);
@@ -509,9 +510,9 @@ function renderTable(data) {
   if (groupRoleBtn) {
     groupRoleBtn.classList.toggle('hidden', !isGroupOrFellowship);
   }
-  const sermonBtn = document.getElementById('sermonSettingsBtn');
-  if (sermonBtn) {
-    sermonBtn.classList.toggle('hidden', !isGroupOrFellowship);
+  const sermonSettingsSection = document.getElementById('sermonSettingsSection');
+  if (sermonSettingsSection) {
+    sermonSettingsSection.classList.toggle('hidden', !isGroupOrFellowship);
   }
 
   if (isGroupOrFellowship) {
@@ -837,7 +838,24 @@ function generateQuarterRows() {
   getNotifier().success(`✅ 已新增 ${added} 筆季度聚會日期`);
 }
 
+function openAiScheduleModal() {
+  const modal = new bootstrap.Modal(document.getElementById('aiScheduleModal'));
+  modal.show();
+  setTimeout(() => {
+    const box = document.getElementById('aiRawText');
+    if (box) box.focus();
+  }, 180);
+}
+
+function openScheduleSettingsModal() {
+  new bootstrap.Modal(document.getElementById('scheduleSettingsModal')).show();
+}
+
 function focusPasteBox() {
+  openAiScheduleModal();
+}
+
+function focusAiRawText() {
   const box = document.getElementById('aiRawText');
   if (!box) return;
   box.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1019,6 +1037,56 @@ function initGridInteraction() {
 // ============================================================
 //  📅 日期篩選
 // ============================================================
+function initDateQuickFilter() {
+  const yearSelect = document.getElementById('dateQuickYear');
+  const quarterSelect = document.getElementById('dateQuickQuarter');
+  if (!yearSelect || !quarterSelect) return;
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentQuarter = Math.floor(now.getMonth() / 3) + 1;
+  const years = [];
+  for (let year = currentYear - 2; year <= currentYear + 3; year++) years.push(year);
+
+  yearSelect.innerHTML = years
+    .map(year => `<option value="${year}" ${year === currentYear ? 'selected' : ''}>${year}</option>`)
+    .join('');
+  quarterSelect.value = String(currentQuarter);
+}
+
+function quarterDateRange(year, quarter) {
+  const startMonth = (quarter - 1) * 3;
+  const start = new Date(year, startMonth, 1);
+  const end = new Date(year, startMonth + 3, 0);
+  return {
+    start: formatDateInputValue(start),
+    end: formatDateInputValue(end)
+  };
+}
+
+function formatDateInputValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function applyQuarterDateFilter() {
+  const year = Number(document.getElementById('dateQuickYear').value);
+  const quarter = Number(document.getElementById('dateQuickQuarter').value);
+  const range = quarterDateRange(year, quarter);
+  document.getElementById('startDate').value = range.start;
+  document.getElementById('endDate').value = range.end;
+  filterByDate();
+}
+
+function applyYearDateFilter() {
+  const year = Number(document.getElementById('dateQuickYear').value);
+  document.getElementById('startDate').value = `${year}-01-01`;
+  document.getElementById('endDate').value = `${year}-12-31`;
+  filterByDate();
+}
+
 function filterByDate() {
   if (window.event) window.event.preventDefault();
   const start = document.getElementById('startDate').value;
@@ -1323,7 +1391,6 @@ async function saveGroupPrompt() {
     await fetchAPI("saveGroupPrompt", { id: currentId, prompt: newPrompt });
     currentGroupPrompt = newPrompt;
     getNotifier().success("✅ 專屬規則儲存成功！");
-    document.getElementById('promptSettings').classList.add('hidden');
   } catch (err) {
     handleAPIError(err);
   } finally {
