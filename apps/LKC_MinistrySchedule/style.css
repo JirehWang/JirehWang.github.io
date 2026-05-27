@@ -221,6 +221,7 @@ body { background-color: #eef3f5; padding: 20px; font-family: "Microsoft JhengHe
    🌟 動態輸入列排版 (取代舊的 Table)
 ========================================= */
 .record-grid-header {
+  align-items: center;
   font-size: 0.95rem;
   border-bottom: 2px solid #dee2e6;
   min-width: 100%;
@@ -228,6 +229,7 @@ body { background-color: #eef3f5; padding: 20px; font-family: "Microsoft JhengHe
 }
 
 .record-row {
+  align-items: center;
   transition: background-color 0.2s;
   border-bottom: 1px solid #f1f3f5;
   min-width: 100%;
@@ -327,14 +329,39 @@ body { background-color: #eef3f5; padding: 20px; font-family: "Microsoft JhengHe
 
 .record-cell {
   box-sizing: border-box;
+  display: flex;
+  align-items: center;
   min-width: 0;
-  padding: 6px 5px;
+  min-height: 52px;
+  padding: 6px;
 }
 
 .record-header-cell {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.record-delete-header {
+  justify-content: center;
+}
+
+.record-delete-header-btn {
+  border: 1px solid #dc3545;
+  border-radius: 6px;
+  background: #fff;
+  color: #dc3545;
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1;
+  min-height: 32px;
+  padding: 0 10px;
+}
+
+.record-delete-header-btn:hover,
+.record-delete-header-btn:focus {
+  background: #dc3545;
+  color: #fff;
 }
 
 @media (max-width: 900px) {

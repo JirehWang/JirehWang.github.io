@@ -578,10 +578,7 @@ function renderTable(data) {
   let html = datalistHTML;
   html += `<div class="record-grid-header fw-bold text-muted mb-2" style="display: grid; grid-template-columns: ${gridTemplate};">`;
   currentTableHeaders.forEach(h => html += `<div class="record-cell record-header-cell">${h}</div>`);
-  html += `<div class="record-cell record-header-cell text-center">刪除</div></div>`;
-  html += `<div class="d-flex justify-content-end mb-2">
-    <button type="button" class="btn btn-sm btn-outline-danger fw-bold" onclick="deleteSelectedRows()">刪除勾選列</button>
-  </div>`;
+  html += `<div class="record-cell record-header-cell record-delete-header"><button type="button" class="record-delete-header-btn" onclick="deleteSelectedRows()">刪除</button></div></div>`;
   html += `<div id="rowsContainer" class="d-flex flex-column gap-2">`;
 
   const sourceHeaders = data.matrix[0].map(h => h.toString().trim());
