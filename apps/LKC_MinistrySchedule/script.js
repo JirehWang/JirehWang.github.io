@@ -576,9 +576,9 @@ function renderTable(data) {
   const gridTemplate = buildRecordGridTemplate(validColCount);
 
   let html = datalistHTML;
-  html += `<div class="record-grid-header fw-bold text-muted mb-2 px-1" style="display: grid; grid-template-columns: ${gridTemplate}; gap: 10px;">`;
-  currentTableHeaders.forEach(h => html += `<div>${h}</div>`);
-  html += `<div class="text-center">刪除</div></div>`;
+  html += `<div class="record-grid-header fw-bold text-muted mb-2" style="display: grid; grid-template-columns: ${gridTemplate};">`;
+  currentTableHeaders.forEach(h => html += `<div class="record-cell record-header-cell">${h}</div>`);
+  html += `<div class="record-cell record-header-cell text-center">刪除</div></div>`;
   html += `<div class="d-flex justify-content-end mb-2">
     <button type="button" class="btn btn-sm btn-outline-danger fw-bold" onclick="deleteSelectedRows()">刪除勾選列</button>
   </div>`;
@@ -658,7 +658,7 @@ function renderTable(data) {
 // ============================================================
 function createRowHTML(rowData, gridTemplate) {
   if (!gridTemplate) gridTemplate = buildRecordGridTemplate(currentTableHeaders.length);
-  let rowHtml = `<div class="record-row align-items-center" style="display: grid; grid-template-columns: ${gridTemplate}; gap: 10px;">`;
+  let rowHtml = `<div class="record-row align-items-center" style="display: grid; grid-template-columns: ${gridTemplate};">`;
 
   const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
   const isRowSermonLinked = sermonLinkColIdx !== -1 && 
@@ -667,7 +667,7 @@ function createRowHTML(rowData, gridTemplate) {
   currentTableHeaders.forEach((header, cIdx) => {
     const val = rowData[cIdx] || "";
     if (header === "套用講道") {
-      rowHtml += `<div class="d-flex align-items-center justify-content-center"><input type="checkbox" class="grid-checkbox" data-c="${cIdx}" ${isRowSermonLinked ? 'checked' : ''} onchange="onSermonLinkChange(this)"></div>`;
+      rowHtml += `<div class="record-cell d-flex align-items-center justify-content-center"><input type="checkbox" class="grid-checkbox" data-c="${cIdx}" ${isRowSermonLinked ? 'checked' : ''} onchange="onSermonLinkChange(this)"></div>`;
       return;
     }
 
@@ -725,18 +725,18 @@ function createRowHTML(rowData, gridTemplate) {
       }
     }
 
-    rowHtml += `<input type="${inputType}" class="grid-input ${extraClass}" data-c="${cIdx}" value="${val}" title="${val}" ${listAttr} ${readonlyAttr}>`;
+    rowHtml += `<div class="record-cell"><input type="${inputType}" class="grid-input ${extraClass}" data-c="${cIdx}" value="${val}" title="${val}" ${listAttr} ${readonlyAttr}></div>`;
   });
 
-  rowHtml += `<div class="d-flex justify-content-center"><input type="checkbox" class="form-check-input row-delete-checkbox" title="勾選後可批次刪除"></div></div>`;
+  rowHtml += `<div class="record-cell d-flex justify-content-center"><input type="checkbox" class="form-check-input row-delete-checkbox" title="勾選後可批次刪除"></div></div>`;
   return rowHtml;
 }
 
 function buildRecordGridTemplate(columnCount) {
   const isNarrow = window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
-  const inputMinWidth = isNarrow ? 168 : 136;
+  const inputMinWidth = isNarrow ? 172 : 148;
   const actionWidth = isNarrow ? 64 : 48;
-  return `repeat(${columnCount}, minmax(${inputMinWidth}px, 1fr)) ${actionWidth}px`;
+  return `repeat(${columnCount}, ${inputMinWidth}px) ${actionWidth}px`;
 }
 
 // ============================================================

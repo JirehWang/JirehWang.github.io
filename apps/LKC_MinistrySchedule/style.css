@@ -214,6 +214,7 @@ body { background-color: #eef3f5; padding: 20px; font-family: "Microsoft JhengHe
 #dynamicFormContainer {
   overscroll-behavior-x: contain;
   scrollbar-gutter: stable;
+  white-space: nowrap;
 }
 
 /* =========================================
@@ -222,15 +223,15 @@ body { background-color: #eef3f5; padding: 20px; font-family: "Microsoft JhengHe
 .record-grid-header {
   font-size: 0.95rem;
   border-bottom: 2px solid #dee2e6;
-  padding-bottom: 8px;
-  min-width: max-content;
+  min-width: 100%;
+  width: max-content;
 }
 
 .record-row {
   transition: background-color 0.2s;
-  padding: 8px 0;
   border-bottom: 1px solid #f1f3f5;
-  min-width: max-content;
+  min-width: 100%;
+  width: max-content;
 }
 
 .record-row:hover {
@@ -324,6 +325,18 @@ body { background-color: #eef3f5; padding: 20px; font-family: "Microsoft JhengHe
   box-shadow: 0 0 0 0.25rem rgba(14, 165, 233, 0.25);
 }
 
+.record-cell {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 6px 5px;
+}
+
+.record-header-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 900px) {
   .report-header {
     align-items: stretch;
@@ -362,8 +375,7 @@ body { background-color: #eef3f5; padding: 20px; font-family: "Microsoft JhengHe
   }
 
   .record-row {
-    gap: 12px !important;
-    padding: 10px 0;
+    padding: 0;
   }
 
   .grid-input {
