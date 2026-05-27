@@ -342,6 +342,11 @@ body { background-color: #eef3f5; padding: 20px; font-family: "Microsoft JhengHe
   white-space: nowrap;
 }
 
+.record-header-cell:not(.record-delete-header) {
+  justify-content: center;
+  text-align: center;
+}
+
 .record-delete-header {
   justify-content: center;
 }
