@@ -357,7 +357,8 @@
         <button class="btn btn-success btn-sm" onclick="openAddEventModal(); toggleActionMenu(event)">➕ 新增事項</button>
         <button class="btn btn-info btn-sm" onclick="openBatchModal(); toggleActionMenu(event)">📅 批量新增</button>
         <button class="btn btn-warning btn-sm" onclick="openAiModal(); toggleActionMenu(event)">🤖 AI 解析</button>
-        <button class="btn btn-dark btn-sm" onclick="document.getElementById('excelUploadInput').click(); toggleActionMenu(event)">📤 上傳 Excel</button>
+        <button class="btn btn-dark btn-sm" onclick="document.getElementById('excelUploadInput').click(); toggleActionMenu(event)">📤 講道資訊上傳</button>
+        <button class="btn btn-secondary btn-sm text-white" onclick="openSermonTemplateModal(); toggleActionMenu(event)" style="background:#6366f1; border-color:#6366f1;">📥 講道模板下載</button>
       </div>
       <input type="file" id="excelUploadInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="handleExcelUpload(event)">
     </div>
@@ -550,6 +551,29 @@
   </div>
 </div>
 
+<!-- 講道模板下載 Modal -->
+<div class="modal fade" id="sermonTemplateModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header" style="background:#f5f7fb;">
+        <h5 class="modal-title fw-bold">📥 講道模板下載</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body py-4">
+        <p class="text-muted small mb-4 text-center">請選擇您要下載的講道排程範本，填寫後即可點選「講道資訊上傳」進行批量建立。</p>
+        <div class="d-flex flex-column gap-3">
+          <button class="btn btn-outline-primary py-3 fw-bold justify-content-center" onclick="downloadSermonTemplate('台語')">🌾 台語講道模板 (.xlsx)</button>
+          <button class="btn btn-outline-success py-3 fw-bold justify-content-center" onclick="downloadSermonTemplate('華語')">🌏 華語講道模板 (.xlsx)</button>
+          <button class="btn btn-outline-warning py-3 fw-bold text-dark justify-content-center" onclick="downloadSermonTemplate('聯合')">🤝 聯合講道模板 (.xlsx)</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light border" data-bs-dismiss="modal">關閉</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Excel 匯入預覽 Modal -->
 <div class="modal fade" id="excelPreviewModal" tabindex="-1">
   <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
@@ -574,6 +598,10 @@
 <script src="https://jirehwang.github.io/LKC1958_June_1.github.io/config.js"></script>
 <script src="calendar.js"></script>
 <script>
+  function openSermonTemplateModal() {
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('sermonTemplateModal')).show();
+  }
+
   function toggleActionMenu(event) {
     if (event) event.stopPropagation();
     const menu = document.getElementById('actionMenu');

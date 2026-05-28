@@ -982,3 +982,89 @@ function escapeHtml(s) {
 function escapeAttr(s) {
   return String(s == null ? '' : s).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
+
+async function downloadSermonTemplate(typeName) {
+  // 關閉 Modal
+  const modalEl = document.getElementById('sermonTemplateModal');
+  if (modalEl) {
+    bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+  }
+
+  // 找對應類型
+  if (!_types || !_types.flat) {
+    alert('正在載入類型資料，請稍候重試');
+    return;
+  }
+  const matchedType = _types.flat.find(t => t['名稱'] === typeName);
+  if (!matchedType) {
+    alert(`找不到「${typeName}」類型，請確認系統中是否存在。`);
+    return;
+  }
+
+  // 取得欄位
+  let fields;
+  if (_fieldsByType[matchedType.typeId]) {
+    fields = _fieldsByType[matchedType.typeId];
+  } else {
+    try {
+      const res = await callAPI('cal_getFields', { typeId: matchedType.typeId });
+      if (!res.success) throw new Error(res.message);
+      fields = res.data.fields;
+      _fieldsByType[matchedType.typeId] = fields;
+    } catch (err) {
+      alert(`欄位載入失敗：${err.message}`);
+      return;
+    }
+  }
+
+  // 構造 Sheet 1: 資料填寫
+  const headers = ['日期', '行程標題'].concat(fields.map(f => f['顯示名稱']));
+  
+  const fieldExample = f => {
+    if (f['顯示名稱'] === '講員') return '張三牧師';
+    if (f['顯示名稱'] === '講題') return '和平的福音';
+    if (f['顯示名稱'] === '經文') return '約翰福音 3:16';
+    if (f['顯示名稱'] === '宣召') return '詩篇 23:1-6';
+    if (f['顯示名稱'] === '金句') return '神愛世人...';
+    if (f['顯示名稱'] === '詩歌') return '讚美詩 101 首';
+    if (f['顯示名稱'] === '備註') return '無';
+    return f.required ? '（必填）' : '（選填）';
+  };
+  
+  const exampleRow = ['2026-06-07', '（留空 = 自動取第一個欄位的值）', ...fields.map(fieldExample)];
+  
+  const dataSheet = XLSX.utils.aoa_to_sheet([headers, exampleRow]);
+  dataSheet['!cols'] = headers.map(h => ({ wch: Math.max(12, h.length * 2 + 2) }));
+
+  // Sheet 2: 使用說明
+  const instructions = [
+    [`📖 教會行事曆 - ${typeName}講道匯入模板使用說明`],
+    [''],
+    ['【填寫規則】'],
+    ['1. 「資料填寫」分頁的第 1 列為欄位標題，請勿修改其內容或順序'],
+    ['2. 第 2 列是範例，填寫前請先將其刪除'],
+    ['3. 從第 2 列起填入您的講道排程，每列代表一次聚會'],
+    ['4. 日期格式：YYYY-MM-DD（例 2026-06-07）；或直接設為 Excel 的日期格式'],
+    [''],
+    ['【欄位說明】'],
+    ['欄位名稱', '型別', '是否必填', '說明'],
+    ['日期', 'date', '必填', '講道日期（如：2026-06-07）'],
+    ['行程標題', 'text', '選填', '月曆上顯示的文字；留空 = 自動取第一個欄位（講題）的值']
+  ];
+  
+  fields.forEach(f => {
+    instructions.push([
+      f['顯示名稱'], f['欄位類型'], f.required ? '必填' : '選填', ''
+    ]);
+  });
+
+  const guideSheet = XLSX.utils.aoa_to_sheet(instructions);
+  guideSheet['!cols'] = [{wch:20},{wch:12},{wch:10},{wch:50}];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, dataSheet, typeName); // Sheet 名稱為 "台語" / "華語" / "聯合"
+  XLSX.utils.book_append_sheet(wb, guideSheet, '使用說明');
+
+  const fileName = `講道資訊模板_${typeName}_${new Date().toISOString().substring(0,10)}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+}
