@@ -21,6 +21,13 @@ function _path(topic, subkey) {
   return `${ROOT}/${topic}/${subkey || '_default'}`;
 }
 
+function _isInvalidApiResponse(value) {
+  return value &&
+    typeof value === 'object' &&
+    Object.prototype.hasOwnProperty.call(value, 'status') &&
+    value.status !== 'success';
+}
+
 // 🛡️ Firebase RTDB key 限制：不可空字串、不可含 . # $ / [ ]
 //    遞迴清理物件：把不合法的 key 換掉（保留值），陣列照樣往內走
 const _BAD_KEY_RE = /[.#$/\[\]\u0000-\u001f\u007f]/g;
@@ -58,12 +65,17 @@ export async function cacheGet(topic, subkey) {
     remove(ref(rtdb, path)).catch(() => {});
     return null;
   }
+  if (data && _isInvalidApiResponse(data.value)) {
+    remove(ref(rtdb, path)).catch(() => {});
+    return null;
+  }
   return data ? data.value : null;
 }
 
 // 寫入快取；ttlSeconds 為存活秒數（預設 300，傳 0 或 null 表示永久）
 // 寫入前自動清理不合法的 key（防止 GAS 回傳含空字串 key / 含 . # $ / [ ] 的物件）
 export async function cacheSet(topic, subkey, value, ttlSeconds = 300) {
+  if (_isInvalidApiResponse(value)) return;
   const expiresAt = ttlSeconds ? Date.now() + ttlSeconds * 1000 : null;
   await set(ref(rtdb, _path(topic, subkey)), {
     value: _sanitizeForFirebase(value),

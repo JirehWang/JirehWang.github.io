@@ -214,6 +214,13 @@
     return btoa(unescape(encodeURIComponent(json))).replace(/[^a-zA-Z0-9]/g, '');
   }
 
+  function _isInvalidApiResponse(value) {
+    return value &&
+      typeof value === 'object' &&
+      Object.prototype.hasOwnProperty.call(value, 'status') &&
+      value.status !== 'success';
+  }
+
   // 直接打 GAS（不走 cache）
   async function _doDirectCall(realAction, data) {
     const resp = await fetch(window.GAS_URL, {
@@ -241,7 +248,20 @@
         if (fb && fb.cacheGetOrFetch) {
           const subkey = _makeSubkey(data);
           try {
-            return await fb.cacheGetOrFetch(realAction, subkey, () => _doDirectCall(realAction, data), ttl);
+            const result = await fb.cacheGetOrFetch(realAction, subkey, () => _doDirectCall(realAction, data), ttl);
+            if (_isInvalidApiResponse(result)) {
+              if (fb.cacheDelete) {
+                fb.cacheDelete(realAction, subkey).catch(err => {
+                  console.warn('[firebase-cache] delete invalid cache failed:', realAction, err);
+                });
+              } else if (fb.cacheDeleteAll) {
+                fb.cacheDeleteAll(realAction).catch(err => {
+                  console.warn('[firebase-cache] delete invalid cache topic failed:', realAction, err);
+                });
+              }
+              return await _doDirectCall(realAction, data);
+            }
+            return result;
           } catch (e) {
             console.warn('[firebase-cache]', realAction, '失敗，回退直接呼叫:', e);
           }
