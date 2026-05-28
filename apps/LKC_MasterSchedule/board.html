@@ -5,123 +5,162 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>教會近期聚會佈告欄</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+
         /* 佈告欄專屬的 CSS 風格 */
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f7fafc;
-            color: #2d3748;
+            font-family: 'Outfit', 'Noto Sans TC', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            color: #1e293b;
             margin: 0;
-            padding: 20px;
+            padding: 40px 20px;
+            min-height: 100vh;
+            letter-spacing: -0.01em;
         }
         .board-container {
-            max-width: 1000px;
+            max-width: 1100px;
             margin: 0 auto;
         }
         .header {
             text-align: center;
-            margin-bottom: 40px;
+            margin-bottom: 50px;
         }
         .header h1 {
-            color: #2b6cb0;
+            color: #4f46e5;
             font-size: 2.5em;
-            margin-bottom: 10px;
+            font-weight: 800;
+            margin-bottom: 12px;
+            letter-spacing: -0.03em;
         }
         .header p {
-            color: #718096;
-            font-size: 1.1em;
+            color: #64748b;
+            font-size: 1.15em;
+            font-weight: 500;
         }
         /* 使用 Grid 讓卡片並排顯示 */
         .event-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 25px;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 30px;
         }
         .event-card {
             background: white;
-            border-radius: 12px;
+            border-radius: 20px;
             overflow: hidden;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-            border-top: 5px solid #4299e1;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -2px rgba(0,0,0,0.02);
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
         }
         .event-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+            transform: translateY(-8px);
+            box-shadow: 0 20px 25px -5px rgba(99, 102, 241, 0.08), 0 10px 10px -5px rgba(99, 102, 241, 0.04);
+            border-color: #cbd5e1;
         }
         .date-badge {
-            background: #ebf8ff;
-            color: #2b6cb0;
-            padding: 15px;
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            color: white;
+            padding: 20px;
             text-align: center;
-            border-bottom: 1px solid #e2e8f0;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
         }
         .date-badge .day {
-            font-size: 2em;
-            font-weight: bold;
+            font-size: 2.25em;
+            font-weight: 800;
             line-height: 1;
+            letter-spacing: -0.02em;
         }
         .date-badge .ym {
-            font-size: 0.9em;
-            color: #4a5568;
-            margin-top: 5px;
+            font-size: 0.85em;
+            color: rgba(255, 255, 255, 0.85);
+            margin-top: 6px;
+            font-weight: 600;
+            text-transform: uppercase;
         }
         .card-body {
-            padding: 20px;
+            padding: 25px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
         }
         .event-name {
-            font-size: 1.2em;
-            font-weight: bold;
-            color: #2d3748;
-            margin-bottom: 15px;
+            font-size: 1.35em;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 20px;
             text-align: center;
+            letter-spacing: -0.02em;
         }
         .sermon-section {
             background: #f8fafc;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 10px;
-            border-left: 3px solid #cbd5e0;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border: 1px solid #f1f5f9;
+            border-left: 4px solid #cbd5e1;
+            transition: all 0.2s ease;
+        }
+        .sermon-section:hover {
+            background: #f1f5f9;
+            border-left-color: #6366f1;
         }
         .sermon-type {
-            font-size: 0.8em;
-            font-weight: bold;
+            font-size: 0.75em;
+            font-weight: 700;
             color: #fff;
-            background: #a0aec0;
-            padding: 2px 8px;
-            border-radius: 4px;
+            background: #64748b;
+            padding: 3px 10px;
+            border-radius: 30px;
             display: inline-block;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
-        .sermon-type.mandarin { background: #48bb78; }
-        .sermon-type.taiwanese { background: #4299e1; }
+        .sermon-type.mandarin { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        .sermon-type.taiwanese { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); }
         
         .info-row {
-            margin-bottom: 6px;
-            font-size: 0.95em;
-            line-height: 1.4;
+            margin-bottom: 8px;
+            font-size: 0.92em;
+            line-height: 1.5;
+            color: #334155;
         }
         .info-label {
-            color: #718096;
-            font-weight: bold;
-            margin-right: 5px;
+            color: #64748b;
+            font-weight: 700;
+            margin-right: 6px;
+            display: inline-block;
         }
         .no-data {
             text-align: center;
-            color: #a0aec0;
-            font-size: 1.2em;
-            padding: 50px;
+            color: #94a3b8;
+            font-size: 1.25em;
+            padding: 80px 20px;
             grid-column: 1 / -1;
+            font-weight: 500;
         }
         .admin-link {
-            display: block;
-            text-align: center;
-            margin-top: 40px;
-            color: #718096;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin: 50px auto 0 auto;
+            color: #475569;
             text-decoration: none;
+            background: #ffffff;
+            padding: 10px 24px;
+            border-radius: 30px;
+            border: 1px solid #e2e8f0;
+            font-weight: 600;
+            font-size: 0.9em;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
+            transition: all 0.2s ease;
         }
         .admin-link:hover {
-            color: #2b6cb0;
-            text-decoration: underline;
+            color: #4f46e5;
+            background: #f8fafc;
+            border-color: #cbd5e1;
+            transform: translateY(-1px);
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);
         }
     </style>
 </head>
