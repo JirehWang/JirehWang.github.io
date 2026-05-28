@@ -174,6 +174,18 @@ function savePageFieldConfigLocally(config) {
 
 const _API_TIMEOUT_MS = 120000;
 
+function normalizeMinistryAction(action) {
+  return action.indexOf('ministry_') === 0 ? action : 'ministry_' + action;
+}
+
+function isMalformedCachedResult(result) {
+  return result &&
+    result.status &&
+    result.status !== 'success' &&
+    !result.message &&
+    !Object.prototype.hasOwnProperty.call(result, 'data');
+}
+
 /**
  * 事工管理 API 呼叫
  *
@@ -188,6 +200,18 @@ async function fetchAPI(action, data = {}) {
   if (typeof window.churchAPI === 'function') {
     try {
       const result = await window.churchAPI(action, data);
+      if (result && result.status === 'success') {
+        return result.data;
+      }
+      if (isMalformedCachedResult(result)) {
+        console.warn('[ministry-api] malformed cached result, fallback to direct GAS:', action, result);
+        if (typeof window.churchAPIInvalidate === 'function') {
+          window.churchAPIInvalidate(normalizeMinistryAction(action)).catch(err => {
+            console.warn('[ministry-api] cache invalidation failed:', err);
+          });
+        }
+        return await fetchDirectGAS(action, data);
+      }
       if (!result || result.status !== 'success') {
         throw new APIError(
           (result && result.message) || '伺服器錯誤',
@@ -195,7 +219,6 @@ async function fetchAPI(action, data = {}) {
           classifyError(result && result.message)
         );
       }
-      return result.data;
     } catch (err) {
       if (err instanceof APIError) throw err;
       throw new APIError(err.message || '網路錯誤', null, classifyError(err.message));
@@ -204,7 +227,11 @@ async function fetchAPI(action, data = {}) {
 
   // ── 回退路徑：直接打 GAS（保留 retry / timeout 邏輯） ──
   // 手動加 ministry_ 前綴
-  const realAction = action.indexOf('ministry_') === 0 ? action : 'ministry_' + action;
+  return await fetchDirectGAS(action, data);
+}
+
+async function fetchDirectGAS(action, data = {}) {
+  const realAction = normalizeMinistryAction(action);
   const payload = {
     action: realAction,
     token:  window.AUTH_TOKEN,
