@@ -22,11 +22,11 @@
         }
 
         header {
-            background: linear-gradient(135deg, #2c5f9e 0%, #4a90e2 60%, #6bb3f0 100%);
+            background: linear-gradient(to top right, #006030 0%, #30759f 55%, #6bb3f0 100%);
             color: white;
             padding: 40px 20px 30px;
             text-align: center;
-            box-shadow: 0 4px 16px rgba(44, 95, 158, 0.3);
+            box-shadow: 0 4px 16px rgba(0, 96, 48, 0.2);
         }
 
         header h1 {
@@ -189,6 +189,51 @@
 <footer>
     © 林口教會管理系統
 </footer>
+
+<script>
+    // 當頁面載入或視窗大小改變時，重新計算對角線漸層
+    document.addEventListener('DOMContentLoaded', calculateDiagonalGradients);
+    window.addEventListener('resize', calculateDiagonalGradients);
+
+    function calculateDiagonalGradients() {
+        const cards = Array.from(document.querySelectorAll('.card'));
+        if (cards.length === 0) return;
+
+        // 定義 RGB 起點與終點 (深綠色 #006030 至 天藍色 #4a90e2)
+        const startColor = { r: 0, g: 96, b: 48 };
+        const endColor = { r: 74, g: 144, b: 226 };
+
+        let minScore = Infinity;
+        let maxScore = -Infinity;
+
+        // 依據 (offsetLeft - offsetTop) 計算每個卡片在對角線上的投影得分
+        const cardData = cards.map(card => {
+            const x = card.offsetLeft;
+            const y = card.offsetTop;
+            const score = x - y;
+            if (score < minScore) minScore = score;
+            if (score > maxScore) maxScore = score;
+            return { card, score };
+        });
+
+        cardData.forEach(item => {
+            const ratio = maxScore !== minScore ? (item.score - minScore) / (maxScore - minScore) : 0.5;
+
+            // 插值 RGB
+            const r = Math.round(startColor.r + ratio * (endColor.r - startColor.r));
+            const g = Math.round(startColor.g + ratio * (endColor.g - startColor.g));
+            const b = Math.round(startColor.b + ratio * (endColor.b - startColor.b));
+
+            // 套用顏色
+            item.card.style.borderTopColor = `rgb(${r}, ${g}, ${b})`;
+            
+            const iconWrap = item.card.querySelector('.icon-wrap');
+            if (iconWrap) {
+                iconWrap.style.backgroundColor = `rgba(${r}, ${g}, ${b}, 0.1)`;
+            }
+        });
+    }
+</script>
 
 </body>
 </html>
