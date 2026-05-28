@@ -46,7 +46,7 @@ let currentPageFieldConfig = null;
 let fieldSettingsDraft = null;
 let availableMinistryTemplates = [];
 
-// 預覽布告欄 modal 目前的篩選後矩陣（給下載 Excel 用）
+// 預覽佈告欄 modal 目前的篩選後矩陣（給下載 Excel 用）
 let _currentBulletinFiltered = null;
 
 const initialFieldTemplates = {
@@ -346,7 +346,7 @@ window.onload = async () => {
       const data = await fetchAPI('getPageConfig', { id: currentId });
       renderTable(data);
 
-      // 如果未解鎖，才顯示布告欄 (預覽模式)
+      // 如果未解鎖，才顯示佈告欄 (預覽模式)
       if (!isEditorUnlocked) {
         showBulletinBoard();
       }
@@ -1482,7 +1482,7 @@ async function saveGroupPrompt() {
 // ============================================================
 const _MS_FILTER_QUARTERS = [1, 2, 3, 4];
 
-// 應該被視為「小組類聚會」的模板（小組總表 / 各小組布告欄會包含這些）
+// 應該被視為「小組類聚會」的模板（小組總表 / 各小組佈告欄會包含這些）
 const _MS_FELLOWSHIP_TEMPLATES = ['小組聚會表模板', '團契聚會表模板'];
 // 各項服事總表合併同日期時，要丟掉的「來源」欄位
 const _MS_META_COLS = ['分頁名稱', '模板類型', '聚會名稱', '聚會類別'];
@@ -1736,7 +1736,7 @@ function _ms_renderFilterableTable({ container, fullMatrix, tableMinWidth, onFil
 
 
 // ============================================================
-//  📋 預覽布告欄
+//  📋 預覽佈告欄
 // ============================================================
 function showBulletinBoard() {
   if (window.event) window.event.preventDefault();
@@ -1757,7 +1757,7 @@ function showBulletinBoard() {
     onFilteredChange: filtered => { _currentBulletinFiltered = filtered; }
   });
 
-  document.getElementById('bulletinModalLabel').innerText = `📋 ${activeGroupName} - 排班布告欄`;
+  document.getElementById('bulletinModalLabel').innerText = `📋 ${activeGroupName} - 排班佈告欄`;
 
   const closeBtn = document.getElementById('modalCloseBtn');
   if (isEditorUnlocked) {
@@ -1823,7 +1823,7 @@ function downloadExcel() {
 
   const ws = XLSX.utils.aoa_to_sheet(matrix);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "布告欄");
+  XLSX.utils.book_append_sheet(wb, ws, "佈告欄");
 
   const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   XLSX.writeFile(wb, `${activeGroupName}_排班表_${today}.xlsx`);
@@ -2515,8 +2515,8 @@ function findSermonForDate(dateStr, sermonType) {
     if (match) break;
   }
   
-  // 若都沒有，則隨機匹配第一個
-  if (!match) match = sermons[0];
+  // 若都沒有，回傳 null（即空白），不套用第一筆講道
+  if (!match) return null;
   console.log(`[SermonLink] Selected sermon match:`, match);
 
   return match;

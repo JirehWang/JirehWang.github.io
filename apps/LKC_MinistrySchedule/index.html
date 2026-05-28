@@ -19,7 +19,7 @@
       <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
         <h3 class="text-primary fw-bold m-0">教會服事管理系統</h3>
         <div class="d-flex gap-2">
-          <button class="btn" style="background-color: #006030; color: white; border: none;" onclick="window.open('groupboard.html', '_blank')">📅 小組聚會布告欄</button>
+          <button class="btn" style="background-color: #006030; color: white; border: none;" onclick="window.open('groupboard.html', '_blank')">📅 小組聚會佈告欄</button>
           <button class="btn btn-sm btn-outline-success shadow-sm fw-bold" onclick="showAggregatedReport('smallGroup')">📊 小組聚會總表</button>
           <button class="btn btn-sm btn-outline-primary shadow-sm fw-bold" onclick="showAggregatedReport('others')">📊 各項服事總表</button>
           <button class="btn btn-sm btn-primary shadow-sm" onclick="showSection('createSection')">➕ 建立新分頁</button>
@@ -70,7 +70,7 @@
         </div>
 
         <div class="report-header-actions">
-          <button class="btn btn-outline-info fw-bold" onclick="showBulletinBoard()">預覽布告欄</button>
+          <button class="btn btn-outline-info fw-bold" onclick="showBulletinBoard()">預覽佈告欄</button>
           <button class="btn btn-primary px-4 fw-bold" onclick="saveData()">儲存變更</button>
         </div>
       </div>
@@ -320,7 +320,7 @@
             <button class="btn btn-success fw-bold" type="button" onclick="addCustomField()">新增欄位</button>
           </div>
           <div id="fieldSettingsList" class="field-settings-list"></div>
-          <div class="alert alert-info small mt-3 mb-0">「日期」為必要欄位，不可停用。儲存欄位設定後，表格渲染、AI 解析、匯出、布告欄與總表都會依同一份欄位順序運作。</div>
+          <div class="alert alert-info small mt-3 mb-0">「日期」為必要欄位，不可停用。儲存欄位設定後，表格渲染、AI 解析、匯出、佈告欄與總表都會依同一份欄位順序運作。</div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" onclick="applyInitialTemplateFields()">補齊初始模板欄位</button>
@@ -359,7 +359,7 @@
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header bg-info text-white">
-          <h5 class="modal-title fw-bold" id="bulletinModalLabel">📋 小組布告欄</h5>
+          <h5 class="modal-title fw-bold" id="bulletinModalLabel">📋 小組佈告欄</h5>
           <button type="button" class="btn-close btn-close-white" onclick="closeModalOrUnlock()" aria-label="Close"></button>
         </div>
         <div class="modal-body" id="bulletinContent">
