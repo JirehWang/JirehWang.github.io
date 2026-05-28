@@ -93,6 +93,13 @@
         <button class="btn btn-sm btn-outline-danger" onclick="clearDateFilter()">清除</button>
       </div>
 
+      <div class="d-flex align-items-center mb-3">
+        <hr class="flex-grow-1 me-3 my-0 text-muted opacity-25">
+        <button type="button" id="toggleActionsBtn" class="btn btn-sm btn-outline-secondary fw-bold d-flex align-items-center gap-1 toggle-actions-btn" onclick="togglePrimaryActions()">
+          🛠️ 功能區 <span id="toggleActionsArrow">▾</span>
+        </button>
+      </div>
+
       <div class="ministry-primary-actions mb-3">
         <button class="ministry-action-card" type="button" onclick="openQuarterModal()">
           <strong id="quarterActionTitle">新增一季聚會</strong>

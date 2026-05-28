@@ -336,6 +336,23 @@ window.onload = async () => {
     isEditorUnlocked = true;
   }
 
+  // 還原功能區收合狀態
+  const isCollapsed = localStorage.getItem('ministry.primaryActionsCollapsed') === 'true';
+  const container = document.querySelector('.ministry-primary-actions');
+  const btn = document.getElementById('toggleActionsBtn');
+  const arrow = document.getElementById('toggleActionsArrow');
+  if (container && btn) {
+    if (isCollapsed) {
+      container.classList.add('collapsed');
+      if (arrow) arrow.innerText = '▾';
+      btn.classList.remove('active');
+    } else {
+      container.classList.remove('collapsed');
+      if (arrow) arrow.innerText = '▴';
+      btn.classList.add('active');
+    }
+  }
+
   if (!currentId) {
     showSection('adminMain');
     await loadAdminData();
@@ -2571,4 +2588,24 @@ window.toggleSermonTypeSelect = toggleSermonTypeSelect;
 window.saveSermonSettings = saveSermonSettings;
 window.onSermonLinkChange = onSermonLinkChange;
 window.forceSyncSermonData = forceSyncSermonData;
+
+function togglePrimaryActions() {
+  const container = document.querySelector('.ministry-primary-actions');
+  const btn = document.getElementById('toggleActionsBtn');
+  const arrow = document.getElementById('toggleActionsArrow');
+  if (!container || !btn) return;
+  
+  const isCollapsed = container.classList.toggle('collapsed');
+  
+  localStorage.setItem('ministry.primaryActionsCollapsed', isCollapsed ? 'true' : 'false');
+  
+  if (isCollapsed) {
+    if (arrow) arrow.innerText = '▾';
+    btn.classList.remove('active');
+  } else {
+    if (arrow) arrow.innerText = '▴';
+    btn.classList.add('active');
+  }
+}
+window.togglePrimaryActions = togglePrimaryActions;
 
