@@ -102,3 +102,11 @@ export async function cacheGetOrFetch(topic, subkey, loader, ttlSeconds = 300) {
   await cacheSet(topic, subkey, fresh, ttlSeconds);
   return fresh;
 }
+
+export async function cacheGetOrFetchWithMeta(topic, subkey, loader, ttlSeconds = 300) {
+  const hit = await cacheGet(topic, subkey);
+  if (hit !== null) return { value: hit, source: 'cache' };
+  const fresh = await loader();
+  await cacheSet(topic, subkey, fresh, ttlSeconds);
+  return { value: fresh, source: 'fresh' };
+}

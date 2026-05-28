@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LKC 系統運作紀錄</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --line: #dbe4ef;
+      --text: #1f2937;
+      --muted: #64748b;
+      --blue: #2563eb;
+      --green: #15803d;
+      --amber: #b45309;
+      --red: #b91c1c;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft JhengHei", "Noto Sans TC", system-ui, sans-serif;
+    }
+
+    header {
+      padding: 24px clamp(16px, 4vw, 40px) 16px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.35rem, 2vw, 1.8rem);
+      letter-spacing: 0;
+    }
+
+    main {
+      padding: 20px clamp(16px, 4vw, 40px) 40px;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(160px, 1fr) minmax(180px, 1.2fr) minmax(140px, 0.8fr) auto;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      font-weight: 700;
+      color: #334155;
+      font-size: 0.9rem;
+    }
+
+    input,
+    select,
+    button {
+      min-height: 42px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font: inherit;
+      background: #fff;
+    }
+
+    button {
+      border-color: var(--blue);
+      background: var(--blue);
+      color: #fff;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: wait;
+      opacity: 0.7;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(120px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .metric {
+      min-height: 86px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 1.7rem;
+      line-height: 1;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    table {
+      width: 100%;
+      min-width: 980px;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    th,
+    td {
+      padding: 11px 12px;
+      border-bottom: 1px solid #edf2f7;
+      text-align: left;
+      vertical-align: top;
+      word-break: break-word;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f8fafc;
+      color: #334155;
+      font-size: 0.88rem;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .level {
+      display: inline-flex;
+      justify-content: center;
+      min-width: 68px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+    }
+
+    .level.info {
+      background: var(--green);
+    }
+
+    .level.warn {
+      background: var(--amber);
+    }
+
+    .level.error,
+    .level.critical {
+      background: var(--red);
+    }
+
+    .meta {
+      max-height: 120px;
+      overflow: auto;
+      margin: 0;
+      color: #475569;
+      font-size: 0.82rem;
+      white-space: pre-wrap;
+    }
+
+    .empty,
+    .status {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--muted);
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    @media (max-width: 760px) {
+      .toolbar,
+      .summary {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>LKC 系統運作紀錄</h1>
+    <div class="muted">檢視中央 API、快取 fallback、錯誤與寫入後快取清除紀錄。</div>
+  </header>
+
+  <main>
+    <section class="toolbar" aria-label="紀錄篩選">
+      <label>
+        日期
+        <input id="dateInput" type="date">
+      </label>
+      <label>
+        系統
+        <select id="systemSelect">
+          <option value="all">全部系統</option>
+          <option value="LKC_MinistrySchedule_TEST">事工系統</option>
+          <option value="LKC_MasterSchedule">教會行事曆</option>
+          <option value="LKC_SundayserviceAttendance">主日點名</option>
+          <option value="LKC_Group">小組系統</option>
+          <option value="LKC_worship">敬拜團</option>
+          <option value="LKC_WhosCar">誰的車</option>
+        </select>
+      </label>
+      <label>
+        等級
+        <select id="levelSelect">
+          <option value="all">全部</option>
+          <option value="critical">critical</option>
+          <option value="error">error</option>
+          <option value="warn">warn</option>
+          <option value="info">info</option>
+        </select>
+      </label>
+      <button id="refreshBtn" type="button">重新整理</button>
+    </section>
+
+    <section class="summary" aria-label="紀錄摘要">
+      <div class="metric"><span class="muted">總筆數</span><strong id="totalCount">0</strong></div>
+      <div class="metric"><span class="muted">Error/Critical</span><strong id="errorCount">0</strong></div>
+      <div class="metric"><span class="muted">Warn</span><strong id="warnCount">0</strong></div>
+      <div class="metric"><span class="muted">平均耗時</span><strong id="avgDuration">0ms</strong></div>
+    </section>
+
+    <div id="statusBox" class="status">載入中...</div>
+
+    <section id="tableWrap" class="table-wrap hidden" aria-label="紀錄列表">
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 170px;">時間</th>
+            <th style="width: 160px;">系統</th>
+            <th style="width: 90px;">等級</th>
+            <th style="width: 190px;">Action</th>
+            <th>訊息</th>
+            <th style="width: 100px;">耗時</th>
+            <th style="width: 260px;">Meta</th>
+          </tr>
+        </thead>
+        <tbody id="logRows"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script type="module">
+    import { rtdb } from './firebase/firebase-config.js';
+    import {
+      ref, get
+    } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js';
+
+    const systems = [
+      'LKC_MinistrySchedule_TEST',
+      'LKC_MasterSchedule',
+      'LKC_SundayserviceAttendance',
+      'LKC_SundayserviceAttendance_TEST',
+      'LKC_Group',
+      'LKC_Group_TEST',
+      'LKC_worship',
+      'LKC_WhosCar'
+    ];
+
+    const dateInput = document.getElementById('dateInput');
+    const systemSelect = document.getElementById('systemSelect');
+    const levelSelect = document.getElementById('levelSelect');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const statusBox = document.getElementById('statusBox');
+    const tableWrap = document.getElementById('tableWrap');
+    const logRows = document.getElementById('logRows');
+
+    const totalCount = document.getElementById('totalCount');
+    const errorCount = document.getElementById('errorCount');
+    const warnCount = document.getElementById('warnCount');
+    const avgDuration = document.getElementById('avgDuration');
+
+    function todayKey() {
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+
+    function formatTime(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return iso;
+      return d.toLocaleString('zh-TW', { hour12: false });
+    }
+
+    function escapeHTML(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    async function readSystemLogs(system, dateKey) {
+      const snap = await get(ref(rtdb, `logs/${system}/${dateKey}`));
+      if (!snap.exists()) return [];
+      const val = snap.val();
+      return Object.keys(val).map(id => Object.assign({ id }, val[id]));
+    }
+
+    async function loadLogs() {
+      refreshBtn.disabled = true;
+      statusBox.classList.remove('hidden');
+      tableWrap.classList.add('hidden');
+      statusBox.textContent = '載入中...';
+
+      try {
+        const dateKey = dateInput.value || todayKey();
+        const selectedSystem = systemSelect.value;
+        const selectedLevel = levelSelect.value;
+        const targetSystems = selectedSystem === 'all' ? systems : [selectedSystem];
+
+        const chunks = await Promise.all(targetSystems.map(system => readSystemLogs(system, dateKey)));
+        let logs = chunks.flat();
+        if (selectedLevel !== 'all') {
+          logs = logs.filter(item => item.level === selectedLevel);
+        }
+        logs.sort((a, b) => String(b.time || '').localeCompare(String(a.time || '')));
+
+        renderSummary(logs);
+        renderRows(logs);
+
+        if (logs.length === 0) {
+          statusBox.textContent = '目前沒有符合條件的紀錄。';
+          tableWrap.classList.add('hidden');
+        } else {
+          statusBox.classList.add('hidden');
+          tableWrap.classList.remove('hidden');
+        }
+      } catch (err) {
+        statusBox.textContent = `讀取失敗：${err.message || err}`;
+        tableWrap.classList.add('hidden');
+      } finally {
+        refreshBtn.disabled = false;
+      }
+    }
+
+    function renderSummary(logs) {
+      const durations = logs.map(item => Number(item.durationMs)).filter(Number.isFinite);
+      const avg = durations.length
+        ? Math.round(durations.reduce((sum, value) => sum + value, 0) / durations.length)
+        : 0;
+
+      totalCount.textContent = logs.length;
+      errorCount.textContent = logs.filter(item => item.level === 'error' || item.level === 'critical').length;
+      warnCount.textContent = logs.filter(item => item.level === 'warn').length;
+      avgDuration.textContent = `${avg}ms`;
+    }
+
+    function renderRows(logs) {
+      logRows.innerHTML = logs.map(item => {
+        const level = item.level || 'info';
+        const metaText = JSON.stringify(item.meta || {}, null, 2);
+        return `
+          <tr>
+            <td>${escapeHTML(formatTime(item.time))}</td>
+            <td>${escapeHTML(item.system)}</td>
+            <td><span class="level ${escapeHTML(level)}">${escapeHTML(level)}</span></td>
+            <td>${escapeHTML(item.action)}</td>
+            <td>${escapeHTML(item.message)}</td>
+            <td>${item.durationMs == null ? '' : escapeHTML(item.durationMs + 'ms')}</td>
+            <td><pre class="meta">${escapeHTML(metaText)}</pre></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    dateInput.value = todayKey();
+    refreshBtn.addEventListener('click', loadLogs);
+    systemSelect.addEventListener('change', loadLogs);
+    levelSelect.addEventListener('change', loadLogs);
+    dateInput.addEventListener('change', loadLogs);
+    loadLogs();
+  </script>
+</body>
+</html>

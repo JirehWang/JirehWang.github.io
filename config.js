@@ -205,6 +205,36 @@
     return _firebaseCachePromise;
   }
 
+  let _firebaseLoggerPromise = null;
+  function _getFirebaseLogger() {
+    if (_firebaseLoggerPromise) return _firebaseLoggerPromise;
+    _firebaseLoggerPromise = import('https://jirehwang.github.io/LKC1958_June_1.github.io/firebase/firebase-logger.js')
+      .catch(err => { console.warn('[firebase-logger] 載入失敗，略過遠端紀錄:', err); return null; });
+    return _firebaseLoggerPromise;
+  }
+
+  function _logEvent(level, action, message, meta = {}) {
+    if (!currentKey) return;
+    _getFirebaseLogger().then(logger => {
+      if (!logger || !logger.writeLog) return;
+      return logger.writeLog({
+        system: currentKey,
+        level,
+        action,
+        message,
+        durationMs: meta.durationMs,
+        source: 'config.js',
+        meta
+      });
+    }).catch(err => {
+      console.warn('[church-log] 寫入失敗:', err);
+    });
+  }
+
+  window.churchLog = function(entry = {}) {
+    _logEvent(entry.level || 'info', entry.action || '', entry.message || '', entry.meta || {});
+  };
+
   // 為帶 data 的 cache 計算 subkey（無 data → null 走 _default）
   // ⚠️ 不可截斷！之前用 substring(0, 24) 會讓 {year:'2026',quarter:'Q1'}
   //    與 {year:'2026',quarter:'Q2'} 產生同樣 subkey（差異在末尾），導致 cache 撞鍵
@@ -235,20 +265,35 @@
     if (!window.GAS_URL) {
       throw new APIError("系統尚未就緒：GAS_URL 為空", null, 'CONFIG_ERROR');
     }
+    const startedAt = Date.now();
     // 已有前綴的 action 不重複加
     const realAction = (_actionPrefix && action.indexOf(_actionPrefix) !== 0)
       ? _actionPrefix + action
       : action;
+    const ttl = _CACHEABLE_ACTIONS[realAction];
+    const isWriteAction = Object.prototype.hasOwnProperty.call(_INVALIDATE_ON_WRITE, realAction);
+
+    function logApi(level, message, extra = {}) {
+      _logEvent(level, realAction, message, Object.assign({
+        requestedAction: action,
+        durationMs: Date.now() - startedAt,
+        cacheable: Boolean(ttl),
+        writeAction: isWriteAction
+      }, extra));
+    }
 
     try {
       // 🔥 可快取 → 走 Firebase（cache 路徑：cache/{action}/{dataHash}）
-      const ttl = _CACHEABLE_ACTIONS[realAction];
       if (ttl) {
         const fb = await _getFirebaseCache();
         if (fb && fb.cacheGetOrFetch) {
           const subkey = _makeSubkey(data);
           try {
-            const result = await fb.cacheGetOrFetch(realAction, subkey, () => _doDirectCall(realAction, data), ttl);
+            const cacheLoader = () => _doDirectCall(realAction, data);
+            const cacheResult = fb.cacheGetOrFetchWithMeta
+              ? await fb.cacheGetOrFetchWithMeta(realAction, subkey, cacheLoader, ttl)
+              : { value: await fb.cacheGetOrFetch(realAction, subkey, cacheLoader, ttl), source: 'unknown' };
+            const result = cacheResult.value;
             if (_isInvalidApiResponse(result)) {
               if (fb.cacheDelete) {
                 fb.cacheDelete(realAction, subkey).catch(err => {
@@ -259,17 +304,49 @@
                   console.warn('[firebase-cache] delete invalid cache topic failed:', realAction, err);
                 });
               }
-              return await _doDirectCall(realAction, data);
+              logApi('warn', 'invalid cache response, fallback to GAS', {
+                cacheSource: cacheResult.source,
+                subkey,
+                responseStatus: result.status
+              });
+              const fallbackResult = await _doDirectCall(realAction, data);
+              logApi('warn', 'fallback GAS completed after invalid cache', {
+                subkey,
+                responseStatus: fallbackResult && fallbackResult.status
+              });
+              return fallbackResult;
+            }
+            const durationMs = Date.now() - startedAt;
+            if (cacheResult.source === 'fresh' || durationMs > 3000) {
+              logApi(durationMs > 5000 ? 'warn' : 'info', 'cacheable API completed', {
+                cacheSource: cacheResult.source,
+                subkey,
+                responseStatus: result && result.status
+              });
             }
             return result;
           } catch (e) {
             console.warn('[firebase-cache]', realAction, '失敗，回退直接呼叫:', e);
+            logApi('warn', 'firebase cache failed, fallback to GAS', {
+              error: e && e.message ? e.message : String(e),
+              subkey
+            });
           }
         }
       }
 
       // 直接呼叫 GAS
       const result = await _doDirectCall(realAction, data);
+      if (_isInvalidApiResponse(result)) {
+        logApi('error', 'GAS returned non-success response', {
+          responseStatus: result.status,
+          message: result.message || ''
+        });
+      } else if (isWriteAction || Date.now() - startedAt > 3000) {
+        logApi(Date.now() - startedAt > 5000 ? 'warn' : 'info', 'direct GAS API completed', {
+          responseStatus: result && result.status
+        });
+      }
 
       // 🗑️ 寫入 action 觸發整個 topic 的 cache 失效（不分 data 變體）
       // ⚠️ 改為 await：避免使用者寫入後立刻去讀（例：改完覆寫立刻看公佈欄），
@@ -285,6 +362,9 @@
               })
             ));
             console.log('[invalidate] cleared:', toInvalidate.join(', '));
+            logApi('info', 'cache invalidated after write', {
+              topics: toInvalidate
+            });
           } catch (e) { /* 已個別 catch */ }
         }
       }
@@ -292,6 +372,12 @@
       return result;
     } catch (err) {
       console.error("📡 API 通訊失敗:", err);
+      logApi('error', 'API request failed', {
+        error: err && err.message ? err.message : String(err),
+        errorName: err && err.name,
+        httpStatus: err && err.httpStatus,
+        type: err && err.type
+      });
       throw err;
     }
   };
