@@ -391,5 +391,21 @@ const ChurchAPI = {
       attendance:   val(attendance),
       smallGroups:  val(smallGroups)
     };
+  },
+
+  // ==========================================
+  // FHL 信望愛聖經 API 查詢 (用作輔助判斷與經文比對)
+  // ==========================================
+  async queryBible(book, chap, sec = '', version = 'unv') {
+    try {
+      const url = `${CONFIG.GAS_SYNC_URL}?action=queryBible&book=${encodeURIComponent(book)}&chap=${chap}&sec=${sec}&version=${version}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.error('[ChurchAPI queryBible]', err);
+      return { success: false, error: err.message };
+    }
   }
 };
+
