@@ -206,8 +206,8 @@ const ChurchAPI = {
         success: true, source: 'LKCschedule',
         data: events.map(e => {
           const sermons = e.sermons || [];
-          const twS = sermons.find(s => s.type === '台語/聯合') || null;
-          const zhS = sermons.find(s => s.type === '華語') || null;
+          const twS = sermons.find(s => s.type === '台語/聯合' || s.type === '台語' || s.type === '聯合-台語') || null;
+          const zhS = sermons.find(s => s.type === '華語' || s.type === '聯合-華語') || null;
           return {
             date:         e['日期']     || e.date         || '',
             name:         e['聚會名稱'] || e.name         || '',
