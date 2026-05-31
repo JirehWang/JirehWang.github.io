@@ -169,6 +169,37 @@
       }
     }
 
+    let hasInteracted = false;
+    function unlockAPIs() {
+      if (hasInteracted) return;
+      hasInteracted = true;
+      
+      // 觸發微小震動來解鎖 Android Chrome 震動 API 限制
+      if (isVibrateEnabled && navigator.vibrate) {
+        navigator.vibrate(10);
+      }
+      
+      // 觸發音效解鎖
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+      } catch (e) {}
+      
+      // 移除未觸碰提示
+      const tip = document.getElementById('status-tip');
+      if (tip && tip.innerText.includes("觸碰螢幕")) {
+        tip.innerText = "等待 QR Code... (v5 旗艦版)";
+      }
+      
+      document.removeEventListener('click', unlockAPIs);
+      document.removeEventListener('touchstart', unlockAPIs);
+    }
+    
+    document.addEventListener('click', unlockAPIs);
+    document.addEventListener('touchstart', unlockAPIs);
+
     async function initScanner() {
       const formatsToSupport = [ Html5QrcodeSupportedFormats.QR_CODE ];
       html5QrCode = new Html5Qrcode("reader", { formatsToSupport: formatsToSupport });
@@ -198,7 +229,7 @@
       html5QrCode.start(cameraId, config, (text) => { 
         if (!isProcessing) handleScan(text.trim()); 
       }).then(() => {
-        tip.innerText = "等待 QR Code... (v5 旗艦版)";
+        tip.innerText = hasInteracted ? "等待 QR Code... (v5 旗艦版)" : "等待 QR Code... (觸碰螢幕以啟用震動/響鈴)";
       }).catch(err => {
         console.warn("高速模式啟動失敗，嘗試安全模式", err);
         
@@ -206,7 +237,7 @@
         html5QrCode.start(cameraId, { fps: 15, qrbox: 250 }, (text) => {
            if (!isProcessing) handleScan(text.trim());
         }).then(() => {
-           tip.innerText = "等待 QR Code... (安全模式)";
+           tip.innerText = hasInteracted ? "等待 QR Code... (安全模式)" : "等待 QR Code... (觸碰螢幕以啟用震動/響鈴)";
         }).catch(err2 => {
            tip.innerText = "❌ 相機啟動失敗";
            tip.style.background = "#dc3545";
