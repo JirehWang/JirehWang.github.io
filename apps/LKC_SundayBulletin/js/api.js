@@ -212,16 +212,17 @@ const ChurchAPI = {
             date:         e['日期']     || e.date         || '',
             name:         e['聚會名稱'] || e.name         || '',
             category:     e['講道類別'] || e['聚會類別'] || e.category || '',
-            sermonTitle:  twS?.title          || e['講題']  || e.sermonTitle  || '',
-            speaker:      twS?.speaker        || e['講員']  || e.speaker      || '',
-            scripture:    twS?.scripture      || e['經文']  || e.scripture    || '',
-            callToWorship:twS?.callToWorship  || e['宣召']  || e.callToWorship|| '',
-            goldenVerse:  twS?.goldenVerse    || e['金句']  || e.goldenVerse  || '',
-            hymn:         twS?.hymns          || e['詩歌']  || e['聖詩'] || e.hymn || '',
+            // 若台語或華語單方缺少，則互相 Fallback
+            sermonTitle:  twS?.title          || zhS?.title          || e['講題']  || e.sermonTitle  || '',
+            speaker:      twS?.speaker        || zhS?.speaker        || e['講員']  || e.speaker      || '',
+            scripture:    twS?.scripture      || zhS?.scripture      || e['經文']  || e.scripture    || '',
+            callToWorship:twS?.callToWorship  || zhS?.callToWorship  || e['宣召']  || e.callToWorship|| '',
+            goldenVerse:  twS?.goldenVerse    || zhS?.goldenVerse    || e['金句']  || e.goldenVerse  || '',
+            hymn:         twS?.hymns          || zhS?.hymns          || e['詩歌']  || e['聖詩'] || e.hymn || '',
             notes:        e['備註']           || e.notes        || '',
-            zhSermonTitle: zhS?.title     || '',
-            zhSpeaker:     zhS?.speaker   || '',
-            zhScripture:   zhS?.scripture || '',
+            zhSermonTitle: zhS?.title     || twS?.title     || '',
+            zhSpeaker:     zhS?.speaker   || twS?.speaker   || '',
+            zhScripture:   zhS?.scripture || twS?.scripture || '',
             hasTwSermon: !!twS,
             hasZhSermon: !!zhS,
             raw: e
@@ -242,10 +243,15 @@ const ChurchAPI = {
     const dayEvents = events.filter(e => this._dateMatch(e.date, date));
     debug('[LKCschedule] date:', date, '| dayEvents:', dayEvents.length);
 
+    // 優先以含有講道資訊的聚會作為 Fallback 基準
+    const baseEvent = dayEvents.find(e => e.sermons && e.sermons.length > 0) || dayEvents[0] || null;
+
     const twEvent = dayEvents.find(e => e.hasTwSermon)
-      || dayEvents.find(e => e.category.includes('台語') || e.name.includes('台語') || e.category === '主日');
+      || dayEvents.find(e => e.category.includes('台語') || e.name.includes('台語') || e.category === '主日')
+      || baseEvent;
     const zhEvent = dayEvents.find(e => e.hasZhSermon)
-      || dayEvents.find(e => e.category.includes('華語') || e.name.includes('華語'));
+      || dayEvents.find(e => e.category.includes('華語') || e.name.includes('華語'))
+      || baseEvent;
 
     const twService = twEvent || null;
     const zhService = zhEvent ? {
@@ -253,7 +259,9 @@ const ChurchAPI = {
       name:        zhEvent.name,
       sermonTitle: zhEvent.zhSermonTitle || zhEvent.sermonTitle || '',
       speaker:     zhEvent.zhSpeaker     || zhEvent.speaker     || '',
-      scripture:   zhEvent.zhScripture   || zhEvent.scripture   || ''
+      scripture:   zhEvent.zhScripture   || zhEvent.scripture   || '',
+      callToWorship: zhEvent.callToWorship || '',
+      goldenVerse:   zhEvent.goldenVerse   || ''
     } : null;
 
     const today = new Date(date);
