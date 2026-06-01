@@ -95,6 +95,11 @@ document.querySelectorAll('.tab').forEach(button => {
 
 form.addEventListener('submit', async event => {
   event.preventDefault();
+
+  if (!confirm('確認要送出此筆新家人資料嗎？')) {
+    return;
+  }
+
   setNotice(formNotice, '送出中...');
   submitBtn.disabled = true;
 
