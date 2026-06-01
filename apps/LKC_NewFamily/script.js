@@ -650,34 +650,16 @@ async function exportCombinedWorkbook() {
       return;
     }
 
-    // Determine unique column groups dynamically
-    const colGroupsMap = new Map();
-    rows.forEach(item => {
-      const yq = getYearQuarter(item['日期']);
-      if (yq) {
-        colGroupsMap.set(`${yq.year}_${yq.quarter}`, yq);
-      }
-    });
-
-    const sortedYqKeys = Array.from(colGroupsMap.keys()).sort((a, b) => {
-      const [ay, aq] = a.split('_');
-      const [by, bq] = b.split('_');
-      if (ay !== by) return ay - by;
-      return aq.localeCompare(bq);
-    });
-
-    const columnGroups = [];
-    const yearsPresent = Array.from(new Set(sortedYqKeys.map(k => k.split('_')[0])));
-
-    yearsPresent.forEach(year => {
-      const qKeys = sortedYqKeys.filter(k => k.startsWith(year + '_'));
-      if (qKeys.length > 1) {
-        columnGroups.push({ year: parseInt(year, 10), quarter: 'Q1-Q4' });
-      }
-      qKeys.forEach(k => {
-        columnGroups.push(colGroupsMap.get(k));
-      });
-    });
+    // Set fixed column groups to match reference template exactly
+    const columnGroups = [
+      { year: 2024, quarter: 'Q4' },
+      { year: 2025, quarter: 'Q1-Q4' },
+      { year: 2025, quarter: 'Q1' },
+      { year: 2025, quarter: 'Q2' },
+      { year: 2025, quarter: 'Q3' },
+      { year: 2025, quarter: 'Q4' },
+      { year: 2026, quarter: 'Q1' }
+    ];
 
     const numGroups = columnGroups.length;
     const numCols = 15 + 3 * numGroups;
@@ -745,9 +727,11 @@ async function exportCombinedWorkbook() {
       if (yrRows.length > 0) {
         const dates = yrRows.map(item => item['日期']).filter(Boolean).sort();
         if (dates.length > 0) {
-          const minDate = dates[0].replace(/-/g, '/');
-          const maxDate = dates[dates.length - 1].replace(/-/g, '/');
-          dateRangeStr = `（${minDate}-${maxDate}）`;
+          const formatDate = (dStr) => {
+            const parts = dStr.split('-');
+            return `${parts[0]}/${parseInt(parts[1], 10)}/${parseInt(parts[2], 10)}`;
+          };
+          dateRangeStr = `（${formatDate(dates[0])}-${formatDate(dates[dates.length - 1])}）`;
         }
       }
 
@@ -813,7 +797,10 @@ async function exportCombinedWorkbook() {
     matrix[1][7] = '新家人落戶統計';
     columnGroups.forEach((group, groupIdx) => {
       const startCol = 9 + 3 * groupIdx;
-      matrix[1][startCol] = group.year;
+      // Only write year for index 0 (2024), 1 (2025), and 6 (2026) to match template's merged cells
+      if (groupIdx === 0 || groupIdx === 1 || groupIdx === 6) {
+        matrix[1][startCol] = group.year;
+      }
       matrix[2][startCol] = group.quarter;
       matrix[3][startCol] = '聯合';
       matrix[3][startCol + 1] = '台語';
@@ -973,7 +960,7 @@ async function exportCombinedWorkbook() {
     ];
 
     const sheets = [
-      { name: '新家人落戶分析', rows: matrix },
+      { name: '新家人落戶分析 (以初始資料為主)', rows: matrix },
       { name: '最新新家人名單&落戶狀態', rows: detailRows }
     ];
 
@@ -1095,6 +1082,9 @@ function buildWorksheetXml(rows) {
 
 function buildCellXml(value, columnIndex, rowIndex) {
   const reference = `${columnName(columnIndex)}${rowIndex + 1}`;
+  if (value === null || value === undefined || value === '') {
+    return '';
+  }
   if (typeof value === 'string' && value.startsWith('=')) {
     return `<c r="${reference}"><f>${escapeXmlText(value.slice(1))}</f></c>`;
   }
