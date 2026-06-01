@@ -1105,7 +1105,7 @@ function buildCaseTable(rows, selectable, columns) {
   const tbody = document.createElement('tbody');
   const headRow = document.createElement('tr');
 
-  headRow.innerHTML = `${selectable ? '<th class="check-cell">結案</th><th class="action-cell">編輯</th>' : ''}${columns.map(column => `<th>${escapeHtml(getColumnLabel(column))}</th>`).join('')}`;
+  headRow.innerHTML = `${selectable ? '<th class="check-cell">結案</th><th class="action-cell">操作</th>' : ''}${columns.map(column => `<th>${escapeHtml(getColumnLabel(column))}</th>`).join('')}`;
   thead.appendChild(headRow);
 
   rows.forEach(item => {
@@ -1117,15 +1117,25 @@ function buildCaseTable(rows, selectable, columns) {
       checkboxCell.innerHTML = `<input type="checkbox" value="${item.rowNumber}" aria-label="勾選 ${escapeHtml(item['新家人姓名'] || '此筆資料')} 結案">`;
       row.appendChild(checkboxCell);
 
-      const editCell = document.createElement('td');
-      editCell.className = 'action-cell';
+      const actionCell = document.createElement('td');
+      actionCell.className = 'action-cell';
+      
       const editButton = document.createElement('button');
       editButton.type = 'button';
       editButton.className = 'btn secondary';
       editButton.textContent = '編輯';
       editButton.addEventListener('click', () => openEditModal(item));
-      editCell.appendChild(editButton);
-      row.appendChild(editCell);
+      actionCell.appendChild(editButton);
+
+      const deleteButton = document.createElement('button');
+      deleteButton.type = 'button';
+      deleteButton.className = 'btn danger';
+      deleteButton.textContent = '刪除';
+      deleteButton.style.marginLeft = '6px';
+      deleteButton.addEventListener('click', () => deleteSingleCase(item));
+      actionCell.appendChild(deleteButton);
+      
+      row.appendChild(actionCell);
     }
 
     columns.forEach(column => {
@@ -1311,6 +1321,23 @@ async function closeSelectedCases() {
     setNotice(trackingNotice, error.message || String(error), 'error');
   } finally {
     closeBtn.disabled = false;
+  }
+}
+
+async function deleteSingleCase(item) {
+  const name = item['新家人姓名'] || '此筆資料';
+  if (!confirm(`確認要永久刪除新朋友「${name}」的追蹤資料嗎？此操作將無法復原。`)) {
+    return;
+  }
+
+  setNotice(trackingNotice, '刪除中...');
+  
+  try {
+    const result = await callApi('deleteTrackingCase', { rowNumber: item.rowNumber });
+    setNotice(trackingNotice, result.message, 'success');
+    await loadTrackingCases();
+  } catch (error) {
+    setNotice(trackingNotice, error.message || String(error), 'error');
   }
 }
 
