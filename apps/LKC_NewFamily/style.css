@@ -319,13 +319,73 @@ tr:last-child td {
 }
 
 .action-cell {
-  width: 148px;
+  width: 84px;
 }
 
 .action-cell .btn {
   min-height: 34px;
   padding: 0 11px;
   font-size: 13px;
+}
+
+/* 下拉選單容器 */
+.action-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.action-toggle-btn {
+  width: 100%;
+}
+
+/* 浮動選單主要樣式 */
+.action-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 100;
+  min-width: 90px;
+  margin-top: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(20, 31, 28, 0.12);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.action-menu[hidden] {
+  display: none;
+}
+
+/* 選單按鈕樣式 */
+.action-menu .menu-item {
+  border: 0;
+  background: transparent;
+  padding: 8px 12px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  width: 100%;
+  border-radius: 0;
+  min-height: auto;
+}
+
+.action-menu .menu-item:hover {
+  background: var(--surface-2);
+  color: var(--primary);
+}
+
+.action-menu .menu-item.danger {
+  color: var(--danger);
+}
+
+.action-menu .menu-item.danger:hover {
+  background: #fff5f5;
+  color: var(--danger);
 }
 
 .group-tag {

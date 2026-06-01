@@ -297,6 +297,12 @@ async function loadSettlementStatusOptions() {
   }
 }
 
+document.addEventListener('click', () => {
+  document.querySelectorAll('.action-menu').forEach(menu => {
+    menu.hidden = true;
+  });
+});
+
 function switchTab(tabName) {
   document.querySelectorAll('.tab').forEach(button => {
     button.classList.toggle('active', button.dataset.tab === tabName);
@@ -1105,7 +1111,7 @@ function buildCaseTable(rows, selectable, columns) {
   const tbody = document.createElement('tbody');
   const headRow = document.createElement('tr');
 
-  headRow.innerHTML = `${selectable ? '<th class="check-cell">結案</th><th class="action-cell">操作</th>' : ''}${columns.map(column => `<th>${escapeHtml(getColumnLabel(column))}</th>`).join('')}`;
+  headRow.innerHTML = `${selectable ? '<th class="check-cell">結案</th><th class="action-cell"></th>' : ''}${columns.map(column => `<th>${escapeHtml(getColumnLabel(column))}</th>`).join('')}`;
   thead.appendChild(headRow);
 
   rows.forEach(item => {
@@ -1120,22 +1126,50 @@ function buildCaseTable(rows, selectable, columns) {
       const actionCell = document.createElement('td');
       actionCell.className = 'action-cell';
       
-      const editButton = document.createElement('button');
-      editButton.type = 'button';
-      editButton.className = 'btn secondary';
-      editButton.textContent = '編輯';
-      editButton.addEventListener('click', () => openEditModal(item));
-      actionCell.appendChild(editButton);
+      const dropdown = document.createElement('div');
+      dropdown.className = 'action-dropdown';
 
-      const deleteButton = document.createElement('button');
-      deleteButton.type = 'button';
-      deleteButton.className = 'btn danger';
-      deleteButton.textContent = '刪除';
-      deleteButton.style.marginLeft = '6px';
-      deleteButton.addEventListener('click', () => deleteSingleCase(item));
-      actionCell.appendChild(deleteButton);
-      
+      const toggleButton = document.createElement('button');
+      toggleButton.type = 'button';
+      toggleButton.className = 'btn secondary action-toggle-btn';
+      toggleButton.textContent = '操作';
+      dropdown.appendChild(toggleButton);
+
+      const menu = document.createElement('div');
+      menu.className = 'action-menu';
+      menu.hidden = true;
+
+      const editItem = document.createElement('button');
+      editItem.type = 'button';
+      editItem.className = 'menu-item';
+      editItem.textContent = '編輯';
+      editItem.addEventListener('click', () => {
+        menu.hidden = true;
+        openEditModal(item);
+      });
+      menu.appendChild(editItem);
+
+      const deleteItem = document.createElement('button');
+      deleteItem.type = 'button';
+      deleteItem.className = 'menu-item danger';
+      deleteItem.textContent = '刪除';
+      deleteItem.addEventListener('click', () => {
+        menu.hidden = true;
+        deleteSingleCase(item);
+      });
+      menu.appendChild(deleteItem);
+
+      dropdown.appendChild(menu);
+      actionCell.appendChild(dropdown);
       row.appendChild(actionCell);
+
+      toggleButton.addEventListener('click', event => {
+        event.stopPropagation();
+        document.querySelectorAll('.action-menu').forEach(m => {
+          if (m !== menu) m.hidden = true;
+        });
+        menu.hidden = !menu.hidden;
+      });
     }
 
     columns.forEach(column => {
