@@ -633,63 +633,351 @@ function closeAnalysisModal() {
 }
 
 async function exportAnalysisDetail() {
-  try {
-    const rows = currentAnalysisRows.length
-      ? currentAnalysisRows
-      : filterAnalysisRowsByStatus(await getAnalysisDateRows());
-    if (!rows.length) {
-      setNotice(analysisNotice, '沒有可匯出的明細資料', 'error');
-      return;
-    }
-
-    const data = rows.map(item => ({
-      姓名: item['新家人姓名'] || '',
-      日期: item['日期'] || '',
-      落戶狀態: getDisplaySettlementStatus(item),
-      點名系統代碼: item['點名系統代碼'] || '',
-      現行小組: item['主日點名小組'] || ''
-    }));
-    exportWorkbook(
-      [{ name: '落戶明細', rows: data }],
-      `新朋友落戶明細_${getAnalysisRangeLabel()}`
-    );
-  } catch (error) {
-    setNotice(analysisNotice, error.message || String(error), 'error');
-  }
+  await exportCombinedWorkbook();
 }
 
 async function exportAnalysisSummary() {
+  await exportCombinedWorkbook();
+}
+
+async function exportCombinedWorkbook() {
   try {
     const rows = currentAnalysisRows.length
       ? currentAnalysisRows
       : filterAnalysisRowsByStatus(await getAnalysisDateRows());
-    const pivot = currentAnalysisPivot.length ? currentAnalysisPivot : buildSettlementPivot(rows);
     if (!rows.length) {
-      setNotice(analysisNotice, '沒有可匯出的統計資料', 'error');
+      setNotice(analysisNotice, '沒有可匯出的資料', 'error');
       return;
     }
 
-    const rangeLabel = getAnalysisRangeLabel();
-    exportWorkbook([
-      {
-        name: '統計摘要',
-        rows: [
-          { 項目: '起始日期', 數值: analysisStartDate.value || '不限' },
-          { 項目: '結束日期', 數值: analysisEndDate.value || '不限' },
-          { 項目: '落戶狀態篩選', 數值: analysisStatusFilter.value || '全部' },
-          { 項目: '總清單人數', 數值: rows.length },
-          { 項目: '落戶狀態種類', 數值: pivot.length }
-        ]
-      },
-      {
-        name: '落戶狀態統計',
-        rows: pivot.map(item => ({
-          落戶狀態: item.status,
-          人數: item.count,
-          比例: rows.length ? `${Math.round((item.count / rows.length) * 1000) / 10}%` : '0%'
-        }))
+    // Determine unique column groups dynamically
+    const colGroupsMap = new Map();
+    rows.forEach(item => {
+      const yq = getYearQuarter(item['日期']);
+      if (yq) {
+        colGroupsMap.set(`${yq.year}_${yq.quarter}`, yq);
       }
-    ], `新朋友落戶統計_${rangeLabel}`);
+    });
+
+    const sortedYqKeys = Array.from(colGroupsMap.keys()).sort((a, b) => {
+      const [ay, aq] = a.split('_');
+      const [by, bq] = b.split('_');
+      if (ay !== by) return ay - by;
+      return aq.localeCompare(bq);
+    });
+
+    const columnGroups = [];
+    const yearsPresent = Array.from(new Set(sortedYqKeys.map(k => k.split('_')[0])));
+
+    yearsPresent.forEach(year => {
+      const qKeys = sortedYqKeys.filter(k => k.startsWith(year + '_'));
+      if (qKeys.length > 1) {
+        columnGroups.push({ year: parseInt(year, 10), quarter: 'Q1-Q4' });
+      }
+      qKeys.forEach(k => {
+        columnGroups.push(colGroupsMap.get(k));
+      });
+    });
+
+    const numGroups = columnGroups.length;
+    const numCols = 15 + 3 * numGroups;
+    
+    // Initialize Sheet 1: Pivot Table matrix
+    const matrix = [];
+    for (let r = 0; r < 35; r++) {
+      matrix.push(new Array(numCols).fill(null));
+    }
+
+    const groups = [
+      '葡萄樹',
+      '以斯帖',
+      '松年團契',
+      '棕樹',
+      '芥菜種',
+      '香柏樹',
+      '橄欖樹',
+      '種子',
+      '提摩太',
+      '恩典團契',
+      '尚未落戶'
+    ];
+
+    function mapGroup(status) {
+      const s = String(status || '').trim();
+      if (s === '松年' || s === '松年團契') return '松年團契';
+      if (s === '恩典' || s === '恩典團契') return '恩典團契';
+      if (groups.includes(s)) return s;
+      return '尚未落戶';
+    }
+
+    function getYearQuarter(dateStr) {
+      if (!dateStr) return null;
+      const match = dateStr.match(/^(\d{4})-(\d{2})-\d{2}$/);
+      if (!match) return null;
+      const year = parseInt(match[1], 10);
+      const month = parseInt(match[2], 10);
+      let quarter = '';
+      if (month >= 1 && month <= 3) quarter = 'Q1';
+      else if (month >= 4 && month <= 6) quarter = 'Q2';
+      else if (month >= 7 && month <= 9) quarter = 'Q3';
+      else if (month >= 10 && month <= 12) quarter = 'Q4';
+      return { year, quarter };
+    }
+
+    function getServiceType(meetingName) {
+      const name = String(meetingName || '');
+      if (name.includes('聯合')) return '聯合';
+      if (name.includes('台語')) return '台語';
+      if (name.includes('華語')) return '華語';
+      return '華語';
+    }
+
+    const years = [2024, 2025, 2026];
+    years.forEach((year, yIdx) => {
+      const colIdx = 1 + yIdx * 2;
+      const yrRows = rows.filter(item => {
+        const yq = getYearQuarter(item['日期']);
+        return yq && yq.year === year;
+      });
+
+      const totalCount = yrRows.length;
+      let dateRangeStr = '';
+      if (yrRows.length > 0) {
+        const dates = yrRows.map(item => item['日期']).filter(Boolean).sort();
+        if (dates.length > 0) {
+          const minDate = dates[0].replace(/-/g, '/');
+          const maxDate = dates[dates.length - 1].replace(/-/g, '/');
+          dateRangeStr = `（${minDate}-${maxDate}）`;
+        }
+      }
+
+      const groupCounts = {};
+      groups.forEach(g => { groupCounts[g] = 0; });
+      let stoppedCount = 0;
+      let visitCount = 0;
+
+      yrRows.forEach(item => {
+        const status = String(item['落戶狀態'] || '').trim();
+        if (status === '停止聚會') {
+          stoppedCount++;
+        } else if (status === '請安拜訪') {
+          visitCount++;
+        } else {
+          const mapped = mapGroup(status);
+          groupCounts[mapped] = (groupCounts[mapped] || 0) + 1;
+        }
+      });
+
+      const validCount = Object.values(groupCounts).reduce((a, b) => a + b, 0);
+
+      matrix[1][colIdx] = `${year}年度新家人落戶說明：`;
+      matrix[3][colIdx] = `📌 留名卡總數：${totalCount} 筆`;
+      matrix[4][colIdx] = dateRangeStr;
+      matrix[6][colIdx] = `✅ 有效名單：${validCount} 位`;
+      matrix[7][colIdx] = `目前落戶情況如下：`;
+
+      const groupEmojis = {
+        '葡萄樹': '🍇',
+        '以斯帖': '👑',
+        '松年團契': '🌿',
+        '棕樹': '🌴',
+        '芥菜種': '🌱',
+        '香柏樹': '🌲',
+        '橄欖樹': '🫒',
+        '種子': '🌾',
+        '提摩太': '📖',
+        '恩典團契': '💒',
+        '尚未落戶': '🕊️'
+      };
+
+      groups.forEach((g, gIdx) => {
+        const emoji = groupEmojis[g] || '';
+        matrix[8 + gIdx][colIdx] = `• ${emoji} ${g}：${groupCounts[g]} 位`;
+      });
+
+      matrix[20][colIdx] = `❌ 停止聚會名單：${stoppedCount} 位`;
+      matrix[21][colIdx] = `（曾落戶小組後因故離開）`;
+      matrix[23][colIdx] = `📋 請安拜訪名單：${visitCount} 位`;
+    });
+
+    const allValidCount = rows.filter(item => {
+      const status = String(item['落戶狀態'] || '').trim();
+      return status !== '停止聚會' && status !== '請安拜訪';
+    }).length;
+    matrix[25][1] = `** 統計表數字同各年度新家人落戶說明 (參照初始資料 - 以${allValidCount}筆有效資料分析)`;
+    matrix[27][1] = `**2025/03/16 三樓禮拜堂啟用`;
+    matrix[28][1] = `**2025/10/19 一樓禮拜堂啟用`;
+    matrix[29][1] = `**2026/03/01 台華語同步禮拜10:00`;
+
+    // Populate Pivot Table Headers
+    matrix[1][7] = '新家人落戶統計';
+    columnGroups.forEach((group, groupIdx) => {
+      const startCol = 9 + 3 * groupIdx;
+      matrix[1][startCol] = group.year;
+      matrix[2][startCol] = group.quarter;
+      matrix[3][startCol] = '聯合';
+      matrix[3][startCol + 1] = '台語';
+      matrix[3][startCol + 2] = '華語';
+    });
+
+    const grandTotalStart = 9 + 3 * numGroups;
+    matrix[1][grandTotalStart] = '總計';
+    matrix[3][grandTotalStart] = '聯合';
+    matrix[3][grandTotalStart + 1] = '台語';
+    matrix[3][grandTotalStart + 2] = '華語';
+
+    const pctCol = 12 + 3 * numGroups;
+    matrix[1][pctCol] = '%';
+
+    matrix[3][7] = '小組別';
+    matrix[3][8] = '是否受邀';
+
+    // Helper functions for column names
+    function colIndex(colLetter) {
+      let index = 0;
+      for (let i = 0; i < colLetter.length; i++) {
+        index = index * 26 + (colLetter.charCodeAt(i) - 64);
+      }
+      return index - 1;
+    }
+
+    const activeColLetters = [];
+    columnGroups.forEach((group, groupIdx) => {
+      if (group.quarter !== 'Q1-Q4') {
+        activeColLetters.push(columnName(9 + 3 * groupIdx));
+      }
+    });
+
+    // Populate Pivot Table Data Rows
+    groups.forEach((g, gIdx) => {
+      const rIdx = 4 + 2 * gIdx; // Excel row R = rIdx + 1
+      const R_invited = rIdx + 1;
+      const R_notInvited = rIdx + 2;
+
+      matrix[rIdx][7] = g;
+      matrix[rIdx][8] = '受邀';
+      matrix[rIdx + 1][8] = '非受邀';
+
+      // Counts for each Column Group
+      columnGroups.forEach((group, groupIdx) => {
+        const startCol = 9 + 3 * groupIdx;
+        const matchingCases = rows.filter(item => {
+          if (mapGroup(item['落戶狀態']) !== g) return false;
+          const yq = getYearQuarter(item['日期']);
+          if (!yq || yq.year !== group.year) return false;
+          if (group.quarter !== 'Q1-Q4' && yq.quarter !== group.quarter) return false;
+          return true;
+        });
+
+        // Split by invited and service
+        const invitedCases = matchingCases.filter(item => item['邀約人'] && String(item['邀約人']).trim());
+        const notInvitedCases = matchingCases.filter(item => !item['邀約人'] || !String(item['邀約人']).trim());
+
+        function countService(cases, type) {
+          const count = cases.filter(item => getServiceType(item['參加的聚會是']) === type).length;
+          return count > 0 ? count : null;
+        }
+
+        matrix[rIdx][startCol] = countService(invitedCases, '聯合');
+        matrix[rIdx][startCol + 1] = countService(invitedCases, '台語');
+        matrix[rIdx][startCol + 2] = countService(invitedCases, '華語');
+
+        matrix[rIdx + 1][startCol] = countService(notInvitedCases, '聯合');
+        matrix[rIdx + 1][startCol + 1] = countService(notInvitedCases, '台語');
+        matrix[rIdx + 1][startCol + 2] = countService(notInvitedCases, '華語');
+      });
+
+      // Sum formulas for grand total columns
+      const colAE = columnName(grandTotalStart);
+      const colAF = columnName(grandTotalStart + 1);
+      const colAG = columnName(grandTotalStart + 2);
+
+      matrix[rIdx][grandTotalStart] = '=' + activeColLetters.map(col => `${col}${R_invited}`).join('+');
+      matrix[rIdx][grandTotalStart + 1] = '=' + activeColLetters.map(col => `${columnName(colIndex(col) + 1)}${R_invited}`).join('+');
+      matrix[rIdx][grandTotalStart + 2] = '=' + activeColLetters.map(col => `${columnName(colIndex(col) + 2)}${R_invited}`).join('+');
+
+      matrix[rIdx + 1][grandTotalStart] = '=' + activeColLetters.map(col => `${col}${R_notInvited}`).join('+');
+      matrix[rIdx + 1][grandTotalStart + 1] = '=' + activeColLetters.map(col => `${columnName(colIndex(col) + 1)}${R_notInvited}`).join('+');
+      matrix[rIdx + 1][grandTotalStart + 2] = '=' + activeColLetters.map(col => `${columnName(colIndex(col) + 2)}${R_notInvited}`).join('+');
+
+      // Percentage formula
+      matrix[rIdx][pctCol] = `=SUM(${colAE}${R_invited}:${colAG}${R_invited})/SUM(${colAE}${R_invited}:${colAG}${R_notInvited})`;
+      matrix[rIdx + 1][pctCol] = `=SUM(${colAE}${R_notInvited}:${colAG}${R_notInvited})/SUM(${colAE}${R_invited}:${colAG}${R_notInvited})`;
+    });
+
+    // Row 27 & 28 Totals
+    matrix[26][7] = '總計';
+    matrix[26][8] = '受邀';
+    matrix[27][8] = '非受邀';
+
+    const invitedRows = [5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25];
+    const notInvitedRows = [6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26];
+
+    for (let c = 9; c <= grandTotalStart + 2; c++) {
+      const col = columnName(c);
+      matrix[26][c] = '=' + invitedRows.map(r => `${col}${r}`).join('+');
+      matrix[27][c] = '=' + notInvitedRows.map(r => `${col}${r}`).join('+');
+    }
+
+    // Row 29 & 30 Percentages for Column Groups
+    matrix[28][7] = '%';
+    matrix[28][8] = '受邀';
+    matrix[29][8] = '非受邀';
+
+    columnGroups.forEach((group, groupIdx) => {
+      const startCol = 9 + 3 * groupIdx;
+      const colA = columnName(startCol);
+      const colB = columnName(startCol + 1);
+      const colC = columnName(startCol + 2);
+      
+      for (let c = startCol; c <= startCol + 2; c++) {
+        const col = columnName(c);
+        matrix[28][c] = `=${col}27/SUM(${colA}27:${colC}28)`;
+        matrix[29][c] = `=${col}28/SUM(${colA}27:${colC}28)`;
+      }
+    });
+
+    // Percentages for Grand Total column group
+    const colAE = columnName(grandTotalStart);
+    const colAF = columnName(grandTotalStart + 1);
+    const colAG = columnName(grandTotalStart + 2);
+    for (let c = grandTotalStart; c <= grandTotalStart + 2; c++) {
+      const col = columnName(c);
+      matrix[28][c] = `=${col}27/SUM(${colAE}27:${colAG}28)`;
+      matrix[29][c] = `=${col}28/SUM(${colAE}27:${colAG}28)`;
+    }
+
+    // Row 32 (index 31): 主日禮拜人數
+    matrix[31][7] = '主日禮拜人數';
+    for (let c = 9; c <= grandTotalStart + 2; c++) {
+      matrix[31][c] = '-';
+    }
+    matrix[31][pctCol] = '-';
+
+    // Sheet 2: Detail table
+    const detailHeaders = ['新家人姓名', '參加的聚會是', '表單號', '關懷同工', '關懷狀態', '落戶狀態', '邀約人', '立案日', '結案日', '家長備註欄'];
+    const detailRows = [
+      detailHeaders,
+      ...rows.map(item => [
+        item['新家人姓名'] || '',
+        item['參加的聚會是'] || '',
+        item['表單號'] ? Number(item['表單號']) : '',
+        item['關懷同工'] || '',
+        '結案',
+        getDisplaySettlementStatus(item) || '',
+        item['邀約人'] || '',
+        item['日期'] || '',
+        item['日期'] || '',
+        item['備註'] || ''
+      ])
+    ];
+
+    const sheets = [
+      { name: '新家人落戶分析', rows: matrix },
+      { name: '最新新家人名單&落戶狀態', rows: detailRows }
+    ];
+
+    exportWorkbook(sheets, `新家人留名卡紀錄_截至${(analysisEndDate.value || '').replace(/-/g, '')}`);
   } catch (error) {
     setNotice(analysisNotice, error.message || String(error), 'error');
   }
@@ -745,6 +1033,7 @@ function createXlsxBlob(sheets) {
 
 function rowsToMatrix(rows) {
   if (!rows.length) return [[]];
+  if (Array.isArray(rows[0])) return rows;
   const headers = Object.keys(rows[0]);
   return [
     headers,
@@ -806,6 +1095,9 @@ function buildWorksheetXml(rows) {
 
 function buildCellXml(value, columnIndex, rowIndex) {
   const reference = `${columnName(columnIndex)}${rowIndex + 1}`;
+  if (typeof value === 'string' && value.startsWith('=')) {
+    return `<c r="${reference}"><f>${escapeXmlText(value.slice(1))}</f></c>`;
+  }
   if (typeof value === 'number' && Number.isFinite(value)) {
     return `<c r="${reference}"><v>${value}</v></c>`;
   }
