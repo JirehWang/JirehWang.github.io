@@ -651,27 +651,7 @@ async function exportCombinedWorkbook() {
       return;
     }
 
-    // Set fixed column groups to match reference template exactly
-    const columnGroups = [
-      { year: 2024, quarter: 'Q4' },
-      { year: 2025, quarter: 'Q1-Q4' },
-      { year: 2025, quarter: 'Q1' },
-      { year: 2025, quarter: 'Q2' },
-      { year: 2025, quarter: 'Q3' },
-      { year: 2025, quarter: 'Q4' },
-      { year: 2026, quarter: 'Q1' }
-    ];
-
-    const numGroups = columnGroups.length;
-    const numCols = 15 + 3 * numGroups;
-    
-    // Initialize Sheet 1: Pivot Table matrix
-    const matrix = [];
-    for (let r = 0; r < 35; r++) {
-      matrix.push(new Array(numCols).fill(null));
-    }
-
-    const groups = [
+    const defaultGroups = [
       '葡萄樹',
       '以斯帖',
       '松年團契',
@@ -684,6 +664,22 @@ async function exportCombinedWorkbook() {
       '恩典團契',
       '尚未落戶'
     ];
+    let groups = (settlementOptions || [])
+      .filter(g => g !== '請安拜訪')
+      .map(g => {
+        const name = g.trim();
+        if (name === '松年' || name === '松年團契') return '松年團契';
+        if (name === '恩典' || name === '恩典團契') return '恩典團契';
+        return name;
+      });
+    groups = Array.from(new Set(groups)).filter(Boolean);
+    if (!groups.length || (groups.length === 1 && groups[0] === '尚未落戶')) {
+      groups = [...defaultGroups];
+    } else {
+      if (!groups.includes('尚未落戶')) {
+        groups.push('尚未落戶');
+      }
+    }
 
     function mapGroup(status) {
       const s = String(status || '').trim();
@@ -693,30 +689,64 @@ async function exportCombinedWorkbook() {
       return '尚未落戶';
     }
 
-    function getYearQuarter(dateStr) {
-      if (!dateStr) return null;
-      const match = dateStr.match(/^(\d{4})-(\d{2})-\d{2}$/);
-      if (!match) return null;
-      const year = parseInt(match[1], 10);
-      const month = parseInt(match[2], 10);
-      let quarter = '';
-      if (month >= 1 && month <= 3) quarter = 'Q1';
-      else if (month >= 4 && month <= 6) quarter = 'Q2';
-      else if (month >= 7 && month <= 9) quarter = 'Q3';
-      else if (month >= 10 && month <= 12) quarter = 'Q4';
-      return { year, quarter };
+    // Determine the year range from the selected date range in the UI or fallback to dates in rows
+    let startYear = 2024;
+    let endYear = 2026;
+    if (analysisStartDate.value) {
+      startYear = parseInt(analysisStartDate.value.split('-')[0], 10);
+    } else if (rows.length > 0) {
+      const years = rows.map(item => {
+        const yq = getYearQuarter(item['日期']);
+        return yq ? yq.year : null;
+      }).filter(Boolean);
+      if (years.length > 0) startYear = Math.min(...years);
+    }
+    if (analysisEndDate.value) {
+      endYear = parseInt(analysisEndDate.value.split('-')[0], 10);
+    } else if (rows.length > 0) {
+      const years = rows.map(item => {
+        const yq = getYearQuarter(item['日期']);
+        return yq ? yq.year : null;
+      }).filter(Boolean);
+      if (years.length > 0) endYear = Math.max(...years);
     }
 
-    function getServiceType(meetingName) {
-      const name = String(meetingName || '');
-      if (name.includes('聯合')) return '聯合';
-      if (name.includes('台語')) return '台語';
-      if (name.includes('華語')) return '華語';
-      return '華語';
+    const columnGroups = [];
+    for (let y = startYear; y <= endYear; y++) {
+      const yrRows = rows.filter(item => {
+        const yq = getYearQuarter(item['日期']);
+        return yq && yq.year === y;
+      });
+      const quartersMap = new Map();
+      yrRows.forEach(item => {
+        const yq = getYearQuarter(item['日期']);
+        if (yq) quartersMap.set(yq.quarter, yq);
+      });
+      const sortedQuarters = Array.from(quartersMap.keys()).sort();
+      if (sortedQuarters.length > 0) {
+        if (sortedQuarters.length > 1) {
+          columnGroups.push({ year: y, quarter: `${sortedQuarters[0]}-${sortedQuarters[sortedQuarters.length - 1]}` });
+        }
+        sortedQuarters.forEach(q => {
+          columnGroups.push({ year: y, quarter: q });
+        });
+      }
     }
 
-    const years = [2024, 2025, 2026];
-    years.forEach((year, yIdx) => {
+    const numGroups = columnGroups.length;
+    const numCols = 15 + 3 * numGroups;
+    
+    // Initialize Sheet 1: Pivot Table matrix (dynamically sizing row dimension)
+    const totalRowIdx = 4 + 2 * groups.length;
+    const matrixRows = totalRowIdx + 15;
+    const matrix = [];
+    for (let r = 0; r < matrixRows; r++) {
+      matrix.push(new Array(numCols).fill(null));
+    }
+
+    const years = Array.from(new Set(columnGroups.map(g => g.year))).sort();
+    const summaryYears = years.slice(0, 3);
+    summaryYears.forEach((year, yIdx) => {
       const colIdx = 1 + yIdx * 2;
       const yrRows = rows.filter(item => {
         const yq = getYearQuarter(item['日期']);
@@ -780,26 +810,27 @@ async function exportCombinedWorkbook() {
         matrix[8 + gIdx][colIdx] = `• ${emoji} ${g}：${groupCounts[g]} 位`;
       });
 
-      matrix[20][colIdx] = `❌ 停止聚會名單：${stoppedCount} 位`;
-      matrix[21][colIdx] = `（曾落戶小組後因故離開）`;
-      matrix[23][colIdx] = `📋 請安拜訪名單：${visitCount} 位`;
+      matrix[8 + groups.length + 1][colIdx] = `❌ 停止聚會名單：${stoppedCount} 位`;
+      matrix[8 + groups.length + 2][colIdx] = `（曾落戶小組後因故離開）`;
+      matrix[8 + groups.length + 4][colIdx] = `📋 請安拜訪名單：${visitCount} 位`;
     });
 
     const allValidCount = rows.filter(item => {
       const status = String(item['落戶狀態'] || '').trim();
       return status !== '停止聚會' && status !== '請安拜訪';
     }).length;
-    matrix[25][1] = `** 統計表數字同各年度新家人落戶說明 (參照初始資料 - 以${allValidCount}筆有效資料分析)`;
-    matrix[27][1] = `**2025/03/16 三樓禮拜堂啟用`;
-    matrix[28][1] = `**2025/10/19 一樓禮拜堂啟用`;
-    matrix[29][1] = `**2026/03/01 台華語同步禮拜10:00`;
+    matrix[14 + groups.length][1] = `** 統計表數字同各年度新家人落戶說明 (參照初始資料 - 以${allValidCount}筆有效資料分析)`;
+    matrix[16 + groups.length][1] = `**2025/03/16 三樓禮拜堂啟用`;
+    matrix[17 + groups.length][1] = `**2025/10/19 一樓禮拜堂啟用`;
+    matrix[18 + groups.length][1] = `**2026/03/01 台華語同步禮拜10:00`;
 
     // Populate Pivot Table Headers
     matrix[1][7] = '新家人落戶統計';
     columnGroups.forEach((group, groupIdx) => {
       const startCol = 9 + 3 * groupIdx;
-      // Only write year for index 0 (2024), 1 (2025), and 6 (2026) to match template's merged cells
-      if (groupIdx === 0 || groupIdx === 1 || groupIdx === 6) {
+      // Only write the year when it first appears in the groups to match template's merged cells
+      const isFirstOfYear = groupIdx === 0 || columnGroups[groupIdx - 1].year !== group.year;
+      if (isFirstOfYear) {
         matrix[1][startCol] = group.year;
       }
       matrix[2][startCol] = group.quarter;
@@ -831,7 +862,7 @@ async function exportCombinedWorkbook() {
 
     const activeColLetters = [];
     columnGroups.forEach((group, groupIdx) => {
-      if (group.quarter !== 'Q1-Q4') {
+      if (!group.quarter.includes('-')) {
         activeColLetters.push(columnName(9 + 3 * groupIdx));
       }
     });
@@ -853,7 +884,8 @@ async function exportCombinedWorkbook() {
           if (mapGroup(item['落戶狀態']) !== g) return false;
           const yq = getYearQuarter(item['日期']);
           if (!yq || yq.year !== group.year) return false;
-          if (group.quarter !== 'Q1-Q4' && yq.quarter !== group.quarter) return false;
+          const isYearSummary = group.quarter.includes('-');
+          if (!isYearSummary && yq.quarter !== group.quarter) return false;
           return true;
         });
 
@@ -893,24 +925,31 @@ async function exportCombinedWorkbook() {
       matrix[rIdx + 1][pctCol] = `=SUM(${colAE}${R_notInvited}:${colAG}${R_notInvited})/SUM(${colAE}${R_invited}:${colAG}${R_notInvited})`;
     });
 
-    // Row 27 & 28 Totals
-    matrix[26][7] = '總計';
-    matrix[26][8] = '受邀';
-    matrix[27][8] = '非受邀';
+    // Row Totals
+    matrix[totalRowIdx][7] = '總計';
+    matrix[totalRowIdx][8] = '受邀';
+    matrix[totalRowIdx + 1][8] = '非受邀';
 
-    const invitedRows = [5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25];
-    const notInvitedRows = [6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26];
+    const invitedRows = [];
+    const notInvitedRows = [];
+    groups.forEach((g, gIdx) => {
+      invitedRows.push(5 + 2 * gIdx);
+      notInvitedRows.push(6 + 2 * gIdx);
+    });
 
     for (let c = 9; c <= grandTotalStart + 2; c++) {
       const col = columnName(c);
-      matrix[26][c] = '=' + invitedRows.map(r => `${col}${r}`).join('+');
-      matrix[27][c] = '=' + notInvitedRows.map(r => `${col}${r}`).join('+');
+      matrix[totalRowIdx][c] = '=' + invitedRows.map(r => `${col}${r}`).join('+');
+      matrix[totalRowIdx + 1][c] = '=' + notInvitedRows.map(r => `${col}${r}`).join('+');
     }
 
-    // Row 29 & 30 Percentages for Column Groups
-    matrix[28][7] = '%';
-    matrix[28][8] = '受邀';
-    matrix[29][8] = '非受邀';
+    // Row Percentages for Column Groups
+    matrix[totalRowIdx + 2][7] = '%';
+    matrix[totalRowIdx + 2][8] = '受邀';
+    matrix[totalRowIdx + 3][8] = '非受邀';
+
+    const R_totInvited = totalRowIdx + 1;
+    const R_totNotInvited = totalRowIdx + 2;
 
     columnGroups.forEach((group, groupIdx) => {
       const startCol = 9 + 3 * groupIdx;
@@ -920,8 +959,8 @@ async function exportCombinedWorkbook() {
       
       for (let c = startCol; c <= startCol + 2; c++) {
         const col = columnName(c);
-        matrix[28][c] = `=${col}27/SUM(${colA}27:${colC}28)`;
-        matrix[29][c] = `=${col}28/SUM(${colA}27:${colC}28)`;
+        matrix[totalRowIdx + 2][c] = `=${col}${R_totInvited}/SUM(${colA}${R_totInvited}:${colC}${R_totNotInvited})`;
+        matrix[totalRowIdx + 3][c] = `=${col}${R_totNotInvited}/SUM(${colA}${R_totInvited}:${colC}${R_totNotInvited})`;
       }
     });
 
@@ -931,16 +970,17 @@ async function exportCombinedWorkbook() {
     const colAG = columnName(grandTotalStart + 2);
     for (let c = grandTotalStart; c <= grandTotalStart + 2; c++) {
       const col = columnName(c);
-      matrix[28][c] = `=${col}27/SUM(${colAE}27:${colAG}28)`;
-      matrix[29][c] = `=${col}28/SUM(${colAE}27:${colAG}28)`;
+      matrix[totalRowIdx + 2][c] = `=${col}${R_totInvited}/SUM(${colAE}${R_totInvited}:${colAG}${R_totNotInvited})`;
+      matrix[totalRowIdx + 3][c] = `=${col}${R_totNotInvited}/SUM(${colAE}${R_totInvited}:${colAG}${R_totNotInvited})`;
     }
 
-    // Row 32 (index 31): 主日禮拜人數
-    matrix[31][7] = '主日禮拜人數';
+    // Row: 主日禮拜人數
+    const attendanceRowIdx = totalRowIdx + 5;
+    matrix[attendanceRowIdx][7] = '主日禮拜人數';
     for (let c = 9; c <= grandTotalStart + 2; c++) {
-      matrix[31][c] = '-';
+      matrix[attendanceRowIdx][c] = '-';
     }
-    matrix[31][pctCol] = '-';
+    matrix[attendanceRowIdx][pctCol] = '-';
 
     // Sheet 2: Detail table
     const detailHeaders = ['新家人姓名', '參加的聚會是', '表單號', '關懷同工', '關懷狀態', '落戶狀態', '邀約人', '立案日', '結案日', '家長備註欄'];
