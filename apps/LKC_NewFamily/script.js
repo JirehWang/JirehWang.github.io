@@ -689,6 +689,28 @@ async function exportCombinedWorkbook() {
       return '尚未落戶';
     }
 
+    function getYearQuarter(dateStr) {
+      if (!dateStr) return null;
+      const match = dateStr.match(/^(\d{4})[-\/](\d{1,2})[-\/]\d{1,2}/);
+      if (!match) return null;
+      const year = parseInt(match[1], 10);
+      const month = parseInt(match[2], 10);
+      let quarter = '';
+      if (month >= 1 && month <= 3) quarter = 'Q1';
+      else if (month >= 4 && month <= 6) quarter = 'Q2';
+      else if (month >= 7 && month <= 9) quarter = 'Q3';
+      else if (month >= 10 && month <= 12) quarter = 'Q4';
+      return { year, quarter };
+    }
+
+    function getServiceType(meetingName) {
+      const name = String(meetingName || '');
+      if (name.includes('聯合')) return '聯合';
+      if (name.includes('台語')) return '台語';
+      if (name.includes('華語')) return '華語';
+      return '華語';
+    }
+
     // Determine the year range from the selected date range in the UI or fallback to dates in rows
     let startYear = 2024;
     let endYear = 2026;
