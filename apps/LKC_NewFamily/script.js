@@ -143,20 +143,8 @@ analysisModal.addEventListener('click', event => {
 editCaseForm.addEventListener('submit', saveTrackingCase);
 
 async function callApi(action, data = {}) {
-  const apiUrl = window.NEW_FAMILY_API_URL || '';
-  const token = window.NEW_FAMILY_AUTH_TOKEN || '';
-
-  if (!apiUrl) {
-    throw new Error('尚未設定 GAS Web App URL，請先填入 api-config.js');
-  }
-
-  const response = await fetch(apiUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action, token, data })
-  });
-
-  const result = await response.json();
+  await window.ensureAPIReady();
+  const result = await window.churchAPI(action, data);
   if (!result.success) {
     throw new Error(result.message || '操作失敗');
   }
