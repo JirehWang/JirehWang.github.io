@@ -17,23 +17,27 @@
 (function() {
   // 📝 子系統 → GAS 部署網址 對應表
   const _URL_ROUTER = {
-    "LKC_worship":                 "https://script.google.com/macros/s/AKfycbyk_6tUucVg-U4rRQjYHvk632teZyxufDkNX_X1WRUXPMGgsTaemVXD_mv9kBDjuSwOnA/exec",
-    "LKC_MasterSchedule":          "https://script.google.com/macros/s/AKfycbwiYYWgKxmLRAEaE_pbp_kWyAzlRPcwYVQfvmJVamRJvosvt5wTTkvwebbFBkP8rMqX/exec",
-    "LKC_MinistrySchedule":        "https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_U9nKJrRMR1-xzbbtuaq08lePLgAQ2wnDRrCeHdy9jNhh/exec",
-    "LKC_Group":                   "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
-    "LKC_WhosCar":                 "https://script.google.com/macros/s/AKfycbxOkoaNquIx_V8n_7eS_5ULmoqxPVly_Bezx9_QsmWSzNOcojrCI9Oa6UNd5hOD2euS/exec",
-    "LKC_SundayserviceAttendance": "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
+    "LKC_worship":                      "https://script.google.com/macros/s/AKfycbyk_6tUucVg-U4rRQjYHvk632teZyxufDkNX_X1WRUXPMGgsTaemVXD_mv9kBDjuSwOnA/exec",
+    "LKC_MasterSchedule":               "https://script.google.com/macros/s/AKfycbwiYYWgKxmLRAEaE_pbp_kWyAzlRPcwYVQfvmJVamRJvosvt5wTTkvwebbFBkP8rMqX/exec",
+    "LKC_MinistrySchedule":             "https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_U9nKJrRMR1-xzbbtuaq08lePLgAQ2wnDRrCeHdy9jNhh/exec",
+    "LKC_Group":                        "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
+    "LKC_WhosCar":                      "https://script.google.com/macros/s/AKfycbxOkoaNquIx_V8n_7eS_5ULmoqxPVly_Bezx9_QsmWSzNOcojrCI9Oa6UNd5hOD2euS/exec",
+    "LKC_SundayserviceAttendance":      "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
     "LKC_SundayserviceAttendance_TEST": "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
     // 🔀 方案 B 整合：小組系統共用主日 GAS
     "LKC_Group_TEST":                   "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
     // 🔀 方案 C 整合：事工管理共用主日 GAS（action 自動加 ministry_ 前綴）
     "LKC_MinistrySchedule_TEST":        "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
     "LKC_NewFamily":                    "https://script.google.com/macros/s/AKfycbzU4f0XKtniINXQMbIK5QDPuT3ub2HeyiEYI60oUM3YHipdf-02uvuP3lp963dogxml/exec",
+    // 🔀 Phase 5 & 6 整合測試版：行事曆與敬拜團併入主 GAS
+    "LKC_MasterSchedule_TEST":          "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
+    "LKC_worship_TEST":                 "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
   };
 
   // 📝 子系統 → 後端 action 自動前綴（避免不同系統 action 名稱衝突）
   const _ACTION_PREFIX = {
     "LKC_MinistrySchedule_TEST": "ministry_",
+    "LKC_worship_TEST":          "worship_",
   };
 
   const _AUTH_TOKEN = "ChurchApp-2026";
@@ -43,6 +47,21 @@
   const rawPath = window.location.pathname.split('/')[1] || "";
   const repoName = rawPath.replace(/\.github\.io$/i, '');
   const hostname = window.location.hostname.split('.')[0];
+
+  // 🌟 自動切換測試路由（若在 localhost, 127.0.0.1、本地檔案執行，或帶有 ?test=1/?env=test，自動強制走 _TEST 路由）
+  const isTestQuery = /[?&](env=test|test=1)\b/.test(window.location.search);
+  const isLocalEnv = window.location.hostname === 'localhost' || 
+                     window.location.hostname === '127.0.0.1' || 
+                     window.location.protocol === 'file:' ||
+                     isTestQuery;
+
+  if (isLocalEnv && window._GAS_KEY && !window._GAS_KEY.endsWith('_TEST')) {
+    const testKey = window._GAS_KEY + '_TEST';
+    if (_URL_ROUTER[testKey]) {
+      console.warn(`⚠️ [開發環境] 偵測到本地/測試執行，已將 ${window._GAS_KEY} 自動切換為測試版 ${testKey}`);
+      window._GAS_KEY = testKey;
+    }
+  }
 
   let currentKey = null;
   if (window._GAS_KEY && _URL_ROUTER[window._GAS_KEY]) {
@@ -118,12 +137,20 @@
     'ministry_getPageConfig':       _SIX_HOURS,
     'ministry_getGroupMembers':     _SIX_HOURS,
 
-    // 敬拜團
+    // 敬拜團 (無前綴版本，供舊獨立專案相容)
     'getSchedule':                  _SIX_HOURS,  // 公佈欄總表 + 服事表安排（季度）
     'getScheduleByDateRange':       _SIX_HOURS,  // 服事表安排（區間）
     'getPositions':                 _SIX_HOURS,  // 位置與同工
     'getTeamMembers':               _SIX_HOURS,  // 敬拜團員名單
     'getSongs':                     _SIX_HOURS,  // 敬拜曲目（順帶加上）
+
+    // 敬拜團 (worship_ 前綴版本，供合併後的主 GAS 專案使用)
+    'worship_getSchedule':              _SIX_HOURS,
+    'worship_getScheduleByDateRange':   _SIX_HOURS,
+    'worship_getPositions':             _SIX_HOURS,
+    'worship_getTeamMembers':           _SIX_HOURS,
+    'worship_getSongs':                 _SIX_HOURS,
+    'worship_getMemberSuggestions':     _SIX_HOURS,
 
     // 教會行事曆
     'cal_getTypes':                 _SIX_HOURS,  // 事項類型（含 children 樹）
@@ -175,6 +202,15 @@
     'setDefaultSermonSubType': ['getSchedule', 'getScheduleByDateRange'],
     'setDateOverride':         ['getSchedule', 'getScheduleByDateRange'],
     'clearCalendarLinkCache':  ['getSchedule', 'getScheduleByDateRange'],
+
+    // ── 敬拜團異動 (worship_ 前綴版本) ──
+    'worship_saveSchedule':           ['worship_getSchedule', 'worship_getScheduleByDateRange'],
+    'worship_savePositions':          ['worship_getPositions'],
+    'worship_saveTeamMembers':        ['worship_getTeamMembers'],
+    'worship_saveSongs':              ['worship_getSongs', 'worship_getSchedule', 'worship_getScheduleByDateRange'],
+    'worship_setDefaultSermonSubType': ['worship_getSchedule', 'worship_getScheduleByDateRange'],
+    'worship_setDateOverride':         ['worship_getSchedule', 'worship_getScheduleByDateRange'],
+    'worship_clearCalendarLinkCache':  ['worship_getSchedule', 'worship_getScheduleByDateRange'],
 
     // ── 教會行事曆異動 ──
     // 類型 / 排除欄位改變 → 影響事項本身的子類型/欄位顯示 + 敬拜團公佈欄

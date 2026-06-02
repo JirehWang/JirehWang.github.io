@@ -15,7 +15,7 @@ function _localDateKey(date) {
 }
 
 function _sanitizeMeta(value, depth = 0) {
-  if (value === null || value === undefined) return value;
+  if (value === null || value === undefined) return null;
   if (depth > 3) return '[max-depth]';
   if (typeof value === 'string') return value.length > MAX_META_TEXT ? value.slice(0, MAX_META_TEXT) + '...' : value;
   if (typeof value === 'number' || typeof value === 'boolean') return value;
@@ -24,7 +24,10 @@ function _sanitizeMeta(value, depth = 0) {
 
   const out = {};
   Object.keys(value).slice(0, 30).forEach(key => {
-    out[key.replace(/[.#$/\[\]\u0000-\u001f\u007f]/g, '_') || '_empty'] = _sanitizeMeta(value[key], depth + 1);
+    const val = _sanitizeMeta(value[key], depth + 1);
+    if (val !== undefined && val !== null) {
+      out[key.replace(/[.#$/\[\]\u0000-\u001f\u007f]/g, '_') || '_empty'] = val;
+    }
   });
   return out;
 }
