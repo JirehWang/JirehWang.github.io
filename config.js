@@ -28,6 +28,7 @@
     "LKC_Group_TEST":                   "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
     // 🔀 方案 C 整合：事工管理共用主日 GAS（action 自動加 ministry_ 前綴）
     "LKC_MinistrySchedule_TEST":        "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
+    "LKC_NewFamily":                    "https://script.google.com/macros/s/AKfycbzU4f0XKtniINXQMbIK5QDPuT3ub2HeyiEYI60oUM3YHipdf-02uvuP3lp963dogxml/exec",
   };
 
   // 📝 子系統 → 後端 action 自動前綴（避免不同系統 action 名稱衝突）
@@ -247,8 +248,8 @@
   function _isInvalidApiResponse(value) {
     return value &&
       typeof value === 'object' &&
-      Object.prototype.hasOwnProperty.call(value, 'status') &&
-      value.status !== 'success';
+      ((Object.prototype.hasOwnProperty.call(value, 'status') && value.status !== 'success') ||
+       (Object.prototype.hasOwnProperty.call(value, 'success') && value.success === false));
   }
 
   // 直接打 GAS（不走 cache）
