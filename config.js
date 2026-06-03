@@ -166,8 +166,8 @@
     'deleteMember':           ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig', 'getSmartAttendanceList'],
 
     // ── 小組異動 ──
-    'createGroup':            ['getGroups', 'getAdminGroupsList', 'findGroupByCode', 'verifyGroup'],
-    'updateGroupInfo':        ['getGroups', 'getAdminGroupsList', 'findGroupByCode', 'verifyGroup'],
+    'createGroup':            ['getGroups', 'getAdminGroupsList'],
+    'updateGroupInfo':        ['getGroups', 'getAdminGroupsList'],
     'updateMemberList':       ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'ministry_getPageConfig', 'ministry_getGroupMembers', 'checkGroupStatus'],
     'ministry_updateGroupMemberRoles': ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'ministry_getPageConfig', 'ministry_getGroupMembers', 'checkGroupStatus'],
     'initGroup':              ['checkGroupStatus', 'getGroups', 'getAllGroupMembers'],
