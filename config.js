@@ -120,8 +120,6 @@
     // 主日系統 — 點名介面（冷啟動加速）
     'getSmartAttendanceList':       _SIX_HOURS,  // 點名介面：會友 + 出席計數 + 同步狀態（首次載入）
     'checkGroupStatus':             _SIX_HOURS,  // 小組點名首頁：組員 + 初始化狀態
-    'findGroupByCode':              _SIX_HOURS,  // 小組代碼 → 名稱（登入）
-    'verifyGroup':                  _SIX_HOURS,  // 小組名 + 代碼驗證（登入）
 
     // 主日系統 — 統計 / 圖表
     'getStats':                     _SIX_HOURS,
