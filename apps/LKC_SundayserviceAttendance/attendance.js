@@ -536,5 +536,60 @@ function executeRevoke(uid, displayName) {
     downloadVenueJumpCard(cat, grp);
   }
 
-  // 頁面載入時初始化
-  loadGroupConfig();
+  // 頁面載入時初始化分支判斷
+  const params = new URLSearchParams(window.location.search);
+  const initCat = params.get('cat');
+  const initGrp = params.get('grp');
+
+  if (initCat && initGrp) {
+    // 啟動鎖定點名模式
+    currentAttType = initGrp;
+    attIsRendering = true;
+
+    // 1. 顯示鎖定 Banner，隱藏選單列、管理按鈕與回主選單按鈕
+    const lockBanner = document.getElementById('lockModeBanner');
+    if (lockBanner) lockBanner.style.display = 'block';
+    const lockText = document.getElementById('lockModeText');
+    if (lockText) lockText.innerText = `${initCat} - ${initGrp}`;
+
+    const groupSelectRow = document.getElementById('groupSelectRow');
+    if (groupSelectRow) groupSelectRow.style.display = 'none';
+
+    const btnGroupAdd = document.getElementById('btnGroupAdd');
+    if (btnGroupAdd) btnGroupAdd.style.display = 'none';
+
+    // 隱藏下載場次 QR 按鈕
+    const btnDownloadVenue = document.querySelector('button[onclick="triggerVenueDownload()"]');
+    if (btnDownloadVenue) btnDownloadVenue.style.display = 'none';
+
+    // 隱藏 index.html 中的「← 回主選單」按鈕
+    const backBtn = document.querySelector('#content-area > button[onclick="showHome()"]');
+    if (backBtn) backBtn.style.display = 'none';
+
+    // 2. 顯示讀取中，立即抓取名單與裝置綁定 (只有 1 個 API 請求)
+    google.script.run.withFailureHandler(e => console.log("裝置綁定失敗", e)).updateDeviceMode(attUserId, initGrp);
+    
+    var listBody = document.getElementById('attendanceListBody');
+    if (listBody) {
+      listBody.innerHTML = '<div class="full-width-msg"><div class="spinner-border text-primary mb-3"></div><div class="h6">讀取 [' + initGrp + '] 名單中...</div></div>';
+    }
+    
+    google.script.run
+      .withSuccessHandler(result => {
+        var list = result.activeList || result;
+        var nfMale = result.nfMale || 0;
+        var nfFemale = result.nfFemale || 0;
+        renderAttendanceList(list, nfMale, nfFemale);
+        setTimeout(() => { attIsRendering = false; }, 500);
+      })
+      .withFailureHandler(err => {
+        alert("讀取名單失敗：" + err.message);
+        attIsRendering = false;
+      })
+      .getSmartAttendanceList(initGrp, attUserId);
+      
+    startAutoSync();
+  } else {
+    // 正常模式：載入選單與設定
+    loadGroupConfig();
+  }

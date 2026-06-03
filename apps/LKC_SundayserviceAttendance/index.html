@@ -8,6 +8,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>⛪ 教會主日出席點名系統</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css?v=20260420">
+  <link rel="manifest" href="../../manifest.json">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     .app-container {
@@ -101,7 +102,7 @@
 
   <!-- 設定檔與 API 橋接層 -->
   <script>window._GAS_KEY = 'LKC_SundayserviceAttendance_TEST';</script>
-  <script src="https://jirehwang.github.io/LKC1958_June_1.github.io/config.js"></script>
+  <script src="../../config.js"></script>
   <script src="config.js"></script>
   <script src="api.js"></script>
 
@@ -197,21 +198,8 @@
       prepareContentArea();
       document.getElementById('page-ATTENDANCE').style.display = 'block';
 
-loadPageContent('ATTENDANCE', 'attendance').then(() => {
-        let retryCount = 0;
-        let checkInterval = setInterval(() => {
-          retryCount++;
-          const isConfigLoaded = (typeof globalGroupConfig !== 'undefined' && Object.keys(globalGroupConfig).length > 0);
-          if (typeof loadGroupConfig === "function" && isConfigLoaded) {
-            clearInterval(checkInterval);
-            loadGroupConfig(initCat, initGrp);
-          }
-          if (retryCount > 50) {
-            clearInterval(checkInterval);
-            console.warn("⚠️ 自動跳轉逾時");
-          }
-        }, 200);
-      });   // ← 關 .then
+      // 直接加載點名頁面，後續名單載入與防呆鎖定交給 attendance.js 自行並行處理
+      loadPageContent('ATTENDANCE', 'attendance');
     }       // ← 關 if
   };        // ← 關 window.onload
 </script>
