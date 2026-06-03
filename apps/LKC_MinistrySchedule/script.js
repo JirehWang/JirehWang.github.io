@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 //  📋 教會服事管理系統 — 前端邏輯 (script.js)
 //  修正版本 v3.0
 //  v2.0 修正項目：
@@ -1822,7 +1822,7 @@ function showBulletinBoard() {
 // ============================================================
 //  🔓 解鎖編輯模式
 // ============================================================
-function closeModalOrUnlock() {
+async function closeModalOrUnlock() {
   if (window.event) window.event.preventDefault();
   if (isEditorUnlocked) {
     bulletinModalInstance.hide();
@@ -1830,13 +1830,22 @@ function closeModalOrUnlock() {
     const pwd = prompt(`🔒 編輯需要權限\n請輸入專屬 ID`);
     if (pwd === null) return;
 
-    if (pwd.trim() === currentId) {
-      isEditorUnlocked = true;
-      getSessionMgr().setUnlocked(currentId);
-      bulletinModalInstance.hide();
-      getNotifier().success("✅ 編輯模式已啟用");
-    } else {
-      getNotifier().error("❌ ID 輸入錯誤！無法進入編輯模式。");
+    getNotifier().showLoading("驗證權限中...");
+    try {
+      const res = await fetchAPI("verifyPageId", { id: currentId, code: pwd.trim() });
+      getNotifier().hideLoading();
+      
+      if (res && res.success) {
+        isEditorUnlocked = true;
+        getSessionMgr().setUnlocked(currentId);
+        bulletinModalInstance.hide();
+        getNotifier().success("✅ 編輯模式已啟用");
+      } else {
+        getNotifier().error("❌ ID 輸入錯誤！無法進入編輯模式。");
+      }
+    } catch (err) {
+      getNotifier().hideLoading();
+      getNotifier().error("驗證時發生連線錯誤：" + err.message);
     }
   }
 }

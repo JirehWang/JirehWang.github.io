@@ -2,6 +2,7 @@ let identifiedGroupName = "";
 let isAdmin = false;
 let debounceTimer;
 let nameDirectory = {};  // uid → name 反查表（從後端 RAW_MODE 回傳）
+let verifiedCodeForQuery = ""; // 保存 URL 中已驗證的代碼
 
 // UID → 姓名（找不到回傳原字串，相容新朋友純文字）
 function resolveDisplayName(uidOrName) {
@@ -20,6 +21,32 @@ window.onload = async () => {
     try {
         showLoading("🚀 正在啟動系統通道...");
         await ensureAPIReady(); 
+        
+        // 新增：偵測網址是否帶有 id (加密 Token)
+        const urlParams = new URLSearchParams(window.location.search);
+        const queryId = urlParams.get('id');
+        if (queryId) {
+            document.getElementById('groupCode').value = "******"; // 隱藏明文，顯示星號
+            const res = await callAPI('findGroupByCode', { groupCode: queryId });
+            if (res.success) {
+                identifiedGroupName = res.groupName;
+                isAdmin = res.isAdmin;
+                const idRes = document.getElementById('idResult');
+                idRes.className = 'status-badge status-ok';
+                idRes.innerText = isAdmin ? '🛡️ 最高權限模式' : `✅ 小組：${res.groupName}`;
+                verifiedCodeForQuery = queryId; // 記錄加密後的 Code 供查詢
+                
+                document.getElementById('adminGroupSelect').style.display = isAdmin ? 'inline-block' : 'none';
+                const allMembersLabel = document.getElementById('typeAllMembersLabel');
+                if (allMembersLabel) allMembersLabel.style.display = isAdmin ? 'inline-block' : 'none';
+                if (isAdmin) await loadAdminOptions();
+                
+                // 自動執行數據載入
+                await loadStats();
+            } else {
+                userNotification.warning("專屬連結無效或代碼錯誤！");
+            }
+        }
     } catch (e) {
         console.error(e);
         userNotification.error("系統啟動失敗：" + e.message);
@@ -103,7 +130,8 @@ async function loadStats() {
     const start = document.getElementById('startDate').value;
     const end = document.getElementById('endDate').value;
     const group = isAdmin ? document.getElementById('adminGroupSelect').value : identifiedGroupName;
-    const code = document.getElementById('groupCode').value.toUpperCase();
+    const rawCode = document.getElementById('groupCode').value;
+    const code = (rawCode === "******" && verifiedCodeForQuery) ? verifiedCodeForQuery : (rawCode.startsWith("enc_") ? rawCode : rawCode.toUpperCase());
 
     showLoading("正在彙整報表數據...");
     

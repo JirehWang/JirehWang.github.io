@@ -80,7 +80,6 @@ async function checkGroupStatus() {
 
 function goToSchedule() {
     if (!groupCode) return userNotification.warning("未取得小組編號，無法跳轉。");
-    // 跳到事工管理的小組/團契服事表頁，帶 ?id=GROUPCODE 進入該小組對應的排程
     window.open(`https://jirehwang.github.io/LKC1958_June_1.github.io/apps/LKC_MinistrySchedule/?id=${groupCode}`, '_blank');
 }
 

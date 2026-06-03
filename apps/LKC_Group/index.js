@@ -21,7 +21,7 @@ window.onload = async () => {
             if (res.success) {
                 // 驗證成功，直接跳轉到該小組的點名頁面，並帶上名稱與代碼
                 document.getElementById('overlay-text').innerText = "進入專屬小組中...";
-                window.location.href = `group.html?name=${encodeURIComponent(res.groupName)}&code=${encodeURIComponent(queryId)}`;
+                window.location.href = `group.html?name=${encodeURIComponent(res.groupName)}&code=${encodeURIComponent(res.encryptedCode)}`;
             } else {
                 userNotification.warning("專屬連結無效或代碼錯誤！");
                 hideLoading();
@@ -101,7 +101,7 @@ async function createNewGroup() {
 // 手動點擊進入小組
 async function enterGroup(groupName) {
     const code = prompt(`請輸入【${groupName}】的小組編號：`);
-    if (code === null) return;
+    if (code === null || code.trim() === '') return;
 
     showLoading(`正在驗證【${groupName}】的身分...`);
     
@@ -111,7 +111,7 @@ async function enterGroup(groupName) {
         
         if (res.success) {
             document.getElementById('overlay-text').innerText = "驗證成功，進入小組中...";
-            window.location.href = `group.html?name=${encodeURIComponent(groupName)}&code=${encodeURIComponent(code)}`;
+            window.location.href = `group.html?name=${encodeURIComponent(groupName)}&code=${encodeURIComponent(res.encryptedCode)}`;
         } else {
             hideLoading();
             userNotification.warning(res.message);

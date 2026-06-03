@@ -604,6 +604,30 @@
     }
   };
 
+  // ─────────────────────────────────────────────────────────────
+  //  PWA Service Worker 自動註冊（Stale-While-Revalidate 靜默更新版）
+  // ─────────────────────────────────────────────────────────────
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      // 依據 hostname 動態判定 scope 路徑
+      // 本地環境可能是 "/"，而 GitHub Pages 是 "/LKC1958_June_1.github.io/"
+      let scopePath = '/';
+      let swPath = '/service-worker.js';
+
+      if (window.location.hostname.indexOf('github.io') !== -1) {
+        scopePath = '/LKC1958_June_1.github.io/';
+        swPath = '/LKC1958_June_1.github.io/service-worker.js';
+      }
+
+      navigator.serviceWorker.register(swPath, { scope: scopePath })
+        .then(function(reg) {
+          console.log('✅ [PWA] ServiceWorker 註冊成功，Scope: ', reg.scope);
+        }).catch(function(err) {
+          console.warn('❌ [PWA] ServiceWorker 註冊失敗: ', err);
+        });
+    });
+  }
+
   // 通知就緒（給可能等待的 ensureAPIReady listener）
   if (typeof document !== 'undefined') {
     document.dispatchEvent(new Event('churchAPIReady'));
