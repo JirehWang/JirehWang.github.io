@@ -172,53 +172,68 @@
 將以下 JavaScript 加入至 `index.html` 中的 `<script>` 區塊：
 
 ```javascript
-    // 取得懸浮按鈕、圖示與 Toast 元素
-    const btnRefresh = document.getElementById('btn-refresh-cache');
-    const refreshIcon = btnRefresh ? btnRefresh.querySelector('.refresh-icon') : null;
-    const cacheToast = document.getElementById('cache-toast');
+    // 監聽 DOMContentLoaded 以確保按鈕與 Toast 元素已載入
+    document.addEventListener('DOMContentLoaded', function() {
+        // 取得懸浮按鈕、圖示與 Toast 元素
+        const btnRefresh = document.getElementById('btn-refresh-cache');
+        const refreshIcon = btnRefresh ? btnRefresh.querySelector('.refresh-icon') : null;
+        const cacheToast = document.getElementById('cache-toast');
 
-    if (btnRefresh) {
-        btnRefresh.addEventListener('click', async function() {
-            // 1. 停用按鈕並加入旋轉動畫
-            btnRefresh.disabled = true;
-            if (refreshIcon) {
-                refreshIcon.classList.add('spinning');
-            }
-
-            // 2. 顯示 Toast 提示
-            if (cacheToast) {
-                cacheToast.classList.add('show');
-            }
-
-            // 3. 清理快取邏輯
-            try {
-                // 清除 caches API 儲存的快取
-                if ('caches' in window) {
-                    const cacheKeys = await caches.keys();
-                    await Promise.all(
-                        cacheKeys.map(key => caches.delete(key))
-                    );
-                    console.log('✅ ServiceWorker cache storage cleared.');
+        if (btnRefresh) {
+            btnRefresh.addEventListener('click', async function() {
+                // 1. 停用按鈕並加入旋轉動畫
+                btnRefresh.disabled = true;
+                if (refreshIcon) {
+                    refreshIcon.classList.add('spinning');
                 }
 
-                // 登出所有已註冊的 Service Workers
-                if ('serviceWorker' in navigator) {
-                    const registrations = await navigator.serviceWorker.getRegistrations();
-                    await Promise.all(
-                        registrations.map(reg => reg.unregister())
-                    );
-                    console.log('✅ ServiceWorkers unregistered.');
+                // 2. 顯示 Toast 提示
+                if (cacheToast) {
+                    cacheToast.classList.add('show');
                 }
-            } catch (err) {
-                console.warn('❌ Cache cleanup encountered an error:', err);
-            }
 
-            // 4. 延遲 1 秒以提供視覺回饋後重新載入
-            setTimeout(() => {
-                window.location.reload(true);
-            }, 1000);
-        });
-    }
+                // 3. 清理快取邏輯
+                try {
+                    // 清除 caches API 儲存的快取
+                    if ('caches' in window) {
+                        const cacheKeys = await caches.keys();
+                        await Promise.all(
+                            cacheKeys.map(key => caches.delete(key))
+                        );
+                        console.log('✅ ServiceWorker cache storage cleared.');
+                    }
+
+                    // 登出所有已註冊的 Service Workers
+                    if ('serviceWorker' in navigator) {
+                        const registrations = await navigator.serviceWorker.getRegistrations();
+                        await Promise.all(
+                            registrations.map(reg => reg.unregister())
+                        );
+                        console.log('✅ ServiceWorkers unregistered.');
+                    }
+
+                    // 清除 Firebase 遠端快取
+                    try {
+                        const fbConfig = await import('./firebase/firebase-config.js');
+                        if (fbConfig && fbConfig.rtdb) {
+                            const { ref, remove } = await import("https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js");
+                            await remove(ref(fbConfig.rtdb, 'cache'));
+                            console.log('✅ Remote Firebase cache cleared.');
+                        }
+                    } catch (fbErr) {
+                        console.warn('⚠️ Firebase remote cache clear failed:', fbErr);
+                    }
+                } catch (err) {
+                    console.warn('❌ Cache cleanup encountered an error:', err);
+                }
+
+                // 4. 延遲 1 秒以提供視覺回饋後重新載入
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            });
+        }
+    });
 ```
 
 - [ ] **步驟 2：驗證 HTML 的變更並進行 Git Commit**

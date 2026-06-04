@@ -380,6 +380,18 @@
                         );
                         console.log('✅ ServiceWorkers unregistered.');
                     }
+
+                    // 清除 Firebase 遠端快取
+                    try {
+                        const fbConfig = await import('./firebase/firebase-config.js');
+                        if (fbConfig && fbConfig.rtdb) {
+                            const { ref, remove } = await import("https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js");
+                            await remove(ref(fbConfig.rtdb, 'cache'));
+                            console.log('✅ Remote Firebase cache cleared.');
+                        }
+                    } catch (fbErr) {
+                        console.warn('⚠️ Firebase remote cache clear failed:', fbErr);
+                    }
                 } catch (err) {
                     console.warn('❌ Cache cleanup encountered an error:', err);
                 }
