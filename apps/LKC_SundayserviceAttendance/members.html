@@ -36,19 +36,20 @@
   </div>
 
   <div class="member-table-container shadow-sm">
-    <table class="table table-hover align-middle mb-0" style="min-width: 800px;"> 
+    <table class="table table-hover align-middle mb-0" style="min-width: 880px;"> 
       <thead class="table-dark">
         <tr>
-          <th style="width: 120px;">姓名</th>
-          <th style="width: 80px;">性別</th>
-          <th style="width: 120px;">建立日期</th>
+          <th style="width: 110px;">姓名</th>
+          <th style="width: 100px;">會友代碼</th>
+          <th style="width: 70px;">性別</th>
+          <th style="width: 110px;">建立日期</th>
           <th>備註</th>
-          <th style="width: 100px;">狀態</th>
-          <th style="width: 140px;">操作</th>
+          <th style="width: 90px;">狀態</th>
+          <th style="width: 120px;">操作</th>
         </tr>
       </thead>
       <tbody id="memberTableBody">
-        <tr><td colspan="6" class="text-center p-5">資料載入中...</td></tr>
+        <tr><td colspan="7" class="text-center p-5">資料載入中...</td></tr>
       </tbody>
     </table>
   </div>
@@ -143,7 +144,7 @@
 
   function refreshMemberTable() {
     const tbody = document.getElementById('memberTableBody');
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center p-5"><div class="spinner-border text-primary"></div><br>資料載入中...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center p-5"><div class="spinner-border text-primary"></div><br>資料載入中...</td></tr>';
     google.script.run.withSuccessHandler(function(data) {
       allMembersRawData = data || [];
       filterMembers();
@@ -154,7 +155,11 @@
     const keyword = document.getElementById('memberSearchInput').value.trim().toLowerCase();
     document.getElementById('memberClearBtn').style.display = keyword ? 'block' : 'none';
     if (!keyword) { renderTable(allMembersRawData); return; }
-    const filtered = allMembersRawData.filter(row => (row[0] || "").toString().toLowerCase().includes(keyword));
+    const filtered = allMembersRawData.filter(row => {
+      const name = (row[0] || "").toString().toLowerCase();
+      const code = (row[7] || "").toString().toLowerCase();
+      return name.includes(keyword) || code.includes(keyword);
+    });
     renderTable(filtered);
   }
 
@@ -166,7 +171,7 @@
   function renderTable(data) {
     const tbody = document.getElementById('memberTableBody');
     if (!data || data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="text-center p-5 text-muted">查無資料</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center p-5 text-muted">查無資料</td></tr>';
       return;
     }
     let html = '';
@@ -177,6 +182,7 @@
       const rowJson = JSON.stringify(row).replace(/'/g, "&#39;");
       html += `<tr>
         <td class="text-dark"><strong>${row[0]}</strong></td>
+        <td><code class="text-secondary">${row[7] || ''}</code></td>
         <td>${row[1] || ''}</td>
         <td><small class="text-muted">${dateStr}</small></td>
         <td title="${row[3] || ''}"><div class="text-truncate" style="max-width:200px;">${row[3] || ''}</div></td>
