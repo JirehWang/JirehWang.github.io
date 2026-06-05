@@ -660,9 +660,9 @@ function renderTable(data) {
   const nameColIdx = currentTableHeaders.findIndex(h => h.includes("聚會名稱"));
   const catColIdx = currentTableHeaders.findIndex(h => h.includes("聚會類別"));
 
+  // 1. 若為非小組模板，先將 eventData 中缺少的日期補入
   if (dateColIdx !== -1 && currentTemplate !== "小組聚會表模板" && currentTemplate !== "團契聚會表模板" && currentEventData.length > 0) {
     const existingDates = validRows.map(r => r[dateColIdx]);
-
     currentEventData.forEach(event => {
       if (!existingDates.includes(event.date)) {
         let newRow = new Array(validColCount).fill("");
@@ -673,10 +673,25 @@ function renderTable(data) {
         validRows.push(newRow);
       }
     });
+  }
 
+  // 2. 對於所有有效的 rows 中的日期，一律先格式化為 yyyy/mm/dd
+  if (dateColIdx !== -1) {
+    validRows.forEach(row => {
+      if (row[dateColIdx]) {
+        const slashDate = parseToSlashDate(row[dateColIdx]);
+        if (slashDate) {
+          row[dateColIdx] = slashDate;
+        }
+      }
+    });
+
+    // 3. 不限模板，全域按日期由小到大排序 (空白排在最下方)
     validRows.sort((a, b) => {
-      let dateA = a[dateColIdx] || "9999-99-99";
-      let dateB = b[dateColIdx] || "9999-99-99";
+      let dateA = a[dateColIdx] || "9999/99/99";
+      let dateB = b[dateColIdx] || "9999/99/99";
+      if (!a[dateColIdx] || a[dateColIdx].trim() === "") dateA = "9999/99/99";
+      if (!b[dateColIdx] || b[dateColIdx].trim() === "") dateB = "9999/99/99";
       return dateA.localeCompare(dateB);
     });
   }
@@ -729,7 +744,8 @@ function createRowHTML(rowData, gridTemplate) {
     let listAttr = "";
     let extraClass = "";
     let inputType = "text";
-    if (header.includes("日期")) inputType = "date";
+    // 表格內部的日期改用 text 輸入框以支援 yyyy/mm/dd 格式的手動輸入與顯示
+    if (header.includes("日期")) inputType = "text";
 
     const isSermonField = header === "主題" || header === "經文";
     const readonlyAttr = (isRowSermonLinked && isSermonField) ? "readonly" : "";
@@ -793,6 +809,29 @@ function buildRecordGridTemplate(columnCount) {
   const actionWidth = isNarrow ? 64 : 48;
   return `repeat(${columnCount}, ${inputMinWidth}px) ${actionWidth}px`;
 }
+
+function sortRowsByDate() {
+  const dateColIdx = currentTableHeaders.findIndex(h => h.includes("日期"));
+  if (dateColIdx === -1) return;
+
+  // 收集目前畫面上所有有效的 rows
+  const matrix = collectVisibleMatrix();
+  const headers = matrix[0];
+  const rows = matrix.slice(1);
+
+  // 排序，確保空白日期排在最下方
+  rows.sort((a, b) => {
+    let dateA = a[dateColIdx] || "9999/99/99";
+    let dateB = b[dateColIdx] || "9999/99/99";
+    if (!a[dateColIdx] || a[dateColIdx].trim() === "") dateA = "9999/99/99";
+    if (!b[dateColIdx] || b[dateColIdx].trim() === "") dateB = "9999/99/99";
+    return dateA.localeCompare(dateB);
+  });
+
+  // 重新渲染表格
+  rerenderWithMatrix([headers, ...rows]);
+}
+window.sortRowsByDate = sortRowsByDate;
 
 // ============================================================
 //  ➕ 新增列 / 🗑️ 刪除列
@@ -919,7 +958,8 @@ function generateQuarterRows() {
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, "0");
       const day = String(d.getDate()).padStart(2, "0");
-      dates.push(`${y}-${m}-${day}`);
+      // 改成 yyyy/mm/dd 斜線格式
+      dates.push(`${y}/${m}/${day}`);
     }
   }
 
@@ -949,6 +989,7 @@ function generateQuarterRows() {
 
   bootstrap.Modal.getInstance(document.getElementById('quarterModal'))?.hide();
   getNotifier().success(`✅ 已新增 ${added} 筆季度聚會日期`);
+  sortRowsByDate();
 
   if (useAI && addedDates.length > 0) {
     const aiBox = document.getElementById('aiRawText');
@@ -1110,12 +1151,30 @@ function initGridInteraction() {
       const cIdx = parseInt(target.dataset.c);
       const header = currentTableHeaders[cIdx];
       if (header && header.includes("日期")) {
-        const rowDiv = target.closest('.record-row');
-        const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
-        if (sermonLinkColIdx !== -1) {
-          const checkbox = rowDiv.querySelector(`input.grid-checkbox[data-c="${sermonLinkColIdx}"]`);
-          if (checkbox && checkbox.checked) {
-            updateRowSermonState(rowDiv, true, target.value.trim());
+        const dVal = target.value.trim();
+        if (dVal !== "") {
+          const slashDate = parseToSlashDate(dVal);
+          if (slashDate) {
+            target.value = slashDate;
+            target.title = slashDate;
+            
+            // 講道連動邏輯
+            const rowDiv = target.closest('.record-row');
+            const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
+            if (sermonLinkColIdx !== -1) {
+              const checkbox = rowDiv.querySelector(`input.grid-checkbox[data-c="${sermonLinkColIdx}"]`);
+              if (checkbox && checkbox.checked) {
+                updateRowSermonState(rowDiv, true, slashDate);
+              }
+            }
+            
+            // 日期變更後，觸發即時排序
+            sortRowsByDate();
+          } else {
+            getNotifier().error("❌ 日期不符格式，請按照yyyy/mm/dd進行建立");
+            target.value = "";
+            target.title = "";
+            target.focus();
           }
         }
       }
@@ -1164,6 +1223,9 @@ function initGridInteraction() {
           }
         }
       }
+      
+      // paste 處理完所有行後，最後呼叫即時排序
+      sortRowsByDate();
     }
   });
 }
@@ -1243,8 +1305,10 @@ function filterByDate() {
     if (!start && !end) show = true;
     else if (!dateVal) show = false;
     else {
-      if (start && dateVal < start) show = false;
-      if (end && dateVal > end) show = false;
+      // 將表格的斜線日期暫時轉為橫線，以便與原生的 YYYY-MM-DD input 值進行正確的大小比對
+      const compareDate = dateVal.replace(/\//g, "-");
+      if (start && compareDate < start) show = false;
+      if (end && compareDate > end) show = false;
     }
     if (show) {
       rowDiv.classList.remove('hidden');
@@ -1336,7 +1400,22 @@ function fillTableWithData(parsedRows) {
 
   parsedRows.forEach(rowData => {
     let target = null;
-    const aiDate = rowData["日期"] || rowData[currentTableHeaders[dateColIdx]];
+    let aiDate = rowData["日期"] || rowData[currentTableHeaders[dateColIdx]];
+
+    // 檢查並格式化為 yyyy/mm/dd
+    if (aiDate && dateColIdx !== -1) {
+      const slashDate = parseToSlashDate(String(aiDate).trim());
+      if (slashDate) {
+        rowData["日期"] = slashDate;
+        if (currentTableHeaders[dateColIdx] !== "日期") {
+          rowData[currentTableHeaders[dateColIdx]] = slashDate;
+        }
+        aiDate = slashDate; // 同步更新供後續比對使用
+      } else {
+        getNotifier().error(`❌ 日期 "${aiDate}" 不符格式，請按照yyyy/mm/dd進行建立`);
+        return; // 跳過此筆無效資料的填充
+      }
+    }
 
     // 先嘗試比對日期
     if (aiDate && dateColIdx !== -1) {
@@ -1398,6 +1477,8 @@ function fillTableWithData(parsedRows) {
       }
     }
   });
+
+  sortRowsByDate();
 }
 
 
@@ -2392,9 +2473,18 @@ async function importExcelFile(input) {
 
       if (!dateStr) {
         skippedCount++;
+        getNotifier().error(`❌ 日期 "${row[dateExcelIdx] || ''}" 不符格式，請按照yyyy/mm/dd進行建立`);
         console.warn(`[importExcel] 第 ${r + 1} 列日期無效或缺失，已略過`, row);
         continue;
       }
+      
+      const slashDate = parseToSlashDate(dateStr);
+      if (!slashDate) {
+        skippedCount++;
+        getNotifier().error(`❌ 日期 "${row[dateExcelIdx] || ''}" 不符格式，請按照yyyy/mm/dd進行建立`);
+        continue;
+      }
+      dateStr = slashDate;
 
       // Build row object keyed by local header names
       const rowObj = {};
@@ -2701,4 +2791,12 @@ function togglePrimaryActions() {
   }
 }
 window.togglePrimaryActions = togglePrimaryActions;
+
+function parseToSlashDate(rawStr) {
+  if (!rawStr) return null;
+  const hypenDate = parseGregorianDate(String(rawStr).trim());
+  if (!hypenDate) return null;
+  return hypenDate.replace(/-/g, "/");
+}
+window.parseToSlashDate = parseToSlashDate;
 
