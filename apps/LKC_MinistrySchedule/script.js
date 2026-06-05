@@ -652,7 +652,7 @@ function renderTable(data) {
       row.push("");
     }
     if (isGroupOrFellowship && sermonLinkColIdx !== -1 && !row[sermonLinkColIdx]) {
-      row[sermonLinkColIdx] = currentSermonSettings.useSermon ? "Y" : "N";
+      row[sermonLinkColIdx] = "N";
     }
   });
 
@@ -669,7 +669,7 @@ function renderTable(data) {
         newRow[dateColIdx] = event.date;
         if (nameColIdx !== -1) newRow[nameColIdx] = event.name;
         if (catColIdx !== -1) newRow[catColIdx] = event.category;
-        if (sermonLinkColIdx !== -1) newRow[sermonLinkColIdx] = currentSermonSettings.useSermon ? "Y" : "N";
+        if (sermonLinkColIdx !== -1) newRow[sermonLinkColIdx] = "N";
         validRows.push(newRow);
       }
     });
@@ -698,7 +698,7 @@ function renderTable(data) {
 
   if (validRows.length === 0) {
     const emptyRow = new Array(validColCount).fill("");
-    if (sermonLinkColIdx !== -1) emptyRow[sermonLinkColIdx] = currentSermonSettings.useSermon ? "Y" : "N";
+    if (sermonLinkColIdx !== -1) emptyRow[sermonLinkColIdx] = "N";
     validRows.push(emptyRow);
   }
 
@@ -843,7 +843,7 @@ function addNewRow() {
   const defaultRow = Array(currentTableHeaders.length).fill("");
   const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
   if (sermonLinkColIdx !== -1) {
-    defaultRow[sermonLinkColIdx] = currentSermonSettings.useSermon ? "Y" : "N";
+    defaultRow[sermonLinkColIdx] = "N";
   }
   
   tempDiv.innerHTML = createRowHTML(defaultRow);
@@ -2554,23 +2554,7 @@ async function saveSermonSettings() {
     });
 
     currentSermonSettings = { useSermon, sermonType };
-    getNotifier().success("✅ 講道資訊連動設定已更新！");
-    
-    // 如果關閉連動，提示是否將所有核取框取消勾選
-    // 如果開啟連動，提示是否將所有核取框勾選
-    const actionWord = useSermon ? "勾選" : "取消勾選";
-    if (confirm(`講道連動設定已更新！是否要自動將目前畫面中所有列的「套用講道」一併 ${actionWord}？`)) {
-      const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
-      if (sermonLinkColIdx !== -1) {
-        document.querySelectorAll('.record-row').forEach(rowDiv => {
-          const cb = rowDiv.querySelector(`input.grid-checkbox[data-c="${sermonLinkColIdx}"]`);
-          if (cb) {
-            cb.checked = useSermon;
-            onSermonLinkChange(cb);
-          }
-        });
-      }
-    }
+    getNotifier().success("✅ 講道資訊連動設定已更新！各列的「套用講道」勾選請透過新增一季聚會或匯入功能設定。");
   } catch (err) {
     handleAPIError(err);
   } finally {
