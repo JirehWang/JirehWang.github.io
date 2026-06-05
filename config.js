@@ -626,6 +626,49 @@
     });
   }
 
+  // ============================================================
+  //  🔐 安全混淆與加解密工具 (XOR)
+  // ============================================================
+  const OBFUSCATION_KEY = "LKC-Secure-2026";
+  const ENC_PREFIX = "enc_";
+
+  window.encryptGroupCode = function(str) {
+    const safeStr = String(str || "");
+    if (!safeStr) return "";
+    if (safeStr.indexOf(ENC_PREFIX) === 0) return safeStr;
+    try {
+      var hex = "";
+      for (var i = 0; i < safeStr.length; i++) {
+        var charCode = safeStr.charCodeAt(i);
+        var encCharCode = charCode ^ OBFUSCATION_KEY.charCodeAt(i % OBFUSCATION_KEY.length);
+        var hexPart = encCharCode.toString(16);
+        if (hexPart.length < 2) hexPart = "0" + hexPart;
+        hex += hexPart;
+      }
+      return ENC_PREFIX + hex;
+    } catch (e) {
+      return safeStr;
+    }
+  };
+
+  window.decryptGroupCode = function(str) {
+    const safeStr = String(str || "");
+    if (!safeStr) return "";
+    if (safeStr.indexOf(ENC_PREFIX) !== 0) return safeStr;
+    try {
+      var hex = safeStr.substring(ENC_PREFIX.length);
+      var plainText = "";
+      for (var i = 0; i < hex.length; i += 2) {
+        var charCode = parseInt(hex.substring(i, i + 2), 16);
+        var decCharCode = charCode ^ OBFUSCATION_KEY.charCodeAt((i / 2) % OBFUSCATION_KEY.length);
+        plainText += String.fromCharCode(decCharCode);
+      }
+      return plainText;
+    } catch (e) {
+      return safeStr;
+    }
+  };
+
   // 通知就緒（給可能等待的 ensureAPIReady listener）
   if (typeof document !== 'undefined') {
     document.dispatchEvent(new Event('churchAPIReady'));

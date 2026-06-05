@@ -26,8 +26,17 @@ window.onload = async () => {
         
         // 新增：偵測網址是否帶有 id (加密 Token)
         const urlParams = new URLSearchParams(window.location.search);
-        const queryId = urlParams.get('id');
+        let queryId = urlParams.get('id');
         if (queryId) {
+            const encryptGroupCode = window.encryptGroupCode || ((s) => s);
+            const ENC_PREFIX = "enc_";
+            if (queryId.indexOf(ENC_PREFIX) !== 0) {
+                const encryptedId = encryptGroupCode(queryId);
+                urlParams.set('id', encryptedId);
+                const newUrl = window.location.pathname + '?' + urlParams.toString();
+                window.history.replaceState({}, '', newUrl);
+                queryId = encryptedId;
+            }
             document.getElementById('groupCode').value = "******"; // 隱藏明文，顯示星號
             const res = await callAPI('findGroupByCode', { groupCode: queryId });
             if (res.success) {

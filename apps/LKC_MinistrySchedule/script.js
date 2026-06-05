@@ -24,7 +24,21 @@ const getSessionMgr = () => window.sessionManager;
 
 // ============================================================
 
-const currentId = new URLSearchParams(window.location.search).get('id');
+const encryptGroupCode = window.encryptGroupCode || ((s) => s);
+const decryptGroupCode = window.decryptGroupCode || ((s) => s);
+const ENC_PREFIX = "enc_";
+
+// 取得原始 ID 並立即進行混淆/加密處理，以防在網址列暴露明文 ID
+let rawUrlId = new URLSearchParams(window.location.search).get('id') || "";
+if (rawUrlId && rawUrlId.indexOf(ENC_PREFIX) !== 0) {
+  const encryptedId = encryptGroupCode(rawUrlId);
+  const urlParams = new URLSearchParams(window.location.search);
+  urlParams.set('id', encryptedId);
+  const newUrl = window.location.pathname + '?' + urlParams.toString();
+  window.history.replaceState({}, '', newUrl);
+  rawUrlId = encryptedId;
+}
+const currentId = rawUrlId;
 let activeGroupName = "";
 let currentTableHeaders = [];
 
@@ -430,7 +444,7 @@ async function loadAdminData() {
 
       html += grouped[cat].map(g => {
         const isEnabled = g.status !== "停用";
-        const shareUrl = `${base}?id=${g.id}`;
+        const shareUrl = `${base}?id=${encryptGroupCode(g.id)}`;
 
         return `
           <div class="col-12 col-md-4 group-item" data-search="${g.name} ${g.template}">
@@ -1829,26 +1843,6 @@ function showBulletinBoard() {
 // ============================================================
 //  🔓 解鎖編輯模式 (本地驗證與解密版)
 // ============================================================
-const OBFUSCATION_KEY = "LKC-Secure-2026";
-const ENC_PREFIX = "enc_";
-
-function decryptGroupCode(str) {
-  const safeStr = String(str || "");
-  if (!safeStr) return "";
-  if (safeStr.indexOf(ENC_PREFIX) !== 0) return safeStr;
-  try {
-    var hex = safeStr.substring(ENC_PREFIX.length);
-    var plainText = "";
-    for (var i = 0; i < hex.length; i += 2) {
-      var charCode = parseInt(hex.substring(i, i + 2), 16);
-      var decCharCode = charCode ^ OBFUSCATION_KEY.charCodeAt((i / 2) % OBFUSCATION_KEY.length);
-      plainText += String.fromCharCode(decCharCode);
-    }
-    return plainText;
-  } catch (e) {
-    return safeStr;
-  }
-}
 
 let unlockVerifyModalInstance = null;
 
