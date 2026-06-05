@@ -98,29 +98,95 @@ async function createNewGroup() {
     }
 }
 
-// 手動點擊進入小組
-async function enterGroup(groupName) {
-    const code = prompt(`請輸入【${groupName}】的小組編號：`);
-    if (code === null || code.trim() === '') return;
+let currentVerifyingGroupName = "";
 
-    showLoading(`正在驗證【${groupName}】的身分...`);
-    
-    try {
-        // 🌟 使用中央路由發送請求
-        const res = await window.churchAPI('verifyGroup', { groupName, groupCode: code });
-        
-        if (res.success) {
-            document.getElementById('overlay-text').innerText = "驗證成功，進入小組中...";
-            window.location.href = `group.html?name=${encodeURIComponent(groupName)}&code=${encodeURIComponent(res.encryptedCode)}`;
-        } else {
-            hideLoading();
-            userNotification.warning(res.message);
-        }
-    } catch (e) {
-        hideLoading();
-        userNotification.error("驗證時發生網路錯誤。");
+function toggleVerifyModal(show) {
+    const modal = document.getElementById('verifyModal');
+    if (!modal) return;
+    modal.style.display = show ? 'block' : 'none';
+    if (show) {
+        document.getElementById('verifyGroupCode').value = '';
+        document.getElementById('verifyError').style.display = 'none';
+        setTimeout(() => {
+            document.getElementById('verifyGroupCode').focus();
+        }, 300);
     }
 }
+
+// 註冊 Enter 鍵解鎖
+setTimeout(() => {
+    const verifyCodeInput = document.getElementById('verifyGroupCode');
+    if (verifyCodeInput) {
+        verifyCodeInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                submitVerifyCode();
+            }
+        });
+    }
+}, 500);
+
+// 手動點擊進入小組
+async function enterGroup(groupName) {
+    currentVerifyingGroupName = groupName;
+    
+    // 檢查 localStorage 快取
+    const cachedCode = localStorage.getItem(`group_code_${groupName}`);
+    if (cachedCode) {
+        showLoading(`正在進入【${groupName}】...`);
+        // 秒進：直接跳轉
+        window.location.href = `group.html?name=${encodeURIComponent(groupName)}&code=${encodeURIComponent(cachedCode)}`;
+        return;
+    }
+
+    // 無快取，開啟自訂彈窗
+    document.getElementById('verifyModalTitle').innerText = `🛡️ 驗證【${groupName}】身分`;
+    toggleVerifyModal(true);
+}
+
+async function submitVerifyCode() {
+    const code = document.getElementById('verifyGroupCode').value.trim();
+    if (!code) return userNotification.warning('請輸入代碼');
+
+    const errorEl = document.getElementById('verifyError');
+    const submitBtn = document.getElementById('verifySubmitBtn');
+    const codeInput = document.getElementById('verifyGroupCode');
+
+    // 鎖定 UI
+    errorEl.style.display = 'none';
+    submitBtn.disabled = true;
+    submitBtn.innerText = '⏳ 驗證中...';
+    codeInput.disabled = true;
+
+    try {
+        const res = await window.churchAPI('verifyGroup', { groupName: currentVerifyingGroupName, groupCode: code });
+        
+        if (res.success) {
+            // 寫入 localStorage 快取
+            localStorage.setItem(`group_code_${currentVerifyingGroupName}`, res.encryptedCode);
+            
+            toggleVerifyModal(false);
+            showLoading("驗證成功，進入小組中...");
+            window.location.href = `group.html?name=${encodeURIComponent(currentVerifyingGroupName)}&code=${encodeURIComponent(res.encryptedCode)}`;
+        } else {
+            errorEl.innerText = `❌ 驗證失敗：${res.message || '密碼錯誤'}`;
+            errorEl.style.display = 'block';
+            codeInput.disabled = false;
+            codeInput.value = '';
+            codeInput.focus();
+            submitBtn.disabled = false;
+            submitBtn.innerText = '進入小組';
+        }
+    } catch (e) {
+        errorEl.innerText = '❌ 驗證時發生網路錯誤，請重試。';
+        errorEl.style.display = 'block';
+        codeInput.disabled = false;
+        submitBtn.disabled = false;
+        submitBtn.innerText = '進入小組';
+    }
+}
+
+window.toggleVerifyModal = toggleVerifyModal;
+window.submitVerifyCode = submitVerifyCode;
 // --- 本週聚會人數彈窗 ---
 async function openWeeklyReport() {
     const modal = document.getElementById('weeklyModal');

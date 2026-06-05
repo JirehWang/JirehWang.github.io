@@ -41,6 +41,17 @@
         </div>
     </div>
 
+    <!-- 驗證身分彈窗 -->
+    <div id="verifyModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="toggleVerifyModal(false)">&times;</span>
+            <h3 id="verifyModalTitle">🛡️ 驗證身分</h3>
+            <input type="password" id="verifyGroupCode" placeholder="請輸入小組編號 (密碼)">
+            <div id="verifyError" style="color: #c62828; font-size: 13px; font-weight: bold; margin-bottom: 12px; display: none;">❌ 編號錯誤！請重新輸入。</div>
+            <button class="submit-btn" id="verifySubmitBtn" onclick="submitVerifyCode()">進入小組</button>
+        </div>
+    </div>
+
     <!-- 本週聚會人數彈窗 -->
     <div id="weeklyModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:1000; align-items:center; justify-content:center;" onclick="if(event.target===this) closeWeeklyReport()">
         <div style="background:#fff; border-radius:12px; width:90%; max-width:520px; padding:1.5rem; max-height:80vh; overflow-y:auto;">

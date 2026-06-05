@@ -1,6 +1,8 @@
 let identifiedGroupName = "";
 let isAdmin = false;
 let debounceTimer;
+let currentVerifyingCode = "";
+let pendingVerificationPromise = null;
 let nameDirectory = {};  // uid → name 反查表（從後端 RAW_MODE 回傳）
 let verifiedCodeForQuery = ""; // 保存 URL 中已驗證的代碼
 
@@ -65,48 +67,82 @@ async function callAPI(action, data = {}) {
 }
 
 // --- 小組編號即時驗證 ---
-document.getElementById('groupCode').addEventListener('input', (e) => {
-    const code = e.target.value.trim().toUpperCase();
+async function verifyCode(code) {
     const idRes = document.getElementById('idResult');
     const adminSelect = document.getElementById('adminGroupSelect');
     
+    if (code.length < 4) {
+        idRes.innerText = '❌ 字數不足';
+        idRes.className = 'status-badge status-err';
+        identifiedGroupName = "";
+        return;
+    }
+    
+    currentVerifyingCode = code;
+    // 加入轉圈圈 spinner 樣式與動畫
+    idRes.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" style="width:11px; height:11px; display:inline-block; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 0.75s linear infinite;"></span> 驗證中...';
+    idRes.className = 'status-badge status-wait';
+
+    try {
+        const res = await callAPI('findGroupByCode', { groupCode: code });
+        if (currentVerifyingCode !== code) return; // 避免競態條件
+
+        if (res.success) {
+            identifiedGroupName = res.groupName;
+            isAdmin = res.isAdmin;
+            idRes.className = 'status-badge status-ok';
+            idRes.innerText = isAdmin ? '🛡️ 最高權限模式' : `✅ 小組：${res.groupName}`;
+            adminSelect.style.display = isAdmin ? 'inline-block' : 'none';
+            const allMembersLabel = document.getElementById('typeAllMembersLabel');
+            if (allMembersLabel) allMembersLabel.style.display = isAdmin ? 'inline-block' : 'none';
+            if (isAdmin) await loadAdminOptions();
+        } else {
+            identifiedGroupName = "";
+            idRes.innerText = '❌ 查無此代碼';
+            idRes.className = 'status-badge status-err';
+            adminSelect.style.display = 'none';
+        }
+    } catch (err) {
+        if (currentVerifyingCode === code) {
+            idRes.innerText = '⚠️ 連線異常';
+            idRes.className = 'status-badge status-err';
+        }
+    } finally {
+        if (currentVerifyingCode === code) {
+            pendingVerificationPromise = null;
+        }
+    }
+}
+
+// 註冊 CSS 旋轉動畫
+if (typeof document !== 'undefined' && !document.getElementById('lkc-spin-style')) {
+    const style = document.createElement('style');
+    style.id = 'lkc-spin-style';
+    style.textContent = '@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}';
+    document.head && document.head.appendChild(style);
+}
+
+document.getElementById('groupCode').addEventListener('input', (e) => {
+    const code = e.target.value.trim().toUpperCase();
+    const idRes = document.getElementById('idResult');
+    
     clearTimeout(debounceTimer);
     if (code.length === 0) {
+        currentVerifyingCode = "";
+        pendingVerificationPromise = null;
+        identifiedGroupName = ""; // 當輸入框被清空時，清除已識別的小組名稱
         idRes.innerText = '等待輸入...';
         idRes.className = 'status-badge';
         return;
     }
+    
     idRes.innerText = '等待中...';
     idRes.className = 'status-badge status-wait';
 
-    debounceTimer = setTimeout(async () => {
-        if (code.length < 4) {
-            idRes.innerText = '❌ 字數不足';
-            idRes.className = 'status-badge status-err';
-            return;
-        }
-        try {
-            const res = await callAPI('findGroupByCode', { groupCode: code });
-            if (res.success) {
-                identifiedGroupName = res.groupName;
-                isAdmin = res.isAdmin;
-                idRes.className = 'status-badge status-ok';
-                idRes.innerText = isAdmin ? '🛡️ 最高權限模式' : `✅ 小組：${res.groupName}`;
-                adminSelect.style.display = isAdmin ? 'inline-block' : 'none';
-                // 管理員模式才顯示「總小組成員清單」標籤
-                const allMembersLabel = document.getElementById('typeAllMembersLabel');
-                if (allMembersLabel) allMembersLabel.style.display = isAdmin ? 'inline-block' : 'none';
-                if (isAdmin) await loadAdminOptions();
-            } else {
-                identifiedGroupName = "";
-                idRes.innerText = '❌ 查無此代碼';
-                idRes.className = 'status-badge status-err';
-                adminSelect.style.display = 'none';
-            }
-        } catch (err) {
-            idRes.innerText = '⚠️ 連線異常';
-        }
-    }, 1000);
+    // 縮短防抖至 400ms
+    debounceTimer = setTimeout(() => {
+        pendingVerificationPromise = verifyCode(code);
+    }, 400);
 });
 
 async function loadAdminOptions() {
@@ -124,13 +160,33 @@ async function loadAdminOptions() {
 
 // --- 數據查詢主入口 ---
 async function loadStats() {
+    const rawCodeInput = document.getElementById('groupCode');
+    const rawCode = rawCodeInput ? rawCodeInput.value.trim().toUpperCase() : "";
+
+    // 如果輸入了代碼但尚未開始驗證或驗證不同，立即取消防抖並執行驗證
+    if (rawCode && rawCode !== "******" && rawCode !== currentVerifyingCode) {
+        clearTimeout(debounceTimer);
+        pendingVerificationPromise = verifyCode(rawCode);
+    }
+
+    // 如果有正在進行中的驗證，等待其完成
+    if (pendingVerificationPromise) {
+        showLoading("正在等待小組代碼驗證...");
+        try {
+            await pendingVerificationPromise;
+        } catch (e) {
+            console.error("驗證出錯:", e);
+        } finally {
+            hideLoading();
+        }
+    }
+
     if (!identifiedGroupName) return userNotification.warning('請先輸入正確的編號並等待識別');
     
     const reportType = document.querySelector('input[name="reportType"]:checked').value;
     const start = document.getElementById('startDate').value;
     const end = document.getElementById('endDate').value;
     const group = isAdmin ? document.getElementById('adminGroupSelect').value : identifiedGroupName;
-    const rawCode = document.getElementById('groupCode').value;
     const code = (rawCode === "******" && verifiedCodeForQuery) ? verifiedCodeForQuery : (rawCode.startsWith("enc_") ? rawCode : rawCode.toUpperCase());
 
     showLoading("正在彙整報表數據...");

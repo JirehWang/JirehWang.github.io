@@ -10,6 +10,16 @@ window.onload = async () => {
     } catch (e) {
         userNotification.error("系統路由啟動失敗，請重新整理");
     }
+    
+    // 註冊 Enter 鍵登入管理
+    const adminInput = document.getElementById('adminInput');
+    if (adminInput) {
+        adminInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                verifyAdmin();
+            }
+        });
+    }
 };
 
 async function callAPI(action, data = {}) {

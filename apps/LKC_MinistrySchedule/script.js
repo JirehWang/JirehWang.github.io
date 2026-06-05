@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 //  📋 教會服事管理系統 — 前端邏輯 (script.js)
 //  修正版本 v3.0
 //  v2.0 修正項目：
@@ -1270,6 +1270,11 @@ async function processAI() {
     return;
   }
 
+  const submitBtn = document.querySelector('#aiScheduleModal .btn-success');
+  const textarea = document.getElementById('aiRawText');
+  if (submitBtn) submitBtn.disabled = true;
+  if (textarea) textarea.disabled = true;
+
   getNotifier().showLoading("🤖 AI 運算中，請稍候...");
   document.getElementById('aiStatus').innerText = "⏳ 處理中...";
 
@@ -1292,6 +1297,8 @@ async function processAI() {
   } finally {
     getNotifier().hideLoading();
     getUIState().unlock('processAI');
+    if (submitBtn) submitBtn.disabled = false;
+    if (textarea) textarea.disabled = false;
   }
 }
 
@@ -1820,35 +1827,91 @@ function showBulletinBoard() {
 
 
 // ============================================================
-//  🔓 解鎖編輯模式
+//  🔓 解鎖編輯模式 (本地驗證與解密版)
 // ============================================================
+const OBFUSCATION_KEY = "LKC-Secure-2026";
+const ENC_PREFIX = "enc_";
+
+function decryptGroupCode(str) {
+  const safeStr = String(str || "");
+  if (!safeStr) return "";
+  if (safeStr.indexOf(ENC_PREFIX) !== 0) return safeStr;
+  try {
+    var hex = safeStr.substring(ENC_PREFIX.length);
+    var plainText = "";
+    for (var i = 0; i < hex.length; i += 2) {
+      var charCode = parseInt(hex.substring(i, i + 2), 16);
+      var decCharCode = charCode ^ OBFUSCATION_KEY.charCodeAt((i / 2) % OBFUSCATION_KEY.length);
+      plainText += String.fromCharCode(decCharCode);
+    }
+    return plainText;
+  } catch (e) {
+    return safeStr;
+  }
+}
+
+let unlockVerifyModalInstance = null;
+
 async function closeModalOrUnlock() {
   if (window.event) window.event.preventDefault();
   if (isEditorUnlocked) {
     bulletinModalInstance.hide();
   } else {
-    const pwd = prompt(`🔒 編輯需要權限\n請輸入專屬 ID`);
-    if (pwd === null) return;
-
-    getNotifier().showLoading("驗證權限中...");
-    try {
-      const res = await fetchAPI("verifyPageId", { id: currentId, code: pwd.trim() });
-      getNotifier().hideLoading();
-      
-      if (res && res.success) {
-        isEditorUnlocked = true;
-        getSessionMgr().setUnlocked(currentId);
-        bulletinModalInstance.hide();
-        getNotifier().success("✅ 編輯模式已啟用");
-      } else {
-        getNotifier().error("❌ ID 輸入錯誤！無法進入編輯模式。");
-      }
-    } catch (err) {
-      getNotifier().hideLoading();
-      getNotifier().error("驗證時發生連線錯誤：" + err.message);
+    if (!unlockVerifyModalInstance) {
+      unlockVerifyModalInstance = new bootstrap.Modal(document.getElementById('unlockVerifyModal'), {
+        backdrop: 'static',
+        keyboard: false
+      });
+      // 註冊 Enter 鍵監聽
+      document.getElementById('unlockVerifyCode').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          submitUnlockVerifyCode();
+        }
+      });
     }
+    document.getElementById('unlockVerifyCode').value = '';
+    document.getElementById('unlockVerifyError').classList.add('hidden');
+    unlockVerifyModalInstance.show();
+    
+    // 延遲聚焦以支援 CSS 動畫完成
+    setTimeout(() => {
+      document.getElementById('unlockVerifyCode').focus();
+    }, 500);
   }
 }
+
+async function submitUnlockVerifyCode() {
+  const pwd = document.getElementById('unlockVerifyCode').value.trim();
+  if (!pwd) {
+    getNotifier().warning("⚠️ 請輸入專屬 ID");
+    return;
+  }
+
+  const errorEl = document.getElementById('unlockVerifyError');
+  errorEl.classList.add('hidden');
+
+  const decryptedId = decryptGroupCode(currentId);
+  const inputCode = pwd.toUpperCase();
+  const isMaster = (inputCode === "LK31"); // ADMIN_CODE
+  const isMatch = (inputCode === decryptedId.toUpperCase());
+
+  if (isMaster || isMatch) {
+    isEditorUnlocked = true;
+    getSessionMgr().setUnlocked(currentId);
+    
+    if (unlockVerifyModalInstance) unlockVerifyModalInstance.hide();
+    if (bulletinModalInstance) bulletinModalInstance.hide();
+    
+    getNotifier().success("✅ 編輯模式已啟用");
+  } else {
+    errorEl.classList.remove('hidden');
+    const inputEl = document.getElementById('unlockVerifyCode');
+    inputEl.value = '';
+    inputEl.focus();
+  }
+}
+
+window.submitUnlockVerifyCode = submitUnlockVerifyCode;
 
 
 // ============================================================

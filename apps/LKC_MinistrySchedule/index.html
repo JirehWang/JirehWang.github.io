@@ -10,6 +10,11 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  
+  <div id="loading-overlay">
+    <div class="spinner"></div>
+    <div class="loading-msg" id="overlay-text">載入中...</div>
+  </div>
 
   <div id="globalLoading" class="hidden">⏳ 系統處理中...</div>
 
@@ -400,6 +405,26 @@
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
   <script>window._GAS_KEY = 'LKC_MinistrySchedule_TEST';</script>
   <script src="../../config.js"></script>
+  <!-- 解鎖編輯權限彈窗 (Bootstrap 5) -->
+  <div class="modal fade" id="unlockVerifyModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 400px;">
+      <div class="modal-content">
+        <div class="modal-header bg-dark text-white">
+          <h5 class="modal-title fw-bold">🔒 編輯需要權限</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body text-center p-4">
+          <p class="mb-3 text-muted">請輸入專屬 ID 進行身份驗證</p>
+          <input type="password" id="unlockVerifyCode" class="form-control text-center fw-bold fs-5 mb-3" placeholder="請輸入專屬 ID" style="letter-spacing: 4px;">
+          <div id="unlockVerifyError" class="text-danger small mb-3 hidden">❌ ID 輸入錯誤！</div>
+          <button type="button" id="unlockVerifySubmitBtn" class="btn btn-dark w-100 fw-bold py-2" onclick="submitUnlockVerifyCode()">
+            確認解鎖
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="script.js?v=20260604"></script>
 </body>
 </html>
