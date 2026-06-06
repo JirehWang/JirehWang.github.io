@@ -36,7 +36,7 @@ async function loadSongs(payload) {
     const result = await callAPI('getSongs', payload);
     if (result.status === 'success' && result.data.length > 0) {
       songsData = result.data;
-      renderTable();
+      renderCards();
       document.getElementById('syncTime').innerText = new Date().toLocaleTimeString();
     } else {
       showPlaceholder('📋 此區間無聚會資料');
@@ -46,51 +46,55 @@ async function loadSongs(payload) {
   }
 }
 
-// --- 渲染表格 ---
-function renderTable() {
-  const tbody = document.getElementById('songsTbody');
-  tbody.innerHTML = '';
+// --- 渲染卡片列表 ---
+function renderCards() {
+  const container = document.getElementById('songsCardsContainer');
+  container.innerHTML = '';
 
   songsData.forEach((row, idx) => {
-    const tr = document.createElement('tr');
-    tr.id = `row-${idx}`;
+    const card = document.createElement('div');
+    card.className = 'song-card';
+    card.id = `card-${idx}`;
 
     const songs = row['敬拜曲目'] || '';
     const songItems = songs
-      ? songs.split('、').map(s => `<span class="song-item">${s.trim()}</span>`).join('')
+      ? songs.split('、').map(s => `<div class="song-item">🎵 ${s.trim()}</div>`).join('')
       : '';
 
-    tr.innerHTML = `
-      <td class="date-cell">${row['日期'] || ''}</td>
-      <td>
-        <div class="meeting-name fw-bold">${row['聚會名稱'] || ''}</div>
-        <div class="meeting-type">${row['聚會類別'] || ''}</div>
-      </td>
-      <td><span class="meeting-type">${row['聚會類別'] || ''}</span></td>
-      <td>
-        <span class="leader-badge ${row['主領'] ? '' : 'empty'}">
-          ${row['主領'] || '待定'}
-        </span>
-      </td>
-      <td class="songs-cell" id="songs-cell-${idx}">
-        <div class="songs-display ${songs ? '' : 'empty'}" id="songs-display-${idx}">
-          ${songs ? songItems : '尚未填入曲目'}
+    card.innerHTML = `
+      <div>
+        <div class="card-top">
+          <div class="card-date-info">
+            <span class="card-date">${row['日期'] || ''}</span>
+            <span class="card-meeting-name fw-bold">${row['聚會名稱'] || ''}</span>
+          </div>
+          <div class="badge-container">
+            <span class="badge-g">${row['聚會類別'] || '聚會'}</span>
+            <span class="badge-b ${row['主領'] ? '' : 'empty'}">主領：${row['主領'] || '待定'}</span>
+          </div>
         </div>
-        <textarea class="songs-input" id="songs-input-${idx}" 
-                  style="display:none;" 
-                  placeholder="輸入曲目，以任意符號分隔（如逗號、頓號、斜線）&#10;例：Amazing Grace,How Great Thou Art,主禱文"
-        >${songs ? songs.split('、').join('\n') : ''}</textarea>
-        <div class="hint-text" id="songs-hint-${idx}" style="display:none;">
-          💡 每首歌一行，或用任意符號分隔，儲存後自動整理
+        
+        <div class="card-middle-content" id="songs-cell-${idx}">
+          <div class="songs-display ${songs ? '' : 'empty'}" id="songs-display-${idx}">
+            ${songs ? songItems : '尚未填入曲目'}
+          </div>
+          <textarea class="songs-input" id="songs-input-${idx}" 
+                    style="display:none;" 
+                    placeholder="輸入曲目，以任意符號分隔（如逗號、頓號、斜線）&#10;例：Amazing Grace,How Great Thou Art,主禱文"
+          >${songs ? songs.split('、').join('\n') : ''}</textarea>
+          <div class="hint-text" id="songs-hint-${idx}" style="display:none;">
+            💡 每首歌一行，或以任意符號分隔，儲存後自動整理
+          </div>
         </div>
-      </td>
-      <td>
+      </div>
+      
+      <div class="card-bottom-actions">
         <div id="btn-group-${idx}">
-          <button class="btn btn-outline-primary btn-edit-row" onclick="editRow(${idx})">✏️ 編輯</button>
+          <button class="btn-edit-row" onclick="editRow(${idx})">✏️ 編輯曲目</button>
         </div>
-      </td>
+      </div>
     `;
-    tbody.appendChild(tr);
+    container.appendChild(card);
   });
 
   document.getElementById('tableWrapper').style.display = 'block';
@@ -103,12 +107,13 @@ function editRow(idx) {
   document.getElementById(`songs-display-${idx}`).style.display = 'none';
   document.getElementById(`songs-input-${idx}`).style.display = 'block';
   document.getElementById(`songs-hint-${idx}`).style.display = 'block';
+  document.getElementById(`songs-cell-${idx}`).classList.add('edit-mode');
   document.getElementById(`songs-input-${idx}`).focus();
 
   // 換按鈕
   document.getElementById(`btn-group-${idx}`).innerHTML = `
-    <button class="btn btn-success btn-save-row me-1" onclick="saveRow(${idx})">✅ 確認</button>
-    <button class="btn btn-outline-secondary btn-cancel-row" onclick="cancelRow(${idx})">✕</button>
+    <button class="btn-cancel-row me-1" onclick="cancelRow(${idx})">取消</button>
+    <button class="btn-save-row" onclick="saveRow(${idx})">💾 暫存修改</button>
   `;
 
   dirtyRows.add(idx);
@@ -128,7 +133,7 @@ function saveRow(idx) {
   // 更新 display
   const display = document.getElementById(`songs-display-${idx}`);
   const songItems = normalized
-    ? normalized.split('、').map(s => `<span class="song-item">${s}</span>`).join('')
+    ? normalized.split('、').map(s => `<div class="song-item">🎵 ${s}</div>`).join('')
     : '';
   display.innerHTML = normalized ? songItems : '尚未填入曲目';
   display.className = `songs-display ${normalized ? '' : 'empty'}`;
@@ -136,10 +141,11 @@ function saveRow(idx) {
 
   document.getElementById(`songs-input-${idx}`).style.display = 'none';
   document.getElementById(`songs-hint-${idx}`).style.display = 'none';
+  document.getElementById(`songs-cell-${idx}`).classList.remove('edit-mode');
 
   // 換回編輯按鈕
   document.getElementById(`btn-group-${idx}`).innerHTML = `
-    <button class="btn btn-outline-primary btn-edit-row" onclick="editRow(${idx})">✏️ 編輯</button>
+    <button class="btn-edit-row" onclick="editRow(${idx})">✏️ 編輯曲目</button>
   `;
 }
 
@@ -152,9 +158,10 @@ function cancelRow(idx) {
   document.getElementById(`songs-input-${idx}`).style.display = 'none';
   document.getElementById(`songs-hint-${idx}`).style.display = 'none';
   document.getElementById(`songs-display-${idx}`).style.display = 'block';
+  document.getElementById(`songs-cell-${idx}`).classList.remove('edit-mode');
 
   document.getElementById(`btn-group-${idx}`).innerHTML = `
-    <button class="btn btn-outline-primary btn-edit-row" onclick="editRow(${idx})">✏️ 編輯</button>
+    <button class="btn-edit-row" onclick="editRow(${idx})">✏️ 編輯曲目</button>
   `;
 
   dirtyRows.delete(idx);

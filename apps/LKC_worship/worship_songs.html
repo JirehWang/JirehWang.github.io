@@ -10,70 +10,155 @@
   <style>
     /* 頁面專屬樣式 */
     .songs-header {
-      background: linear-gradient(to top right, #006030 0%, #30759f 55%, #6bb3f0 100%);
-      color: white;
-      padding: 20px 24px;
-      border-radius: 12px;
+      background: transparent !important;
+      padding: 0px 0px 15px 0px !important;
       margin-bottom: 20px;
+      border-bottom: 1px solid rgba(0, 96, 48, 0.08);
+      font-family: 'Inter', 'Noto Sans TC', sans-serif;
     }
-    .songs-header h2 { margin: 0; font-size: 1.4rem; }
-    .songs-header .subtitle { font-size: 0.85rem; opacity: 0.7; margin-top: 4px; }
+    .songs-header h2 { 
+      margin: 0; 
+      font-size: 1.6rem; 
+      font-weight: 700;
+      color: #006030 !important;
+    }
+    .songs-header .subtitle { 
+      font-size: 0.88rem; 
+      color: #6c757d; 
+      margin-top: 4px; 
+    }
 
     .query-bar {
-      background: #f8f9fa;
-      border: 1px solid #e9ecef;
-      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.6) !important;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(0, 96, 48, 0.08) !important;
+      border-radius: 12px;
       padding: 14px 16px;
-      margin-bottom: 16px;
+      margin-bottom: 20px;
     }
 
-    /* 曲目表格 */
-    .songs-table { width: 100%; border-collapse: collapse; }
-    .songs-table th {
-      background: #006030;
-      color: white;
-      padding: 12px 14px;
-      text-align: center;
+    /* 響應式卡片網格 */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+      margin-bottom: 30px;
+    }
+    @media (min-width: 768px) {
+      .cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    @media (min-width: 1200px) {
+      .cards-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    /* 玻璃擬物卡片 */
+    .song-card {
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(0, 96, 48, 0.08) !important;
+      border-radius: 14px;
+      padding: 1.25rem;
+      box-shadow: 0 4px 15px rgba(0, 96, 48, 0.02);
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .song-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(0, 96, 48, 0.18) !important;
+      box-shadow: 0 8px 25px rgba(0, 96, 48, 0.06);
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .card-date-info {
+      display: flex;
+      flex-direction: column;
+    }
+    .card-date {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: #006030;
+    }
+    .card-meeting-name {
+      font-size: 0.85rem;
+      color: #495057;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .badge-container {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+    }
+    .badge-g {
+      background-color: #eaf5ee !important;
+      color: #006030 !important;
+      border: 1px solid rgba(0, 96, 48, 0.12) !important;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
       white-space: nowrap;
-      font-size: 0.9rem;
-      position: sticky;
-      top: 0;
-      z-index: 10;
     }
-    .songs-table td {
-      padding: 10px 12px;
-      border-bottom: 1px solid #eee;
-      vertical-align: middle;
-      text-align: center;
-      font-size: 0.92rem;
+    .badge-b {
+      background-color: #e6f0f7 !important;
+      color: #30759f !important;
+      border: 1px solid rgba(48, 117, 159, 0.12) !important;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      white-space: nowrap;
     }
-    .songs-table tr:hover td { background: #f8f9fa; }
+    .badge-b.empty {
+      background-color: #f8f9fa !important;
+      color: #6c757d !important;
+      border: 1px solid #dee2e6 !important;
+    }
 
-    /* 曲目欄位 */
-    .songs-cell { text-align: left !important; min-width: 280px; }
+    .card-middle-content {
+      background: rgba(255, 255, 255, 0.85);
+      border: 1px solid rgba(0, 96, 48, 0.05);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin: 12px 0;
+      min-height: 100px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
     .songs-display {
       color: #006030;
-      line-height: 1.7;
-      font-size: 0.9rem;
-      padding: 4px 6px;
+      line-height: 1.8;
+      font-size: 0.95rem;
       white-space: pre-wrap;
       word-break: break-all;
+      font-weight: 500;
     }
-    .songs-display .song-item {
-      display: inline-block;
-      background: #e8f4fd;
-      color: #1565c0;
-      border-radius: 4px;
-      padding: 2px 8px;
-      margin: 2px 3px;
-      font-size: 0.85rem;
+    .songs-display.empty {
+      color: #adb5bd;
+      font-style: italic;
+      font-weight: normal;
     }
-    .songs-display.empty { color: #adb5bd; font-style: italic; }
 
     .songs-input {
       width: 100%;
-      min-height: 70px;
-      border: 2px solid #006030;
+      min-height: 100px;
+      border: 1.5px solid rgba(0, 96, 48, 0.15) !important;
       border-radius: 8px;
       padding: 8px 10px;
       font-size: 0.9rem;
@@ -81,42 +166,64 @@
       font-family: inherit;
       line-height: 1.6;
       outline: none;
+      transition: all 0.25s ease;
+      background: #ffffff;
+      color: #006030;
     }
-    .songs-input:focus { border-color: #006030; box-shadow: 0 0 0 3px rgba(0,96,48,0.1); }
+    .songs-input:focus { 
+      border-color: #30759f !important; 
+      box-shadow: 0 0 0 3px rgba(48, 117, 159, 0.15) !important; 
+    }
 
-    /* 按鈕 */
+    .card-bottom-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      border-top: 1px solid rgba(0, 96, 48, 0.04);
+      padding-top: 10px;
+      margin-top: auto;
+    }
+
     .btn-edit-row {
       font-size: 0.78rem;
-      padding: 4px 12px;
+      padding: 5px 14px;
       border-radius: 6px;
+      font-weight: 700;
+      border: 1.5px solid #30759f;
+      color: #30759f;
+      background: transparent;
+      transition: all 0.2s;
+    }
+    .btn-edit-row:hover {
+      background: #30759f;
+      color: white;
     }
     .btn-save-row {
       font-size: 0.78rem;
-      padding: 4px 12px;
+      padding: 5px 14px;
       border-radius: 6px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #006030 0%, #004d26 100%);
+      border: none;
+      color: white;
+      box-shadow: 0 2px 6px rgba(0, 96, 48, 0.15);
+      transition: all 0.2s;
+    }
+    .btn-save-row:hover {
+      box-shadow: 0 4px 12px rgba(0, 96, 48, 0.25);
     }
     .btn-cancel-row {
       font-size: 0.78rem;
-      padding: 4px 8px;
+      padding: 5px 12px;
       border-radius: 6px;
+      font-weight: 600;
+      background: #f8f9fa;
+      border: 1px solid #ced4da;
+      color: #495057;
     }
-
-    /* 主領徽章 */
-    .leader-badge {
-      background: #e8f5e9;
-      color: #2e7d32;
-      border-radius: 6px;
-      padding: 3px 10px;
-      font-size: 0.85rem;
-      font-weight: bold;
-      white-space: nowrap;
+    .btn-cancel-row:hover {
+      background: #e9ecef;
     }
-    .leader-badge.empty { background: #f5f5f5; color: #aaa; font-weight: normal; }
-
-    /* 日期 */
-    .date-cell { white-space: nowrap; font-weight: bold; font-size: 0.88rem; }
-    .meeting-name { color: #006030; font-size: 0.85rem; }
-    .meeting-type { color: #6c757d; font-size: 0.78rem; }
 
     /* 儲存全部按鈕 */
     #saveAllBtn {
@@ -125,24 +232,30 @@
       right: 24px;
       z-index: 999;
       border-radius: 50px;
-      padding: 12px 24px;
+      padding: 12px 28px;
       font-weight: bold;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      background: linear-gradient(135deg, #006030 0%, #30759f 100%);
+      border: none;
+      color: white;
+      box-shadow: 0 4px 20px rgba(0, 96, 48, 0.25);
       display: none;
+      transition: all 0.25s ease;
+    }
+    #saveAllBtn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 25px rgba(0, 96, 48, 0.35);
     }
 
     .table-scroll-wrapper {
-      overflow-x: auto;
-      border-radius: 10px;
-      border: 1px solid #dee2e6;
-      background: white;
-      -webkit-overflow-scrolling: touch;
+      background: transparent;
+      border: none;
+      box-shadow: none;
     }
 
     .hint-text {
-      font-size: 0.78rem;
+      font-size: 0.75rem;
       color: #6c757d;
-      margin-top: 4px;
+      margin-top: 6px;
     }
   </style>
 </head>
@@ -191,27 +304,15 @@
     </div>
   </div>
 
-  <!-- 表格容器 -->
+  <!-- 卡片容器 -->
   <div class="table-scroll-wrapper" id="tableWrapper" style="display:none;">
-    <table class="songs-table" id="songsTable">
-      <thead>
-        <tr>
-          <th style="min-width:110px;">日期</th>
-          <th style="min-width:150px;">聚會名稱</th>
-          <th style="min-width:90px;">類別</th>
-          <th style="min-width:90px;">主領</th>
-          <th style="min-width:300px;">敬拜曲目</th>
-          <th style="min-width:100px;">操作</th>
-        </tr>
-      </thead>
-      <tbody id="songsTbody"></tbody>
-    </table>
+    <div class="cards-grid" id="songsCardsContainer"></div>
   </div>
 
   <!-- 空白提示 -->
   <div id="placeholder" class="text-center text-muted p-5 bg-light rounded-3 border">
     <h5 class="text-secondary fw-bold mb-2">🎵 請選擇季度或日期區間來載入聚會</h5>
-    <p class="small mb-0">載入後點擊各列的「編輯」按鈕即可填入曲目</p>
+    <p class="small mb-0">載入後點擊各卡片的「編輯」按鈕即可填入曲目</p>
   </div>
 
 </div>
