@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lkc-pwa-cache-v20260606c';
+const CACHE_NAME = 'lkc-pwa-cache-v20260606_green_v2';
 const PRECACHE_ASSETS = [
   'config.js',
   'manifest.json'
@@ -44,8 +44,8 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // 🛡️ 首頁根目錄與 index.html 採用「即時響應」，絕不快取，直接過網
-  if (url.pathname === '/' || url.pathname.endsWith('/index.html')) {
+  // 🛡️ 所有 HTML 網頁採用「即時響應」，絕不快取，直接過網，防止 HTML 快取鎖死前端更新
+  if (url.pathname === '/' || url.pathname.endsWith('.html') || url.pathname.endsWith('/')) {
     return;
   }
 
