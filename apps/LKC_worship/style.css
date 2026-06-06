@@ -1,17 +1,34 @@
 /* style.css - 敬拜團服事管理系統 (視覺優化版) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+
+:root {
+    --lkc-green: #006030;
+    --portal-blue: #30759f;
+    --bg-gradient: linear-gradient(135deg, #006030 0%, #30759f 100%);
+    --card-bg: rgba(255, 255, 255, 0.85);
+    --border-subtle: rgba(0, 96, 48, 0.08);
+    --shadow-subtle: 0 8px 32px 0 rgba(0, 96, 48, 0.04);
+}
 
 /* --- 基礎樣式 --- */
 body { 
-    background-color: #eef2f7; 
-    font-family: "Microsoft JhengHei", sans-serif; 
+    background-color: #f4f7f6 !important; 
+    font-family: 'Inter', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif !important; 
     padding: 15px; 
     -webkit-text-size-adjust: 100%;
 }
 
 /* 容器樣式 */
 .container, .main-card { 
-    background-color: #fff; padding: 20px; border-radius: 12px; 
-    box-shadow: 0 4px 15px rgba(0,0,0,0.05); max-width: 1400px; margin: auto; 
+    background: var(--card-bg) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: 30px !important; 
+    border-radius: 16px !important; 
+    border: 1px solid var(--border-subtle) !important;
+    box-shadow: var(--shadow-subtle) !important; 
+    max-width: 1400px; 
+    margin: auto; 
 }
 
 /* 頁籤內容控制 */
@@ -123,68 +140,76 @@ input, textarea, select {
 
 /* Bootstrap overrides for LKC Green and Portal Blue theme */
 .text-primary {
-  color: #006030 !important;
+  color: var(--lkc-green) !important;
 }
 .border-primary {
-  border-color: #006030 !important;
+  border-color: var(--lkc-green) !important;
+}
+.card {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 12px rgba(0, 96, 48, 0.02) !important;
 }
 .btn-primary, .btn-success {
-  background-color: #006030 !important;
-  border-color: #006030 !important;
+  background: var(--bg-gradient) !important;
+  border: none !important;
   color: white !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 12px rgba(0, 96, 48, 0.15) !important;
 }
 .btn-primary:hover, .btn-success:hover {
-  background-color: #004d26 !important;
-  border-color: #004d26 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 96, 48, 0.25) !important;
 }
 .btn-outline-primary {
-  color: #006030 !important;
-  border-color: #006030 !important;
+  color: var(--lkc-green) !important;
+  border: 1.5px solid var(--lkc-green) !important;
 }
 .btn-outline-primary:hover {
-  background-color: #006030 !important;
+  background: var(--bg-gradient) !important;
   color: white !important;
+  border-color: transparent !important;
 }
 .btn-outline-success {
   color: #5a8a6a !important;
-  border-color: #5a8a6a !important;
+  border: 1.5px solid #5a8a6a !important;
 }
 .btn-outline-success:hover {
-  background-color: #5a8a6a !important;
+  background: var(--bg-gradient) !important;
   color: white !important;
+  border-color: transparent !important;
 }
 .bg-success {
-  background-color: #006030 !important;
+  background-color: var(--lkc-green) !important;
 }
 .text-success {
-  color: #006030 !important;
+  color: var(--lkc-green) !important;
 }
 .bg-primary {
-  background-color: #006030 !important;
+  background-color: var(--lkc-green) !important;
 }
 .form-select, .form-control {
-  border-color: #cbd5e1 !important;
+  border: 1.5px solid rgba(0, 96, 48, 0.15) !important;
+  border-radius: 8px !important;
 }
 .form-select:focus, .form-control:focus {
-  border-color: #006030 !important;
-  box-shadow: 0 0 0 0.25rem rgba(0, 96, 48, 0.25) !important;
+  border-color: var(--portal-blue) !important;
+  box-shadow: 0 0 0 3px rgba(48, 117, 159, 0.15) !important;
 }
 .nav-pills .nav-link.active, .nav-pills .show > .nav-link {
-  background-color: #006030 !important;
+  background: var(--bg-gradient) !important;
   color: white !important;
+  box-shadow: 0 4px 12px rgba(0, 96, 48, 0.18) !important;
 }
 .nav-link {
-  color: #30759f !important;
+  color: var(--portal-blue) !important;
 }
 .nav-link:hover {
-  color: #004d26 !important;
+  color: var(--lkc-green) !important;
 }
 
 /* --- 背景與區塊顏色優化 --- */
-body {
-  background-color: #f4f7f6 !important; /* 柔和淺綠白底色 */
-}
-
 .bg-light {
   background-color: #edf2f0 !important; /* 卡片/區塊的極淡綠灰底色 */
 }
@@ -193,13 +218,6 @@ body {
 .nav-pills.bg-light {
   background-color: #e5ece9 !important;
   border: 1px solid #d2ded9;
-}
-
-/* Tab 導覽列 Active 的漸層效果 */
-.nav-pills .nav-link.active, .nav-pills .show > .nav-link {
-  background: linear-gradient(135deg, #006030 0%, #30759f 100%) !important;
-  color: white !important;
-  box-shadow: 0 4px 10px rgba(0, 96, 48, 0.2);
 }
 
 /* 表格 header 顏色 (適用於 table.table 的 thead) */
@@ -238,15 +256,17 @@ body {
   transform: translateY(0);
 }
 
-/* 預設的 btn-primary / btn-success (綠色) */
+/* 預設的 btn-primary / btn-success (使用漸層) */
 .btn-primary, .btn-success {
-  background-color: #006030 !important;
-  border-color: #006030 !important;
+  background: var(--bg-gradient) !important;
+  border: none !important;
   color: white !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 12px rgba(0, 96, 48, 0.15) !important;
 }
 .btn-primary:hover, .btn-success:hover {
-  background-color: #004d26 !important;
-  border-color: #004d26 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 96, 48, 0.25) !important;
 }
 
 /* 預設的 btn-secondary (藍色) */
