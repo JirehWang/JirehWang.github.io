@@ -216,6 +216,14 @@ async function callAPI(action, payload) {
   }
 }
 
+async function ensurePositionsLoaded() {
+  if (currentPositions && currentPositions.length > 0) return;
+  const result = await callAPI('getPositions', {});
+  if (result && result.status === 'success') {
+    currentPositions = result.data || [];
+  }
+}
+
 function switchTab(tabId) {
   const content = document.getElementById(tabId);
   if (!content) return;
@@ -628,6 +636,7 @@ async function loadDashboard() {
   container.innerHTML = `<div class="text-center p-5 text-primary"><div class="spinner-border"></div><div class="mt-2">同步 ${year}-${quarter} 資料中...</div></div>`;
 
   try {
+    await ensurePositionsLoaded();
     const result = await callAPI('getSchedule', { year, quarter });
     if (result.status === 'success') {
       const syncTimeEl = document.getElementById('syncTime');
@@ -652,7 +661,16 @@ function renderDashboardTable(data) {
   // 然後才是服事同工（主領、配唱...等動態欄位）
   const fixedHeaders = ['日期', '聚會名稱', '聚會類別', '牧師', '題目', '經文', '敬拜曲目'];
   const allKeys = Object.keys(data[0]);
-  const dynamicHeaders = allKeys.filter(k => !fixedHeaders.includes(k) && !['hasWarning', 'warningMessage', '年度', '季度'].includes(k));
+  const excludedHeaders = ['hasWarning', 'warningMessage', '年度', '季度'];
+  const positionHeaders = currentPositions
+    .map(p => p.positionName)
+    .filter(role => role && data.some(row => Object.prototype.hasOwnProperty.call(row, role)));
+  const fallbackHeaders = allKeys.filter(k =>
+    !fixedHeaders.includes(k) &&
+    !excludedHeaders.includes(k) &&
+    !positionHeaders.includes(k)
+  );
+  const dynamicHeaders = [...positionHeaders, ...fallbackHeaders];
   const roleIcons = {
     '主領': '🎙️',
     '配唱1': '🎶',

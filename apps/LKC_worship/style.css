@@ -517,6 +517,7 @@ h1, h2, h3, h4, h5, h6 {
 .personnel-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
+    grid-auto-flow: row;
     gap: 8px;
     margin-bottom: 12px;
 }
