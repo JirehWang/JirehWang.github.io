@@ -286,6 +286,18 @@
 
         <!-- 批量建立 -->
         <div id="addMode-batch" style="display:none;">
+          <!-- 季度快捷 -->
+          <div class="mb-3">
+            <label class="form-label fw-bold">季度快捷 <span class="text-muted fw-normal small">（點選後自動填入日期區間）</span></label>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <select id="batchYearSelect" class="form-select form-select-sm" style="width:90px;" onchange="updateBatchPreview()">
+              </select>
+              <button type="button" class="btn btn-outline-primary btn-sm fw-bold" onclick="applyQuarterShortcut(1)">Q1</button>
+              <button type="button" class="btn btn-outline-primary btn-sm fw-bold" onclick="applyQuarterShortcut(2)">Q2</button>
+              <button type="button" class="btn btn-outline-primary btn-sm fw-bold" onclick="applyQuarterShortcut(3)">Q3</button>
+              <button type="button" class="btn btn-outline-primary btn-sm fw-bold" onclick="applyQuarterShortcut(4)">Q4</button>
+            </div>
+          </div>
           <div class="row g-2 mb-3">
             <div class="col-6">
               <label class="form-label fw-bold">開始日期</label>
@@ -296,6 +308,7 @@
               <input type="date" id="batchEndDate" class="form-control" oninput="updateBatchPreview()">
             </div>
           </div>
+
           <div class="mb-3">
             <label class="form-label fw-bold">重複週幾 <span class="text-muted fw-normal small">（可多選）</span></label>
             <div class="d-flex flex-wrap gap-2 pt-1" id="batchWeekdayPicker">

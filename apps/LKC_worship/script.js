@@ -952,7 +952,43 @@ function openAddExtraModal() {
   // 預設勾選「日」（週日）
   document.querySelectorAll('#batchWeekdayPicker input[type=checkbox]').forEach(cb => cb.checked = (cb.value === '0'));
   document.getElementById('batchPreviewArea').style.display = 'none';
+  // 初始化年份下拉
+  _initBatchYearSelect();
   bootstrap.Modal.getOrCreateInstance(document.getElementById('extraMeetingModal')).show();
+}
+
+// 初始化年份選單（當年 -1 ~ +2）
+function _initBatchYearSelect() {
+  const sel = document.getElementById('batchYearSelect');
+  if (!sel) return;
+  const cur = new Date().getFullYear();
+  sel.innerHTML = '';
+  for (let y = cur - 1; y <= cur + 2; y++) {
+    const opt = document.createElement('option');
+    opt.value = y;
+    opt.textContent = y;
+    if (y === cur) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+// 套用季度快捷：填入日期區間並觸發預覽
+function applyQuarterShortcut(q) {
+  const year = document.getElementById('batchYearSelect').value;
+  const ranges = {
+    1: [`${year}-01-01`, `${year}-03-31`],
+    2: [`${year}-04-01`, `${year}-06-30`],
+    3: [`${year}-07-01`, `${year}-09-30`],
+    4: [`${year}-10-01`, `${year}-12-31`]
+  };
+  const [start, end] = ranges[q];
+  document.getElementById('batchStartDate').value = start;
+  document.getElementById('batchEndDate').value   = end;
+  // 高亮被選中的季度鈕
+  document.querySelectorAll('[onclick^="applyQuarterShortcut"]').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('onclick') === `applyQuarterShortcut(${q})`);
+  });
+  updateBatchPreview();
 }
 
 function switchAddMeetingMode(mode) {
