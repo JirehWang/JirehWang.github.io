@@ -32,6 +32,11 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
+  // 🛡️ 僅處理 http 和 https 協議，避免 chrome-extension 等協議報錯
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return;
+  }
+
   // 🛡️ 安全防護：GAS 請求、Firebase 認證與所有 POST 請求一律直接過網，不快取
   if (event.request.method === 'POST' || 
       url.hostname.includes('script.google.com') || 
