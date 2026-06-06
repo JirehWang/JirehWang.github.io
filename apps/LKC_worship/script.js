@@ -647,30 +647,85 @@ function renderDashboardTable(data) {
     container.innerHTML = '<div class="alert alert-light text-center m-4">📋 本季度暫無排班資料。</div>';
     return;
   }
+  
   // 固定欄位：日期、聚會名稱、聚會類別、牧師、題目、經文、敬拜曲目
   // 然後才是服事同工（主領、配唱...等動態欄位）
   const fixedHeaders = ['日期', '聚會名稱', '聚會類別', '牧師', '題目', '經文', '敬拜曲目'];
   const allKeys = Object.keys(data[0]);
   const dynamicHeaders = allKeys.filter(k => !fixedHeaders.includes(k) && !['hasWarning', 'warningMessage', '年度', '季度'].includes(k));
-  const finalHeaders = [...fixedHeaders, ...dynamicHeaders];
 
-  let html = `<table class="modern-table"><thead><tr>`;
-  finalHeaders.forEach(h => html += `<th>${h}</th>`);
-  html += `</tr></thead><tbody>`;
+  let html = `<div class="dashboard-grid">`;
+  
   data.forEach(row => {
-    html += `<tr class="${row.hasWarning ? 'warning-row' : ''}">`;
-    finalHeaders.forEach(h => {
-      let val = row[h] || '';
-      if (h === '日期') {
-        html += `<td><strong>${val}</strong>${row.hasWarning ? `<span class="warning-text">⚠️ ${row.warningMessage}</span>` : ''}</td>`;
+    // 判斷是否有請假警示
+    const hasWarning = row.hasWarning || false;
+    const warningMsg = row.warningMessage || '';
+    
+    // 生成卡片
+    html += `<div class="dashboard-card">
+      <div>
+        <!-- 卡片頂部 -->
+        <div class="card-top">
+          <div class="card-date-info">
+            <div class="card-date-row">
+              <span class="card-date">${row['日期'] || ''}</span>
+              ${hasWarning ? `<span class="date-warning-badge" title="${warningMsg}">⚠️ ${warningMsg}</span>` : ''}
+            </div>
+            <span class="card-meeting-name">${row['聚會名稱'] || ''}</span>
+          </div>
+          <span class="badge-g">${row['聚會類別'] || '聚會'}</span>
+        </div>`;
+
+    // 渲染服事同工
+    html += `<div class="card-section-title">👥 服事同工</div>
+        <div class="personnel-grid">`;
+    dynamicHeaders.forEach(role => {
+      let person = (row[role] || '').trim();
+      let personBadge = '';
+      if (!person || person === '【待定】' || person === '待定') {
+        personBadge = `<span class="badge-pending">【待定】</span>`;
       } else {
-        let style = (val === '【待定】') ? 'text-danger fw-bold' : '';
-        html += `<td class="${style}">${val || '-'}</td>`;
+        personBadge = `<span class="badge-b">${person}</span>`;
       }
+      html += `<div class="personnel-item">
+        <span class="personnel-role">🎤 ${role}：</span>${personBadge}
+      </div>`;
     });
-    html += `</tr>`;
+    html += `</div>`;
+
+    // 渲染敬拜曲目
+    const songs = row['敬拜曲目'] || '';
+    html += `<div class="card-section-title">🎵 敬拜曲目</div>`;
+    if (songs && songs !== '-' && songs !== '【待定】') {
+      const songList = songs.split(/[\n\r,，、\/\\|；;]+/).map(s => s.trim()).filter(x => x);
+      html += `<div class="song-badges-container">`;
+      songList.forEach(song => {
+        html += `<span class="song-badge-item">🎵 ${song}</span>`;
+      });
+      html += `</div>`;
+    } else {
+      html += `<div class="song-badges-container" style="color: #adb5bd; font-style: italic; justify-content: center; font-size: 0.82rem;">
+        📋 尚未填入敬拜曲目
+      </div>`;
+    }
+
+    html += `</div>`; // card-top 與同工曲目的區塊結束
+
+    // 渲染講道資訊框
+    const preacher = row['牧師'] || '';
+    const title = row['題目'] || '';
+    const scripture = row['經文'] || '';
+    
+    html += `<div class="sermon-box">
+      🎙️ <strong>講道：</strong>${preacher || '-'}<br>
+      📖 <strong>題目：</strong>${title || '-'}<br>
+      📜 <strong>經文：</strong>${scripture || '-'}
+    </div>`;
+
+    html += `</div>`; // dashboard-card 結束
   });
-  html += `</tbody></table>`;
+
+  html += `</div>`;
   container.innerHTML = html;
 }
 

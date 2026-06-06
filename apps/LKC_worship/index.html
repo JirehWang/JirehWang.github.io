@@ -14,18 +14,21 @@
   <h2 class="fw-bold">⛪ 敬拜團服事公佈欄</h2>
 </div>
 
-<div class="main-card">
-  <div class="quarter-box d-flex justify-content-between align-items-center">
-    <h5 class="mb-0 fw-bold">查詢季度</h5>
-    <select id="quarterSelect" class="form-select w-auto fw-bold" onchange="loadDashboard()">
-      <option value="2026-Q1" selected>2026-Q1</option>
-      <option value="2026-Q2">2026-Q2</option>
-      <option value="2026-Q3">2026-Q3</option>
-      <option value="2026-Q4">2026-Q4</option>
-    </select>
+<div class="main-card" style="background:transparent !important; border:none !important; box-shadow:none !important; padding:0 !important;">
+  <div class="quarter-box d-flex justify-content-between align-items-center" style="background: rgba(255, 255, 255, 0.6) !important; backdrop-filter: blur(10px); border: 1px solid rgba(0, 96, 48, 0.08); border-radius: 12px; padding: 14px 16px; margin-bottom: 20px;">
+    <h5 class="mb-0 fw-bold" style="color: #006030;">📅 查詢季度</h5>
+    <div class="d-flex align-items-center gap-3">
+      <span class="text-muted small d-none d-sm-inline">最後同步：<span id="syncTime">--:--</span></span>
+      <select id="quarterSelect" class="form-select w-auto fw-bold" onchange="loadDashboard()" style="border: 1.5px solid rgba(0, 96, 48, 0.15) !important;">
+        <option value="2026-Q1">2026-Q1</option>
+        <option value="2026-Q2" selected>2026-Q2</option>
+        <option value="2026-Q3">2026-Q3</option>
+        <option value="2026-Q4">2026-Q4</option>
+      </select>
+    </div>
   </div>
 
-  <div class="table-scroll-container" id="dashboardContainer">
+  <div id="dashboardContainer">
     <div class="text-center p-5 text-muted">
       <div class="spinner-border text-primary mb-2"></div>
       <div>正在同步最新資料...</div>
