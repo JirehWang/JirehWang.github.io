@@ -118,6 +118,7 @@ input, textarea, select {
 @media (max-width: 768px) {
     .modern-table td { font-size: 0.95rem; }
     .container { padding: 10px; }
+}
 
 
 /* Bootstrap overrides for LKC Green and Portal Blue theme */
