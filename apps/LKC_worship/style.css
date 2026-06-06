@@ -256,18 +256,6 @@ input, textarea, select {
   transform: translateY(0);
 }
 
-/* 預設的 btn-primary / btn-success (使用漸層) */
-.btn-primary, .btn-success {
-  background: var(--bg-gradient) !important;
-  border: none !important;
-  color: white !important;
-  font-weight: 600 !important;
-  box-shadow: 0 4px 12px rgba(0, 96, 48, 0.15) !important;
-}
-.btn-primary:hover, .btn-success:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(0, 96, 48, 0.25) !important;
-}
 
 /* 預設的 btn-secondary (藍色) */
 .btn-secondary {
