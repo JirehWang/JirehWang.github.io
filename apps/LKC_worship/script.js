@@ -1012,7 +1012,10 @@ function _expandBatchDates() {
   const last = new Date(end   + 'T00:00:00');
   while (cur <= last) {
     if (weekdays.has(cur.getDay())) {
-      result.push(cur.toISOString().substring(0, 10));
+      const y = cur.getFullYear();
+      const m = String(cur.getMonth() + 1).padStart(2, '0');
+      const d = String(cur.getDate()).padStart(2, '0');
+      result.push(`${y}-${m}-${d}`);
     }
     cur.setDate(cur.getDate() + 1);
   }
