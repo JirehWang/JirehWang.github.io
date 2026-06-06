@@ -254,30 +254,74 @@
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow-lg">
       <div class="modal-header bg-dark text-white">
-        <h5 class="modal-title fw-bold">➕ 新增額外聚會</h5>
+        <h5 class="modal-title fw-bold">➕ 建立聚會日期</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body bg-light">
-        <div class="mb-3">
-          <label class="form-label fw-bold">聚會日期</label>
-          <input type="date" id="extraDate" class="form-control">
+        <!-- 模式切換 -->
+        <ul class="nav nav-pills nav-fill mb-3" id="addMeetingModeTabs">
+          <li class="nav-item">
+            <button class="nav-link active fw-bold" id="tab-single" onclick="switchAddMeetingMode('single')">📌 單一建立</button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link fw-bold" id="tab-batch" onclick="switchAddMeetingMode('batch')">📅 批量建立</button>
+          </li>
+        </ul>
+
+        <!-- 單一建立 -->
+        <div id="addMode-single">
+          <div class="mb-3">
+            <label class="form-label fw-bold">聚會日期</label>
+            <input type="date" id="extraDate" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">聚會名稱 <span class="text-muted fw-normal small">（留空從行事曆帶入）</span></label>
+            <input type="text" id="extraName" class="form-control" placeholder="留空由行事曆自動帶入">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">聚會類別 <span class="text-muted fw-normal small">（留空從行事曆帶入；特別聚會才手動填）</span></label>
+            <input type="text" id="extraType" class="form-control" placeholder="留空由行事曆自動帶入">
+          </div>
         </div>
-        <div class="mb-3">
-          <label class="form-label fw-bold">聚會名稱 (選填)</label>
-          <input type="text" id="extraName" class="form-control" placeholder="例如：特別祈禱會">
-        </div>
-        <div class="mb-3">
-          <label class="form-label fw-bold">聚會類別</label>
-          <input type="text" id="extraType" class="form-control" placeholder="例如：特會" value="特會">
+
+        <!-- 批量建立 -->
+        <div id="addMode-batch" style="display:none;">
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label class="form-label fw-bold">開始日期</label>
+              <input type="date" id="batchStartDate" class="form-control" oninput="updateBatchPreview()">
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-bold">結束日期</label>
+              <input type="date" id="batchEndDate" class="form-control" oninput="updateBatchPreview()">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">重複週幾 <span class="text-muted fw-normal small">（可多選）</span></label>
+            <div class="d-flex flex-wrap gap-2 pt-1" id="batchWeekdayPicker">
+              <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="wd0" value="0" onchange="updateBatchPreview()"><label class="form-check-label" for="wd0">日</label></div>
+              <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="wd1" value="1" onchange="updateBatchPreview()"><label class="form-check-label" for="wd1">一</label></div>
+              <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="wd2" value="2" onchange="updateBatchPreview()"><label class="form-check-label" for="wd2">二</label></div>
+              <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="wd3" value="3" onchange="updateBatchPreview()"><label class="form-check-label" for="wd3">三</label></div>
+              <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="wd4" value="4" onchange="updateBatchPreview()"><label class="form-check-label" for="wd4">四</label></div>
+              <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="wd5" value="5" onchange="updateBatchPreview()"><label class="form-check-label" for="wd5">五</label></div>
+              <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="wd6" value="6" onchange="updateBatchPreview()"><label class="form-check-label" for="wd6">六</label></div>
+            </div>
+          </div>
+          <div class="alert alert-info small py-2 mb-3">
+            📅 批量建立的日期，<b>聚會名稱與聚會類別</b>均留空，讀取服事表時自動從行事曆帶入。
+          </div>
+          <div id="batchPreviewArea" class="alert alert-secondary small py-2 mb-0" style="display:none;max-height:120px;overflow-y:auto;"></div>
         </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-light border fw-bold" data-bs-dismiss="modal">取消</button>
-        <button type="button" class="btn btn-dark fw-bold px-4 shadow-sm" onclick="confirmAddExtraMeeting()">確認新增</button>
+        <button type="button" class="btn btn-dark fw-bold px-4 shadow-sm" id="confirmAddMeetingBtn" onclick="confirmAddExtraMeeting()">確認新增</button>
       </div>
     </div>
   </div>
 </div>
+
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>

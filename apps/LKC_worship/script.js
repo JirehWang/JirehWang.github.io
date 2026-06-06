@@ -938,30 +938,109 @@ async function loadScheduleByDateRange() {
   }
 }
 
-// 🌟 新增額外聚會
+// 🌟 建立聚會日期（單一 / 批量）
+let _addMeetingMode = 'single'; // 'single' | 'batch'
+
 function openAddExtraModal() {
+  // 重置為單一模式
+  switchAddMeetingMode('single');
+  document.getElementById('extraDate').value = '';
+  document.getElementById('extraName').value = '';
+  document.getElementById('extraType').value = '';
+  document.getElementById('batchStartDate').value = '';
+  document.getElementById('batchEndDate').value = '';
+  // 預設勾選「日」（週日）
+  document.querySelectorAll('#batchWeekdayPicker input[type=checkbox]').forEach(cb => cb.checked = (cb.value === '0'));
+  document.getElementById('batchPreviewArea').style.display = 'none';
   bootstrap.Modal.getOrCreateInstance(document.getElementById('extraMeetingModal')).show();
 }
 
-function confirmAddExtraMeeting() {
-  const date = document.getElementById('extraDate').value;
-  const name = document.getElementById('extraName').value;
-  const type = document.getElementById('extraType').value;
-  if(!date) return userNotification.warning("請選擇日期！");
+function switchAddMeetingMode(mode) {
+  _addMeetingMode = mode;
+  document.getElementById('addMode-single').style.display = mode === 'single' ? '' : 'none';
+  document.getElementById('addMode-batch').style.display  = mode === 'batch'  ? '' : 'none';
+  document.getElementById('tab-single').classList.toggle('active', mode === 'single');
+  document.getElementById('tab-batch').classList.toggle('active', mode === 'batch');
+}
 
-  generatedScheduleData.push({
-    '年度': date.substring(0,4),
-    '季度': `Q${Math.floor((parseDateSafe(date).getMonth() + 3) / 3)}`,
-    '日期': date,
-    '聚會名稱': name,
-    '聚會類別': type || '主日',
-    'leaves': [] 
-  });
-  
-  generatedScheduleData.sort((a,b) => parseDateSafe(a['日期']) - parseDateSafe(b['日期']));
+// 批量模式：即時預覽展開的日期清單
+function _expandBatchDates() {
+  const start = document.getElementById('batchStartDate').value;
+  const end   = document.getElementById('batchEndDate').value;
+  const weekdays = new Set(
+    Array.from(document.querySelectorAll('#batchWeekdayPicker input:checked')).map(cb => parseInt(cb.value))
+  );
+  if (!start || !end || weekdays.size === 0) return [];
+  const result = [];
+  const cur = new Date(start + 'T00:00:00');
+  const last = new Date(end   + 'T00:00:00');
+  while (cur <= last) {
+    if (weekdays.has(cur.getDay())) {
+      result.push(cur.toISOString().substring(0, 10));
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  return result;
+}
+
+// 批量預覽（綁定在 input change 時呼叫，HTML 用 oninput 觸發）
+function updateBatchPreview() {
+  const dates = _expandBatchDates();
+  const area = document.getElementById('batchPreviewArea');
+  if (dates.length === 0) { area.style.display = 'none'; return; }
+  area.style.display = '';
+  area.innerHTML = `共 <b>${dates.length}</b> 個日期：` + dates.map(d => `<span class="badge bg-secondary me-1">${d}</span>`).join('');
+}
+
+function confirmAddExtraMeeting() {
+  if (_addMeetingMode === 'single') {
+    // ── 單一模式 ──
+    const date = document.getElementById('extraDate').value;
+    const name = document.getElementById('extraName').value.trim();
+    const type = document.getElementById('extraType').value.trim(); // 留空由行事曆帶入
+    if (!date) return userNotification.warning("請選擇日期！");
+
+    const existing = generatedScheduleData.find(r => r['日期'] === date);
+    if (existing) return userNotification.warning(`${date} 已存在，請勿重複新增。`);
+
+    generatedScheduleData.push({
+      '年度': date.substring(0, 4),
+      '季度': `Q${Math.ceil((new Date(date + 'T00:00:00').getMonth() + 1) / 3)}`,
+      '日期': date,
+      '聚會名稱': name,   // 留空由行事曆帶入
+      '聚會類別': type,   // 留空由行事曆帶入
+      'leaves': []
+    });
+
+  } else {
+    // ── 批量模式 ──
+    const dates = _expandBatchDates();
+    if (dates.length === 0) return userNotification.warning("請設定日期區間並至少勾選一個週幾！");
+
+    const existingDates = new Set(generatedScheduleData.map(r => r['日期']));
+    let added = 0;
+    dates.forEach(date => {
+      if (existingDates.has(date)) return; // 跳過已存在
+      generatedScheduleData.push({
+        '年度': date.substring(0, 4),
+        '季度': `Q${Math.ceil((new Date(date + 'T00:00:00').getMonth() + 1) / 3)}`,
+        '日期': date,
+        '聚會名稱': '',   // 留空，由行事曆帶入
+        '聚會類別': '',   // 留空，由行事曆帶入
+        'leaves': []
+      });
+      added++;
+    });
+    if (added === 0) return userNotification.warning("所選區間的日期均已存在，無需重複新增。");
+    userNotification.success(`已批量新增 ${added} 個聚會日期`);
+  }
+
+  generatedScheduleData.sort((a, b) => parseDateSafe(a['日期']) - parseDateSafe(b['日期']));
   renderPreviewTable(generatedScheduleData);
   bootstrap.Modal.getOrCreateInstance(document.getElementById('extraMeetingModal')).hide();
 }
+
+
 
 // 🌟 每一列專屬的請假設定
 function openRowLeaveModal(idx) {
