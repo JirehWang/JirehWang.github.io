@@ -381,6 +381,11 @@
                         console.log('✅ ServiceWorkers unregistered.');
                     }
 
+                    // 清除瀏覽器本地資料快取 (LocalStorage 和 SessionStorage)
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    console.log('✅ LocalStorage and SessionStorage cleared.');
+
                     // 清除 Firebase 遠端快取
                     try {
                         const fbConfig = await import('./firebase/firebase-config.js');
@@ -396,9 +401,10 @@
                     console.warn('❌ Cache cleanup encountered an error:', err);
                 }
 
-                // 4. 延遲 1 秒以提供視覺回饋後重新載入
+                // 4. 延遲 1 秒以提供視覺回饋後，強制使用時間戳網址重新載入，打破一切邊緣快取
                 setTimeout(() => {
-                    window.location.reload();
+                    const newUrl = window.location.origin + window.location.pathname + '?nocache=' + Date.now();
+                    window.location.href = newUrl;
                 }, 1000);
             });
         }

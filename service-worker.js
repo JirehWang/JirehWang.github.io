@@ -1,6 +1,5 @@
-const CACHE_NAME = 'lkc-pwa-cache-v20260606b';
+const CACHE_NAME = 'lkc-pwa-cache-v20260606c';
 const PRECACHE_ASSETS = [
-  'index.html',
   'config.js',
   'manifest.json'
 ];
@@ -42,6 +41,11 @@ self.addEventListener('fetch', event => {
 
   // 🛡️ 如果網址參數帶有版本或強制刷新標記（v= 或 nocache=），直接向伺服器請求，不快取
   if (url.search.includes('v=') || url.search.includes('nocache=')) {
+    return;
+  }
+
+  // 🛡️ 首頁根目錄與 index.html 採用「即時響應」，絕不快取，直接過網
+  if (url.pathname === '/' || url.pathname.endsWith('/index.html')) {
     return;
   }
 
