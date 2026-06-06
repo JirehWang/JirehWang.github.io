@@ -1,0 +1,351 @@
+/* style.css - 敬拜團服事管理系統 (視覺優化版) */
+
+/* --- 基礎樣式 --- */
+body { 
+    background-color: #eef2f7; 
+    font-family: "Microsoft JhengHei", sans-serif; 
+    padding: 15px; 
+    -webkit-text-size-adjust: 100%;
+}
+
+/* 容器樣式 */
+.container, .main-card { 
+    background-color: #fff; padding: 20px; border-radius: 12px; 
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05); max-width: 1400px; margin: auto; 
+}
+
+/* 頁籤內容控制 */
+.tab-content { display: none; padding-top: 20px; }
+.tab-content.active { display: block; }
+
+/* 季度選擇區塊 */
+.quarter-box { background: #e9ecef; padding: 12px; border-radius: 8px; margin-bottom: 15px; }
+
+/* --- 📱 行動裝置複製貼上優化區 --- */
+input, textarea, select {
+    font-size: 16px !important; 
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+    touch-action: manipulation;
+}
+
+.modern-table input, .table input, .form-control {
+    padding: 8px 5px !important;
+    cursor: text;
+}
+
+.modern-table td, .table td, .table tr {
+    -webkit-touch-callout: default !important;
+    user-select: text !important;
+    -webkit-user-select: text !important;
+}
+
+.drag-handle {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
+
+/* --- 🌟 表格滾動與凍結窗格 --- */
+.table-scroll-container { 
+    background: white; border-radius: 8px; overflow-x: auto; 
+    border: 1px solid #dee2e6; position: relative; 
+    -webkit-overflow-scrolling: touch;
+}
+
+.modern-table, .bulletin-table { 
+    width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; 
+}
+
+/* 表頭樣式 */
+.modern-table th, .bulletin-table th { 
+    background-color: #006030; color: white; text-align: center; 
+    padding: 15px 10px; white-space: nowrap; position: sticky; top: 0; z-index: 10; 
+}
+
+/* 單元格通用樣式 */
+.modern-table td, .bulletin-table td { 
+    vertical-align: middle; text-align: center; padding: 12px 10px; border-bottom: 1px solid #eee;
+    max-width: 180px; white-space: normal; word-break: break-all; line-height: 1.5; font-size: 1rem;
+}
+
+/* 🌟 修正：凍結第一欄（日期）- 縮小寬度、強制不換行 */
+.modern-table th:nth-child(1), .modern-table td:nth-child(1),
+.bulletin-table th:nth-child(1), .bulletin-table td:nth-child(1) { 
+    position: sticky; 
+    left: 0; 
+    width: 100px;           /* 修正為 100px */
+    z-index: 5; 
+    background-color: #fff; 
+    white-space: nowrap !important; /* 🌟 核心修正：強制日期不換行 */
+    padding-left: 5px !important;   /* 壓縮內邊距 */
+    padding-right: 5px !important;
+    font-size: 0.9rem;              /* 字體微縮 */
+}
+
+/* 🌟 修正：凍結第二欄（聚會類別）- 校正 left 位置 */
+.modern-table th:nth-child(2), .modern-table td:nth-child(2),
+.bulletin-table th:nth-child(2), .bulletin-table td:nth-child(2) { 
+    position: sticky; 
+    left: 100px;           /* 🌟 必須與第一欄 width 同步 */
+    width: 90px; 
+    z-index: 5; 
+    background-color: #fff; 
+    box-shadow: 2px 0 5px rgba(0,0,0,0.05); 
+    white-space: nowrap !important; /* 聚會類別也不換行 */
+}
+
+/* 確保凍結的表頭在最上層 */
+.modern-table thead th:nth-child(1), .modern-table thead th:nth-child(2),
+.bulletin-table thead th:nth-child(1), .bulletin-table thead th:nth-child(2) { 
+    z-index: 15; background-color: #006030; 
+}
+
+/* --- 狀態與特效 --- */
+.warning-row { background-color: #fff9db !important; }
+.warning-text, .warning-label { color: #d97706; font-size: 0.75rem; font-weight: bold; display: block; margin-top: 2px; }
+.select-danger { background-color: #ffebee !important; color: #c62828 !important; font-weight: bold; border-color: #ef5350 !important; }
+
+/* 聚會類別標示 */
+.sermon-type { color: #0d6efd !important; font-weight: bold !important; background-color: rgba(13, 110, 253, 0.05) !important; }
+
+/* AI 更新成功閃爍動畫 */
+.table-success-flash { animation: flash-green 1.5s ease-out; }
+@keyframes flash-green { 0% { background-color: #d1e7dd; } 100% { background-color: transparent; } }
+
+/* 針對行動裝置表格寬度的微調 */
+@media (max-width: 768px) {
+    .modern-table td { font-size: 0.95rem; }
+    .container { padding: 10px; }
+
+
+/* Bootstrap overrides for LKC Green and Portal Blue theme */
+.text-primary {
+  color: #006030 !important;
+}
+.border-primary {
+  border-color: #006030 !important;
+}
+.btn-primary, .btn-success {
+  background-color: #006030 !important;
+  border-color: #006030 !important;
+  color: white !important;
+}
+.btn-primary:hover, .btn-success:hover {
+  background-color: #004d26 !important;
+  border-color: #004d26 !important;
+}
+.btn-outline-primary {
+  color: #006030 !important;
+  border-color: #006030 !important;
+}
+.btn-outline-primary:hover {
+  background-color: #006030 !important;
+  color: white !important;
+}
+.btn-outline-success {
+  color: #5a8a6a !important;
+  border-color: #5a8a6a !important;
+}
+.btn-outline-success:hover {
+  background-color: #5a8a6a !important;
+  color: white !important;
+}
+.bg-success {
+  background-color: #006030 !important;
+}
+.text-success {
+  color: #006030 !important;
+}
+.bg-primary {
+  background-color: #006030 !important;
+}
+.form-select, .form-control {
+  border-color: #cbd5e1 !important;
+}
+.form-select:focus, .form-control:focus {
+  border-color: #006030 !important;
+  box-shadow: 0 0 0 0.25rem rgba(0, 96, 48, 0.25) !important;
+}
+.nav-pills .nav-link.active, .nav-pills .show > .nav-link {
+  background-color: #006030 !important;
+  color: white !important;
+}
+.nav-link {
+  color: #30759f !important;
+}
+.nav-link:hover {
+  color: #004d26 !important;
+}
+
+/* --- 背景與區塊顏色優化 --- */
+body {
+  background-color: #f4f7f6 !important; /* 柔和淺綠白底色 */
+}
+
+.bg-light {
+  background-color: #edf2f0 !important; /* 卡片/區塊的極淡綠灰底色 */
+}
+
+/* 導覽列 nav-pills 背景 */
+.nav-pills.bg-light {
+  background-color: #e5ece9 !important;
+  border: 1px solid #d2ded9;
+}
+
+/* Tab 導覽列 Active 的漸層效果 */
+.nav-pills .nav-link.active, .nav-pills .show > .nav-link {
+  background: linear-gradient(135deg, #006030 0%, #30759f 100%) !important;
+  color: white !important;
+  box-shadow: 0 4px 10px rgba(0, 96, 48, 0.2);
+}
+
+/* 表格 header 顏色 (適用於 table.table 的 thead) */
+.table-light {
+  --bs-table-bg: #edf2f0 !important;
+  --bs-table-color: #006030 !important;
+}
+.table-light th {
+  color: #006030 !important;
+  font-weight: bold;
+  border-bottom: 2px solid #cbd5e1 !important;
+}
+
+/* 曲目管理專用的 query-bar 樣式優化 */
+.query-bar {
+  background: #edf2f0 !important;
+  border: 1px solid #cbd5e1 !important;
+}
+.query-bar .input-group-text {
+  background-color: #e5ece9 !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* --- 按鈕樣式與微動畫 --- */
+.btn {
+  transition: all 0.25s ease-in-out !important;
+  border-radius: 6px !important;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08) !important;
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+/* 預設的 btn-primary / btn-success (綠色) */
+.btn-primary, .btn-success {
+  background-color: #006030 !important;
+  border-color: #006030 !important;
+  color: white !important;
+}
+.btn-primary:hover, .btn-success:hover {
+  background-color: #004d26 !important;
+  border-color: #004d26 !important;
+}
+
+/* 預設的 btn-secondary (藍色) */
+.btn-secondary {
+  background-color: #30759f !important;
+  border-color: #30759f !important;
+  color: white !important;
+}
+.btn-secondary:hover {
+  background-color: #245a7b !important;
+  border-color: #245a7b !important;
+}
+
+/* 預設的 btn-outline-secondary */
+.btn-outline-secondary {
+  color: #30759f !important;
+  border-color: #30759f !important;
+  background-color: transparent !important;
+}
+.btn-outline-secondary:hover {
+  background-color: #30759f !important;
+  color: white !important;
+}
+
+/* 智慧產生班表等強烈按鈕 (改用漸層或是特別突顯) */
+.btn-danger {
+  background: linear-gradient(135deg, #e05e5e 0%, #c62828 100%) !important;
+  border-color: #c62828 !important;
+}
+.btn-danger:hover {
+  background: linear-gradient(135deg, #c62828 0%, #b01a1a 100%) !important;
+  border-color: #b01a1a !important;
+}
+
+/* --- 標題與字體顏色 --- */
+h1, h2, h3, h4, h5, h6 {
+  color: #006030 !important;
+}
+.modal-title {
+  color: #212529 !important; /* 彈出視窗標題保持黑色 */
+}
+.tab-content h5 {
+  border-left: 4px solid #30759f;
+  padding-left: 10px;
+  margin-bottom: 20px;
+}
+
+/* --- 標籤與徽章 (Badges) --- */
+.badge.bg-dark {
+  background-color: #1e3a2f !important; /* 深綠色 Pro */
+}
+
+/* 實習狀態 */
+.badge.bg-warning, .text-warning {
+  background-color: #fef3c7 !important;
+  color: #b45309 !important;
+  border: 1px solid #fde68a !important;
+}
+#teamMembersInternCount {
+  color: #b45309 !important;
+  font-weight: bold;
+}
+
+/* 正式狀態 */
+.badge.bg-primary, .text-primary {
+  background-color: #e6f4ea !important;
+  color: #137333 !important;
+  border: 1px solid #ceead6 !important;
+}
+
+/* 講道子類型覆寫卡片 header (Calendar Link) */
+.border-warning {
+  border-color: #30759f !important;
+}
+.card-header.bg-warning {
+  background-color: #30759f !important;
+  color: white !important;
+}
+
+/* 曲目管理中的標籤優化 */
+.songs-display .song-item {
+  background-color: #e8f0fe !important;
+  color: #1a73e8 !important;
+  border: 1px solid #d2e3fc !important;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+.songs-display .song-item:hover {
+  background-color: #d2e3fc !important;
+}
+
+.leader-badge {
+  background-color: #e6f4ea !important;
+  color: #137333 !important;
+  border: 1px solid #ceead6 !important;
+}
+.leader-badge.empty {
+  background-color: #f1f3f4 !important;
+  color: #5f6368 !important;
+  border: 1px solid #dadce0 !important;
+}
+
