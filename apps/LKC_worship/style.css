@@ -349,9 +349,9 @@ h1, h2, h3, h4, h5, h6 {
 
 /* 實習狀態 */
 .badge.bg-warning {
-  background-color: rgba(180, 83, 9, 0.08) !important;
-  color: #b45309 !important;
-  border: 1px solid rgba(180, 83, 9, 0.15) !important;
+  background-color: #fdf3e9 !important;
+  color: #9a4005 !important;
+  border: 1px solid rgba(154, 64, 5, 0.2) !important;
   border-radius: 99px !important;
   padding: 4px 12px !important;
   font-weight: 600 !important;
@@ -366,9 +366,9 @@ h1, h2, h3, h4, h5, h6 {
 
 /* 正式狀態 */
 .badge.bg-primary {
-  background-color: rgba(19, 115, 51, 0.08) !important;
-  color: #137333 !important;
-  border: 1px solid rgba(19, 115, 51, 0.15) !important;
+  background-color: #eaf5ee !important;
+  color: #0a4d26 !important;
+  border: 1px solid rgba(10, 77, 38, 0.2) !important;
   border-radius: 99px !important;
   padding: 4px 12px !important;
   font-weight: 600 !important;
@@ -397,13 +397,22 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .leader-badge {
-  background-color: #e6f4ea !important;
-  color: #137333 !important;
-  border: 1px solid #ceead6 !important;
+  background-color: #eaf5ee !important;
+  color: #0a4d26 !important;
+  border: 1px solid rgba(10, 77, 38, 0.2) !important;
 }
 .leader-badge.empty {
   background-color: #f1f3f4 !important;
   color: #5f6368 !important;
   border: 1px solid #dadce0 !important;
+}
+
+/* 人員標籤關閉按鈕優化 */
+.tag-name .btn-close {
+  opacity: 0.65 !important;
+  transition: opacity 0.15s ease !important;
+}
+.tag-name .btn-close:hover {
+  opacity: 0.95 !important;
 }
 

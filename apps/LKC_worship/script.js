@@ -760,7 +760,7 @@ function renderPersonnelTagPicker(td, currentValue) {
     tag.title = isInTeam ? `敬拜團員（${status}）` : '⚠️ 此人不在敬拜團員名單中';
     tag.innerHTML = `
       ${!isInTeam ? '⚠️ ' : ''}${name}
-      <button type="button" class="btn-close btn-close-white" style="font-size:0.5rem;" aria-label="移除"></button>
+      <button type="button" class="btn-close" style="font-size:0.5rem;" aria-label="移除"></button>
     `;
     tag.querySelector('button').onclick = (e) => {
       e.stopPropagation();
