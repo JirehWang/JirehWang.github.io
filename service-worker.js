@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lkc-pwa-cache-v20260606';
+const CACHE_NAME = 'lkc-pwa-cache-v20260606b';
 const PRECACHE_ASSETS = [
   'index.html',
   'config.js',
@@ -38,6 +38,11 @@ self.addEventListener('fetch', event => {
       url.hostname.includes('script.google.com') || 
       url.hostname.includes('firebasedatabase.app')) {
     return; // 讓瀏覽器直接去網路請求
+  }
+
+  // 🛡️ 如果網址參數帶有版本或強制刷新標記（v= 或 nocache=），直接向伺服器請求，不快取
+  if (url.search.includes('v=') || url.search.includes('nocache=')) {
+    return;
   }
 
   // 僅快取與本站相關的 GET 靜態資源
