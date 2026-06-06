@@ -653,6 +653,19 @@ function renderDashboardTable(data) {
   const fixedHeaders = ['日期', '聚會名稱', '聚會類別', '牧師', '題目', '經文', '敬拜曲目'];
   const allKeys = Object.keys(data[0]);
   const dynamicHeaders = allKeys.filter(k => !fixedHeaders.includes(k) && !['hasWarning', 'warningMessage', '年度', '季度'].includes(k));
+  const roleIcons = {
+    '主領': '🎙️',
+    '配唱1': '🎶',
+    '配唱2': '🎶',
+    '配唱3': '🎶',
+    '吉他': '🎸',
+    'BASS': '🎸',
+    'Keyboard': '🎹',
+    '鼓': '🥁',
+    '其它': '✨',
+    '音控': '🎚️',
+    '投影': '🖥️'
+  };
 
   let html = `<div class="dashboard-grid">`;
   
@@ -688,7 +701,7 @@ function renderDashboardTable(data) {
         personBadge = `<span class="badge-b">${person}</span>`;
       }
       html += `<div class="personnel-item">
-        <span class="personnel-role">🎤 ${role}：</span>${personBadge}
+        <span class="personnel-role">${roleIcons[role] || '🙋'} ${role}：</span>${personBadge}
       </div>`;
     });
     html += `</div>`;
