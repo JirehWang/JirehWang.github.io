@@ -111,6 +111,13 @@ input, textarea, select {
     background: rgba(0, 96, 48, 0.02) !important;
 }
 
+.modern-table tr:hover td:nth-child(1),
+.modern-table tr:hover td:nth-child(2),
+.bulletin-table tr:hover td:nth-child(1),
+.bulletin-table tr:hover td:nth-child(2) {
+    background-color: #f2f6f4 !important;
+}
+
 /* 🌟 修正：凍結第一欄（日期） */
 .modern-table th:nth-child(1), .modern-table td:nth-child(1),
 .bulletin-table th:nth-child(1), .bulletin-table td:nth-child(1) { 
