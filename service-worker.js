@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lkc-pwa-cache-v1';
+const CACHE_NAME = 'lkc-pwa-cache-v20260606';
 const PRECACHE_ASSETS = [
   'index.html',
   'config.js',
