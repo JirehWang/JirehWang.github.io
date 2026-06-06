@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lkc-pwa-cache-v20260606_green_v2';
+const CACHE_NAME = 'lkc-pwa-cache-v20260606_green_v3';
 const PRECACHE_ASSETS = [
   'config.js',
   'manifest.json'
