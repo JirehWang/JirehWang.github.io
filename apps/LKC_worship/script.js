@@ -1031,7 +1031,39 @@ function updateBatchPreview() {
   area.innerHTML = `共 <b>${dates.length}</b> 個日期：` + dates.map(d => `<span class="badge bg-secondary me-1">${d}</span>`).join('');
 }
 
-function confirmAddExtraMeeting() {
+async function _hydrateRowsFromCalendar(rows) {
+  const entries = rows
+    .map(row => ({ date: row['日期'], meetingName: row['聚會名稱'] || '' }))
+    .filter(e => e.date);
+  if (entries.length === 0) return;
+
+  try {
+    const res = await callAPI('getCalendarDataForDates', { entries });
+    const calData = res && res.status === 'success' ? (res.data || {}) : (res || {});
+    rows.forEach(row => {
+      const date = row['日期'];
+      const key = row['聚會名稱'] ? `${date}|${row['聚會名稱']}` : date;
+      const cd = calData[key] || calData[date] || {};
+      if (!row['聚會名稱'] && cd.namedEvent && cd.namedEvent.title) {
+        row['聚會名稱'] = String(cd.namedEvent.title).trim();
+      }
+      if (!row['聚會類別'] && cd.sermon && cd.sermon.typeName) {
+        row['聚會類別'] = String(cd.sermon.typeName).trim();
+      }
+      if (cd.sermon && cd.sermon.values) {
+        row['牧師'] = String(cd.sermon.values['講員'] || row['牧師'] || '');
+        row['題目'] = String(cd.sermon.values['講題'] || row['題目'] || '');
+        row['經文'] = String(cd.sermon.values['經文'] || row['經文'] || '');
+      }
+    });
+  } catch (err) {
+    console.warn('新增日期時帶入行事曆資料失敗:', err);
+    userNotification.warning('日期已新增，但行事曆資料暫時帶入失敗，儲存後重新讀取可再同步。');
+  }
+}
+
+async function confirmAddExtraMeeting() {
+  const rowsToHydrate = [];
   if (_addMeetingMode === 'single') {
     // ── 單一模式 ──
     const date = document.getElementById('extraDate').value;
@@ -1042,14 +1074,16 @@ function confirmAddExtraMeeting() {
     const existing = generatedScheduleData.find(r => r['日期'] === date);
     if (existing) return userNotification.warning(`${date} 已存在，請勿重複新增。`);
 
-    generatedScheduleData.push({
+    const row = {
       '年度': date.substring(0, 4),
       '季度': `Q${Math.ceil((new Date(date + 'T00:00:00').getMonth() + 1) / 3)}`,
       '日期': date,
       '聚會名稱': name,   // 留空由行事曆帶入
       '聚會類別': type,   // 留空由行事曆帶入
       'leaves': []
-    });
+    };
+    generatedScheduleData.push(row);
+    rowsToHydrate.push(row);
 
   } else {
     // ── 批量模式 ──
@@ -1060,20 +1094,23 @@ function confirmAddExtraMeeting() {
     let added = 0;
     dates.forEach(date => {
       if (existingDates.has(date)) return; // 跳過已存在
-      generatedScheduleData.push({
+      const row = {
         '年度': date.substring(0, 4),
         '季度': `Q${Math.ceil((new Date(date + 'T00:00:00').getMonth() + 1) / 3)}`,
         '日期': date,
         '聚會名稱': '',   // 留空，由行事曆帶入
         '聚會類別': '',   // 留空，由行事曆帶入
         'leaves': []
-      });
+      };
+      generatedScheduleData.push(row);
+      rowsToHydrate.push(row);
       added++;
     });
     if (added === 0) return userNotification.warning("所選區間的日期均已存在，無需重複新增。");
     userNotification.success(`已批量新增 ${added} 個聚會日期`);
   }
 
+  await _hydrateRowsFromCalendar(rowsToHydrate);
   generatedScheduleData.sort((a, b) => parseDateSafe(a['日期']) - parseDateSafe(b['日期']));
   renderPreviewTable(generatedScheduleData);
   bootstrap.Modal.getOrCreateInstance(document.getElementById('extraMeetingModal')).hide();
