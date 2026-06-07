@@ -658,7 +658,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* 整個 header 橫向漸層 (由深綠到 Portal 藍) */
 .dashboard-table thead {
-    background: linear-gradient(90deg, rgba(0, 96, 48, 0.95) 0%, rgba(48, 117, 159, 0.95) 100%) !important;
+    background: linear-gradient(90deg, #006030 0%, #30759f 100%) !important;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     position: sticky;
@@ -674,12 +674,7 @@ h1, h2, h3, h4, h5, h6 {
     text-align: center;
     border-bottom: 2.5px solid rgba(0, 96, 48, 0.2) !important;
     font-size: 0.95rem;
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
     white-space: nowrap;
-}
-
-.dashboard-table th:last-child {
-    border-right: none;
 }
 
 .dashboard-table td {
@@ -715,7 +710,7 @@ h1, h2, h3, h4, h5, h6 {
 /* 凍結表頭第一欄 */
 .dashboard-table thead th:nth-child(1) {
     z-index: 15;
-    background: rgba(0, 96, 48, 0.98) !important; /* 使用 gradient 起始顏色，避免透明透底 */
+    background: linear-gradient(90deg, #006030 0%, #086640 100%) !important; /* 使用漸層起始段，無縫融合 */
 }
 
 /* 請假行凍結欄背景色微調 */
