@@ -269,6 +269,30 @@
     </section>
   </div>
 
+  <div id="sessionModal" class="modal-backdrop" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="sessionTitle" style="max-width: 440px;">
+      <div class="modal-header">
+        <div>
+          <h2 id="sessionTitle">選擇點名場次</h2>
+          <p>請選擇此批新家人要加入的點名場次</p>
+        </div>
+        <button id="sessionCloseBtn" class="icon-btn" type="button" aria-label="關閉視窗">&times;</button>
+      </div>
+      <div class="form-grid" style="grid-template-columns: 1fr;">
+        <div class="field">
+          <label for="sessionSelect">點名場次</label>
+          <select id="sessionSelect">
+            <!-- 動態載入聚會清單 -->
+          </select>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="sessionCancelBtn" class="btn secondary" type="button">取消</button>
+        <button id="sessionConfirmBtn" class="btn primary" type="button">確認送出</button>
+      </div>
+    </section>
+  </div>
+
   <script>window._GAS_KEY = 'LKC_NewFamily';</script>
   <script src="../../config.js"></script>
   <script src="api-config.js"></script>
