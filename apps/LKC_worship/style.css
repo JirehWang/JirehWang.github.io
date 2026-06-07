@@ -710,7 +710,8 @@ h1, h2, h3, h4, h5, h6 {
 /* 凍結表頭第一欄 */
 .dashboard-table thead th:nth-child(1) {
     z-index: 15;
-    background: linear-gradient(90deg, #006030 0%, #086640 100%) !important; /* 使用漸層起始段，無縫融合 */
+    background: #006030 !important; /* 使用實色深綠作為固定面板，防透底與滾動錯位 */
+    border-right: 1.5px solid rgba(255, 255, 255, 0.15) !important; /* 加一個精緻白邊線分隔滾動區域 */
 }
 
 /* 請假行凍結欄背景色微調 */
