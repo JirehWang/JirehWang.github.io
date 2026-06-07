@@ -70,6 +70,11 @@ const analysisSubtitle = document.getElementById('analysisSubtitle');
 const analysisModalContent = document.getElementById('analysisModalContent');
 const analysisExportDetailBtn = document.getElementById('analysisExportDetailBtn');
 const analysisExportSummaryBtn = document.getElementById('analysisExportSummaryBtn');
+const sessionModal = document.getElementById('sessionModal');
+const sessionSelect = document.getElementById('sessionSelect');
+const sessionConfirmBtn = document.getElementById('sessionConfirmBtn');
+const sessionCancelBtn = document.getElementById('sessionCancelBtn');
+const sessionCloseBtn = document.getElementById('sessionCloseBtn');
 
 let meetingOptions = [];
 let settlementOptions = ['請安拜訪'];
@@ -117,7 +122,7 @@ form.addEventListener('submit', async event => {
 });
 
 trackingSearchBtn.addEventListener('click', loadTrackingCases);
-addMembersBtn.addEventListener('click', addSelectedMembers);
+addMembersBtn.addEventListener('click', openSessionModal);
 closeBtn.addEventListener('click', closeSelectedCases);
 closedSearchBtn.addEventListener('click', loadClosedCases);
 analysisOpenBtn.addEventListener('click', openAnalysisModal);
@@ -139,6 +144,11 @@ editModal.addEventListener('click', event => {
 });
 analysisModal.addEventListener('click', event => {
   if (event.target === analysisModal) closeAnalysisModal();
+});
+sessionCloseBtn.addEventListener('click', closeSessionModal);
+sessionCancelBtn.addEventListener('click', closeSessionModal);
+sessionModal.addEventListener('click', event => {
+  if (event.target === sessionModal) closeSessionModal();
 });
 editCaseForm.addEventListener('submit', saveTrackingCase);
 
@@ -619,6 +629,34 @@ async function openAnalysisModal() {
 function closeAnalysisModal() {
   analysisModal.hidden = true;
   analysisModalContent.textContent = '';
+}
+
+function closeSessionModal() {
+  sessionModal.hidden = true;
+  sessionSelect.innerHTML = '';
+}
+
+function openSessionModal() {
+  const selectedCases = getSelectedTrackingCases();
+  if (!selectedCases.length) {
+    setNotice(trackingNotice, '請先勾選要加入會友名單的資料', 'error');
+    return;
+  }
+  const selectedNames = selectedCases.map(item => item['新家人姓名']).filter(Boolean);
+  if (!selectedNames.length) {
+    setNotice(trackingNotice, '勾選資料沒有可加入的姓名', 'error');
+    return;
+  }
+
+  sessionSelect.innerHTML = '';
+  meetingOptions.forEach(item => {
+    const option = document.createElement('option');
+    option.value = item.name;
+    option.textContent = `${item.category} / ${item.name}`;
+    sessionSelect.appendChild(option);
+  });
+
+  sessionModal.hidden = false;
 }
 
 async function exportAnalysisDetail() {
