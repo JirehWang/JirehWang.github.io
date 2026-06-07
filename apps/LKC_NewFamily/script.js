@@ -150,6 +150,16 @@ sessionCancelBtn.addEventListener('click', closeSessionModal);
 sessionModal.addEventListener('click', event => {
   if (event.target === sessionModal) closeSessionModal();
 });
+sessionConfirmBtn.addEventListener('click', () => {
+  const selectedSession = sessionSelect.value;
+  if (!selectedSession) {
+    alert('請選擇點名場次');
+    return;
+  }
+  if (!confirm('確認是否加入會友清單及當天點名紀錄？')) return;
+  closeSessionModal();
+  addSelectedMembers(selectedSession);
+});
 editCaseForm.addEventListener('submit', saveTrackingCase);
 
 async function callApi(action, data = {}) {
@@ -359,7 +369,7 @@ function renderTrackingCases(rows) {
   trackingContent.appendChild(buildCaseTable(rows, true, trackingColumns));
 }
 
-async function addSelectedMembers() {
+async function addSelectedMembers(sessionName) {
   const selectedCases = getSelectedTrackingCases();
 
   if (!selectedCases.length) {
@@ -374,8 +384,6 @@ async function addSelectedMembers() {
     setNotice(trackingNotice, '勾選資料沒有可加入的姓名', 'error');
     return;
   }
-
-  if (!confirm(`確認將 ${selectedNames.length} 位加入會友名單嗎？`)) return;
 
   addMembersBtn.disabled = true;
   closeBtn.disabled = true;
@@ -416,6 +424,33 @@ async function addSelectedMembers() {
       });
     }
 
+    // 收集成功加入或已存在的會友姓名
+    const activeNames = results
+      .filter(item => item.ok || item.duplicate)
+      .map(item => item.name)
+      .filter(Boolean);
+
+    if (activeNames.length) {
+      try {
+        const today = new Date();
+        // 格式化為 yyyy/M/d 格式，如 2026/6/7
+        const dateStr = `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}`;
+        
+        // 呼叫點名 API
+        await callSundayAttendancePayloadApi('saveAttendance', {
+          date: dateStr,
+          presentList: activeNames,
+          type: sessionName,
+          nfMale: 0,
+          nfFemale: 0
+        });
+        console.log(`[new-family] successfully added ${activeNames.join(', ')} to ${sessionName} attendance`);
+      } catch (attError) {
+        console.error('[new-family] failed to sync attendance', attError);
+        // 僅記錄 error，不阻斷後續新家人表狀態標記流程
+      }
+    }
+
     const successCount = results.filter(item => item.ok).length;
     const duplicateCount = results.filter(item => item.duplicate).length;
     const memberStatuses = results
@@ -436,13 +471,23 @@ async function addSelectedMembers() {
     const suffix = failed.length
       ? `；未加入：${failed.map(item => `${item.name} ${item.message}`).join('、')}`
       : '';
-    const duplicateText = duplicateCount ? `，已存在 ${duplicateCount} 位` : '';
     const codeText = results
       .filter(item => (item.ok || item.duplicate) && item.memberCode)
-      .map(item => `${item.name} ${item.memberCode}`)
+      .map(item => `${item.name}(${item.memberCode})`)
       .join('、');
-    const codeSuffix = codeText ? `；代碼：${codeText}` : '';
-    setNotice(trackingNotice, `已加入會友名單 ${successCount} 位${duplicateText}${codeSuffix}${suffix}`, failed.length ? 'error' : 'success');
+    const codeSuffix = codeText ? `；會友代碼：${codeText}` : '';
+    const duplicateText = duplicateCount ? `，已存在 ${duplicateCount} 位` : '';
+    
+    const totalProcessed = successCount + duplicateCount;
+    const prefix = totalProcessed > 0
+      ? `已成功加入會友清單及當天點名紀錄${duplicateText}${codeSuffix}`
+      : `加入會友清單及當天點名紀錄失敗`;
+
+    setNotice(
+      trackingNotice,
+      `${prefix}${suffix}`,
+      failed.length ? 'error' : 'success'
+    );
   } catch (error) {
     setNotice(trackingNotice, error.message || String(error), 'error');
   } finally {
@@ -637,6 +682,7 @@ function closeSessionModal() {
 }
 
 function openSessionModal() {
+  setNotice(trackingNotice, '');
   const selectedCases = getSelectedTrackingCases();
   if (!selectedCases.length) {
     setNotice(trackingNotice, '請先勾選要加入會友名單的資料', 'error');
@@ -648,7 +694,7 @@ function openSessionModal() {
     return;
   }
 
-  sessionSelect.innerHTML = '';
+  sessionSelect.innerHTML = '<option value="">請選擇點名場次</option>';
   meetingOptions.forEach(item => {
     const option = document.createElement('option');
     option.value = item.name;
