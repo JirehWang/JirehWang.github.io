@@ -627,6 +627,28 @@ async function saveTeamMembersToServer() {
 // ==========================================
 // 1. 公佈欄邏輯
 // ==========================================
+let currentViewMode = 'cards'; // 預設為玻璃卡片
+
+function switchView(mode) {
+  currentViewMode = mode;
+  const cardsContainer = document.getElementById('dashboardCardsContainer');
+  const tableContainer = document.getElementById('dashboardTableContainer');
+  const btnCards = document.getElementById('viewBtnCards');
+  const btnTable = document.getElementById('viewBtnTable');
+  
+  if (mode === 'cards') {
+    if (cardsContainer) cardsContainer.style.display = 'block';
+    if (tableContainer) tableContainer.style.display = 'none';
+    if (btnCards) btnCards.classList.add('active');
+    if (btnTable) btnTable.classList.remove('active');
+  } else {
+    if (cardsContainer) cardsContainer.style.display = 'none';
+    if (tableContainer) tableContainer.style.display = 'block';
+    if (btnCards) btnCards.classList.remove('active');
+    if (btnTable) btnTable.classList.add('active');
+  }
+}
+
 async function loadDashboard() {
   const container = document.getElementById('dashboardContainer');
   const quarterSelect = document.getElementById('quarterSelect');
@@ -685,21 +707,30 @@ function renderDashboardTable(data) {
     '投影': '🖥️'
   };
 
-  let html = `<div class="dashboard-grid">`;
+  // 建立雙視圖的容器
+  container.innerHTML = `
+    <div id="dashboardCardsContainer" class="view-container"></div>
+    <div id="dashboardTableContainer" class="view-container" style="display: none;"></div>
+  `;
+  
+  const cardsContainer = document.getElementById('dashboardCardsContainer');
+  const tableContainer = document.getElementById('dashboardTableContainer');
+
+  // --- 1. 渲染卡片視圖 ---
+  let cardsHtml = `<div class="dashboard-grid">`;
   
   data.forEach(row => {
-    // 判斷是否有請假警示
     const hasWarning = row.hasWarning || false;
     const warningMsg = row.warningMessage || '';
     
-    // 生成卡片
-    html += `<div class="dashboard-card">
+    // 卡片背景微調
+    cardsHtml += `<div class="dashboard-card" style="${hasWarning ? 'background: rgba(255, 243, 205, 0.3) !important;' : ''}">
       <div>
         <!-- 卡片頂部 -->
         <div class="card-top">
           <div class="card-date-info">
             <div class="card-date-row">
-              <span class="card-date">${row['日期'] || ''}</span>
+              <span class="card-date" style="${hasWarning ? 'color: #9a4005;' : ''}">${row['日期'] || ''}</span>
               ${hasWarning ? `<span class="date-warning-badge" title="${warningMsg}">⚠️ ${warningMsg}</span>` : ''}
             </div>
             <span class="card-meeting-name">${row['聚會名稱'] || ''}</span>
@@ -708,7 +739,7 @@ function renderDashboardTable(data) {
         </div>`;
 
     // 渲染服事同工
-    html += `<div class="card-section-title">👥 服事同工</div>
+    cardsHtml += `<div class="card-section-title">👥 服事同工</div>
         <div class="personnel-grid">`;
     dynamicHeaders.forEach(role => {
       let person = (row[role] || '').trim();
@@ -718,46 +749,138 @@ function renderDashboardTable(data) {
       } else {
         personBadge = `<span class="badge-b">${person}</span>`;
       }
-      html += `<div class="personnel-item">
+      cardsHtml += `<div class="personnel-item">
         <span class="personnel-role">${roleIcons[role] || '🙋'} ${role}：</span>${personBadge}
       </div>`;
     });
-    html += `</div>`;
+    cardsHtml += `</div>`;
 
     // 渲染敬拜曲目
     const songs = row['敬拜曲目'] || '';
-    html += `<div class="card-section-title">🎵 敬拜曲目</div>`;
+    cardsHtml += `<div class="card-section-title">🎵 敬拜曲目</div>`;
     if (songs && songs !== '-' && songs !== '【待定】') {
       const songList = songs.split(/[\n\r,，、\/\\|；;]+/).map(s => s.trim()).filter(x => x);
-      html += `<div class="song-badges-container">`;
+      cardsHtml += `<div class="song-badges-container">`;
       songList.forEach(song => {
-        html += `<span class="song-badge-item">🎵 ${song}</span>`;
+        cardsHtml += `<span class="song-badge-item">🎵 ${song}</span>`;
       });
-      html += `</div>`;
+      cardsHtml += `</div>`;
     } else {
-      html += `<div class="song-badges-container" style="color: #adb5bd; font-style: italic; justify-content: center; font-size: 0.82rem;">
+      cardsHtml += `<div class="song-badges-container" style="color: #adb5bd; font-style: italic; justify-content: center; font-size: 0.82rem;">
         📋 尚未填入敬拜曲目
       </div>`;
     }
 
-    html += `</div>`; // card-top 與同工曲目的區塊結束
+    cardsHtml += `</div>`;
 
     // 渲染講道資訊框
     const preacher = row['牧師'] || '';
     const title = row['題目'] || '';
     const scripture = row['經文'] || '';
     
-    html += `<div class="sermon-box">
+    cardsHtml += `<div class="sermon-box">
       🎙️ <strong>講道：</strong>${preacher || '-'}<br>
       📖 <strong>題目：</strong>${title || '-'}<br>
       📜 <strong>經文：</strong>${scripture || '-'}
     </div>`;
 
-    html += `</div>`; // dashboard-card 結束
+    cardsHtml += `</div>`; // dashboard-card 結束
   });
 
-  html += `</div>`;
-  container.innerHTML = html;
+  cardsHtml += `</div>`;
+  if (cardsContainer) cardsContainer.innerHTML = cardsHtml;
+
+  // --- 2. 渲染表格視圖 ---
+  let tableHtml = `
+    <div class="dashboard-table-container">
+      <table class="dashboard-table">
+        <thead>
+          <tr>
+            <th style="width: 125px;">日期</th>
+            <th style="width: 100px;">聚會</th>
+            <th style="width: 80px;">類別</th>
+            <th style="min-width: 180px;">講道資訊</th>
+  `;
+  
+  // 動態欄位表頭
+  dynamicHeaders.forEach(role => {
+    tableHtml += `<th>${roleIcons[role] || '🙋'} ${role}</th>`;
+  });
+  
+  tableHtml += `
+            <th style="min-width: 220px;">敬拜曲目</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+  
+  data.forEach(row => {
+    const hasWarning = row.hasWarning || false;
+    const warningMsg = row.warningMessage || '';
+    
+    // 日期欄位內容 (請假警示加在日期下方)
+    let dateCellContent = `<span style="font-weight:bold; color: ${hasWarning ? '#9a4005' : '#006030'};">${row['日期'] || ''}</span>`;
+    if (hasWarning) {
+      dateCellContent += `<br><div class="date-warning-badge" style="margin-top:4px;">⚠️ ${warningMsg}</div>`;
+    }
+    
+    // 講道資訊整合
+    const preacher = row['牧師'] || '';
+    const title = row['題目'] || '';
+    const scripture = row['經文'] || '';
+    let sermonInfo = '';
+    if (preacher) sermonInfo += `🎙️ <strong>${preacher}</strong><br>`;
+    if (title && title !== '-') sermonInfo += `📖 <span class="text-muted">${title}</span><br>`;
+    if (scripture && scripture !== '-') sermonInfo += `📜 <span class="text-muted" style="font-size:0.82rem;">${scripture}</span>`;
+    if (!sermonInfo) sermonInfo = '-';
+    
+    tableHtml += `<tr class="${hasWarning ? 'warning-row' : ''}">
+      <td>${dateCellContent}</td>
+      <td><strong>${row['聚會名稱'] || ''}</strong></td>
+      <td><span class="badge-g">${row['聚會類別'] || '聚會'}</span></td>
+      <td style="text-align: left; vertical-align: top;">${sermonInfo}</td>
+    `;
+    
+    // 動態服事人員
+    dynamicHeaders.forEach(role => {
+      let person = (row[role] || '').trim();
+      let personBadge = '';
+      if (!person || person === '【待定】' || person === '待定') {
+        personBadge = `<span class="badge-pending">【待定】</span>`;
+      } else {
+        personBadge = `<span class="badge-b">${person}</span>`;
+      }
+      tableHtml += `<td>${personBadge}</td>`;
+    });
+    
+    // 敬拜曲目
+    const songs = row['敬拜曲目'] || '';
+    let songsContent = '';
+    if (songs && songs !== '-' && songs !== '【待定】') {
+      const songList = songs.split(/[\n\r,，、\/\\|；;]+/).map(s => s.trim()).filter(x => x);
+      songsContent = `<div style="display:flex; flex-wrap:wrap; gap:4px; justify-content:center;">`;
+      songList.forEach(song => {
+        songsContent += `<span class="song-badge">🎵 ${song}</span>`;
+      });
+      songsContent += `</div>`;
+    } else {
+      songsContent = `<span style="color:#888; font-style:italic; font-size:0.82rem;">尚未填入曲目</span>`;
+    }
+    
+    tableHtml += `
+      <td>${songsContent}</td>
+    </tr>`;
+  });
+  
+  tableHtml += `
+        </tbody>
+      </table>
+    </div>
+  `;
+  if (tableContainer) tableContainer.innerHTML = tableHtml;
+
+  // 切換至目前的視圖模式 (同步按鈕狀態與顯隱)
+  switchView(currentViewMode);
 }
 
 // ==========================================

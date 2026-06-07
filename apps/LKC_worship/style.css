@@ -601,3 +601,150 @@ h1, h2, h3, h4, h5, h6 {
     line-height: 1.5;
 }
 
+/* --- 📱 雙視圖切換與紅設計表格樣式 --- */
+
+/* 切換按鈕組 */
+.view-toggle-group {
+    display: inline-flex;
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(0, 96, 48, 0.1);
+    border-radius: 8px;
+    padding: 3px;
+}
+.view-toggle-btn {
+    border-radius: 6px !important;
+    padding: 6px 14px !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    border: none !important;
+    background: transparent !important;
+    color: #495057 !important;
+    transition: all 0.2s ease !important;
+    box-shadow: none !important;
+}
+.view-toggle-btn:hover {
+    color: var(--lkc-green) !important;
+    background: rgba(0, 96, 48, 0.04) !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+.view-toggle-btn.active {
+    background: var(--bg-gradient) !important;
+    color: white !important;
+    box-shadow: 0 2px 8px rgba(0, 96, 48, 0.15) !important;
+}
+
+/* 傳統表格容器與樣式 */
+.dashboard-table-container {
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(0, 96, 48, 0.08);
+    border-radius: 12px;
+    overflow-x: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 20px;
+}
+
+.dashboard-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.92rem;
+}
+
+/* 整個 header 橫向漸層 (由深綠到 Portal 藍) */
+.dashboard-table thead {
+    background: linear-gradient(90deg, rgba(0, 96, 48, 0.95) 0%, rgba(48, 117, 159, 0.95) 100%) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.dashboard-table th {
+    background: transparent !important; /* 透明以顯示 thead 漸層 */
+    color: white !important;
+    padding: 14px 10px;
+    font-weight: 700;
+    text-align: center;
+    border-bottom: 2.5px solid rgba(0, 96, 48, 0.2) !important;
+    font-size: 0.95rem;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    white-space: nowrap;
+}
+
+.dashboard-table th:last-child {
+    border-right: none;
+}
+
+.dashboard-table td {
+    background: rgba(255, 255, 255, 0.75);
+    padding: 12px 10px;
+    border-bottom: 1px solid rgba(0, 96, 48, 0.04);
+    text-align: center;
+    vertical-align: middle;
+    font-size: 0.92rem;
+    color: #1d1d1f;
+}
+
+.dashboard-table tr:hover td {
+    background: rgba(0, 96, 48, 0.02) !important;
+}
+
+/* 請假/警告行 */
+.dashboard-table tr.warning-row td {
+    background: rgba(255, 243, 205, 0.3) !important;
+}
+
+/* 凍結第一欄（日期）- 確保在 scroll 時覆蓋住下方內容 */
+.dashboard-table th:nth-child(1),
+.dashboard-table td:nth-child(1) {
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    background: rgba(255, 255, 255, 0.95) !important;
+    border-right: 1.5px solid rgba(0, 96, 48, 0.08) !important;
+    white-space: nowrap !important;
+}
+
+/* 凍結表頭第一欄 */
+.dashboard-table thead th:nth-child(1) {
+    z-index: 15;
+    background: rgba(0, 96, 48, 0.98) !important; /* 使用 gradient 起始顏色，避免透明透底 */
+}
+
+/* 請假行凍結欄背景色微調 */
+.dashboard-table tr.warning-row td:nth-child(1) {
+    background: rgba(255, 243, 205, 0.95) !important;
+}
+
+/* 徽章字體大小加大 */
+.dashboard-table .badge-pending,
+.dashboard-table .badge-b,
+.dashboard-table .badge-g,
+.dashboard-table .date-warning-badge,
+.dashboard-table .song-badge,
+.dashboard-card .badge-pending,
+.dashboard-card .badge-b,
+.dashboard-card .badge-g,
+.dashboard-card .date-warning-badge,
+.dashboard-card .song-badge-item {
+    font-size: 0.82rem !important;
+}
+
+/* 傳統表格中的曲目徽章 */
+.dashboard-table .song-badge {
+    background: white;
+    border: 1px solid rgba(0, 96, 48, 0.08);
+    color: #006030;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+    display: inline-block;
+}
