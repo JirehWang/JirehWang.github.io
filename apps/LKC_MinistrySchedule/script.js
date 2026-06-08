@@ -1816,14 +1816,93 @@ function _ms_buildTableHtml(matrix, opts = {}) {
   return html;
 }
 
+function _ms_buildCardsHtml(matrix) {
+  if (!matrix || matrix.length <= 1) {
+    return '<p class="text-center text-muted my-4">此範圍內沒有資料，請改選其他季度</p>';
+  }
+  const headers = matrix[0];
+  const dateColIdx = _ms_getDateColIdx(headers);
+  const topicColIdx = headers.findIndex(h => h === '主題' || h === '聚會名稱');
+  const verseColIdx = headers.findIndex(h => h === '經文');
+  const locColIdx = headers.findIndex(h => h === '地點');
+  const sermonColIdx = headers.findIndex(h => h === '講道連動');
+
+  const excludeFields = ['日期', '主題', '聚會名稱', '經文', '地點', '講道連動', '分頁名稱', '模板類型', '聚會類別'];
+
+  let cardsHtml = '<div class="glass-board-container">';
+
+  for (let i = 1; i < matrix.length; i++) {
+    const row = matrix[i];
+    const dateVal = dateColIdx >= 0 ? row[dateColIdx] : '';
+
+    const dateObj = new Date(dateVal);
+    let day = '';
+    let yearMonth = '';
+    let weekDay = '';
+    if (!isNaN(dateObj)) {
+      day = String(dateObj.getDate()).padStart(2, '0');
+      yearMonth = `${dateObj.getFullYear()}年 ${String(dateObj.getMonth() + 1).padStart(2, '0')}月`;
+      weekDay = '星期' + ['日', '一', '二', '三', '四', '五', '六'][dateObj.getDay()];
+    } else {
+      day = '📅';
+      yearMonth = dateVal || '聚會日';
+      weekDay = '聚會日';
+    }
+
+    const topic = topicColIdx >= 0 ? row[topicColIdx] : '';
+    const verse = verseColIdx >= 0 ? row[verseColIdx] : '';
+    const location = locColIdx >= 0 ? row[locColIdx] : '';
+    const hasSermon = sermonColIdx >= 0 && (String(row[sermonColIdx]).toUpperCase() === 'TRUE' || row[sermonColIdx] === true || String(row[sermonColIdx]) === '1');
+
+    const duties = [];
+    headers.forEach((h, idx) => {
+      if (excludeFields.includes(h)) return;
+      const val = row[idx];
+      if (val && val !== '-' && val !== '') {
+        duties.push({ role: h, name: val });
+      }
+    });
+
+    const dutyItemsHtml = duties.map(d => `
+      <div class="glass-duty-item">
+        <span class="glass-duty-role">👤 ${d.role}</span>
+        <span class="glass-duty-name">${d.name}</span>
+      </div>
+    `).join('');
+
+    const metaItems = [];
+    if (verse) metaItems.push(`<span>📖 <b>經文：</b>${verse}</span>`);
+    if (location) metaItems.push(`<span>📍 <b>地點：</b>${location}</span>`);
+    const metaHtml = metaItems.length > 0 ? `<div class="glass-meta">${metaItems.join('')}</div>` : '';
+
+    cardsHtml += `
+      <div class="glass-card color-ramp-${(i - 1) % 5}">
+        <div class="glass-date">
+          <div class="day">${day}</div>
+          <div class="month-year">${yearMonth}</div>
+          <div class="weekday">${weekDay}</div>
+        </div>
+        <div class="glass-content">
+          <div class="glass-topic-line">
+            <h3 class="glass-topic">${topic || (currentTemplate === '團契聚會表模板' ? '團契聚會' : '小組聚會')}</h3>
+          </div>
+          <div class="glass-duties">
+            ${dutyItemsHtml || '<div class="text-muted small">一般聚會，無需特別服事</div>'}
+          </div>
+          ${metaHtml}
+        </div>
+      </div>
+    `;
+  }
+
+  cardsHtml += '</div>';
+  return cardsHtml;
+}
+
 /**
- * 在指定容器內渲染「年度+季度」篩選器 + 表格。
- * - 開啟時預設用 rolling（近 3 個月）
- * - 改選 年/季度 → 切到 quarter 模式
- * - 點「近 3 個月」按鈕 → 切回 rolling
- * onFilteredChange(filteredMatrix) 在每次重渲染時觸發，外部用來同步下載按鈕。
+ * 在指定容器內渲染「年度+季度」篩選器 + 表格或卡片。
  */
-function _ms_renderFilterableTable({ container, fullMatrix, tableMinWidth, onFilteredChange }) {
+function _ms_renderFilterableTable({ container, fullMatrix, tableMinWidth, renderMode = 'table', onFilteredChange }) {
   const headers = (fullMatrix && fullMatrix[0]) || [];
   const dateColIdx = _ms_getDateColIdx(headers);
   const noDateCol = dateColIdx < 0;
@@ -1855,7 +1934,13 @@ function _ms_renderFilterableTable({ container, fullMatrix, tableMinWidth, onFil
     const filtered = noDateCol
       ? fullMatrix.slice()
       : _ms_applyDateFilter(fullMatrix, dateColIdx, state.mode, state.year, state.quarter);
-    document.getElementById('ms-filter-table').innerHTML = _ms_buildTableHtml(filtered, { minWidth: tableMinWidth });
+    
+    if (renderMode === 'cards') {
+      document.getElementById('ms-filter-table').innerHTML = _ms_buildCardsHtml(filtered);
+    } else {
+      document.getElementById('ms-filter-table').innerHTML = _ms_buildTableHtml(filtered, { minWidth: tableMinWidth });
+    }
+    
     const statusEl = document.getElementById('ms-filter-status');
     if (statusEl) {
       const recordCount = Math.max(filtered.length - 1, 0);
@@ -1900,6 +1985,7 @@ function showBulletinBoard() {
     container: document.getElementById('bulletinContent'),
     fullMatrix: matrix,
     tableMinWidth: 800,
+    renderMode: 'cards',
     onFilteredChange: filtered => { _currentBulletinFiltered = filtered; }
   });
 

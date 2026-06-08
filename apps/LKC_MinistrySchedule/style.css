@@ -10,19 +10,22 @@
 }
 
 body { 
-  background-color: var(--bg-slate); 
+  background: radial-gradient(circle at top left, #f0fdf4 0%, #e2e8f0 100%); 
   padding: 24px; 
   font-family: 'Plus Jakarta Sans', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
   color: var(--text-main); 
+  min-height: 100vh;
 }
 .card-custom { 
   max-width: 1320px; 
   margin: 0 auto; 
-  background: white; 
+  background: rgba(255, 255, 255, 0.85); 
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   padding: 32px; 
-  border-radius: 16px; 
-  box-shadow: 0 10px 30px rgba(165, 180, 203, 0.15), 0 1px 3px rgba(165, 180, 203, 0.1); 
-  border: 1px solid var(--border-color); 
+  border-radius: 20px; 
+  box-shadow: 0 10px 30px rgba(0, 96, 48, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02); 
+  border: 1px solid rgba(255, 255, 255, 0.6); 
 }
 .hidden { display: none !important; }
 #globalLoading { position: fixed; top: 20px; right: 20px; background: #ffc107; padding: 10px 20px; border-radius: 8px; font-weight: bold; z-index: 1000; }
@@ -36,8 +39,22 @@ body {
 }
 .category-badge { font-size: 0.8rem; margin-left: 12px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 20px; padding: 2px 12px; font-weight: 600; }
 
-.group-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid var(--border-color); border-radius: 12px; min-height: 110px; background: #ffffff; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02); }
-.group-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0, 96, 48, 0.08) !important; border-color: var(--lkc-green); }
+.group-card { 
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+  border: 1px solid rgba(255, 255, 255, 0.7); 
+  border-radius: 16px; 
+  min-height: 110px; 
+  background: rgba(255, 255, 255, 0.75); 
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02); 
+}
+.group-card:hover { 
+  transform: translateY(-4px); 
+  box-shadow: 0 15px 30px rgba(0, 96, 48, 0.08) !important; 
+  border-color: #10b981; 
+  background: #ffffff;
+}
 
 /* 名稱連結樣式 */
 .group-link { text-decoration: none !important; color: inherit; display: block; flex-grow: 1; }
@@ -47,15 +64,16 @@ body {
 .search-box { 
   margin-bottom: 1.5rem; 
   border-radius: 50px; 
-  padding: 10px 24px; 
-  border: 1.5px solid var(--border-color); 
+  padding: 12px 24px; 
+  border: 1.5px solid rgba(255, 255, 255, 0.8); 
+  background-color: rgba(255, 255, 255, 0.9);
   transition: all 0.25s ease;
   font-size: 0.95rem;
-  background-color: #ffffff;
 }
 .search-box:focus {
-  border-color: var(--lkc-green);
-  box-shadow: 0 0 0 4px rgba(0, 96, 48, 0.1) !important;
+  border-color: #059669;
+  box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.12) !important;
+  background-color: #ffffff;
   outline: none;
 }
 
@@ -612,4 +630,172 @@ body {
 .loading-msg { margin-top: 15px; color: #333; font-weight: bold; font-size: 16px; }
 .modal-header.bg-info {
   background-color: #0ea5e9 !important;
+}
+
+/* =========================================
+   🌿 玻璃卡片佈告欄樣式 (各分頁佈告欄專用)
+   ========================================= */
+.glass-board-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 10px 5px;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.75); 
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.8); 
+  border-radius: 20px; 
+  padding: 1.5rem;
+  box-shadow: 0 10px 30px rgba(0, 96, 48, 0.03), 0 1px 3px rgba(0, 0, 0, 0.01); 
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 1.5rem;
+  position: relative;
+  overflow: hidden;
+  text-align: left;
+}
+
+.glass-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: var(--card-accent-color, #10b981);
+  box-shadow: 2px 0 10px var(--card-accent-color);
+  transition: background 0.3s;
+}
+
+.glass-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 15px 35px rgba(0, 96, 48, 0.08);
+  border-color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.85);
+}
+
+/* 階梯式綠色色階變數 */
+.glass-card.color-ramp-0 { --card-accent-color: #34d399; } /* 亮翠綠 */
+.glass-card.color-ramp-1 { --card-accent-color: #10b981; } /* 標準綠 */
+.glass-card.color-ramp-2 { --card-accent-color: #059669; } /* 深翠綠 */
+.glass-card.color-ramp-3 { --card-accent-color: #047857; } /* 森林綠 */
+.glass-card.color-ramp-4 { --card-accent-color: #064e3b; } /* 深邃綠 */
+
+/* 日期徽章 */
+.glass-date {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 96, 48, 0.04);
+  border: 1px solid rgba(0, 96, 48, 0.08);
+  border-radius: 14px;
+  padding: 1rem;
+  text-align: center;
+  height: fit-content;
+}
+
+.glass-date .day {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--lkc-green);
+  line-height: 1.1;
+}
+
+.glass-date .month-year {
+  font-size: 0.8rem;
+  color: #475569;
+  font-weight: 600;
+  margin-top: 0.25rem;
+}
+
+.glass-date .weekday {
+  font-size: 0.78rem;
+  background: var(--card-accent-color);
+  color: white;
+  padding: 0.15rem 0.5rem;
+  border-radius: 100px;
+  margin-top: 0.5rem;
+  font-weight: 700;
+  transition: background 0.3s;
+}
+
+/* 服事詳情與主題 */
+.glass-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.glass-topic-line {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.glass-topic {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+}
+
+.glass-sermon-badge {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid rgba(16, 185, 129, 0.15);
+}
+
+.glass-duties {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.75rem;
+  background: rgba(255, 255, 255, 0.45);
+  padding: 0.75rem;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.03);
+}
+
+.glass-duty-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.glass-duty-role {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.glass-duty-name {
+  font-size: 0.92rem;
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.glass-meta {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 500;
+  flex-wrap: wrap;
+}
+
+.glass-meta span {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }
