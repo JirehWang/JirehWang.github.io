@@ -1,20 +1,20 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
 
 :root {
-  --lkc-green: #064e3b;          /* Unified Forest Green */
-  --lkc-green-hover: #022c22;    /* Darker Forest Green */
-  --lkc-green-light: rgba(6, 78, 59, 0.06);
+  --lkc-green: #059669;          /* Fresh Mint Green (Primary Brand) */
+  --lkc-green-hover: #047857;    /* Active/Hover Fresh Green */
+  --lkc-green-light: rgba(5, 150, 105, 0.06);
   --bg-slate: #f8fafc;
   --text-main: #0f172a;          /* Slate-900 (Main text) */
   --text-muted: #475569;         /* Slate-600 */
   --border-color: rgba(15, 23, 42, 0.08); /* Soft slate border */
-  --border-focus: #064e3b;
+  --border-focus: #059669;
   --accent-rose: #be123c;        /* Unified Rose for Delete/Danger */
   --accent-amber: #f59e0b;       /* Unified Amber for Warnings/AI */
 }
 
 body { 
-  background: radial-gradient(circle at top left, #f0fdf4 0%, #e2e8f0 100%); 
+  background: radial-gradient(circle at top left, #f0fdf4 0%, #f8fafc 100%); 
   padding: 24px; 
   font-family: 'Plus Jakarta Sans', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
   color: var(--text-main); 
@@ -642,9 +642,9 @@ body {
   border-top: 1px solid rgba(0,0,0,0.06);
   padding: 16px 24px;
 }
-/* 統一對話框頂部背景為深綠漸層 */
+/* 統一對話框頂部背景為清新的綠色漸層 */
 .modal-header {
-  background: linear-gradient(135deg, #022c22 0%, #064e3b 100%) !important;
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
   color: white !important;
   border-bottom: none !important;
 }
