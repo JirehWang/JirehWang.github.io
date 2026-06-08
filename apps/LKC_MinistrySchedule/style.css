@@ -847,3 +847,103 @@ body {
   align-items: center;
   gap: 0.25rem;
 }
+
+/* =========================================
+   🧑‍🤝‍🧑 組員身分設定樣式 (重新配色與美化)
+   ========================================= */
+#groupRoleList {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.role-item {
+  padding: 14px 20px !important;
+  background-color: rgba(255, 255, 255, 0.8) !important;
+  border: none !important;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.05) !important;
+  transition: background-color 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.role-item:last-child {
+  border-bottom: none !important;
+}
+
+.role-item:hover {
+  background-color: #f8fafc !important;
+}
+
+/* 用精緻、柔和的左側邊框色塊來區分身分 */
+.role-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  background-color: transparent;
+  transition: background-color 0.2s ease;
+}
+
+.role-core::before {
+  background-color: #f59e0b; /* 核心同工用溫暖的琥珀/金黃色 */
+}
+
+.role-active::before {
+  background-color: #059669; /* 一般同工用清新的綠色 */
+}
+
+.role-companion::before {
+  background-color: #8b5cf6; /* 陪伴同工用優雅的紫色 */
+}
+
+.role-sheep::before {
+  background-color: #cbd5e1; /* 小羊用低調的淺灰色 */
+}
+
+/* 下拉選單美化 */
+.role-select {
+  width: 140px;
+  height: 34px;
+  border-radius: 20px !important;
+  border: 1.5px solid rgba(15, 23, 42, 0.08) !important;
+  padding: 4px 12px 4px 12px !important;
+  font-size: 0.88rem !important;
+  font-weight: 600 !important;
+  color: #334155 !important;
+  background-color: #ffffff !important;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.role-select:focus {
+  border-color: var(--lkc-green) !important;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12) !important;
+  outline: none;
+}
+
+/* 不同身分的下拉選單文字顏色與微調 */
+.role-select.sel-core {
+  color: #d97706 !important;
+  border-color: rgba(245, 158, 11, 0.25) !important;
+  background-color: #fffbeb !important;
+}
+.role-select.sel-active {
+  color: #059669 !important;
+  border-color: rgba(5, 150, 105, 0.25) !important;
+  background-color: #f0fdf4 !important;
+}
+.role-select.sel-companion {
+  color: #7c3aed !important;
+  border-color: rgba(139, 92, 246, 0.25) !important;
+  background-color: #f5f3ff !important;
+}
+.role-select.sel-sheep {
+  color: #64748b !important;
+  border-color: rgba(203, 213, 225, 0.5) !important;
+  background-color: #f8fafc !important;
+}

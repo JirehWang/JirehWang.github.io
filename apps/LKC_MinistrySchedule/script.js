@@ -847,7 +847,7 @@ function addNewRow() {
   }
   
   tempDiv.innerHTML = createRowHTML(defaultRow);
-  container.appendChild(tempDiv.firstElementChild);
+  container.prepend(tempDiv.firstElementChild);
 }
 
 function deleteRow(btnElement) {
@@ -2253,21 +2253,28 @@ function renderGroupRoleList() {
     return;
   }
   listEl.innerHTML = _groupRoleEditingMembers.map((m, idx) => {
-    const roleColors = {
-      '核心同工': 'border-start border-primary border-4',
-      '一般同工': 'border-start border-info border-4',
-      '陪伴同工': 'border-start border-secondary border-4',
-      '小羊':     'border-start border-light border-4'
+    const roleClasses = {
+      '核心同工': 'role-core',
+      '一般同工': 'role-active',
+      '陪伴同工': 'role-companion',
+      '小羊':     'role-sheep'
     };
-    const bClass = roleColors[m.role] || roleColors['小羊'];
+    const selClasses = {
+      '核心同工': 'sel-core',
+      '一般同工': 'sel-active',
+      '陪伴同工': 'sel-companion',
+      '小羊':     'sel-sheep'
+    };
+    const bClass = roleClasses[m.role] || 'role-sheep';
+    const sClass = selClasses[m.role] || 'sel-sheep';
     const nickname = (m.nickname || '').trim();
     return `
-      <li class="list-group-item d-flex justify-content-between align-items-center ${bClass}">
+      <li class="list-group-item d-flex justify-content-between align-items-center role-item ${bClass}">
         <div>
           <span class="fw-bold">${m.name}</span>
           ${nickname ? `<small class="text-muted ms-2">(${nickname})</small>` : ''}
         </div>
-        <select class="form-select form-select-sm" style="width: 150px;"
+        <select class="form-select form-select-sm role-select ${sClass}" style="width: 150px;"
                 onchange="updateGroupRoleByIdx(${idx}, this.value)">
           <option value="核心同工" ${m.role === '核心同工' ? 'selected' : ''}>⭐ 核心同工</option>
           <option value="一般同工" ${m.role === '一般同工' ? 'selected' : ''}>👤 一般同工</option>
