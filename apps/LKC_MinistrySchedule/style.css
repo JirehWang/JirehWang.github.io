@@ -1,12 +1,16 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
 
 :root {
-  --lkc-green: #006030;
-  --lkc-green-hover: #004d26;
-  --lkc-green-light: rgba(0, 96, 48, 0.08);
-  --bg-slate: #f1f5f9;
-  --text-main: #1e293b;
-  --border-color: #e2e8f0;
+  --lkc-green: #064e3b;          /* Unified Forest Green */
+  --lkc-green-hover: #022c22;    /* Darker Forest Green */
+  --lkc-green-light: rgba(6, 78, 59, 0.06);
+  --bg-slate: #f8fafc;
+  --text-main: #0f172a;          /* Slate-900 (Main text) */
+  --text-muted: #475569;         /* Slate-600 */
+  --border-color: rgba(15, 23, 42, 0.08); /* Soft slate border */
+  --border-focus: #064e3b;
+  --accent-rose: #be123c;        /* Unified Rose for Delete/Danger */
+  --accent-amber: #f59e0b;       /* Unified Amber for Warnings/AI */
 }
 
 body { 
@@ -28,7 +32,20 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.6); 
 }
 .hidden { display: none !important; }
-#globalLoading { position: fixed; top: 20px; right: 20px; background: #ffc107; padding: 10px 20px; border-radius: 8px; font-weight: bold; z-index: 1000; }
+#globalLoading { 
+  position: fixed; 
+  top: 20px; 
+  right: 20px; 
+  background: rgba(245, 158, 11, 0.9); 
+  color: white;
+  padding: 10px 20px; 
+  border-radius: 50px; 
+  font-weight: 700; 
+  z-index: 1000; 
+  box-shadow: 0 10px 25px rgba(245, 158, 11, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+}
 
 /* 🌟 儀表板樣式優化 */
 #adminMain { max-width: 1150px; }
@@ -80,7 +97,7 @@ body {
 /* Switch 開關尺寸微調 */
 .form-switch .form-check-input { width: 2.5em; height: 1.25em; cursor: pointer; }
 
-.ai-box { background: #f6fbff; border: 1px solid #c9def0; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
+.ai-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 15px; margin-bottom: 20px; }
 
 .report-header {
   display: flex;
@@ -263,10 +280,10 @@ body {
   gap: 10px;
   flex-wrap: wrap;
   padding: 16px;
-  background: #ffffff;
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.01);
 }
 
 .date-filter-label {
@@ -540,51 +557,71 @@ body {
 
 /* 🌟 Button & Dialog Enhancements */
 .btn {
-  font-weight: 600;
-  border-radius: 8px;
-  padding: 8px 18px;
+  font-weight: 700;
+  border-radius: 100px;
+  padding: 8px 20px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.btn-primary {
+.btn-primary, .btn-success {
   background-color: var(--lkc-green) !important;
   border-color: var(--lkc-green) !important;
   color: white !important;
 }
-.btn-primary:hover, .btn-primary:focus {
+.btn-primary:hover, .btn-primary:focus,
+.btn-success:hover, .btn-success:focus {
   background-color: var(--lkc-green-hover) !important;
   border-color: var(--lkc-green-hover) !important;
-  box-shadow: 0 4px 12px rgba(0, 96, 48, 0.2) !important;
+  box-shadow: 0 4px 12px rgba(6, 78, 59, 0.2) !important;
 }
 
-.btn-outline-primary {
+.btn-outline-primary, .btn-outline-success {
   color: var(--lkc-green) !important;
   border-color: var(--lkc-green) !important;
+  background-color: transparent !important;
 }
-.btn-outline-primary:hover, .btn-outline-primary:focus {
+.btn-outline-primary:hover, .btn-outline-primary:focus,
+.btn-outline-success:hover, .btn-outline-success:focus {
   background-color: var(--lkc-green) !important;
   color: white !important;
-  box-shadow: 0 4px 12px rgba(0, 96, 48, 0.15) !important;
+  box-shadow: 0 4px 12px rgba(6, 78, 59, 0.15) !important;
 }
 
-.btn-success {
-  background-color: #10b981 !important;
-  border-color: #10b981 !important;
+/* Secondary Actions */
+.btn-outline-secondary {
+  color: var(--text-muted) !important;
+  border-color: var(--border-color) !important;
+  background-color: transparent !important;
 }
-.btn-success:hover, .btn-success:focus {
-  background-color: #059669 !important;
-  border-color: #059669 !important;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2) !important;
+.btn-outline-secondary:hover, .btn-outline-secondary:focus {
+  background-color: #f1f5f9 !important;
+  color: var(--text-main) !important;
+  border-color: #cbd5e1 !important;
 }
 
-.btn-outline-success {
-  color: #10b981 !important;
-  border-color: #10b981 !important;
-}
-.btn-outline-success:hover, .btn-outline-success:focus {
-  background-color: #10b981 !important;
+/* warning 統一為 Slate 質感 */
+.btn-warning {
+  background-color: #334155 !important;
+  border-color: #334155 !important;
   color: white !important;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15) !important;
+}
+.btn-warning:hover, .btn-warning:focus {
+  background-color: #1e293b !important;
+  border-color: #1e293b !important;
+  box-shadow: 0 4px 12px rgba(30, 41, 59, 0.2) !important;
+}
+
+/* danger 統一為莫蘭迪玫瑰紅 */
+.btn-danger, .record-delete-header-btn {
+  background-color: var(--accent-rose) !important;
+  border-color: var(--accent-rose) !important;
+  color: white !important;
+}
+.btn-danger:hover, .btn-danger:focus,
+.record-delete-header-btn:hover, .record-delete-header-btn:focus {
+  background-color: #9f1239 !important;
+  border-color: #9f1239 !important;
+  box-shadow: 0 4px 12px rgba(159, 18, 57, 0.2) !important;
 }
 
 /* Modal Content and Headers */
@@ -605,11 +642,22 @@ body {
   border-top: 1px solid rgba(0,0,0,0.06);
   padding: 16px 24px;
 }
-.modal-header.bg-primary {
-  background-color: var(--lkc-green) !important;
+/* 統一對話框頂部背景為深綠漸層 */
+.modal-header {
+  background: linear-gradient(135deg, #022c22 0%, #064e3b 100%) !important;
+  color: white !important;
+  border-bottom: none !important;
 }
-.modal-header.bg-success {
-  background-color: #10b981 !important;
+.modal-header .btn-close {
+  filter: invert(1) grayscale(1) brightness(2);
+  opacity: 0.8;
+}
+.modal-header .btn-close:hover {
+  opacity: 1;
+}
+
+.text-primary, .text-info {
+  color: var(--lkc-green) !important;
 }
 
 /* 全螢幕載入遮罩 */
