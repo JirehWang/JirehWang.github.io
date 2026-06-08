@@ -13,7 +13,7 @@
 
         body {
             font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif;
-            background: #eef2f7;
+            background: #f8fafc;
             margin: 0;
             padding: 0;
             min-height: 100vh;
@@ -22,11 +22,11 @@
         }
 
         header {
-            background: linear-gradient(to top right, #006030 0%, #30759f 55%, #6bb3f0 100%);
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
             color: white;
             padding: 40px 20px 30px;
             text-align: center;
-            box-shadow: 0 4px 16px rgba(0, 96, 48, 0.2);
+            box-shadow: 0 4px 20px rgba(5, 150, 105, 0.15);
         }
 
         header h1 {
@@ -73,16 +73,16 @@
             box-shadow: 0 12px 28px rgba(0,0,0,0.13);
         }
 
-        .card:nth-child(1) { border-top-color: #4a90e2; }
-        .card:nth-child(2) { border-top-color: #e06c8a; }
-        .card:nth-child(3) { border-top-color: #f5a623; }
-        .card:nth-child(4) { border-top-color: #7ed321; }
-        .card:nth-child(5) { border-top-color: #9b59b6; }
-        .card:nth-child(6) { border-top-color: #1abc9c; }
-        .card:nth-child(7) { border-top-color: #e67e22; }
-        .card:nth-child(8) { border-top-color: #3498db; }
-        .card:nth-child(9) { border-top-color: #808080; }
-        .card:nth-child(10) { border-top-color: #16a085; }
+        .card:nth-child(1) { border-top-color: #059669; }
+        .card:nth-child(2) { border-top-color: #0c9e72; }
+        .card:nth-child(3) { border-top-color: #12a67a; }
+        .card:nth-child(4) { border-top-color: #1aa67f; }
+        .card:nth-child(5) { border-top-color: #20b087; }
+        .card:nth-child(6) { border-top-color: #27b68e; }
+        .card:nth-child(7) { border-top-color: #2ebc96; }
+        .card:nth-child(8) { border-top-color: #35c39e; }
+        .card:nth-child(9) { border-top-color: #3cc9a6; }
+        .card:nth-child(10) { border-top-color: #43d0ae; }
 
         .icon-wrap {
             width: 64px;
@@ -95,16 +95,16 @@
             font-size: 28px;
         }
 
-        .card:nth-child(1) .icon-wrap { background: #eaf2fd; }
-        .card:nth-child(2) .icon-wrap { background: #fdeef3; }
-        .card:nth-child(3) .icon-wrap { background: #fef7eb; }
-        .card:nth-child(4) .icon-wrap { background: #f2fae8; }
-        .card:nth-child(5) .icon-wrap { background: #f5eefa; }
-        .card:nth-child(6) .icon-wrap { background: #e8f8f5; }
-        .card:nth-child(7) .icon-wrap { background: #fdf3e7; }
-        .card:nth-child(8) .icon-wrap { background: #eaf5fd; }
-        .card:nth-child(9) .icon-wrap { background: #F5F5F5; }
-        .card:nth-child(10) .icon-wrap { background: #e8f8f5; }
+        .card:nth-child(1) .icon-wrap { background: rgba(5, 150, 105, 0.1); }
+        .card:nth-child(2) .icon-wrap { background: rgba(12, 158, 114, 0.1); }
+        .card:nth-child(3) .icon-wrap { background: rgba(18, 166, 122, 0.1); }
+        .card:nth-child(4) .icon-wrap { background: rgba(26, 166, 127, 0.1); }
+        .card:nth-child(5) .icon-wrap { background: rgba(32, 176, 135, 0.1); }
+        .card:nth-child(6) .icon-wrap { background: rgba(39, 182, 142, 0.1); }
+        .card:nth-child(7) .icon-wrap { background: rgba(46, 188, 150, 0.1); }
+        .card:nth-child(8) .icon-wrap { background: rgba(53, 195, 158, 0.1); }
+        .card:nth-child(9) .icon-wrap { background: rgba(60, 201, 166, 0.1); }
+        .card:nth-child(10) .icon-wrap { background: rgba(67, 208, 174, 0.1); }
 
         .title {
             font-size: 15px;
@@ -131,10 +131,10 @@
             width: 50px;
             height: 50px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #006030 0%, #30759f 100%);
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
             border: none;
             cursor: pointer;
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 14px rgba(5, 150, 105, 0.3);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -306,9 +306,9 @@
         const cards = Array.from(document.querySelectorAll('.card'));
         if (cards.length === 0) return;
 
-        // 定義 RGB 起點與終點 (深綠色 #006030 至 天藍色 #4a90e2)
-        const startColor = { r: 0, g: 96, b: 48 };
-        const endColor = { r: 74, g: 144, b: 226 };
+        // 定義 RGB 起點與終點 (清新綠 #059669 至 薄荷綠 #34d399)
+        const startColor = { r: 5, g: 150, b: 105 };
+        const endColor = { r: 52, g: 211, b: 153 };
 
         let minScore = Infinity;
         let maxScore = -Infinity;
