@@ -603,7 +603,9 @@
   };
 
   // ─────────────────────────────────────────────────────────────
-  //  PWA Service Worker 自動註冊（Stale-While-Revalidate 靜默更新版）
+  //  PWA Service Worker 自動註冊與強制更新
+  //  - HTML / config.js / app JS 由 SW 走 network-first，避免部署卡舊版
+  //  - 發現新版 SW 時立即 skipWaiting，接管後自動 reload 一次
   // ─────────────────────────────────────────────────────────────
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
@@ -617,9 +619,41 @@
         swPath = '/LKC1958_June_1.github.io/service-worker.js';
       }
 
+      var reloadedForSwUpdate = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function() {
+        if (reloadedForSwUpdate) return;
+        reloadedForSwUpdate = true;
+        var url = new URL(window.location.href);
+        url.searchParams.set('nocache', Date.now().toString());
+        window.location.replace(url.toString());
+      });
+
+      function activateWaitingWorker(reg) {
+        if (reg && reg.waiting) {
+          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+      }
+
       navigator.serviceWorker.register(swPath, { scope: scopePath })
         .then(function(reg) {
           console.log('✅ [PWA] ServiceWorker 註冊成功，Scope: ', reg.scope);
+          activateWaitingWorker(reg);
+          reg.addEventListener('updatefound', function() {
+            var newWorker = reg.installing;
+            if (!newWorker) return;
+            newWorker.addEventListener('statechange', function() {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                activateWaitingWorker(reg);
+              }
+            });
+          });
+          if (typeof reg.update === 'function') {
+            reg.update().then(function() {
+              activateWaitingWorker(reg);
+            }).catch(function(err) {
+              console.warn('⚠️ [PWA] ServiceWorker 更新檢查失敗: ', err);
+            });
+          }
         }).catch(function(err) {
           console.warn('❌ [PWA] ServiceWorker 註冊失敗: ', err);
         });

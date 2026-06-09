@@ -229,6 +229,108 @@
             opacity: 1;
             transform: translateY(0);
         }
+
+        .cache-panel {
+            position: fixed;
+            inset: 0;
+            z-index: 1002;
+            display: none;
+            align-items: flex-end;
+            justify-content: flex-end;
+            padding: 24px;
+            background: rgba(15, 23, 42, 0.18);
+        }
+
+        .cache-panel.show {
+            display: flex;
+        }
+
+        .cache-panel-card {
+            width: min(420px, calc(100vw - 32px));
+            background: white;
+            border: 1px solid #dbe3ea;
+            border-radius: 10px;
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.22);
+            padding: 18px;
+        }
+
+        .cache-panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .cache-panel-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1f2937;
+        }
+
+        .cache-panel-close {
+            border: 0;
+            background: #f1f5f9;
+            color: #334155;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            line-height: 1;
+        }
+
+        .cache-panel-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .cache-action {
+            border: 1px solid #dbe3ea;
+            background: #f8fafc;
+            color: #1f2937;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: left;
+            cursor: pointer;
+            font: inherit;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .cache-action:hover {
+            background: #ecfdf5;
+            border-color: #10b981;
+        }
+
+        .cache-action.danger {
+            background: #fff7ed;
+            border-color: #fed7aa;
+        }
+
+        .cache-action.utility {
+            grid-column: 1 / -1;
+            background: #f8fafc;
+        }
+
+        .cache-panel-note {
+            margin: 12px 0 0;
+            color: #64748b;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 560px) {
+            .cache-panel {
+                justify-content: center;
+                padding: 16px;
+            }
+
+            .cache-panel-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 
@@ -341,86 +443,197 @@
         });
     }
 
-    // 監聽 DOMContentLoaded 以確保按鈕與 Toast 元素已載入
-    document.addEventListener('DOMContentLoaded', function() {
-        // 取得懸浮按鈕、圖示與 Toast 元素
+    const CACHE_GROUPS = {
+        group: {
+            label: '小組點名資料',
+            topics: ['checkGroupStatus', 'getStats', 'getAllGroupsStats', 'getWeeklyReport', 'getMemberSuggestions', 'getAllGroupMembers']
+        },
+        sunday: {
+            label: '主日出席資料',
+            topics: ['getSmartAttendanceList', 'getWeeklyReport', 'getAttendanceStats', 'getAttendanceTrend', 'getCategoryChartData']
+        },
+        ministry: {
+            label: '事工管理資料',
+            topics: ['ministry_getGroups', 'ministry_getPageConfig', 'ministry_getAggregatedReport', 'ministry_getGroupMembers']
+        },
+        worship: {
+            label: '敬拜團資料',
+            topics: [
+                'getSchedule', 'getScheduleByDateRange', 'getPositions', 'getTeamMembers', 'getSongs',
+                'worship_getSchedule', 'worship_getScheduleByDateRange', 'worship_getPositions', 'worship_getTeamMembers', 'worship_getSongs'
+            ]
+        },
+        calendar: {
+            label: '教會行事曆資料',
+            topics: ['cal_getTypes', 'cal_getFields', 'cal_getEvents', 'cal_getEvent']
+        }
+    };
+
+    function uniqueTopics(topics) {
+        return Array.from(new Set(topics));
+    }
+
+    function setCacheUiBusy(isBusy, message) {
         const btnRefresh = document.getElementById('btn-refresh-cache');
         const refreshIcon = btnRefresh ? btnRefresh.querySelector('.refresh-icon') : null;
         const cacheToast = document.getElementById('cache-toast');
 
-        if (btnRefresh) {
-            btnRefresh.addEventListener('click', async function() {
-                // 1. 停用按鈕並加入旋轉動畫
-                btnRefresh.disabled = true;
-                if (refreshIcon) {
-                    refreshIcon.classList.add('spinning');
-                }
+        if (btnRefresh) btnRefresh.disabled = isBusy;
+        if (refreshIcon) refreshIcon.classList.toggle('spinning', isBusy);
+        if (cacheToast) {
+            cacheToast.textContent = message || '處理中...';
+            cacheToast.classList.toggle('show', isBusy);
+        }
+    }
 
-                // 2. 顯示 Toast 提示
-                if (cacheToast) {
-                    cacheToast.classList.add('show');
-                }
+    function showResultToast(message) {
+        const cacheToast = document.getElementById('cache-toast');
+        if (!cacheToast) return;
+        cacheToast.textContent = message;
+        cacheToast.classList.add('show');
+        setTimeout(() => cacheToast.classList.remove('show'), 2600);
+    }
 
-                // 3. 清理快取邏輯
-                try {
-                    // 清除 caches API 儲存的快取
-                    if ('caches' in window) {
-                        const cacheKeys = await caches.keys();
-                        await Promise.all(
-                            cacheKeys.map(key => caches.delete(key))
-                        );
-                        console.log('✅ ServiceWorker cache storage cleared.');
-                    }
+    async function deleteFirebaseTopics(topics) {
+        const cacheModule = await import('./firebase/firebase-cache.js');
+        const targetTopics = uniqueTopics(topics);
+        await Promise.all(targetTopics.map(topic => cacheModule.cacheDeleteAll(topic)));
+        return targetTopics.length;
+    }
 
-                    // 登出所有已註冊的 Service Workers
-                    if ('serviceWorker' in navigator) {
-                        const registrations = await navigator.serviceWorker.getRegistrations();
-                        await Promise.all(
-                            registrations.map(reg => reg.unregister())
-                        );
-                        console.log('✅ ServiceWorkers unregistered.');
-                    }
+    async function clearDataCache(groupKey) {
+        const config = CACHE_GROUPS[groupKey];
+        if (!config) return;
+        setCacheUiBusy(true, '正在更新「' + config.label + '」快取...');
+        try {
+            const count = await deleteFirebaseTopics(config.topics);
+            showResultToast('✅ 已清除「' + config.label + '」' + count + ' 個資料快取');
+        } catch (err) {
+            console.warn('資料快取清除失敗:', err);
+            showResultToast('❌ 資料快取清除失敗，請稍後再試');
+        } finally {
+            setCacheUiBusy(false);
+        }
+    }
 
-                    // 清除瀏覽器本地資料快取 (LocalStorage 和 SessionStorage)
-                    localStorage.clear();
-                    sessionStorage.clear();
-                    console.log('✅ LocalStorage and SessionStorage cleared.');
+    async function clearAllDataCache() {
+        if (!confirm('這會清除所有系統的資料快取，短時間內可能讓各系統重新讀取 GAS 並變慢。確定要繼續嗎？')) return;
+        const topics = Object.values(CACHE_GROUPS).flatMap(group => group.topics);
+        setCacheUiBusy(true, '正在清除全部資料快取...');
+        try {
+            const count = await deleteFirebaseTopics(topics);
+            showResultToast('✅ 已清除全部資料快取（' + count + ' 個 topic）');
+        } catch (err) {
+            console.warn('全部資料快取清除失敗:', err);
+            showResultToast('❌ 全部資料快取清除失敗，請稍後再試');
+        } finally {
+            setCacheUiBusy(false);
+        }
+    }
 
-                    // 清除 Firebase 遠端快取
-                    try {
-                        const fbConfig = await import('./firebase/firebase-config.js');
-                        if (fbConfig && fbConfig.rtdb) {
-                            const { ref, remove } = await import("https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js");
-                            await remove(ref(fbConfig.rtdb, 'cache'));
-                            console.log('✅ Remote Firebase cache cleared.');
-                        }
-                    } catch (fbErr) {
-                        console.warn('⚠️ Firebase remote cache clear failed:', fbErr);
-                    }
-                } catch (err) {
-                    console.warn('❌ Cache cleanup encountered an error:', err);
-                }
+    async function repairFrontendCache() {
+        if (!confirm('這會清除本機 PWA/前端快取並重新載入，但不會清除雲端資料快取。確定要繼續嗎？')) return;
+        setCacheUiBusy(true, '正在修復前端版本/PWA...');
+        try {
+            if ('caches' in window) {
+                const cacheKeys = await caches.keys();
+                await Promise.all(cacheKeys.map(key => caches.delete(key)));
+            }
 
-                // 4. 延遲 1 秒以提供視覺回饋後，強制使用時間戳網址重新載入，打破一切邊緣快取
-                setTimeout(() => {
-                    const newUrl = window.location.origin + window.location.pathname + '?nocache=' + Date.now();
-                    window.location.href = newUrl;
-                }, 1000);
+            if ('serviceWorker' in navigator) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                await Promise.all(registrations.map(async reg => {
+                    if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                    if (typeof reg.update === 'function') await reg.update().catch(() => {});
+                }));
+            }
+
+            sessionStorage.clear();
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.set('nocache', Date.now().toString());
+            window.location.href = newUrl.toString();
+        } catch (err) {
+            console.warn('前端/PWA 修復失敗:', err);
+            showResultToast('❌ 前端/PWA 修復失敗，請稍後再試');
+            setCacheUiBusy(false);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const btnRefresh = document.getElementById('btn-refresh-cache');
+        const panel = document.getElementById('cache-panel');
+        const closeBtn = document.getElementById('cache-panel-close');
+
+        if (btnRefresh && panel) {
+            btnRefresh.addEventListener('click', function() {
+                panel.classList.add('show');
+            });
+        }
+        if (closeBtn && panel) {
+            closeBtn.addEventListener('click', function() {
+                panel.classList.remove('show');
+            });
+        }
+        if (panel) {
+            panel.addEventListener('click', function(event) {
+                if (event.target === panel) panel.classList.remove('show');
+            });
+        }
+
+        document.querySelectorAll('[data-cache-group]').forEach(button => {
+            button.addEventListener('click', function() {
+                panel.classList.remove('show');
+                clearDataCache(button.dataset.cacheGroup);
+            });
+        });
+
+        const allDataBtn = document.getElementById('cache-clear-all-data');
+        if (allDataBtn) {
+            allDataBtn.addEventListener('click', function() {
+                panel.classList.remove('show');
+                clearAllDataCache();
+            });
+        }
+
+        const repairFrontendBtn = document.getElementById('cache-repair-frontend');
+        if (repairFrontendBtn) {
+            repairFrontendBtn.addEventListener('click', function() {
+                panel.classList.remove('show');
+                repairFrontendCache();
             });
         }
     });
 </script>
 
-<!-- 刷新快取懸浮按鈕 (FAB) -->
-<button id="btn-refresh-cache" class="fab-refresh" data-title="清除快取並強制更新" aria-label="清除快取並強制更新">
+<!-- 資料快取更新懸浮按鈕 (FAB) -->
+<button id="btn-refresh-cache" class="fab-refresh" data-title="更新資料快取" aria-label="更新資料快取">
     <svg class="refresh-icon" viewBox="0 0 24 24" width="24" height="24">
         <path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
     </svg>
 </button>
 
+<div id="cache-panel" class="cache-panel" aria-hidden="true">
+    <div class="cache-panel-card" role="dialog" aria-modal="true" aria-labelledby="cache-panel-title">
+        <div class="cache-panel-head">
+            <div id="cache-panel-title" class="cache-panel-title">更新資料快取</div>
+            <button id="cache-panel-close" class="cache-panel-close" type="button" aria-label="關閉">×</button>
+        </div>
+        <div class="cache-panel-grid">
+            <button class="cache-action" type="button" data-cache-group="group">小組點名資料</button>
+            <button class="cache-action" type="button" data-cache-group="sunday">主日出席資料</button>
+            <button class="cache-action" type="button" data-cache-group="ministry">事工管理資料</button>
+            <button class="cache-action" type="button" data-cache-group="worship">敬拜團資料</button>
+            <button class="cache-action" type="button" data-cache-group="calendar">教會行事曆資料</button>
+            <button id="cache-clear-all-data" class="cache-action danger" type="button">全部資料快取</button>
+            <button id="cache-repair-frontend" class="cache-action utility" type="button">修復前端版本 / PWA</button>
+        </div>
+        <p class="cache-panel-note">資料快取只清指定系統的 Firebase cache；前端/PWA 修復只處理本機前端檔案快取，不清雲端資料。</p>
+    </div>
+</div>
+
 <!-- 懸浮提示 Toast -->
 <div id="cache-toast" class="cache-toast">
-    🔄 正在清除系統快取並重新載入...
+    正在更新資料快取...
 </div>
 
 </body>

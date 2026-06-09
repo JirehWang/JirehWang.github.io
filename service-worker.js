@@ -1,86 +1,72 @@
-const CACHE_NAME = 'lkc-pwa-cache-v20260609_group_init_v1';
-const PRECACHE_ASSETS = [
-  'config.js',
-  'manifest.json'
+const CACHE_NAME = 'lkc-pwa-safe-v20260609';
+const STATIC_CACHE_EXTENSIONS = /\.(?:css|png|jpg|jpeg|webp|gif|svg|ico|woff2?)$/i;
+const STATIC_CACHE_PATHS = [
+  '/LKC1958_June_1.github.io/manifest.json'
 ];
 
-// 1. 安裝事件：預先快取核心資源
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(PRECACHE_ASSETS))
+      .then(cache => cache.addAll(STATIC_CACHE_PATHS))
       .then(() => self.skipWaiting())
   );
 });
 
-// 2. 啟用事件：清理舊版快取
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys => {
-      return Promise.all(
-        keys.map(key => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
+    caches.keys()
+      .then(keys => Promise.all(
+        keys
+          .filter(key => key !== CACHE_NAME && key.indexOf('lkc-') === 0)
+          .map(key => caches.delete(key))
+      ))
+      .then(() => self.clients.claim())
   );
 });
 
-// 3. 攔截請求事件：Stale-While-Revalidate 策略
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('fetch', event => {
-  const url = new URL(event.request.url);
+  const request = event.request;
+  const url = new URL(request.url);
 
-  // 🛡️ 僅處理 http 和 https 協議，避免 chrome-extension 等協議報錯
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+  if (request.method !== 'GET') return;
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+  if (url.hostname.includes('script.google.com')) return;
+  if (url.hostname.includes('firebasedatabase.app')) return;
+  if (url.search.includes('nocache=')) return;
+
+  const isNavigation = request.mode === 'navigate';
+  const isHtml = isNavigation || url.pathname.endsWith('.html') || url.pathname.endsWith('/');
+  const isConfig = url.pathname.endsWith('/config.js');
+  const isAppScript = url.pathname.includes('/apps/') && url.pathname.endsWith('.js');
+
+  if (isHtml || isConfig || isAppScript) {
+    event.respondWith(fetch(request));
     return;
   }
 
-  // 🛡️ 安全防護：GAS 請求、Firebase 認證與所有 POST 請求一律直接過網，不快取
-  if (event.request.method === 'POST' || 
-      url.hostname.includes('script.google.com') || 
-      url.hostname.includes('firebasedatabase.app')) {
-    return; // 讓瀏覽器直接去網路請求
-  }
+  const shouldCacheStatic =
+    STATIC_CACHE_EXTENSIONS.test(url.pathname) ||
+    url.pathname.endsWith('/manifest.json');
 
-  // 🛡️ 如果網址參數帶有版本或強制刷新標記（v= 或 nocache=），直接向伺服器請求，不快取
-  if (url.search.includes('v=') || url.search.includes('nocache=')) {
-    return;
-  }
+  if (!shouldCacheStatic) return;
 
-  // 🛡️ 所有 HTML 網頁採用「即時響應」，絕不快取，直接過網，防止 HTML 快取鎖死前端更新
-  if (url.pathname === '/' || url.pathname.endsWith('.html') || url.pathname.endsWith('/')) {
-    event.respondWith(fetch(event.request));
-    return;
-  }
-
-  // 僅快取與本站相關的 GET 靜態資源
-  if (event.request.method === 'GET') {
-    event.respondWith(
-      caches.open(CACHE_NAME).then(cache => {
-        return cache.match(event.request).then(cachedResponse => {
-          // 發送網路請求做背景更新
-          const fetchPromise = fetch(event.request).then(networkResponse => {
-            if (networkResponse && networkResponse.status === 200) {
-              // 快取新版資源
-              cache.put(event.request, networkResponse.clone());
-            }
-            return networkResponse;
-          });
-
-          // ⚠️ 關鍵修正：如果快取命中，直接回傳；並在背景處理 fetch 更新
-          if (cachedResponse) {
-            fetchPromise.catch(err => {
-              console.warn('[SW] 背景更新失敗（可能處於離線狀態）:', err);
-            });
-            return cachedResponse;
+  event.respondWith(
+    caches.open(CACHE_NAME).then(cache => {
+      return cache.match(request).then(cachedResponse => {
+        const fetchPromise = fetch(request).then(networkResponse => {
+          if (networkResponse && networkResponse.status === 200) {
+            cache.put(request, networkResponse.clone());
           }
-
-          // 如果快取未命中，則等待網路返回。若網路也失敗，則直接向瀏覽器拋出錯誤
-          return fetchPromise;
+          return networkResponse;
         });
-      })
-    );
-  }
+        return cachedResponse || fetchPromise;
+      });
+    })
+  );
 });
