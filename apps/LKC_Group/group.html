@@ -30,8 +30,7 @@
 
     <div id="init-panel" style="display: none; text-align: center; margin-top: 50px;">
         <p>偵測到此小組尚未建立成員名單。</p>
-        <textarea id="memberInput" rows="10" style="width:100%; box-sizing: border-box; padding: 10px;" placeholder="請輸入成員姓名，一個姓名換一行..."></textarea>
-        <button class="btn btn-init" style="background-color: #f44336;" onclick="initGroup()">🚀 建立成員名單 (預設為小羊)</button>
+        <button class="btn btn-init" style="background-color: #f44336;" onclick="openInitMemberManager()">🚀 建立成員名單與身分</button>
     </div>
 
     <div id="attendance-panel" style="display: none;">
@@ -75,7 +74,7 @@
 
     <div id="edit-modal" class="modal">
         <div class="modal-content">
-            <h3 style="margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; color: #333;">📝 管理名單與身分</h3>
+            <h3 id="editModalTitle" style="margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; color: #333;">📝 管理名單與身分</h3>
             
             <div class="edit-add-box">
                 <input type="text" id="newMemberInput"
@@ -97,7 +96,7 @@
 
             <div style="display: flex; justify-content: space-between; margin-top: 20px;">
                 <button class="btn" onclick="toggleEditMode()" style="background: #9e9e9e;">取消</button>
-                <button class="btn" onclick="saveUpdatedList()" style="background: #4CAF50;">💾 儲存變更</button>
+                <button id="saveMemberListBtn" class="btn" onclick="saveUpdatedList()" style="background: #4CAF50;">💾 儲存變更</button>
             </div>
         </div>
     </div>
@@ -131,6 +130,6 @@
     <script src="../../config.js"></script>
     <!-- Sortable.js：拖曳排序「管理名單與身分」用 -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-    <script src="group.js?v=20260604"></script>
+    <script src="group.js?v=20260609"></script>
 </body>
 </html>

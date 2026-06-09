@@ -7,6 +7,7 @@ let currentMembers = []; // [{ name, uid, role }]
 let editingMembers = [];
 let recentRecordsData = [];
 let nameDirectory = {};  // uid → name 反查表（從後端 RAW_MODE 回傳）
+let isInitializingMemberList = false;
 
 // showLoading / hideLoading / ensureAPIReady 由 config.js 提供。
 
@@ -226,21 +227,6 @@ async function deleteAttendanceRecord() {
     } finally { hideLoading(); }
 }
 
-async function initGroup() {
-    const rawMembers = document.getElementById('memberInput').value.split('\n').filter(n => n.trim());
-    if (rawMembers.length === 0) return userNotification.warning('請輸入名單');
-    const members = rawMembers.map(name => ({ name: name.trim(), role: '小羊' }));
-
-    showLoading("正在建立雲端分頁，這可能需要幾秒鐘...");
-    try {
-        const res = await callAPI('initGroup', { groupName, members });
-        if (res.success) {
-            await checkGroupStatus();
-        }
-        else { userNotification.error(res.message); }
-    } finally { hideLoading(); }
-}
-
 // 點名介面：checkbox value 用 UID（後端比對用），顯示「姓名 (暱稱)」
 //   - 有暱稱：王小明 (明哥)
 //   - 沒暱稱：王小明
@@ -271,12 +257,69 @@ function toggleEditMode() {
     const modal = document.getElementById('edit-modal');
     if (modal.style.display === 'block') {
         modal.style.display = 'none';
+        isInitializingMemberList = false;
     } else {
+        isInitializingMemberList = false;
         editingMembers = currentMembers.map(m => ({...m}));
-        document.getElementById('newMemberInput').value = "";
-        renderEditList();
-        loadMemberSuggestions();    // 載入主日所有會友到 datalist
+        prepareMemberManagerModal();
         modal.style.display = 'block';
+    }
+}
+
+function openInitMemberManager() {
+    isInitializingMemberList = true;
+    editingMembers = [];
+    prepareMemberManagerModal();
+    document.getElementById('edit-modal').style.display = 'block';
+}
+
+function prepareMemberManagerModal() {
+    const title = document.getElementById('editModalTitle');
+    const saveBtn = document.getElementById('saveMemberListBtn');
+    if (title) {
+        title.innerText = isInitializingMemberList ? '🚀 建立成員名單與身分' : '📝 管理名單與身分';
+    }
+    if (saveBtn) {
+        saveBtn.innerText = isInitializingMemberList ? '🚀 建立名單' : '💾 儲存變更';
+    }
+    const input = document.getElementById('newMemberInput');
+    const roleSelect = document.getElementById('newMemberRole');
+    if (input) input.value = "";
+    if (roleSelect) roleSelect.value = '小羊';
+    renderEditList();
+    loadMemberSuggestions();    // 載入主日所有會友到 datalist
+}
+
+function closeMemberManagerModal() {
+    document.getElementById('edit-modal').style.display = 'none';
+    isInitializingMemberList = false;
+}
+
+async function initGroupWithMembers() {
+    if (editingMembers.length === 0) return userNotification.warning('請先新增至少一位成員');
+    if (!confirm('確定要用這份名單建立小組成員與身分嗎？')) return;
+
+    showLoading("正在建立雲端分頁，這可能需要幾秒鐘...");
+    try {
+        const res = await callAPI('initGroup', { groupName, members: editingMembers });
+        if (res.success) {
+            const syncRes = await callAPI('updateMemberList', { groupName, members: editingMembers });
+            if (!syncRes.success) {
+                userNotification.warning('名單分頁已建立，但同步主日名單失敗：' + syncRes.message);
+                closeMemberManagerModal();
+                await checkGroupStatus();
+                return;
+            }
+            userNotification.success('名單建立成功！');
+            closeMemberManagerModal();
+            await checkGroupStatus();
+        } else {
+            userNotification.error(res.message);
+        }
+    } catch (e) {
+        userNotification.error("連線發生錯誤，請稍後再試。");
+    } finally {
+        hideLoading();
     }
 }
 
@@ -444,6 +487,11 @@ function removeEditMemberByName(name) {
 }
 
 async function saveUpdatedList() {
+    if (isInitializingMemberList) {
+        await initGroupWithMembers();
+        return;
+    }
+
     if (editingMembers.length === 0) {
         if (!confirm('目前名單為空，確定要清空整個小組名單嗎？')) return;
     } else {
@@ -456,7 +504,7 @@ async function saveUpdatedList() {
             userNotification.success('名單更新成功！');
             currentMembers = [...editingMembers];
             renderMemberList(currentMembers);
-            toggleEditMode();
+            closeMemberManagerModal();
         }
         else { userNotification.error('更新失敗：' + res.message); }
     } catch (e) { userNotification.error("連線發生錯誤，請稍後再試。"); } finally { hideLoading(); }
