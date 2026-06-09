@@ -451,18 +451,21 @@
         },
         sunday: {
             label: '主日出席資料',
-            topics: ['getSmartAttendanceList', 'getWeeklyReport', 'getAttendanceStats', 'getAttendanceTrend', 'getCategoryChartData']
+            topics: ['getSmartAttendanceList', 'getGroupConfig', 'getAllMembers', 'getWeeklyReport', 'getAttendanceStats', 'getAttendanceTrend', 'getCategoryChartData'],
+            backendRefresh: 'refreshAttendanceCaches'
         },
         ministry: {
             label: '事工管理資料',
-            topics: ['ministry_getGroups', 'ministry_getPageConfig', 'ministry_getAggregatedReport', 'ministry_getGroupMembers']
+            topics: ['ministry_getGroups', 'ministry_getTemplates', 'ministry_getPageConfig', 'ministry_getAggregatedReport', 'ministry_getGroupMembers'],
+            backendRefresh: 'ministry_refreshCaches'
         },
         worship: {
             label: '敬拜團資料',
             topics: [
                 'getSchedule', 'getScheduleByDateRange', 'getPositions', 'getTeamMembers', 'getSongs',
                 'worship_getSchedule', 'worship_getScheduleByDateRange', 'worship_getPositions', 'worship_getTeamMembers', 'worship_getSongs'
-            ]
+            ],
+            backendRefresh: 'worship_refreshCaches'
         },
         calendar: {
             label: '教會行事曆資料',
@@ -513,7 +516,17 @@
                 data: {}
             })
         });
-        return await response.json();
+        const result = await response.json();
+        const nested = result && result.data;
+        const failed =
+            (result && result.success === false) ||
+            (result && result.status === 'error') ||
+            (nested && nested.success === false) ||
+            (nested && nested.status === 'error');
+        if (failed) {
+            throw new Error((nested && nested.message) || result.message || '後端快取重建失敗');
+        }
+        return result;
     }
 
     async function clearDataCache(groupKey) {
@@ -522,10 +535,7 @@
         setCacheUiBusy(true, '正在更新「' + config.label + '」快取...');
         try {
             if (config.backendRefresh) {
-                const refreshResult = await refreshBackendCache(config.backendRefresh);
-                if (refreshResult && refreshResult.success === false) {
-                    throw new Error(refreshResult.message || '後端快取重建失敗');
-                }
+                await refreshBackendCache(config.backendRefresh);
             }
             const count = await deleteFirebaseTopics(config.topics);
             showResultToast('✅ 已清除「' + config.label + '」' + count + ' 個資料快取');
@@ -540,8 +550,10 @@
     async function clearAllDataCache() {
         if (!confirm('這會清除所有系統的資料快取，短時間內可能讓各系統重新讀取 GAS 並變慢。確定要繼續嗎？')) return;
         const topics = Object.values(CACHE_GROUPS).flatMap(group => group.topics);
+        const backendRefreshes = uniqueTopics(Object.values(CACHE_GROUPS).map(group => group.backendRefresh).filter(Boolean));
         setCacheUiBusy(true, '正在清除全部資料快取...');
         try {
+            await Promise.all(backendRefreshes.map(action => refreshBackendCache(action)));
             const count = await deleteFirebaseTopics(topics);
             showResultToast('✅ 已清除全部資料快取（' + count + ' 個 topic）');
         } catch (err) {
