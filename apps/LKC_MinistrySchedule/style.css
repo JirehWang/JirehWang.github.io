@@ -848,6 +848,121 @@ body {
   gap: 0.25rem;
 }
 
+@media (max-width: 768px) {
+  #bulletinModal .modal-dialog {
+    width: calc(100% - 16px);
+    margin: 8px auto;
+  }
+
+  #bulletinModal .modal-body {
+    padding: 14px 12px;
+  }
+
+  #bulletinModal .modal-footer {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 14px 12px;
+  }
+
+  #bulletinModal .modal-footer .btn {
+    width: 100%;
+  }
+
+  .ms-filter-toolbar {
+    align-items: stretch !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px !important;
+  }
+
+  .ms-filter-toolbar .text-muted:first-child,
+  .ms-filter-toolbar #ms-filter-status {
+    grid-column: 1 / -1;
+  }
+
+  .ms-filter-toolbar #ms-filter-status {
+    margin-left: 0 !important;
+  }
+
+  .ms-filter-toolbar #ms-filter-rolling {
+    grid-column: 1 / -1;
+  }
+
+  .ms-filter-toolbar select {
+    width: 100% !important;
+  }
+
+  .ms-filter-toolbar > span.text-muted:not(:first-child) {
+    display: none;
+  }
+
+  .glass-board-container {
+    gap: 1rem;
+    padding: 6px 0;
+  }
+
+  .glass-card {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    padding: 1rem 1rem 1rem 1.1rem;
+    border-radius: 16px;
+  }
+
+  .glass-date {
+    align-items: center;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 8px 10px;
+    justify-content: stretch;
+    padding: 0.85rem;
+    width: 100%;
+  }
+
+  .glass-date .day {
+    font-size: 1.7rem;
+    grid-row: 1 / 3;
+  }
+
+  .glass-date .month-year {
+    font-size: 0.9rem;
+    margin-top: 0;
+    text-align: left;
+  }
+
+  .glass-date .weekday {
+    justify-self: end;
+    margin-top: 0;
+  }
+
+  .glass-content {
+    min-width: 0;
+  }
+
+  .glass-topic-line {
+    margin-bottom: 0.65rem;
+  }
+
+  .glass-topic {
+    font-size: 1.05rem;
+    overflow-wrap: anywhere;
+  }
+
+  .glass-duties {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+    padding: 0.7rem;
+  }
+
+  .glass-duty-name,
+  .glass-meta {
+    overflow-wrap: anywhere;
+  }
+
+  .glass-meta span {
+    min-width: 0;
+  }
+}
+
 /* =========================================
    🧑‍🤝‍🧑 組員身分設定樣式 (重新配色與美化)
    ========================================= */

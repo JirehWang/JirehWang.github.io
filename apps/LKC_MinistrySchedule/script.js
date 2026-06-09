@@ -1915,7 +1915,7 @@ function _ms_renderFilterableTable({ container, fullMatrix, tableMinWidth, rende
   };
 
   const filterBar = noDateCol ? '' : `
-    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap p-2 bg-light rounded border">
+    <div class="ms-filter-toolbar d-flex align-items-center gap-2 mb-2 flex-wrap p-2 bg-light rounded border">
       <span class="text-muted small fw-bold">📅 顯示範圍：</span>
       <button type="button" id="ms-filter-rolling" class="btn btn-sm btn-primary">近 3 個月</button>
       <span class="text-muted">|</span>
