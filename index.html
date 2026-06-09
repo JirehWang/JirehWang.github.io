@@ -446,7 +446,8 @@
     const CACHE_GROUPS = {
         group: {
             label: '小組點名資料',
-            topics: ['checkGroupStatus', 'getStats', 'getAllGroupsStats', 'getWeeklyReport', 'getMemberSuggestions', 'getAllGroupMembers']
+            topics: ['getGroups', 'getAdminGroupsList', 'checkGroupStatus', 'getStats', 'getAllGroupsStats', 'getWeeklyReport', 'getMemberSuggestions', 'getAllGroupMembers'],
+            backendRefresh: 'refreshGroupCaches'
         },
         sunday: {
             label: '主日出席資料',
@@ -501,11 +502,31 @@
         return targetTopics.length;
     }
 
+    async function refreshBackendCache(action) {
+        if (!action) return null;
+        const response = await fetch('https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec', {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+                action: action,
+                token: 'ChurchApp-2026',
+                data: {}
+            })
+        });
+        return await response.json();
+    }
+
     async function clearDataCache(groupKey) {
         const config = CACHE_GROUPS[groupKey];
         if (!config) return;
         setCacheUiBusy(true, '正在更新「' + config.label + '」快取...');
         try {
+            if (config.backendRefresh) {
+                const refreshResult = await refreshBackendCache(config.backendRefresh);
+                if (refreshResult && refreshResult.success === false) {
+                    throw new Error(refreshResult.message || '後端快取重建失敗');
+                }
+            }
             const count = await deleteFirebaseTopics(config.topics);
             showResultToast('✅ 已清除「' + config.label + '」' + count + ' 個資料快取');
         } catch (err) {
