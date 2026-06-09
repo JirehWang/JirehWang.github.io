@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lkc-pwa-cache-v20260606_green_v3';
+const CACHE_NAME = 'lkc-pwa-cache-v20260609_group_init_v1';
 const PRECACHE_ASSETS = [
   'config.js',
   'manifest.json'
@@ -51,6 +51,7 @@ self.addEventListener('fetch', event => {
 
   // 🛡️ 所有 HTML 網頁採用「即時響應」，絕不快取，直接過網，防止 HTML 快取鎖死前端更新
   if (url.pathname === '/' || url.pathname.endsWith('.html') || url.pathname.endsWith('/')) {
+    event.respondWith(fetch(event.request));
     return;
   }
 
