@@ -92,9 +92,7 @@ async function fetchGroups() {
             createRegBtn.className = 'tag-btn create-tag';
             createRegBtn.innerText = '➕ 創建新小組';
             createRegBtn.onclick = () => {
-                document.querySelector('input[name="newGroupType"][value="一般小組"]').checked = true;
-                toggleCreateInheritSection(false);
-                toggleModal(true);
+                toggleModal(true, '一般小組');
             };
             regListContainer.appendChild(createRegBtn);
 
@@ -115,9 +113,7 @@ async function fetchGroups() {
             createHappyBtn.style.color = '#E91E63';
             createHappyBtn.style.background = '#fff0f3';
             createHappyBtn.onclick = () => {
-                document.querySelector('input[name="newGroupType"][value="幸福小組"]').checked = true;
-                toggleCreateInheritSection(true);
-                toggleModal(true);
+                toggleModal(true, '幸福小組');
             };
             happyListContainer.appendChild(createHappyBtn);
         } else {
@@ -132,8 +128,27 @@ async function fetchGroups() {
     }
 }
 
-function toggleModal(show) {
-    document.getElementById('createModal').style.display = show ? 'block' : 'none';
+function toggleModal(show, type = '一般小組') {
+    const modal = document.getElementById('createModal');
+    if (!modal) return;
+    modal.style.display = show ? 'block' : 'none';
+    if (show) {
+        const title = document.getElementById('createModalTitle');
+        const typeRadioReg = document.querySelector('input[name="newGroupType"][value="一般小組"]');
+        const typeRadioHappy = document.querySelector('input[name="newGroupType"][value="幸福小組"]');
+        
+        if (type === '一般小組') {
+            if (title) title.innerHTML = '⛪ 創建新常規小組';
+            if (typeRadioReg) typeRadioReg.checked = true;
+            toggleCreateInheritSection(false);
+        } else {
+            if (title) title.innerHTML = '🍀 創建新幸福小組';
+            if (typeRadioHappy) typeRadioHappy.checked = true;
+            toggleCreateInheritSection(true);
+        }
+        document.getElementById('newGroupName').value = '';
+        document.getElementById('newGroupCode').value = '';
+    }
 }
 
 // 建立新小組

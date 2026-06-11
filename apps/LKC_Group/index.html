@@ -51,16 +51,16 @@
     <div id="createModal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="toggleModal(false)">&times;</span>
-            <h3>✨ 創建新小組</h3>
+            <h3 id="createModalTitle">✨ 創建新小組</h3>
             
-            <div style="margin-bottom: 15px; text-align: left;">
+            <div id="groupTypeSelectionRow" style="margin-bottom: 15px; text-align: left; display: none;">
                 <label style="font-weight: bold; font-size: 14px; display: block; margin-bottom: 6px; color: #333;">小組類型：</label>
                 <div style="display: flex; gap: 20px;">
                     <label style="cursor: pointer; display: flex; align-items: center; gap: 4px; font-size: 14px;">
-                        <input type="radio" name="newGroupType" value="一般小組" checked onchange="toggleCreateInheritSection(false)"> 一般常設小組
+                        <input type="radio" name="newGroupType" value="一般小組" checked> 一般常設小組
                     </label>
                     <label style="cursor: pointer; display: flex; align-items: center; gap: 4px; font-size: 14px;">
-                        <input type="radio" name="newGroupType" value="幸福小組" onchange="toggleCreateInheritSection(true)"> 幸福小組
+                        <input type="radio" name="newGroupType" value="幸福小組"> 幸福小組
                     </label>
                 </div>
             </div>
