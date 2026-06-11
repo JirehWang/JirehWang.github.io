@@ -39,33 +39,94 @@ window.onload = async () => {
 };
 
 // 載入小組按鈕清單
+// 載入小組按鈕清單
 async function fetchGroups() {
     showLoading("正在獲取最新小組清單...");
-    const container = document.getElementById('group-list-container');
+    const regListContainer = document.getElementById('regular-group-list');
+    const happyListContainer = document.getElementById('happy-group-list');
+    const inheritSelect = document.getElementById('inheritSourceGroup');
     try {
         // 🌟 使用中央路由發送請求
         const res = await window.churchAPI('getGroups');
         
         if (res.success) {
-            container.innerHTML = '';
+            regListContainer.innerHTML = '';
+            happyListContainer.innerHTML = '';
+            inheritSelect.innerHTML = '<option value="">-- 自訂新增同工 (不繼承) --</option>';
+
+            const regularGroups = [];
+            const activeHappyGroups = [];
+
             res.groups.forEach(group => {
+                const type = group.type || '一般小組';
+                const status = group.status || '顯示';
+
+                if (type === '幸福小組') {
+                    if (status === '顯示') {
+                        activeHappyGroups.push(group);
+                    }
+                } else {
+                    if (status !== '隱藏') {
+                        regularGroups.push(group);
+                    }
+                }
+            });
+
+            // 1. 渲染常規小組
+            regularGroups.forEach(group => {
                 const btn = document.createElement('button');
                 btn.className = 'tag-btn group-tag';
                 btn.innerText = group.name;
                 btn.onclick = () => enterGroup(group.name);
-                container.appendChild(btn);
+                regListContainer.appendChild(btn);
+
+                // 填充繼承下拉選單
+                const opt = document.createElement('option');
+                opt.value = group.name;
+                opt.innerText = group.name;
+                inheritSelect.appendChild(opt);
             });
 
-            const createBtn = document.createElement('button');
-            createBtn.className = 'tag-btn create-tag';
-            createBtn.innerText = '➕ 創建新小組';
-            createBtn.onclick = () => toggleModal(true);
-            container.appendChild(createBtn);
+            // 常規小組的建立按鈕
+            const createRegBtn = document.createElement('button');
+            createRegBtn.className = 'tag-btn create-tag';
+            createRegBtn.innerText = '➕ 創建新小組';
+            createRegBtn.onclick = () => {
+                document.querySelector('input[name="newGroupType"][value="一般小組"]').checked = true;
+                toggleCreateInheritSection(false);
+                toggleModal(true);
+            };
+            regListContainer.appendChild(createRegBtn);
+
+            // 2. 渲染幸福小組
+            activeHappyGroups.forEach(group => {
+                const btn = document.createElement('button');
+                btn.className = 'tag-btn group-tag happy-tag';
+                btn.innerText = group.name;
+                btn.onclick = () => enterGroup(group.name);
+                happyListContainer.appendChild(btn);
+            });
+
+            // 幸福小組的建立按鈕
+            const createHappyBtn = document.createElement('button');
+            createHappyBtn.className = 'tag-btn create-tag';
+            createHappyBtn.innerText = '➕ 創建新幸福小組';
+            createHappyBtn.style.border = '2px dashed #E91E63';
+            createHappyBtn.style.color = '#E91E63';
+            createHappyBtn.style.background = '#fff0f3';
+            createHappyBtn.onclick = () => {
+                document.querySelector('input[name="newGroupType"][value="幸福小組"]').checked = true;
+                toggleCreateInheritSection(true);
+                toggleModal(true);
+            };
+            happyListContainer.appendChild(createHappyBtn);
         } else {
-            container.innerHTML = `<p>讀取失敗：${res.message || '未知錯誤'}</p>`;
+            regListContainer.innerHTML = `<p>讀取失敗：${res.message || '未知錯誤'}</p>`;
+            happyListContainer.innerHTML = `<p>讀取失敗：${res.message || '未知錯誤'}</p>`;
         }
     } catch (e) {
-        container.innerHTML = '<p>讀取失敗，請重新整理頁面</p>';
+        regListContainer.innerHTML = '<p>讀取失敗，請重新整理頁面</p>';
+        happyListContainer.innerHTML = '<p>讀取失敗，請重新整理頁面</p>';
     } finally {
         hideLoading();
     }
@@ -77,18 +138,30 @@ function toggleModal(show) {
 
 // 建立新小組
 async function createNewGroup() {
-    const name = document.getElementById('newGroupName').value;
-    const code = document.getElementById('newGroupCode').value;
+    const name = document.getElementById('newGroupName').value.trim();
+    const code = document.getElementById('newGroupCode').value.trim();
     if (!name || !code) return userNotification.warning('請填寫完整資訊');
+
+    const typeRadio = document.querySelector('input[name="newGroupType"]:checked');
+    const type = typeRadio ? typeRadio.value : '一般小組';
+    const associatedGroup = document.getElementById('inheritSourceGroup').value;
 
     showLoading("正在雲端建立小組並設定權限...");
     try {
         // 🌟 使用中央路由發送請求
-        const res = await window.churchAPI('createGroup', { groupName: name, groupCode: code });
+        const res = await window.churchAPI('createGroup', { 
+            groupName: name, 
+            groupCode: code,
+            groupType: type,
+            associatedGroup: associatedGroup
+        });
 
         (res.success ? userNotification.success : userNotification.warning)(res.message);
         if (res.success) {
             toggleModal(false);
+            document.getElementById('newGroupName').value = '';
+            document.getElementById('newGroupCode').value = '';
+            document.getElementById('inheritSourceGroup').value = '';
             fetchGroups();
         }
     } catch (e) {
@@ -248,4 +321,246 @@ setTimeout(() => {
             if (e.target === modal) closeWeeklyReport();
         });
     }
+    const archModal = document.getElementById('archiveModal');
+    if (archModal) {
+        archModal.addEventListener('click', (e) => {
+            if (e.target === archModal) toggleArchiveModal(false);
+        });
+    }
 }, 500);
+
+// ── 幸福小組頁籤與歷史封存功能 ──────────────────────────
+
+function switchTab(tabType) {
+    document.querySelectorAll('.tab-select-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content-section').forEach(sec => sec.style.display = 'none');
+    
+    if (tabType === 'regular') {
+        document.getElementById('tab-regular').classList.add('active');
+        document.getElementById('regular-groups-section').style.display = 'block';
+    } else if (tabType === 'happy') {
+        document.getElementById('tab-happy').classList.add('active');
+        document.getElementById('happy-groups-section').style.display = 'block';
+    }
+}
+
+function toggleCreateInheritSection(show) {
+    document.getElementById('inheritSection').style.display = show ? 'block' : 'none';
+    if (!show) {
+        document.getElementById('inheritSourceGroup').value = '';
+    }
+}
+
+function toggleArchiveModal(show) {
+    document.getElementById('archiveModal').style.display = show ? 'block' : 'none';
+}
+
+async function openArchiveHistory() {
+    toggleArchiveModal(true);
+    const select = document.getElementById('archiveFileSelect');
+    const detailContent = document.getElementById('archiveDetailContent');
+    const loading = document.getElementById('archiveLoading');
+    
+    select.innerHTML = '<option value="">-- 請選擇 --</option>';
+    detailContent.style.display = 'none';
+    loading.style.display = 'block';
+
+    try {
+        const res = await window.churchAPI('happyGroup_getArchives', {});
+        loading.style.display = 'none';
+        
+        if (res.success && res.files && res.files.length > 0) {
+            res.files.forEach(file => {
+                const opt = document.createElement('option');
+                opt.value = file.id;
+                opt.innerText = file.name.replace(".json", "");
+                select.appendChild(opt);
+            });
+        } else if (res.success) {
+            select.innerHTML = '<option value="">-- 目前無歷史封存檔案 --</option>';
+        } else {
+            userNotification.error("取得封存清單失敗：" + res.message);
+        }
+    } catch (e) {
+        loading.style.display = 'none';
+        userNotification.error("連線異常，取得封存清單失敗");
+    }
+}
+
+async function loadSelectedArchiveContent() {
+    const fileId = document.getElementById('archiveFileSelect').value;
+    const detailContent = document.getElementById('archiveDetailContent');
+    const loading = document.getElementById('archiveLoading');
+    
+    if (!fileId) {
+        detailContent.style.display = 'none';
+        return;
+    }
+
+    detailContent.style.display = 'none';
+    loading.style.display = 'block';
+
+    try {
+        const res = await window.churchAPI('happyGroup_getArchiveContent', { fileId: fileId });
+        loading.style.display = 'none';
+
+        if (res.success && res.content) {
+            const archive = res.content;
+            
+            // 1. 設定標題與日期
+            document.getElementById('archiveGroupNameTitle').innerText = `🍀 ${archive.groupName}`;
+            document.getElementById('archiveDateRange').innerText = `📅 聚會期程：${archive.startDate} ~ ${archive.endDate}`;
+
+            // 2. 渲染成員名單 (Roster)
+            const rosterDiv = document.getElementById('archiveRosterDiv');
+            rosterDiv.innerHTML = '';
+            
+            if (archive.members && archive.members.length > 0) {
+                archive.members.forEach(m => {
+                    const badge = document.createElement('span');
+                    const role = m.role || 'BEST';
+                    let roleClass = 'role-best';
+                    if (role === '福長' || role === '同工' || role === '核心同工') {
+                        roleClass = 'role-core';
+                    } else if (role === '一般同工') {
+                        roleClass = 'role-general';
+                    } else if (role === '陪伴同工') {
+                        roleClass = 'role-companion';
+                    }
+                    
+                    badge.className = `role-badge ${roleClass}`;
+                    badge.style.width = 'auto';
+                    badge.style.padding = '4px 10px';
+                    badge.style.borderRadius = '20px';
+                    badge.innerText = `${m.name} (${role})`;
+                    rosterDiv.appendChild(badge);
+                });
+            } else {
+                rosterDiv.innerHTML = '<p style="color: #999; margin: 0;">無成員資料</p>';
+            }
+
+            // 3. 渲染點名矩陣 (Attendance Matrix Table)
+            const tableDiv = document.getElementById('archiveTableDiv');
+            tableDiv.innerHTML = '';
+
+            const records = archive.records || [];
+            const members = archive.members || [];
+
+            if (records.length === 0 || members.length === 0) {
+                tableDiv.innerHTML = '<p style="color: #999; padding: 20px; text-align: center;">無點名紀錄資料</p>';
+                detailContent.style.display = 'block';
+                return;
+            }
+
+            // 建立表格
+            const table = document.createElement('table');
+            table.className = 'stats-dashboard';
+            table.style.marginTop = '0';
+            
+            // 表頭: 姓名 | 性質 | [日期1] | [日期2] | ... | 出席次數/比例
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            
+            const thName = document.createElement('th');
+            thName.innerText = '姓名';
+            headerRow.appendChild(thName);
+
+            const thRole = document.createElement('th');
+            thRole.innerText = '身分';
+            headerRow.appendChild(thRole);
+
+            records.forEach(rec => {
+                const thDate = document.createElement('th');
+                const dParts = rec.date.split('-');
+                thDate.innerText = dParts.length === 3 ? `${dParts[1]}/${dParts[2]}` : rec.date;
+                thDate.title = rec.date;
+                headerRow.appendChild(thDate);
+            });
+
+            const thRate = document.createElement('th');
+            thRate.innerText = '出席率';
+            headerRow.appendChild(thRate);
+            
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+
+            // 表身: 每個成員一行
+            const tbody = document.createElement('tbody');
+            
+            members.forEach(member => {
+                const tr = document.createElement('tr');
+                
+                const tdName = document.createElement('td');
+                tdName.innerText = member.name;
+                tdName.style.fontWeight = 'bold';
+                tr.appendChild(tdName);
+
+                const tdRole = document.createElement('td');
+                tdRole.innerText = member.role || 'BEST';
+                tr.appendChild(tdRole);
+
+                let presentCount = 0;
+                records.forEach(rec => {
+                    const tdCell = document.createElement('td');
+                    const isHelper = member.uid && member.uid.toUpperCase().startsWith("LK");
+                    let attended = false;
+                    
+                    if (isHelper) {
+                        attended = rec.present.indexOf(member.uid) !== -1 || rec.present.indexOf(member.name) !== -1;
+                    } else {
+                        attended = rec.present.indexOf(member.name) !== -1;
+                    }
+
+                    if (attended) {
+                        tdCell.innerHTML = '<span style="color: #2e7d32; font-weight: bold;">✔</span>';
+                        tdCell.style.backgroundColor = '#e8f5e9';
+                        presentCount++;
+                    } else {
+                        tdCell.innerHTML = '<span style="color: #c62828;">✘</span>';
+                        tdCell.style.backgroundColor = '#ffebee';
+                    }
+                    tr.appendChild(tdCell);
+                });
+
+                const tdRate = document.createElement('td');
+                const rate = records.length > 0 ? ((presentCount / records.length) * 100).toFixed(0) : 0;
+                tdRate.innerHTML = `<strong>${presentCount}/${records.length}</strong> (${rate}%)`;
+                tr.appendChild(tdRate);
+
+                tbody.appendChild(tr);
+            });
+
+            // 統計列：每週出席人數（同工 + BEST）
+            const trTotal = document.createElement('tr');
+            trTotal.style.background = '#f5f5f5';
+            trTotal.style.fontWeight = 'bold';
+
+            const tdTotalLabel = document.createElement('td');
+            tdTotalLabel.innerText = '出席人數合計';
+            tdTotalLabel.colSpan = 2;
+            trTotal.appendChild(tdTotalLabel);
+
+            records.forEach(rec => {
+                const tdTotalCell = document.createElement('td');
+                tdTotalCell.innerText = `${rec.total} 人`;
+                trTotal.appendChild(tdTotalCell);
+            });
+
+            const tdTotalBlank = document.createElement('td');
+            tdTotalBlank.innerText = '-';
+            trTotal.appendChild(tdTotalBlank);
+
+            tbody.appendChild(trTotal);
+
+            table.appendChild(tbody);
+            tableDiv.appendChild(table);
+
+            detailContent.style.display = 'block';
+        } else {
+            userNotification.error("讀取封存內容失敗：" + res.message);
+        }
+    } catch (e) {
+        loading.style.display = 'none';
+        userNotification.error("連線異常，讀取檔案失敗");
+    }
+}

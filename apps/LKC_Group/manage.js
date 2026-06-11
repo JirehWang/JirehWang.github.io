@@ -102,10 +102,15 @@ function renderTable(isAdmin) {
     }
 
     tbody.innerHTML = adminGroupsList.map((g, index) => {
-        // 狀態顯示樣式
-        const statusBadge = g.status === '顯示' 
-            ? '<span style="background: #4CAF50; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px;">✅ 顯示</span>'
-            : '<span style="background: #9E9E9E; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px;">🚫 隱藏</span>';
+        // 狀態顯示樣式 (支援幸福小組結案狀態)
+        let statusBadge = '';
+        if (g.status === '顯示') {
+            statusBadge = '<span style="background: #4CAF50; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px;">✅ 顯示</span>';
+        } else if (g.status === '結案') {
+            statusBadge = '<span style="background: #E91E63; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px;">🍀 結案</span>';
+        } else {
+            statusBadge = '<span style="background: #9E9E9E; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px;">🚫 隱藏</span>';
+        }
         
         // 日期格式化
         const dateDisplay = g.date ? formatDate(g.date) : '-';
@@ -113,14 +118,24 @@ function renderTable(isAdmin) {
         // ✅ 根據權限決定顯示的欄位
         const dateCell = isAdmin ? `<td style="color: #666; font-size: 14px;">${dateDisplay}</td>` : '';
         
+        // 幸福小組標示
+        const groupTypeBadge = g.type === '幸福小組'
+            ? ' <span class="role-badge role-best" style="font-size:11px; padding:2px 6px; width:auto; border-radius:4px; vertical-align:middle; background: #fff3e0; color: #ef6c00;">幸福</span>'
+            : '';
+
+        // 徹底刪除按鈕 (限管理員且幸福小組已結案)
+        const deleteBtn = (isAdmin && g.type === '幸福小組' && g.status === '結案')
+            ? `<button class="btn" style="background: #f44336; padding: 6px 12px; font-size: 13px; margin-left: 8px;" onclick="deleteHappyGroup('${g.name}')">🗑️ 徹底刪除</button>`
+            : '';
+        
         return `
             <tr>
-                <td style="font-weight: bold; font-size: 16px;">${g.name}</td>
+                <td style="font-weight: bold; font-size: 16px;">${g.name}${groupTypeBadge}</td>
                 <td><span style="background: #eee; padding: 4px 10px; border-radius: 12px; font-family: monospace;">${g.code}</span></td>
                 <td>${statusBadge}</td>
                 ${dateCell}
                 <td>
-                    <button class="btn" style="background: #2196F3; padding: 6px 12px; font-size: 13px;" onclick="openEditModal(${index})">✏️ 編輯</button>
+                    <button class="btn" style="background: #2196F3; padding: 6px 12px; font-size: 13px;" onclick="openEditModal(${index})">✏️ 編輯</button>${deleteBtn}
                 </td>
             </tr>
         `;
@@ -191,6 +206,26 @@ async function saveGroupEdit() {
             await loadGroups();
         } else {
             userNotification.error('❌ 修改失敗：' + res.message);
+        }
+    } catch (e) {
+        userNotification.error("連線發生錯誤: " + e.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+async function deleteHappyGroup(groupName) {
+    if (!confirm(`⚠️ 警告：確定要徹底刪除幸福小組【${groupName}】嗎？\n\n此動作將永久刪除該組在試算表中的所有分頁（名單與點名紀錄），且不可復原！`)) {
+        return;
+    }
+    showLoading(`正在徹底刪除【${groupName}】...`);
+    try {
+        const res = await callAPI('happyGroup_delete', { groupName: groupName, authCode: verifiedAdminCode });
+        if (res.success) {
+            userNotification.success('✅ 小組已被徹底刪除！');
+            await loadGroups();
+        } else {
+            userNotification.error('❌ 刪除失敗：' + res.message);
         }
     } catch (e) {
         userNotification.error("連線發生錯誤: " + e.message);

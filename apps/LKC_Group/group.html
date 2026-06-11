@@ -22,10 +22,16 @@
 
     <div class="header" style="display: flex; justify-content: space-between; align-items: center;">
         <div>
-            <h2 id="displayGroupName" style="margin: 0;">載入中...</h2>
-            <a href="index.html" style="text-decoration: none; color: #666; font-weight: bold;">⬅️ 返回首頁</a>
+            <h2 id="displayGroupName" style="margin: 0; display: inline-block;">載入中...</h2>
+            <span id="happyGroupBadge" class="role-badge role-best" style="display: none; margin-left: 8px; vertical-align: middle; width: auto; padding: 2px 8px; border-radius: 4px; font-size: 13px; font-weight: bold; background: #fff3e0; color: #ef6c00;">幸福小組</span>
+            <div style="margin-top: 5px;">
+                <a href="index.html" style="text-decoration: none; color: #666; font-weight: bold;">⬅️ 返回首頁</a>
+            </div>
         </div>  
-        <div id="scheduleBtn" class="schedule-link-btn" style="display: none;" onclick="goToSchedule()">🗓️ 前往排聚會表</div>
+        <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
+            <div id="scheduleBtn" class="schedule-link-btn" style="display: none;" onclick="goToSchedule()">🗓️ 前往排聚會表</div>
+            <button id="concludeBtn" class="btn" style="display: none; background-color: #E91E63; margin-top: 0; padding: 6px 12px; font-size: 13px;" onclick="openConcludeModal()">🍀 結案封存</button>
+        </div>
     </div>
 
     <div id="init-panel" style="display: none; text-align: center; margin-top: 50px;">
@@ -111,6 +117,8 @@
                 📅 聚會日期：<input type="date" id="editAttendanceDate" style="padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
             </div>
             
+
+
             <div id="editAttendanceMemberList" style="border: 1px solid #ddd; border-radius: 8px; overflow-y: auto; max-height: 250px;">
                 </div>
 
@@ -118,7 +126,6 @@
                 <h4 style="margin-top: 0; color: #e65100;">✨ 新朋友</h4>
                 <input type="text" id="editNewFriends" style="width:95%; padding:10px; border: 1px solid #ffcc80; border-radius: 4px;">
             </div>
-
             <div style="display: flex; justify-content: space-between; margin-top: 20px;">
                 <button class="btn" onclick="closeEditAttendanceModal()" style="background: #9e9e9e; padding: 10px;">取消</button>
                 <button class="btn" onclick="deleteAttendanceRecord()" style="background: #f44336; padding: 10px;">🗑️ 刪除紀錄</button>
@@ -126,6 +133,28 @@
             </div>
         </div>
     </div>
+
+    <!-- 結案封存彈窗 -->
+    <div id="concludeModal" class="modal">
+        <div class="modal-content" style="max-width: 500px; width: 90%;">
+            <span class="close-btn" onclick="toggleConcludeModal(false)">&times;</span>
+            <h3 style="color: #E91E63; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0; display: flex; align-items: center; gap: 8px;">🍀 幸福小組結案封存</h3>
+            
+            <p style="font-size: 13px; color: #666; text-align: left; margin-bottom: 15px;">
+                結案後，本組同工出席紀錄將同步寫回其所屬常規小組。請勾選需要<strong>升級為正式會友</strong>的 BEST：
+            </p>
+
+            <div id="concludeBestList" style="border: 1px solid #ddd; border-radius: 8px; max-height: 250px; overflow-y: auto; margin-bottom: 20px; text-align: left; background: #fafafa; padding: 10px; box-sizing: border-box;">
+                <!-- BEST 成員列表與指派下拉選單會生成在這裡 -->
+            </div>
+
+            <div style="display: flex; justify-content: space-between;">
+                <button class="btn" onclick="toggleConcludeModal(false)" style="background: #9e9e9e;">取消</button>
+                <button class="btn" onclick="submitHappyConclude()" style="background: #E91E63; margin-top: 10px;">💾 確認結案</button>
+            </div>
+        </div>
+    </div>
+
     <script>window._GAS_KEY = 'LKC_Group_TEST';</script>
     <script src="../../config.js"></script>
     <!-- Sortable.js：拖曳排序「管理名單與身分」用 -->

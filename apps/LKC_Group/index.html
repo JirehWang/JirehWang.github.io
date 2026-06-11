@@ -28,16 +28,84 @@
     </div>
     
     <div style="width: 100%; max-width: 100%; margin: 0 auto; padding: 0 20px; box-sizing: border-box;">
-        <div id="group-list-container" style="margin-top: 20px;"></div>
+        <!-- Tab 頁籤切換 -->
+        <div class="tabs-container" style="display: flex; gap: 10px; margin-top: 20px; border-bottom: 2px solid #ddd; padding-bottom: 8px;">
+            <button id="tab-regular" class="tab-select-btn active" onclick="switchTab('regular')" style="padding: 10px 20px; border: none; background: none; font-size: 16px; font-weight: bold; cursor: pointer; border-radius: 8px 8px 0 0;">⛪ 一般常設小組</button>
+            <button id="tab-happy" class="tab-select-btn" onclick="switchTab('happy')" style="padding: 10px 20px; border: none; background: none; font-size: 16px; font-weight: bold; cursor: pointer; border-radius: 8px 8px 0 0;">🍀 幸福小組專區</button>
+        </div>
+
+        <!-- 一般常設小組區塊 -->
+        <div id="regular-groups-section" class="tab-content-section">
+            <div id="regular-group-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; margin-top: 15px;"></div>
+        </div>
+
+        <!-- 幸福小組區塊 -->
+        <div id="happy-groups-section" class="tab-content-section" style="display: none;">
+            <div style="margin-top: 15px; display: flex; gap: 10px; margin-bottom: 15px;">
+                <button class="stats-link tab-btn" onclick="openArchiveHistory()" style="background-color:#E91E63; border:none; cursor:pointer; padding:8px 16px; border-radius:8px; font-size:14px; color:#fff; font-weight:bold; width: auto; height: auto; display: inline-flex; align-items: center; justify-content: center;">📂 讀取歷史紀錄</button>
+            </div>
+            <div id="happy-group-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px;"></div>
+        </div>
     </div>
     
     <div id="createModal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="toggleModal(false)">&times;</span>
             <h3>✨ 創建新小組</h3>
-            <input type="text" id="newGroupName" placeholder="請輸入小組名稱">
-            <input type="password" id="newGroupCode" placeholder="請設定小組編號 (密碼)">
+            
+            <div style="margin-bottom: 15px; text-align: left;">
+                <label style="font-weight: bold; font-size: 14px; display: block; margin-bottom: 6px; color: #333;">小組類型：</label>
+                <div style="display: flex; gap: 20px;">
+                    <label style="cursor: pointer; display: flex; align-items: center; gap: 4px; font-size: 14px;">
+                        <input type="radio" name="newGroupType" value="一般小組" checked onchange="toggleCreateInheritSection(false)"> 一般常設小組
+                    </label>
+                    <label style="cursor: pointer; display: flex; align-items: center; gap: 4px; font-size: 14px;">
+                        <input type="radio" name="newGroupType" value="幸福小組" onchange="toggleCreateInheritSection(true)"> 幸福小組
+                    </label>
+                </div>
+            </div>
+
+            <!-- 繼承名單選項 (僅在選擇幸福小組時顯示) -->
+            <div id="inheritSection" style="display: none; margin-bottom: 15px; text-align: left; background: #f5f5f5; padding: 12px; border-radius: 8px; border: 1px solid #e0e0e0;">
+                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 6px; color: #333;">同工名單來源：</label>
+                <select id="inheritSourceGroup" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; background: white;">
+                    <option value="">-- 自訂新增同工 (不繼承) --</option>
+                </select>
+            </div>
+
+            <input type="text" id="newGroupName" placeholder="請輸入小組名稱" style="width: 100%; margin-bottom: 12px;">
+            <input type="password" id="newGroupCode" placeholder="請設定小組編號 (密碼)" style="width: 100%; margin-bottom: 12px;">
             <button class="submit-btn" onclick="createNewGroup()">確認建立</button>
+        </div>
+    </div>
+
+    <!-- 歷史封存紀錄彈窗 -->
+    <div id="archiveModal" class="modal">
+        <div class="modal-content" style="max-width: 700px; width: 90%; max-height: 85vh; overflow-y: auto;">
+            <span class="close-btn" onclick="toggleArchiveModal(false)">&times;</span>
+            <h3 style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px;">📂 幸福小組歷史紀錄</h3>
+            <div id="archiveSelectorSection" style="margin-bottom: 20px; text-align: left;">
+                <label style="font-weight: bold; display: block; margin-bottom: 8px; color: #333; font-size: 14px;">請選擇歷史幸福小組檔案：</label>
+                <select id="archiveFileSelect" onchange="loadSelectedArchiveContent()" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; background: white;">
+                    <option value="">-- 請選擇 --</option>
+                </select>
+            </div>
+            <div id="archiveDetailContent" style="display: none; border-top: 1px solid #eee; padding-top: 20px; text-align: left;">
+                <h4 id="archiveGroupNameTitle" style="margin: 0 0 8px 0; font-size: 18px; color: #333;"></h4>
+                <p id="archiveDateRange" style="font-size: 13px; color: #666; margin: 0 0 20px 0; font-weight: bold; background: #e0f2f1; color: #00796b; display: inline-block; padding: 4px 10px; border-radius: 4px;"></p>
+                
+                <h5 style="margin: 0 0 10px 0; color: #2196F3; font-size: 15px; border-left: 4px solid #2196F3; padding-left: 8px;">🍀 小組同工與 BEST 成員名單</h5>
+                <div id="archiveRosterDiv" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 25px; background: #fafafa; padding: 12px; border-radius: 8px; border: 1px solid #eee;"></div>
+
+                <h5 style="margin: 0 0 10px 0; color: #4CAF50; font-size: 15px; border-left: 4px solid #4CAF50; padding-left: 8px;">📅 歷史點名明細矩陣</h5>
+                <div id="archiveTableDiv" style="overflow-x: auto; background: white; border: 1px solid #eee; border-radius: 8px;">
+                    <!-- 點名矩陣表格會生成在這裡 -->
+                </div>
+            </div>
+            <div id="archiveLoading" style="text-align: center; color: #999; padding: 30px; display: none;">
+                <div class="spinner" style="margin: 0 auto 10px; width: 35px; height: 35px; border-width: 4px;"></div>
+                載入中，請稍候...
+            </div>
         </div>
     </div>
 

@@ -8,8 +8,8 @@ let editingMembers = [];
 let recentRecordsData = [];
 let nameDirectory = {};  // uid → name 反查表（從後端 RAW_MODE 回傳）
 let isInitializingMemberList = false;
+let groupType = '一般小組';
 
-// showLoading / hideLoading / ensureAPIReady 由 config.js 提供。
 
 // 共用：UID 反查姓名（找不到就直接回傳原字串）
 function resolveDisplayName(uidOrName) {
@@ -39,12 +39,13 @@ async function callAPI(action, data = {}) {
     return await window.churchAPI(action, data);
 }
 
-// 💡 更新：加入陪伴同工的 CSS Class
+// 💡 更新：加入陪伴同工與 BEST 的 CSS Class
 function getRoleClass(role) {
-    if (role === '核心同工') return 'role-core';
+    if (role === '核心同工' || role === '福長' || role === '同工') return 'role-core';
     if (role === '一般同工') return 'role-general';
     if (role === '小羊') return 'role-sheep';
     if (role === '陪伴同工') return 'role-companion'; 
+    if (role === 'BEST' || role === '慕道友') return 'role-best';
     return 'role-default';
 }
 
@@ -58,6 +59,17 @@ async function checkGroupStatus() {
     showLoading("正在載入點名單與聚會紀錄...");
     try {
         const res = await callAPI('checkGroupStatus', { groupName });
+        groupType = res.type || '一般小組';
+        
+        // 根據小組類型動態調整 UI 標誌與按鈕
+        if (groupType === '幸福小組') {
+            document.getElementById('happyGroupBadge').style.display = 'inline-block';
+            document.getElementById('concludeBtn').style.display = 'inline-block';
+        } else {
+            document.getElementById('happyGroupBadge').style.display = 'none';
+            document.getElementById('concludeBtn').style.display = 'none';
+        }
+
         if (res.isInitialized) {
             currentMembers = res.members;
             document.getElementById('attendance-panel').style.display = 'block';
@@ -163,10 +175,10 @@ function openEditAttendanceModal(index) {
 
     const listDiv = document.getElementById('editAttendanceMemberList');
 
-    // checkbox value 用 UID；顯示「姓名 (暱稱)」
+    // checkbox value 用 UID 或姓名 (對於 BEST)；顯示「姓名 (暱稱)」
     listDiv.innerHTML = currentMembers.map(m => {
         const uid = m.uid || '';
-        const isChecked = uid && presentUidSet.has(uid.toUpperCase()) ? 'checked' : '';
+        const isChecked = (uid && presentUidSet.has(uid.toUpperCase())) || (!uid && presentUidSet.has(m.name.toUpperCase())) ? 'checked' : '';
         const roleClass = getRoleClass(m.role);
         const nickname = (m.nickname || '').trim();
         const nicknameTag = nickname
@@ -174,7 +186,7 @@ function openEditAttendanceModal(index) {
             : '';
         return `
             <div class="member-item">
-                <input type="checkbox" class="edit-attendance-check" value="${uid}" data-name="${m.name}" ${isChecked}>
+                <input type="checkbox" class="edit-attendance-check" value="${uid || m.name}" data-name="${m.name}" ${isChecked}>
                 <span class="role-badge ${roleClass}">${m.role}</span>
                 <span style="font-size: 16px; font-weight: bold; color: #333;">${m.name}${nicknameTag}</span>
             </div>
@@ -227,7 +239,7 @@ async function deleteAttendanceRecord() {
     } finally { hideLoading(); }
 }
 
-// 點名介面：checkbox value 用 UID（後端比對用），顯示「姓名 (暱稱)」
+// 點名介面：checkbox value 用 UID 或姓名 (對於 BEST)，顯示「姓名 (暱稱)」
 //   - 有暱稱：王小明 (明哥)
 //   - 沒暱稱：王小明
 function renderMemberList(members) {
@@ -245,7 +257,7 @@ function renderMemberList(members) {
             : '';
         return `
             <div class="member-item">
-                <input type="checkbox" class="attendance-check" value="${uid}" data-name="${m.name}">
+                <input type="checkbox" class="attendance-check" value="${uid || m.name}" data-name="${m.name}">
                 <span class="role-badge ${roleClass}">${m.role}</span>
                 <span style="font-size: 16px; font-weight: bold; color: #333;">${m.name}${nicknameTag}</span>
             </div>
@@ -285,7 +297,27 @@ function prepareMemberManagerModal() {
     const input = document.getElementById('newMemberInput');
     const roleSelect = document.getElementById('newMemberRole');
     if (input) input.value = "";
-    if (roleSelect) roleSelect.value = '小羊';
+    
+    if (roleSelect) {
+        if (groupType === '幸福小組') {
+            roleSelect.innerHTML = `
+                <option value="BEST">BEST</option>
+                <option value="同工">同工</option>
+                <option value="福長">福長</option>
+                <option value="陪伴同工">陪伴同工</option>
+            `;
+            roleSelect.value = 'BEST';
+        } else {
+            roleSelect.innerHTML = `
+                <option value="小羊">小羊</option>
+                <option value="一般同工">一般同工</option>
+                <option value="核心同工">核心同工</option>
+                <option value="陪伴同工">陪伴同工</option>
+            `;
+            roleSelect.value = '小羊';
+        }
+    }
+    
     renderEditList();
     loadMemberSuggestions();    // 載入主日所有會友到 datalist
 }
@@ -374,9 +406,32 @@ function renderEditList() {
         if (_editSortableInstance) { _editSortableInstance.destroy(); _editSortableInstance = null; }
         return;
     }
+    
+    const roleOptions = groupType === '幸福小組'
+        ? `
+            <option value="BEST">BEST</option>
+            <option value="同工">同工</option>
+            <option value="福長">福長</option>
+            <option value="陪伴同工">陪伴同工</option>
+          `
+        : `
+            <option value="核心同工">核心同工</option>
+            <option value="一般同工">一般同工</option>
+            <option value="小羊">小羊</option>
+            <option value="陪伴同工">陪伴同工</option>
+          `;
+
     container.innerHTML = editingMembers.map(m => {
         const safeName = (m.name || '').replace(/'/g, "&#39;");
         const nickname = (m.nickname || '').replace(/"/g, '&quot;');
+        
+        // 生成對應身分的 selected 屬性
+        const curRole = m.role || (groupType === '幸福小組' ? 'BEST' : '小羊');
+        const roleOptionsWithSelected = roleOptions.replace(
+            `value="${curRole}"`,
+            `value="${curRole}" selected`
+        );
+
         return `
             <div class="edit-member-item" data-name="${safeName}">
                 <div style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; flex-wrap: wrap;">
@@ -384,10 +439,7 @@ function renderEditList() {
                           style="cursor: grab; color:#999; font-size:18px; padding:0 4px; user-select:none; touch-action:none;">⋮⋮</span>
                     <span style="font-weight:bold; white-space:nowrap;">${m.name}</span>
                     <select class="edit-role-select" onchange="updateMemberRoleByName('${safeName}', this.value)">
-                        <option value="核心同工" ${m.role==='核心同工'?'selected':''}>核心同工</option>
-                        <option value="一般同工" ${m.role==='一般同工'?'selected':''}>一般同工</option>
-                        <option value="小羊" ${m.role==='小羊'?'selected':''}>小羊</option>
-                        <option value="陪伴同工" ${m.role==='陪伴同工'?'selected':''}>陪伴同工</option>
+                        ${roleOptionsWithSelected}
                     </select>
                     <input type="text"
                            placeholder="暱稱"
@@ -533,4 +585,106 @@ async function submitAttendance() {
         }
         else { userNotification.error('失敗：' + res.message); }
     } finally { hideLoading(); }
+}
+
+// ── 幸福小組結案封存功能 ──────────────────────────
+
+function toggleConcludeModal(show) {
+    document.getElementById('concludeModal').style.display = show ? 'block' : 'none';
+}
+
+async function openConcludeModal() {
+    toggleConcludeModal(true);
+    const container = document.getElementById('concludeBestList');
+    container.innerHTML = '<p style="color: #999; text-align: center; padding: 15px 0;">正在載入小組名單與會友資料...</p>';
+
+    try {
+        const res = await callAPI('getGroups');
+        if (!res.success) {
+            container.innerHTML = `<p style="color: red; text-align: center;">載入小組清單失敗：${res.message}</p>`;
+            return;
+        }
+
+        const regularGroups = res.groups.filter(g => g.type !== '幸福小組' && g.status !== '隱藏');
+        const bests = currentMembers.filter(m => m.role === 'BEST' || m.role === '慕道友');
+
+        if (bests.length === 0) {
+            container.innerHTML = '<p style="color: #2e7d32; font-weight: bold; text-align: center; padding: 20px 0;">🎉 本組目前無 BEST 成員，可直接結案！</p>';
+            return;
+        }
+
+        const groupOptionsHtml = regularGroups.map(g => `<option value="${g.name}">${g.name}</option>`).join('');
+
+        container.innerHTML = bests.map(b => {
+            return `
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee;">
+                    <label style="display: flex; align-items: center; gap: 8px; font-weight: bold; cursor: pointer; flex: 1; margin: 0;">
+                        <input type="checkbox" class="conclude-best-upgrade" value="${b.name}" onchange="toggleBestTargetSelect('${b.name}', this.checked)">
+                        <span style="font-size: 15px; color: #333;">${b.name}</span>
+                    </label>
+                    <select id="targetGroup_${b.name}" class="conclude-best-target-group" disabled style="padding: 6px; border: 1px solid #ccc; border-radius: 6px; width: 160px; font-size: 13px; background: #eee;">
+                        <option value="">-- 轉入常規小組 --</option>
+                        ${groupOptionsHtml}
+                    </select>
+                </div>
+            `;
+        }).join('');
+    } catch (e) {
+        container.innerHTML = '<p style="color: red; text-align: center;">載入失敗，請稍候重試。</p>';
+    }
+}
+
+function toggleBestTargetSelect(bestName, checked) {
+    const select = document.getElementById(`targetGroup_${bestName}`);
+    if (select) {
+        select.disabled = !checked;
+        select.style.background = checked ? 'white' : '#eee';
+        if (!checked) select.value = '';
+    }
+}
+
+async function submitHappyConclude() {
+    const bestToUpgrade = [];
+    const checkBoxes = document.querySelectorAll('.conclude-best-upgrade:checked');
+    let hasError = false;
+
+    checkBoxes.forEach(cb => {
+        const name = cb.value;
+        const select = document.getElementById(`targetGroup_${name}`);
+        const targetGroup = select ? select.value : '';
+        if (!targetGroup) {
+            userNotification.warning(`請為勾選的 BEST【${name}】指派一個一般小組！`);
+            hasError = true;
+            return;
+        }
+        bestToUpgrade.push({ name: name, targetGroup: targetGroup });
+    });
+
+    if (hasError) return;
+    if (!confirm('確定要執行結案封存嗎？結案後將無法對本組再進行點名與名單修改，同工出席亦會同步寫回其所屬常規小組。')) return;
+
+    showLoading("正在進行幸福小組結案與封存處理，請勿關閉網頁...");
+    try {
+        const res = await callAPI('happyGroup_conclude', {
+            groupName: groupName,
+            bestToUpgrade: bestToUpgrade,
+            authCode: groupCode
+        });
+
+        if (res.success) {
+            userNotification.success(res.message);
+            toggleConcludeModal(false);
+            // 清除 localStorage 密碼快取
+            localStorage.removeItem(`group_code_${groupName}`);
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 1500);
+        } else {
+            userNotification.error('結案失敗：' + res.message);
+        }
+    } catch (e) {
+        userNotification.error("連線發生錯誤，結案失敗");
+    } finally {
+        hideLoading();
+    }
 }

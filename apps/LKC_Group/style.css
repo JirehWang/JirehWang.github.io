@@ -205,24 +205,30 @@ input, select, textarea {
 .stat-box { display: flex; flex-direction: column; align-items: flex-start; margin: 0 5px; }
 .stat-labels { width: 100%; display: flex; justify-content: space-between; font-size: 12px; color: #555; font-weight: bold; }
 
-function setActiveTab(element) {
-    // 移除所有 tab 的 active 狀態
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.style.backgroundColor = 'transparent';
-        btn.style.border = '2px solid #ddd';
-        btn.style.color = '#999';
-    });
-    
-    // 給點擊的按鈕加上 active 樣式（深綠色實心）
-    element.style.backgroundColor = '#4CAF50';
-    element.style.border = 'none';
-    element.style.color = '#fff';
+/* =========================================
+   5. 幸福小組頁籤與徽章樣式
+   ========================================= */
+.tabs-container {
+    margin-bottom: 20px;
 }
-
-// 頁面載入時，設定第一個按鈕為 active
-window.addEventListener('DOMContentLoaded', () => {
-    const firstTab = document.querySelector('.tab-btn.active');
-    if (firstTab) {
-        setActiveTab(firstTab);
-    }
-});
+.tab-select-btn {
+    color: #666;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s;
+}
+.tab-select-btn:hover {
+    color: #333;
+    background-color: #eee;
+}
+.tab-select-btn.active {
+    color: var(--primary-color);
+    border-bottom: 3px solid var(--primary-color);
+    background-color: #e8f5e9;
+}
+.happy-tag {
+    border-top: 5px solid #E91E63 !important; /* 粉紅色標註幸福小組 */
+}
+.role-best {
+    background: #fff3e0;
+    color: #ef6c00;
+} /* 💡 新增：BEST/慕道友 身分標籤 (橘色系) */
