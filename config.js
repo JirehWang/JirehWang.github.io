@@ -698,47 +698,6 @@
         plainText += String.fromCharCode(decCharCode);
       }
       return plainText;
-    });
-  }
-
-  // ============================================================
-  //  🔐 安全混淆與加解密工具 (XOR)
-  // ============================================================
-  const OBFUSCATION_KEY = "LKC-Secure-2026";
-  const ENC_PREFIX = "enc_";
-
-  window.encryptGroupCode = function(str) {
-    const safeStr = String(str || "");
-    if (!safeStr) return "";
-    if (safeStr.indexOf(ENC_PREFIX) === 0) return safeStr;
-    try {
-      var hex = "";
-      for (var i = 0; i < safeStr.length; i++) {
-        var charCode = safeStr.charCodeAt(i);
-        var encCharCode = charCode ^ OBFUSCATION_KEY.charCodeAt(i % OBFUSCATION_KEY.length);
-        var hexPart = encCharCode.toString(16);
-        if (hexPart.length < 2) hexPart = "0" + hexPart;
-        hex += hexPart;
-      }
-      return ENC_PREFIX + hex;
-    } catch (e) {
-      return safeStr;
-    }
-  };
-
-  window.decryptGroupCode = function(str) {
-    const safeStr = String(str || "");
-    if (!safeStr) return "";
-    if (safeStr.indexOf(ENC_PREFIX) !== 0) return safeStr;
-    try {
-      var hex = safeStr.substring(ENC_PREFIX.length);
-      var plainText = "";
-      for (var i = 0; i < hex.length; i += 2) {
-        var charCode = parseInt(hex.substring(i, i + 2), 16);
-        var decCharCode = charCode ^ OBFUSCATION_KEY.charCodeAt((i / 2) % OBFUSCATION_KEY.length);
-        plainText += String.fromCharCode(decCharCode);
-      }
-      return plainText;
     } catch (e) {
       return safeStr;
     }
@@ -785,7 +744,7 @@
       "鴻": "那鴻書", "那鴻": "那鴻書", "那鴻書": "那鴻書",
       "哈": "哈巴谷書", "哈巴谷": "哈巴谷書", "哈巴谷書": "哈巴谷書",
       "番": "西番雅書", "西番雅": "西番雅書", "西番雅書": "西番雅書",
-      "該": "哈該書", "哈該": "哈該書", "哈該書": "哈該書",
+      "該": "哈該書", "該": "哈該書", "哈該書": "哈該書",
       "亞": "撒迦利亞書", "撒迦利亞": "撒迦利亞書", "撒迦利亞書": "撒迦利亞書",
       "瑪": "瑪拉基書", "瑪拉基": "瑪拉基書", "瑪拉基書": "瑪拉基書",
 
@@ -819,6 +778,7 @@
     };
 
     function toHalfWidth(str) {
+      if (!str) return '';
       return str.replace(/[\uFF01-\uFF5E]/g, function(char) {
         return String.fromCharCode(char.charCodeAt(0) - 0xfee0);
       }).replace(/\u3000/g, ' ');
@@ -862,8 +822,6 @@
       .join('|');
       
     const numClass = '[0-9０-９]+|[一二三四五六七八九十百]+';
-    
-    // Refined regex: Split into two matching paths to avoid greedy digit-splitting issues.
     const scriptureRegex = new RegExp(
       '(' + bookRegexPart + ')\\s*(?:(' + numClass + ')(?:\\s*(?:章|:|：)\\s*|\\s+)(' + numClass + ')|([一二三四五六七八九十百]+)([0-9０-９]+))節?(?:\\s*(?:-|~|－|～|至|到)\\s*(' + numClass + ')節?(?![：:]))?',
       'g'
