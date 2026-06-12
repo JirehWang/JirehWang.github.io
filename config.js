@@ -830,24 +830,65 @@
       '(' + bookRegexPart + ')\\s*(?:(' + numClass + ')(?:\\s*(?:章|:|：)\\s*|\\s+)(' + numClass + ')|([一二三四五六七八九十百廿卅卌]+)([0-9０-９]+))節?(?:\\s*(?:-|~|－|～|至|到)\\s*(' + numClass + ')節?(?![：:]))?',
       'g'
     );
+    const chapSecRegex = new RegExp(
+      '^\\s*(?:節\\s*)?\\s*(?:(' + numClass + ')(?:\\s*(?:章|:|：)\\s*|\\s+)(' + numClass + ')|([一二三四五六七八九十百廿卅卌]+)([0-9０-９]+))節?(?:\\s*(?:-|~|－|～|至|到)\\s*(' + numClass + ')節?(?![：:]))?\\s*$',
+      'i'
+    );
 
     function format(rawText) {
       if (!rawText) return '';
-      return rawText.replace(scriptureRegex, function(match, book, chapA, secA, chapB, secB, endSec) {
-        const fullBook = BIBLE_BOOKS[book] || book;
-        const chap = chapA || chapB;
-        const sec = secA || secB;
+      const tokens = rawText.split(/([;；,，、\n\r]+)/);
+      let currentBook = null;
+      
+      for (let i = 0; i < tokens.length; i += 2) {
+        const token = tokens[i];
+        if (!token) continue;
         
-        const chapNum = chineseToNumber(toHalfWidth(chap));
-        const secNum = chineseToNumber(toHalfWidth(sec));
-        
-        let formatted = `${fullBook}${chapNum}:${secNum}`;
-        if (endSec) {
-          const endSecNum = chineseToNumber(toHalfWidth(endSec));
-          formatted += `-${endSecNum}`;
+        const bookMatch = token.match(scriptureRegex);
+        if (bookMatch) {
+          const singleBookMatch = token.match(new RegExp('(' + bookRegexPart + ')'));
+          if (singleBookMatch) {
+            const bookName = singleBookMatch[1];
+            currentBook = BIBLE_BOOKS[bookName] || bookName;
+          }
+          tokens[i] = token.replace(scriptureRegex, function(match, book, chapA, secA, chapB, secB, endSec) {
+            const fullBook = BIBLE_BOOKS[book] || book;
+            const chap = chapA || chapB;
+            const sec = secA || secB;
+            
+            const chapNum = chineseToNumber(toHalfWidth(chap));
+            const secNum = chineseToNumber(toHalfWidth(sec));
+            
+            let formatted = `${fullBook}${chapNum}:${secNum}`;
+            if (endSec) {
+              const endSecNum = chineseToNumber(toHalfWidth(endSec));
+              formatted += `-${endSecNum}`;
+            }
+            return formatted;
+          });
+        } else if (currentBook) {
+          const match = token.match(chapSecRegex);
+          if (match) {
+            const chap = match[1] || match[3];
+            const sec = match[2] || match[4];
+            const endSec = match[5];
+            
+            const chapNum = chineseToNumber(toHalfWidth(chap));
+            const secNum = chineseToNumber(toHalfWidth(sec));
+            
+            let formatted = `${currentBook}${chapNum}:${secNum}`;
+            if (endSec) {
+              const endSecNum = chineseToNumber(toHalfWidth(endSec));
+              formatted += `-${endSecNum}`;
+            }
+            
+            const leadSpace = token.match(/^\s*/)[0];
+            const trailSpace = token.match(/\s*$/)[0];
+            tokens[i] = leadSpace + formatted + trailSpace;
+          }
         }
-        return formatted;
-      });
+      }
+      return tokens.join('');
     }
 
     return { format };
