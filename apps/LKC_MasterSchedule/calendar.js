@@ -293,12 +293,22 @@ function _renderFieldInput(f, value) {
   const fid = f.fieldId;
   const label = escapeHtml(f['顯示名稱']);
   const req = f.required ? '<span class="text-danger">*</span>' : '';
+  
+  // 載入顯示時，若為經文欄位則即時格式化
+  if (f['顯示名稱'] === '經文' && window.BibleFormatter) {
+    value = window.BibleFormatter.format(value);
+  }
   const v = escapeAttr(value);
+
+  // 經文欄位加上 blur 自動標準化屬性
+  const onblurAttr = f['顯示名稱'] === '經文'
+    ? 'onblur="if(window.BibleFormatter) this.value = window.BibleFormatter.format(this.value)"'
+    : '';
 
   let inputHtml = '';
   switch (f['欄位類型']) {
     case 'longtext':
-      inputHtml = `<textarea class="form-control field-input" rows="3" data-fid="${fid}" data-req="${f.required}">${escapeHtml(value)}</textarea>`;
+      inputHtml = `<textarea class="form-control field-input" rows="3" data-fid="${fid}" data-req="${f.required}" ${onblurAttr}>${escapeHtml(value)}</textarea>`;
       break;
     case 'date':
       inputHtml = `<input type="date" class="form-control field-input" value="${v}" data-fid="${fid}" data-req="${f.required}">`;
@@ -335,7 +345,7 @@ function _renderFieldInput(f, value) {
     }
     case 'text':
     default:
-      inputHtml = `<input type="text" class="form-control field-input" value="${v}" data-fid="${fid}" data-req="${f.required}">`;
+      inputHtml = `<input type="text" class="form-control field-input" value="${v}" data-fid="${fid}" data-req="${f.required}" ${onblurAttr}>`;
   }
 
   return `<div class="mb-2">
@@ -901,7 +911,11 @@ async function handleExcelUpload(ev) {
         if (['日期', 'date', '子類型', '行程標題', '顯示標題', '標題'].indexOf(col) !== -1) return;
         const f = fieldByName[col];
         if (f && v !== '' && v !== null && v !== undefined) {
-          values[f.fieldId] = (v instanceof Date) ? v.toISOString().substring(0,10) : String(v);
+          let val = (v instanceof Date) ? v.toISOString().substring(0,10) : String(v);
+          if (col === '經文' && window.BibleFormatter) {
+            val = window.BibleFormatter.format(val);
+          }
+          values[f.fieldId] = val;
         }
       });
 

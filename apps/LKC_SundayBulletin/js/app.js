@@ -68,6 +68,21 @@ const App = {
   initFormFields() {
     document.addEventListener('input',  e => { const f = e.target.dataset.field; if (f) BulletinModel.set(f, e.target.value); });
     document.addEventListener('change', e => { const f = e.target.dataset.field; if (f) BulletinModel.set(f, e.target.value); });
+    
+    // 經文輸入框失去焦點時自動標準化格式
+    document.addEventListener('blur', e => {
+      const f = e.target.dataset.field;
+      if (f && (f === 'taiwanese.scripture' || f === 'mandarin.scripture')) {
+        if (window.BibleFormatter) {
+          const formatted = window.BibleFormatter.format(e.target.value);
+          if (formatted !== e.target.value) {
+            e.target.value = formatted;
+            BulletinModel.set(f, formatted);
+            this.showToast('經文格式已自動轉換為標準格式', 'success');
+          }
+        }
+      }
+    }, true);
   },
 
   // 禮拜類型選擇器：台華語 / 聯合(台語程序) / 聯合(華語程序)

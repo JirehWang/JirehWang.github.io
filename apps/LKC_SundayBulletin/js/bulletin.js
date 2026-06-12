@@ -107,7 +107,9 @@ const BulletinModel = {
       if (tw) {
         this.set('taiwanese.presider',     tw.speaker      || '');
         this.set('taiwanese.sermonTitle',  tw.sermonTitle  || '');
-        this.set('taiwanese.scripture',    tw.scripture    || '');
+        let scripture = tw.scripture || '';
+        if (window.BibleFormatter) scripture = window.BibleFormatter.format(scripture);
+        this.set('taiwanese.scripture',    scripture);
         this.set('taiwanese.callToWorship',tw.callToWorship|| '');
         this.set('taiwanese.goldenVerse',  tw.goldenVerse  || '');
         if (tw.hymn) this.set('taiwanese.openingHymn', tw.hymn);
@@ -116,7 +118,9 @@ const BulletinModel = {
       if (zh) {
         this.set('mandarin.presider',    zh.speaker      || '');
         this.set('mandarin.sermonTitle', zh.sermonTitle  || '');
-        this.set('mandarin.scripture',   zh.scripture    || '');
+        let scripture = zh.scripture || '';
+        if (window.BibleFormatter) scripture = window.BibleFormatter.format(scripture);
+        this.set('mandarin.scripture',   scripture);
         this.set('ministry.thisWeek.zh.presider', zh.speaker || '');
       }
       if (upcoming) {
