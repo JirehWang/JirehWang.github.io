@@ -123,9 +123,14 @@ function renderTable(isAdmin) {
             ? ' <span class="role-badge role-best" style="font-size:11px; padding:2px 6px; width:auto; border-radius:4px; vertical-align:middle; background: #fff3e0; color: #ef6c00;">幸福</span>'
             : '';
 
-        // 徹底刪除按鈕 (限管理員且幸福小組已結案)
-        const deleteBtn = (isAdmin && g.type === '幸福小組' && g.status === '結案')
-            ? `<button class="btn" style="background: #f44336; padding: 6px 12px; font-size: 13px; margin-left: 8px;" onclick="deleteHappyGroup('${g.name}')">🗑️ 徹底刪除</button>`
+        // 結案按鈕 (限管理員且未結案)
+        const concludeBtn = (isAdmin && g.status !== '結案')
+            ? `<button class="btn" style="background: #e91e63; padding: 6px 12px; font-size: 13px; margin-left: 8px;" onclick="concludeGroup('${g.name}')">🍀 結案</button>`
+            : '';
+
+        // 徹底刪除按鈕 (限管理員且已結案)
+        const deleteBtn = (isAdmin && g.status === '結案')
+            ? `<button class="btn" style="background: #f44336; padding: 6px 12px; font-size: 13px; margin-left: 8px;" onclick="deleteGroup('${g.name}')">🗑️ 徹底刪除</button>`
             : '';
         
         return `
@@ -135,7 +140,7 @@ function renderTable(isAdmin) {
                 <td>${statusBadge}</td>
                 ${dateCell}
                 <td>
-                    <button class="btn" style="background: #2196F3; padding: 6px 12px; font-size: 13px;" onclick="openEditModal(${index})">✏️ 編輯</button>${deleteBtn}
+                    <button class="btn" style="background: #2196F3; padding: 6px 12px; font-size: 13px;" onclick="openEditModal(${index})">✏️ 編輯</button>${concludeBtn}${deleteBtn}
                 </td>
             </tr>
         `;
@@ -214,8 +219,32 @@ async function saveGroupEdit() {
     }
 }
 
-async function deleteHappyGroup(groupName) {
-    if (!confirm(`⚠️ 警告：確定要徹底刪除幸福小組【${groupName}】嗎？\n\n此動作將永久刪除該組在試算表中的所有分頁（名單與點名紀錄），且不可復原！`)) {
+async function concludeGroup(groupName) {
+    if (!confirm(`🍀 確定要將小組【${groupName}】結案嗎？\n\n此動作將會進行雲端封存，且會移除所有同工與成員的此小組關聯（但保留其在會友名單的名字），確定要執行嗎？`)) {
+        return;
+    }
+    showLoading(`正在將小組【${groupName}】結案中...`);
+    try {
+        const res = await callAPI('happyGroup_conclude', { 
+            groupName: groupName, 
+            bestToUpgrade: [], 
+            authCode: verifiedAdminCode 
+        });
+        if (res.success) {
+            userNotification.success('✅ 小組已成功結案！');
+            await loadGroups();
+        } else {
+            userNotification.error('❌ 結案失敗：' + res.message);
+        }
+    } catch (e) {
+        userNotification.error("連線發生錯誤: " + e.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+async function deleteGroup(groupName) {
+    if (!confirm(`⚠️ 警告：確定要徹底刪除小組【${groupName}】嗎？\n\n此動作將永久刪除該組在試算表中的所有分頁（名單與點名紀錄），且不可復原！`)) {
         return;
     }
     showLoading(`正在徹底刪除【${groupName}】...`);
