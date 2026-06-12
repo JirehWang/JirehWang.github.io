@@ -110,8 +110,13 @@ const BulletinModel = {
         let scripture = tw.scripture || '';
         if (window.BibleFormatter) scripture = window.BibleFormatter.format(scripture);
         this.set('taiwanese.scripture',    scripture);
-        this.set('taiwanese.callToWorship',tw.callToWorship|| '');
-        this.set('taiwanese.goldenVerse',  tw.goldenVerse  || '');
+        let callToWorship = tw.callToWorship || '';
+        if (window.BibleFormatter) callToWorship = window.BibleFormatter.format(callToWorship);
+        this.set('taiwanese.callToWorship', callToWorship);
+
+        let goldenVerse = tw.goldenVerse || '';
+        if (window.BibleFormatter) goldenVerse = window.BibleFormatter.format(goldenVerse);
+        this.set('taiwanese.goldenVerse',  goldenVerse);
         if (tw.hymn) this.set('taiwanese.openingHymn', tw.hymn);
         this.set('ministry.thisWeek.tw.presider', tw.speaker || '');
       }

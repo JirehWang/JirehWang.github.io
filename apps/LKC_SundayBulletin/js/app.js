@@ -72,7 +72,7 @@ const App = {
     // 經文輸入框失去焦點時自動標準化格式
     document.addEventListener('blur', e => {
       const f = e.target.dataset.field;
-      if (f && (f === 'taiwanese.scripture' || f === 'mandarin.scripture')) {
+      if (f && (f === 'taiwanese.scripture' || f === 'mandarin.scripture' || f === 'taiwanese.callToWorship' || f === 'taiwanese.goldenVerse')) {
         if (window.BibleFormatter) {
           const formatted = window.BibleFormatter.format(e.target.value);
           if (formatted !== e.target.value) {

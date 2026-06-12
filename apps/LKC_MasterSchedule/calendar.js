@@ -318,14 +318,15 @@ function _renderFieldInput(f, value) {
   const label = escapeHtml(f['顯示名稱']);
   const req = f.required ? '<span class="text-danger">*</span>' : '';
   
-  // 載入顯示時，若為經文欄位則即時格式化
-  if (f['顯示名稱'] === '經文' && window.BibleFormatter) {
+  // 載入顯示時，若為經文或宣召欄位則即時格式化
+  const isScriptureField = f['顯示名稱'] === '經文' || f['顯示名稱'] === '宣召';
+  if (isScriptureField && window.BibleFormatter) {
     value = window.BibleFormatter.format(value);
   }
   const v = escapeAttr(value);
 
-  // 經文欄位加上 blur 自動標準化屬性
-  const onblurAttr = f['顯示名稱'] === '經文'
+  // 經文/宣召欄位加上 blur 自動標準化屬性
+  const onblurAttr = isScriptureField
     ? 'onblur="if(window.BibleFormatter) this.value = window.BibleFormatter.format(this.value)"'
     : '';
 
@@ -936,7 +937,7 @@ async function handleExcelUpload(ev) {
         const f = fieldByName[col];
         if (f && v !== '' && v !== null && v !== undefined) {
           let val = (v instanceof Date) ? v.toISOString().substring(0,10) : String(v);
-          if (col === '經文' && window.BibleFormatter) {
+          if ((col === '經文' || col === '宣召') && window.BibleFormatter) {
             val = window.BibleFormatter.format(val);
           }
           values[f.fieldId] = val;
