@@ -17,7 +17,7 @@ const BulletinModel = {
         apostlesCreed: true,
         responsivePsalm: '', prayer1Note: '',
         scripture: '', choirSong: '', sermonTitle: '',
-        responseHymn: '', goldenVerse: '',
+        responseHymn: '', goldenVerse: '', goldenVerseText: '',
         offeringNote: '', doxologyHymn: '',
         bankAccount: CONFIG.BANK_ACCOUNT
       },
@@ -117,6 +117,9 @@ const BulletinModel = {
         let goldenVerse = tw.goldenVerse || '';
         if (window.BibleFormatter) goldenVerse = window.BibleFormatter.format(goldenVerse);
         this.set('taiwanese.goldenVerse',  goldenVerse);
+        let goldenVerseText = tw.goldenVerseText || '';
+        if (window.BibleFormatter) goldenVerseText = window.BibleFormatter.format(goldenVerseText);
+        this.set('taiwanese.goldenVerseText', goldenVerseText);
         if (tw.hymn) this.set('taiwanese.openingHymn', tw.hymn);
         this.set('ministry.thisWeek.tw.presider', tw.speaker || '');
       }
@@ -126,6 +129,10 @@ const BulletinModel = {
         let scripture = zh.scripture || '';
         if (window.BibleFormatter) scripture = window.BibleFormatter.format(scripture);
         this.set('mandarin.scripture',   scripture);
+        // Mandarin golden verse text (if available)
+        let goldenVerseText = zh.goldenVerseText || '';
+        if (window.BibleFormatter) goldenVerseText = window.BibleFormatter.format(goldenVerseText);
+        this.set('mandarin.goldenVerseText', goldenVerseText);
         this.set('ministry.thisWeek.zh.presider', zh.speaker || '');
       }
       if (upcoming) {

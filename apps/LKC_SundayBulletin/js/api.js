@@ -264,6 +264,33 @@ const ChurchAPI = {
       goldenVerse:   zhEvent.goldenVerse   || ''
     } : null;
 
+    // If golden verse reference exists, fetch its text via queryBible and attach as goldenVerseText
+    async function fetchGoldenText(ref) {
+      if (!ref) return '';
+      // Simple parser: expect "Book Chapter:Verse" format, ignore extra parts
+      const parts = ref.trim().split(/\s+/);
+      if (parts.length < 2) return '';
+      const book = parts[0];
+      const chapSec = parts[1];
+      const [chap, sec] = chapSec.split(':');
+      try {
+        const res = await this.queryBible(book, chap, sec || '');
+        if (res && res.success && Array.isArray(res.records)) {
+          return res.records.map(r => r.text).join(' ');
+        }
+      } catch (e) {
+        console.error('[ChurchAPI fetchGoldenText] error', e);
+      }
+      return '';
+    }
+
+    if (twService && twService.goldenVerse) {
+      twService.goldenVerseText = await fetchGoldenText.call(this, twService.goldenVerse);
+    }
+    if (zhService && zhService.goldenVerse) {
+      zhService.goldenVerseText = await fetchGoldenText.call(this, zhService.goldenVerse);
+    }
+
     const today = new Date(date);
     const limit = new Date(today); limit.setMonth(limit.getMonth() + 3);
     const upcoming = events

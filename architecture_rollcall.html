@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="林口教會點名與出席系統的完整技術架構文件，涵蓋主日出席、小組點名、三層快取架構及資料庫結構。">
+    <title>⛪ 林口教會點名系統 — 架構與運作文件</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Mermaid.js CDN for interactive diagrams -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            themeVariables: {
+                background: '#1e293b',
+                primaryColor: '#3b82f6',
+                primaryTextColor: '#f8fafc',
+                lineColor: '#64748b',
+                secondaryColor: '#8b5cf6',
+                tertiaryColor: '#0f172a'
+            }
+        });
+    </script>
+
+    <style>
+        :root {
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --bg-code: #0b0f19;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --accent-blue: #3b82f6;
+            --accent-purple: #8b5cf6;
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-rose: #f43f5e;
+            --border-color: #334155;
+            --glow-color: rgba(59, 130, 246, 0.15);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header Gradient styling */
+        header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 70%, #1e1b4b 100%);
+            border-bottom: 1px solid var(--border-color);
+            padding: 40px 24px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        header h1 {
+            font-family: 'Outfit', 'Noto Sans TC', sans-serif;
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #60a5fa, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+            letter-spacing: 1.5px;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Container & Grid layout */
+        .wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: row;
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 24px;
+            gap: 24px;
+        }
+
+        /* Sidebar Navigation */
+        aside {
+            width: 280px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .nav-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 16px;
+            position: sticky;
+            top: 24px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+        }
+
+        .nav-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            font-weight: 700;
+            padding-left: 8px;
+        }
+
+        .nav-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            padding: 12px 16px;
+            font-size: 0.95rem;
+            text-align: left;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+
+        .nav-btn:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+            transform: translateX(4px);
+        }
+
+        .nav-btn.active {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(139, 92, 246, 0.1) 100%);
+            color: #60a5fa;
+            font-weight: 600;
+            border-left: 4px solid var(--accent-blue);
+            box-shadow: inset 0 0 10px rgba(59, 130, 246, 0.1);
+        }
+
+        /* Main Content Area */
+        main {
+            flex-grow: 1;
+            min-width: 0; /* Prevents flex items from overflowing */
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.35s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Document Elements Styles */
+        h2 {
+            font-family: 'Outfit', 'Noto Sans TC', sans-serif;
+            font-size: 1.6rem;
+            color: #f8fafc;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        h3 {
+            font-family: 'Outfit', 'Noto Sans TC', sans-serif;
+            font-size: 1.2rem;
+            color: #60a5fa;
+            margin-top: 28px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        p {
+            margin-bottom: 16px;
+            color: #cbd5e1;
+            font-size: 1rem;
+        }
+
+        /* Cards/Sections layout */
+        .card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transition: border-color 0.25s, box-shadow 0.25s;
+        }
+
+        .card:hover {
+            border-color: #475569;
+            box-shadow: 0 6px 18px rgba(59, 130, 246, 0.08);
+        }
+
+        /* Highlights & Alerts */
+        .alert-box {
+            border-left: 4px solid var(--accent-blue);
+            background-color: rgba(59, 130, 246, 0.07);
+            padding: 16px;
+            border-radius: 0 12px 12px 0;
+            margin: 20px 0;
+            font-size: 0.95rem;
+        }
+
+        .alert-box.important {
+            border-left-color: var(--accent-purple);
+            background-color: rgba(139, 92, 246, 0.07);
+        }
+
+        .alert-box.warning {
+            border-left-color: var(--accent-amber);
+            background-color: rgba(245, 158, 11, 0.07);
+        }
+
+        .alert-box.tip {
+            border-left-color: var(--accent-emerald);
+            background-color: rgba(16, 185, 129, 0.07);
+        }
+
+        /* Table Design */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0 24px;
+            font-size: 0.9rem;
+            text-align: left;
+        }
+
+        th {
+            background-color: rgba(255, 255, 255, 0.03);
+            color: #94a3b8;
+            font-weight: 600;
+            padding: 12px 16px;
+            border-bottom: 2px solid var(--border-color);
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border-color);
+            color: #e2e8f0;
+        }
+
+        tr:hover td {
+            background-color: rgba(255, 255, 255, 0.01);
+        }
+
+        /* Code Blocks */
+        pre {
+            background-color: var(--bg-code);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            overflow-x: auto;
+            margin: 16px 0;
+        }
+
+        code {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem;
+            color: #e2e8f0;
+        }
+
+        p code, li code, td code {
+            background-color: rgba(255, 255, 255, 0.08);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: #60a5fa;
+        }
+
+        /* Lists */
+        ul, ol {
+            margin-left: 24px;
+            margin-bottom: 16px;
+            color: #cbd5e1;
+        }
+
+        li {
+            margin-bottom: 6px;
+        }
+
+        /* Badge/Tags */
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .badge.post { background-color: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+        .badge.get { background-color: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .badge.cache { background-color: rgba(139, 92, 246, 0.15); color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.3); }
+        .badge.db { background-color: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+
+        /* Diagram containers */
+        .diagram-container {
+            background-color: #1e293b;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            margin: 20px 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Footer styling */
+        footer {
+            border-top: 1px solid var(--border-color);
+            background-color: #0b0f19;
+            padding: 24px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 40px;
+        }
+
+        /* Responsive breakdown */
+        @media (max-width: 900px) {
+            .wrapper {
+                flex-direction: column;
+            }
+            aside {
+                width: 100%;
+            }
+            .nav-card {
+                position: static;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>林口教會點名與出席系統</h1>
+    <p>系統架構、底層設計與 API 運作維護指南</p>
+</header>
+
+<div class="wrapper">
+    <!-- Sidebar Navigation -->
+    <aside>
+        <div class="nav-card">
+            <div class="nav-title">架構目錄</div>
+            <button class="nav-btn active" id="btn-overview" onclick="switchTab('overview')">🗺️ 1. 系統總體架構</button>
+            <button class="nav-btn" id="btn-sunday" onclick="switchTab('sunday')">⛪ 2. 主日出席系統</button>
+            <button class="nav-btn" id="btn-group" onclick="switchTab('group')">👥 3. 小組點名系統</button>
+            <button class="nav-btn" id="btn-api" onclick="switchTab('api')">🔌 4. API 與快取機制</button>
+            <button class="nav-btn" id="btn-sheets" onclick="switchTab('sheets')">🗄️ 5. 試算表資料結構</button>
+            <button class="nav-btn" id="btn-ops" onclick="switchTab('ops')">🛠️ 6. 部署與維護手冊</button>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main>
+        <!-- Tab 1: Overview -->
+        <section id="content-overview" class="tab-content active">
+            <div class="card">
+                <h2>🗺️ 系統總體架構</h2>
+                <p>林口教會點名與出席系統採用<strong>前後端分離</strong>的輕量化三層式快取架構。前端靜態網頁託管於 GitHub Pages，後端利用 Google Apps Script (GAS) 做為資料邏輯處理引擎，並將 Google Sheets 做為主要資料庫。為了大幅提升效能並降低 GAS 的配額上限消耗，引入 Firebase Realtime Database (RTDB) 作為高效能快取層。</p>
+                
+                <div class="alert-box tip">
+                    <strong>💡 設計核心：</strong> 由於大部分請求為唯讀操作（如取得名單、讀取歷史圖表），Firebase 快取命中速度約 50ms（相較於直接呼叫 GAS 耗時 2~5 秒），為使用者提供極速的載入體驗，同時降低 GAS 額度消耗高達 80% 以上。
+                </div>
+
+                <h3>🔄 三層快取運作流程</h3>
+                <div class="diagram-container">
+                    <div class="mermaid">
+                    graph TD
+                        Browser[使用者瀏覽器 Frontend] -->|1. 呼叫 churchAPI| Cache{1st: Firebase RTDB Cache}
+                        Cache -->|命中 50ms| Return[返回資料給前端]
+                        Cache -->|未命中 Cache Miss| GAS[2nd: Google Apps Script]
+                        GAS -->|3. 讀取真實資料| Sheets[(3rd: Google Sheets DB)]
+                        GAS -->|4. 將結果寫入快取| Cache
+                        GAS -->|5. 返回資料| Return
+                        
+                        style Browser fill:#3b82f6,stroke:#1d4ed8,stroke-width:2px,color:#fff
+                        style Cache fill:#8b5cf6,stroke:#6d28d9,stroke-width:2px,color:#fff
+                        style GAS fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#fff
+                        style Sheets fill:#10b981,stroke:#047857,stroke-width:2px,color:#fff
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>📂 系統整合狀態與架構演進</h3>
+                <p>原先系統分散在多個獨立的 GAS 專案及各自的試算表中。在進行 <strong>三合一整合（方案 C）</strong> 後，主日點名、小組點名與事工管理已完全整合至<strong>同一個後端 GAS 專案中</strong>，以最大程度消除跨 GAS 的 <code>UrlFetchApp</code> 通訊延遲，並共用同一套 CacheService 快取機制。</p>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>子系統名稱</th>
+                            <th>前端位置 (apps/)</th>
+                            <th>後端 GAS 專案</th>
+                            <th>整合與快取狀態</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>⛪ 主日出席點名</td>
+                            <td><code>LKC_SundayserviceAttendance</code></td>
+                            <td><strong>主日_測試版 GAS</strong> (主端)</td>
+                            <td><span class="badge get">已整合</span> <span class="badge cache">快取啟用</span></td>
+                        </tr>
+                        <tr>
+                            <td>👥 小組點名系統</td>
+                            <td><code>LKC_Group</code></td>
+                            <td><strong>主日_測試版 GAS</strong> (共用)</td>
+                            <td><span class="badge get">已整合</span> <span class="badge cache">快取啟用</span></td>
+                        </tr>
+                        <tr>
+                            <td>📊 事工管理系統</td>
+                            <td><code>LKC_MinistrySchedule</code></td>
+                            <td><strong>主日_測試版 GAS</strong> (action加前綴)</td>
+                            <td><span class="badge get">已整合</span> <span class="badge cache">快取啟用</span></td>
+                        </tr>
+                        <tr>
+                            <td>📅 教會行事曆</td>
+                            <td><code>LKC_MasterSchedule</code></td>
+                            <td>獨立 行事曆 GAS</td>
+                            <td><span class="badge db">待併入後端</span> <span class="badge cache">快取啟用</span></td>
+                        </tr>
+                        <tr>
+                            <td>🎵 敬拜團服事</td>
+                            <td><code>LKC_worship</code></td>
+                            <td>獨立 敬拜團 GAS</td>
+                            <td><span class="badge db">待併入後端</span> <span class="badge cache">快取啟用</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Tab 2: Sunday Attendance -->
+        <section id="content-sunday" class="tab-content">
+            <div class="card">
+                <h2>⛪ 主日出席點名系統</h2>
+                <p>主日出席點名系統是教會的核心，負責記錄每週主日崇拜中不同語系、場次、主日學班別的出席人數，並做為全教會會友名單的「<strong>單一真實來源 (Single Source of Truth, SSOT)</strong>」。</p>
+                
+                <h3>🌟 關鍵核心功能</h3>
+                <ul>
+                    <li><strong>會友資料庫 (Master Members)</strong>：包含會友的姓名、性別、系統編號及專屬的 QR Code，不將「小組/身分」欄位交由主日單獨修改，而由小組系統同步與主日連動。</li>
+                    <li><strong>二維碼/個人名卡生成</strong>：自動將會友的「系統編號 (如: LK00001)」編碼為 QR Code，利用 Google Slides 模板批次產出精美的個人名卡，儲存在 Google Drive 中供列印。</li>
+                    <li><strong>場次分級與智慧點名</strong>：點名介面支援「華語」、「台語」、「聯合」、「主日學」等分區。手機或掃描器刷 QR Code 時，後端 <code>syncClickToServer</code> 會即時寫入，並保證多裝置、多點即時同步。</li>
+                    <li><strong>數據趨勢分析</strong>：提供出席人數統計、出勤率排行榜以及長期出席趨勢圖表。</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3>🛠️ 後端 GAS 模組與職責</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>GAS 檔案 (主 GAS 內)</th>
+                            <th>主要負責業務與函數</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>Core.js</code></td>
+                            <td><code>doPost()</code> / <code>doGet()</code> 路由派發、安全性 Token 檢驗。處理前端 API 請求的總入口。</td>
+                        </tr>
+                        <tr>
+                            <td><code>MemberDB.js</code></td>
+                            <td>會友名單 CRUD、自動計算下一個 <code>LKXXXXX</code> 系統編號、以及調用 Slides API 來產生與預覽個人卡片（<code>generateMemberCard</code> / <code>previewMemberCard</code>）。</td>
+                        </tr>
+                        <tr>
+                            <td><code>AttendanceDB.js</code></td>
+                            <td>主日點名核心邏輯、掃描 QR 碼後的簽到（<code>syncClickToServer</code>）、即時同步狀態取得（<code>getQuickSyncData</code>）及點名單載入。</td>
+                        </tr>
+                        <tr>
+                            <td><code>ReportService.js</code></td>
+                            <td>計算主日出席率排行榜、歷史出席人數統計與分析（<code>getAttendanceStats</code> / <code>getAttendanceTrend</code>）。</td>
+                        </tr>
+                        <tr>
+                            <td><code>ChartDB.js</code></td>
+                            <td>圖表資料轉換與快取包裝（<code>getCategoryChartData</code>）。</td>
+                        </tr>
+                        <tr>
+                            <td><code>QRCODE.js</code> / <code>QRcodeMaker.js</code></td>
+                            <td>負責生成與解析 QR 碼的底層程式與輔助庫。</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>📱 前端頁面元件 (apps/LKC_SundayserviceAttendance)</h3>
+                <ul>
+                    <li><strong>index.html (主入口)</strong>：導覽與選單，跳轉至點名、名單、統計與圖表。</li>
+                    <li><strong>attendance.html (點名主頁)</strong>：展示各語系場次名單，提供手動勾選或 QR Code 掃描點名。支援多裝置即時同步，防重複覆蓋。</li>
+                    <li><strong>members.html (會友管理)</strong>：管理員專用。進行會友的新增、編輯、刪除，並在此產生或下載會友的個人專屬卡片。</li>
+                    <li><strong>STATS.html / Chart.html (統計與圖表)</strong>：以視覺化報表與折線圖呈現出席變化與出席率排行榜。</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Tab 3: Group Roll Call -->
+        <section id="content-group" class="tab-content">
+            <div class="card">
+                <h2>👥 小組點名系統</h2>
+                <p>小組點名系統旨在協助各個小組長或輔導輕鬆管理小組日常聚會出勤。系統特別設計了<strong>代碼認證</strong>機制，讓小組長只需輸入小組專屬代碼（如: <code>A01</code>）即可登入該小組，不需要複雜的帳號密碼登入。</p>
+                
+                <h3>🌟 關鍵核心功能</h3>
+                <ul>
+                    <li><strong>代碼快速登入 (Code Authentication)</strong>：在登入頁輸入專屬代碼即可鎖定該小組。另設有最高權限管理者密碼（預設為 <code>LK31</code>），可管理所有小組及檢視全小組統計。</li>
+                    <li><strong>與主日名單智慧連動</strong>：新增組員時，系統會調用 <code>getMemberSuggestions</code> 從主日 Master 名單載入會友候選，避免手打打錯或同音字造成的混亂。當從小組名單中移除組員時，會自動同步修正主日 Master 名單中的「所屬小組與身分」欄。</li>
+                    <li><strong>小組專有設定 (拖曳與暱稱)</strong>：小組長可以自由對組員名單進行<strong>拖曳排序</strong>（採用 Sortable.js 手把 ⋮⋮ ），並且可以為組員加上小組內專屬的<strong>暱稱</strong>（如：小美），在點名介面會以 <code>姓名 (暱稱)</code> 形式呈現。</li>
+                    <li><strong>完美隔離陪伴同工</strong>：由於陪伴同工（如牧長、輔導）會列席多個小組，在計算小組「出勤率」與「統計報表」時，後端會<strong>自動排除角色為「陪伴同工」的成員</strong>，以反映真實組員出席率。</li>
+                    <li><strong>保留歷史出席紀錄</strong>：如果某成員已離開小組或被移除，只要他在歷史的某一聚會天有出席，在查詢該天單日點名統計時，他仍會正確列在出席名單上，並標註為 <code>(歷史)</code>，確保歷史數據不受影響。</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3>🛠️ 後端 GAS 模組與職責</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>GAS 檔案 (主 GAS 內)</th>
+                            <th>主要負責業務與函數</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>GroupCore.js</code></td>
+                            <td>小組清單管理、代碼登入驗證（<code>verifyGroup</code> / <code>findGroupByCode</code>）、小組設定更新。提供小組 datalist 的自動補全建議（<code>getMemberSuggestions</code>）與管理者專用的全教會小組歸組成員清單（<code>getAllGroupMembers</code>）。</td>
+                        </tr>
+                        <tr>
+                            <td><code>GroupAttendance.js</code></td>
+                            <td>檢查小組名單初始化狀態（<code>checkGroupStatus</code>）、初始化小組分頁（<code>initGroup</code>）、提交小組點名結果（<code>submitAttendance</code>）以及更新名單與私有屬性（<code>updateMemberList</code>）。<strong>重要</strong>：在更新名單時，會主動比對被移出者，同步更新主日資料。</td>
+                        </tr>
+                        <tr>
+                            <td><code>GroupStatistics.js</code></td>
+                            <td>計算單一小組或全小組的歷史出勤率（<code>getStats</code> / <code>getAllGroupsStats</code>）、以及提供對外公開的「本週各小組聚會人數簡報（<code>getWeeklyReport</code>）」。</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>📱 前端頁面元件 (apps/LKC_Group)</h3>
+                <ul>
+                    <li><strong>index.html (小組入口頁)</strong>：輸入小組代碼登入的介面。管理員在此可輸入最高權限密碼進入全局管理。</li>
+                    <li><strong>group.html (點名首頁)</strong>：列出該小組的成員，按鈕切換出席與缺席。填入新朋友欄位，送出當日點名。</li>
+                    <li><strong>manage.html (名單管理)</strong>：提供 Sortable.js 拖曳排序小組成員、修改小組成員暱稱、從主日 datalist 自動完成框中新增成員、或將成員移除。</li>
+                    <li><strong>stats.html (統計報表)</strong>：以視覺化報表呈現該小組在選定日期範圍內組員的點名率、主日出席次數、主日學出席次數，並能切換成單日模式查看點名詳情。</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Tab 4: API & Cache Layer -->
+        <section id="content-api" class="tab-content">
+            <div class="card">
+                <h2>🔌 API 與快取機制</h2>
+                <p>本系統使用 Firebase Realtime Database (RTDB) 架設高速唯讀快取層，核心原理為：<strong>在寫入（CRUD）時進行主動快取失效 (Active Cache Invalidation)</strong>。前端的 <code>config.js</code> 與後端 GAS 皆整合了對應的 Invalidation 流程，以確保資料在極速讀取的同時，維持<strong>強一致性 (Strong Consistency)</strong>。</p>
+
+                <div class="alert-box warning">
+                    <strong>⚠️ 安全提醒：</strong> Firebase 的 Web API Key 公開於 <code>firebase-config.js</code> 中。為了防止盜用，此 API Key 已在 GCP Console 啟用 <strong>HTTP Referrer 限制</strong>，僅允許 <code>jirehwang.github.io/*</code> 的請求呼叫。此外，RTDB Rules 限制為 <code>"cache.write = auth != null"</code>，前端唯讀，只有擁有 Service Account 的後端 GAS 可以寫入/更新。
+                </div>
+
+                <h3>🔄 三層式快取失效 (Invalidation) 機制</h3>
+                <ol>
+                    <li><strong>第一層：前端失效</strong> — 當前端呼叫寫入 API 時（如 <code>updateMember</code>），<code>config.js</code> 中的 <code>_INVALIDATE_ON_WRITE</code> 規則會自動清空 Firebase 中所有相關 Read API 的快取。</li>
+                    <li><strong>第二層：後端 GAS 失效</strong> — GAS 的寫入業務函式（如 <code>updateGroupInfo</code>）在完成 Google Sheets 的寫入後，會同步呼叫 <code>firebaseInvalidate([...])</code>，主動刪除快取。</li>
+                    <li><strong>第三層：Sheets 試算表 onEdit 失效</strong> — 如果管理員直接在 Google Sheets 試算表中手動修改資料，Sheet 的 <code>onEdit</code> Trigger 會捕捉此變動，並透過 <code>FirebaseSync.js</code> 清空對應的快取區塊。</li>
+                </ol>
+            </div>
+
+            <div class="card">
+                <h3>📝 快取失效規則表 (精選)</h3>
+                <p>下表列出當用戶執行寫入動作時，系統在前端與後端將主動清除哪些讀取快取（使下次載入時重新抓取真實資料）：</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>執行寫入 Action</th>
+                            <th>主動失效的快取 Topics (前端 + 後端)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>addMember</code><br><code>updateMember</code><br><code>deleteMember</code></td>
+                            <td><code>getAllMembers</code> (主日名單), <code>getAllGroupMembers</code> (小組總名單), <code>getMemberSuggestions</code> (小組 datalist 候選), <code>getStats</code>, <code>getAllGroupsStats</code>, <code>getSmartAttendanceList</code> (主日點名介面)</td>
+                        </tr>
+                        <tr>
+                            <td><code>createGroup</code><br><code>updateGroupInfo</code></td>
+                            <td><code>getGroups</code> (小組清單), <code>getAdminGroupsList</code>, <code>findGroupByCode</code>, <code>verifyGroup</code></td>
+                        </tr>
+                        <tr>
+                            <td><code>updateMemberList</code></td>
+                            <td><code>checkGroupStatus</code> (小組點名首頁), <code>getStats</code>, <code>getAllGroupsStats</code>, <code>getAllGroupMembers</code>, <code>getMemberSuggestions</code></td>
+                        </tr>
+                        <tr>
+                            <td><code>saveAttendance</code><br><code>revokeAttendance</code></td>
+                            <td><code>getSmartAttendanceList</code>, <code>getWeeklyReport</code>, <code>getAttendanceStats</code>, <code>getAttendanceTrend</code>, <code>getCategoryChartData</code></td>
+                        </tr>
+                        <tr>
+                            <td><code>submitAttendance</code><br><code>updateAttendanceRecord</code><br><code>deleteAttendanceRecord</code></td>
+                            <td><code>checkGroupStatus</code>, <code>getWeeklyReport</code>, <code>getStats</code>, <code>getAllGroupsStats</code>, <code>getCategoryChartData</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>⚡ GAS 內部 CacheService 機制</h3>
+                <p>除了外部的 Firebase 快取外，GAS 內部也建立了 <code>CacheService</code> 機制（由 <code>CacheManager.js</code> 管理）。在同一次 HTTP 請求，或是極短時間內（TTL 設為 5.5 小時），若有多個函式都需要取得會友名單，會優先從 GAS 本地的 <code>CacheService</code> 讀取，以極大化降低 Sheet I/O 次數，避免觸發 Google 的試算表併發讀取限制。</p>
+                <p>為了防止冷啟動延遲，系統設定了 <code>keepWarm</code> 排程，每 4 小時會自動喚醒 GAS 並重建 <code>CacheService</code> 快取，確保執行時永遠處於熱機狀態。</p>
+            </div>
+        </section>
+
+        <!-- Tab 5: Sheets & Data Models -->
+        <section id="content-sheets" class="tab-content">
+            <div class="card">
+                <h2>🗄️ 試算表資料結構</h2>
+                <p>系統資料分佈在兩個 Google Sheets 試算表中：<strong>主日出席試算表</strong>與<strong>小組點名試算表</strong>。兩者透過系統編號（UID，格式如 <code>LK00001</code>）進行對應關聯，避免因改名或重名造成的點名歷史錯亂。</p>
+                
+                <h3>1. 主日出席試算表 (Master Sheet)</h3>
+                <p><strong>分頁：<code>會友名單</code> (單一真實來源)</strong></p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>欄位索引</th>
+                            <th>欄位名稱</th>
+                            <th>資料格式 / 說明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>A (Col 1)</td>
+                            <td>姓名</td>
+                            <td>字串。唯一值。</td>
+                        </tr>
+                        <tr>
+                            <td>B (Col 2)</td>
+                            <td>性別</td>
+                            <td>字串。男 / 女。</td>
+                        </tr>
+                        <tr>
+                            <td>C (Col 3)</td>
+                            <td>建立日期</td>
+                            <td>日期。首次新增時間。</td>
+                        </tr>
+                        <tr>
+                            <td>D (Col 4)</td>
+                            <td>備註</td>
+                            <td>字串。一般備註。</td>
+                        </tr>
+                        <tr>
+                            <td>E (Col 5)</td>
+                            <td>不列入統計</td>
+                            <td>布林值。TRUE / FALSE。用於已搬遷或特殊會友。</td>
+                        </tr>
+                        <tr>
+                            <td>F (Col 6)</td>
+                            <td>異動日期</td>
+                            <td>日期。最後一次修改資料的時間。</td>
+                        </tr>
+                        <tr>
+                            <td>G (Col 7)</td>
+                            <td>異動紀錄</td>
+                            <td>字串。系統自動生成的修改 Log。</td>
+                        </tr>
+                        <tr>
+                            <td>H (Col 8)</td>
+                            <td>系統編號</td>
+                            <td>字串。唯一識別碼，格式如 <code>LK00001</code>。<strong>重要關聯 Key</strong>。</td>
+                        </tr>
+                        <tr>
+                            <td>I (Col 9)</td>
+                            <td>所屬小組</td>
+                            <td>字串。支援多組格式，以「、」分隔，如：<code>大衛組、青少組</code>。</td>
+                        </tr>
+                        <tr>
+                            <td>J (Col 10)</td>
+                            <td>身分</td>
+                            <td>字串。支援多組格式，以「、」分隔，如：<code>核心同工(大衛組)、一般同工(青少組)</code>。</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p><strong>分頁：<code>台語點名紀錄</code> / <code>華語點名紀錄</code> / <code>聯合點名紀錄</code> 等</strong></p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>欄位</th>
+                            <th>說明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>日期 (A)</td>
+                            <td>點名的主日日期，格式如 <code>yyyy-MM-dd</code>。</td>
+                        </tr>
+                        <tr>
+                            <td>出席人員 (B)</td>
+                            <td>以系統編號 (UID) 與逗號組成的字串，如 <code>LK00001, LK00002, LK00005</code>。</td>
+                        </tr>
+                        <tr>
+                            <td>新朋友男 (C)</td>
+                            <td>手動填寫的新朋友男性人數。</td>
+                        </tr>
+                        <tr>
+                            <td>新朋友女 (D)</td>
+                            <td>手動填寫的新朋友女性人數。</td>
+                        </tr>
+                        <tr>
+                            <td>實到人數 (E)</td>
+                            <td>系統自動統計的當天總出席人數（包含會友與新朋友）。</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>2. 小組點名試算表</h3>
+                <p><strong>分頁：<code>小組清單</code></strong></p>
+                <ul>
+                    <li><strong>名稱 (A)</strong>：小組的顯示名稱，如：大衛組。</li>
+                    <li><strong>狀態 (B)</strong>：<code>顯示</code> 或 <code>隱藏</code>。</li>
+                    <li><strong>代碼 (C)</strong>：小組長登入的代碼，如：<code>LK01</code>。</li>
+                    <li><strong>日期 (D)</strong>：小組創建時間。</li>
+                    <li><strong>UUID (E)</strong>：系統自動產生的 UUID。用於識別小組（即便修改小組名稱亦不受影響）。</li>
+                </ul>
+
+                <p><strong>分頁：<code>{小組名}_名單</code> (各組獨立，主日名單的私有鏡像)</strong></p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>欄位</th>
+                            <th>資料來源 / 說明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>姓名 (A)</td>
+                            <td>會友姓名。自主日同步。</td>
+                        </tr>
+                        <tr>
+                            <td>建立日期 (B)</td>
+                            <td>加入此小組的時間。</td>
+                        </tr>
+                        <tr>
+                            <td>身分 (C)</td>
+                            <td>會友在該小組的角色（如：小羊、小組長、陪伴同工）。自主日同步。</td>
+                        </tr>
+                        <tr>
+                            <td>系統編號 (D)</td>
+                            <td>會友的 <code>LKXXXXX</code> 編號。自主日同步。</td>
+                        </tr>
+                        <tr>
+                            <td>排序 (E)</td>
+                            <td>數字。小組私有屬性。記錄拖曳排序後的順序。</td>
+                        </tr>
+                        <tr>
+                            <td>暱稱 (F)</td>
+                            <td>字串。小組私有屬性。小組內偏好的稱呼。</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p><strong>分頁：<code>{小組名}_點名紀錄</code></strong></p>
+                <ul>
+                    <li><strong>日期 (A)</strong>：小組聚會日期。</li>
+                    <li><strong>出席人員 (B)</strong>：以<strong>系統編號 (UID)</strong> 組成的逗號字串（已於 Phase 3 完成 UID 遷移）。</li>
+                    <li><strong>缺席人員 (C)</strong>：當天缺席的組員 UID 逗號字串。</li>
+                    <li><strong>新朋友 (D)</strong>：當天出席的新朋友姓名（字串）。</li>
+                    <li><strong>實到人數 (E)</strong>：當天小組出席的總人數（已出席組員數 + 新朋友數）。</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Tab 6: Ops & Maintenance -->
+        <section id="content-ops" class="tab-content">
+            <div class="card">
+                <h2>🛠️ 部署與維護手冊</h2>
+                <p>本系統的前端與後端部署在不同的位置。開發與日常運維請遵循以下工作流：</p>
+                
+                <h3>1. 前端部署 (GitHub Pages)</h3>
+                <p>前端專案位於 <code>Github/LKC1958_June_1.github.io</code> 本地目錄中。</p>
+                <ol>
+                    <li>修改 HTML/CSS 或 <code>config.js</code> 後，確認本地測試無誤。</li>
+                    <li>提交並推送到 GitHub：
+                        <pre><code>git add .
+git commit -m "feat: 更新點名系統功能"
+git push</code></pre>
+                    </li>
+                    <li>GitHub Pages 自動發布後，即可在 <code>https://jirehwang.github.io/LKC1958_June_1.github.io/</code> 檢視更新。</li>
+                </ol>
+            </div>
+
+            <div class="card">
+                <h3>2. 後端部署 (Google Apps Script)</h3>
+                <p>後端 GAS 使用 <strong>clasp</strong> 工具在本地與雲端進行同步與版控。專案檔案位於本地 <code>LKC/主日出席_測試版/</code> 目錄。</p>
+                <ol>
+                    <li>在本地修改 <code>.js</code> (在 GAS 雲端即為 <code>.gs</code>) 檔案。</li>
+                    <li>在該專案目錄下開啟終端機，執行 clasp 推送：
+                        <pre><code>clasp push</code></pre>
+                    </li>
+                    <li>若要部署為新版本，可執行：
+                        <pre><code>clasp deploy</code></pre>
+                        並將產生的新網址更新至前端 <code>config.js</code> 的 <code>_URL_ROUTER</code> 中。
+                    </li>
+                </ol>
+            </div>
+
+            <div class="card">
+                <h3>3. 維護人員專用 GAS 診斷函數</h3>
+                <p>在 GAS 編輯器中，維護人員可以手動執行以下特定函數以完成初始化或排除故障：</p>
+                <ul>
+                    <li><strong><code>setupKeepWarmTrigger()</code></strong>：手動執行一次，建立 4 小時 keepWarm 排程，防止 GAS 冷啟動，並清除過時的舊 Trigger。</li>
+                    <li><strong><code>setupAllOnEditTriggers()</code></strong>：設定主日、小組與事工三個試算表編輯偵測的 <code>onEdit</code> Trigger，讓手動編輯能即時更新 Firebase 快取。</li>
+                    <li><strong><code>firebaseCacheClearAll()</code></strong>：當發現 Firebase 資料與 Sheet 嚴重不同步時，執行此函數可<strong>強制清除所有 Firebase cache 暫存</strong>，迫使系統重新讀取試算表。</li>
+                    <li><strong><code>batchGenerateMissingQRCodes()</code></strong>：為沒有 <code>LKXXXXX</code> 編號的舊會友補齊編號。</li>
+                    <li><strong><code>batchGenerateAllMemberCards()</code></strong>：批次為所有會友產生個人名卡（存成 JPG 到 Google Drive）。支援超時自動中斷與斷點續跑，可安全在瀏覽器中手動多跑幾次直至 100% 完成。</li>
+                </ul>
+            </div>
+        </section>
+    </main>
+</div>
+
+<footer>
+    <p>© 林口教會管理系統 — 技術架構與運作手冊 (最後更新: 2026-05-26)</p>
+</footer>
+
+<script>
+    // Tab switching logic
+    function switchTab(tabId) {
+        // Remove active class from all buttons and content
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+
+        // Add active class to selected button and content
+        const activeBtn = document.getElementById(`btn-${tabId}`);
+        const activeContent = document.getElementById(`content-${tabId}`);
+        
+        if (activeBtn && activeContent) {
+            activeBtn.classList.add('active');
+            activeContent.classList.add('active');
+        }
+
+        // Auto scroll to top of content on mobile
+        if (window.innerWidth <= 900) {
+            document.querySelector('main').scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+</script>
+
+</body>
+</html>

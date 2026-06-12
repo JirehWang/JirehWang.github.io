@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta name="robots" content="noindex, nofollow">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>林口教會管理系統 - 漸層標籤模板 (深綠至天藍)</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+            background: #eef2f7;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            /* 頁首背景改為：由左下往右上，深綠色 (#006030) 到天藍色 (#4a90e2) 的漸層 */
+            background: linear-gradient(to top right, #006030 0%, #30759f 55%, #6bb3f0 100%);
+            color: white;
+            padding: 40px 20px 30px;
+            text-align: center;
+            box-shadow: 0 4px 16px rgba(0, 96, 48, 0.2);
+            transition: background 0.3s ease;
+        }
+
+        header h1 {
+            margin: 0 0 8px;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.15);
+        }
+
+        header p {
+            margin: 0;
+            font-size: 14px;
+            opacity: 0.9;
+            letter-spacing: 1px;
+        }
+
+        /* 頂部簡易控制面板 */
+        .demo-control-panel {
+            max-width: 960px;
+            margin: 20px auto 0;
+            width: calc(100% - 48px);
+            background: white;
+            padding: 15px 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            border-left: 5px solid #006030;
+        }
+
+        .control-title {
+            font-weight: bold;
+            color: #2d3748;
+            font-size: 15px;
+        }
+
+        .btn-toggle {
+            background: #006030;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+
+        .btn-toggle:hover {
+            background: #004d26;
+        }
+
+        .btn-toggle.inactive {
+            background: #a0aec0;
+        }
+
+        .panel-description {
+            width: 100%;
+            font-size: 12px;
+            color: #718096;
+            margin-top: 5px;
+            border-top: 1px solid #edf2f7;
+            padding-top: 8px;
+            line-height: 1.5;
+        }
+
+        .container {
+            flex: 1;
+            padding: 20px 24px 36px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            max-width: 960px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: white;
+            border-radius: 16px;
+            padding: 28px 20px 22px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+            transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.3s ease;
+            text-decoration: none;
+            color: #2d3748;
+            border-top: 4px solid transparent;
+        }
+
+        .card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 12px 28px rgba(0,0,0,0.13);
+        }
+
+        /* 預設配色的備用樣式 */
+        .original-colors .card:nth-child(1) { border-top-color: #4a90e2; }
+        .original-colors .card:nth-child(2) { border-top-color: #e06c8a; }
+        .original-colors .card:nth-child(3) { border-top-color: #f5a623; }
+        .original-colors .card:nth-child(4) { border-top-color: #7ed321; }
+        .original-colors .card:nth-child(5) { border-top-color: #9b59b6; }
+        .original-colors .card:nth-child(6) { border-top-color: #1abc9c; }
+        .original-colors .card:nth-child(7) { border-top-color: #e67e22; }
+        .original-colors .card:nth-child(8) { border-top-color: #3498db; }
+        .original-colors .card:nth-child(9) { border-top-color: #808080; }
+        .original-colors .card:nth-child(10) { border-top-color: #16a085; }
+
+        .icon-wrap {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 14px;
+            font-size: 28px;
+            transition: background 0.3s ease;
+        }
+
+        .original-colors .card:nth-child(1) .icon-wrap { background: #eaf2fd; }
+        .original-colors .card:nth-child(2) .icon-wrap { background: #fdeef3; }
+        .original-colors .card:nth-child(3) .icon-wrap { background: #fef7eb; }
+        .original-colors .card:nth-child(4) .icon-wrap { background: #f2fae8; }
+        .original-colors .card:nth-child(5) .icon-wrap { background: #f5eefa; }
+        .original-colors .card:nth-child(6) .icon-wrap { background: #e8f8f5; }
+        .original-colors .card:nth-child(7) .icon-wrap { background: #fdf3e7; }
+        .original-colors .card:nth-child(8) .icon-wrap { background: #eaf5fd; }
+        .original-colors .card:nth-child(9) .icon-wrap { background: #F5F5F5; }
+        .original-colors .card:nth-child(10) .icon-wrap { background: #e8f8f5; }
+
+        .title {
+            font-size: 15px;
+            font-weight: 600;
+            text-align: center;
+            line-height: 1.5;
+            color: #2d3748;
+        }
+
+        footer {
+            text-align: center;
+            padding: 18px;
+            font-size: 12px;
+            color: #a0aec0;
+            border-top: 1px solid #e2e8f0;
+            background: white;
+            margin-top: auto;
+        }
+    </style>
+</head>
+
+<body>
+
+<header id="mainHeader">
+    <h1>林口教會管理系統</h1>
+    <p>Linkou Church ERP Portal</p>
+</header>
+
+<!-- 動態控制面板 -->
+<div class="demo-control-panel">
+    <div class="control-title">🌿 「左下至右上」深綠到天藍漸層展示</div>
+    <button id="toggleBtn" class="btn-toggle" onclick="toggleGradient()">目前狀態：對角線漸層中 (點擊切換為預設)</button>
+    <div class="panel-description">
+        📐 <b>漸層運作說明</b>：JavaScript 會自動偵測卡片在螢幕上的位置，根據公式 <code>(offsetLeft - offsetTop)</code> 投影出對角線比例，從<b>左下角（深綠色 #006030）</b>平滑漸層到<b>右上角（天藍色 #4a90e2）</b>。不論瀏覽器寬度如何縮放或卡片如何換行，色彩都會自動依對角線方向呈現。
+    </div>
+</div>
+
+<div class="container" id="cardContainer">
+
+    <a class="card" href="https://jirehwang.github.io/LKC1958_June_1.github.io/apps/LKC_MinistrySchedule" target="_blank">
+        <div class="icon-wrap">📊</div>
+        <div class="title">教會事工總表系統</div>
+    </a>
+
+    <a class="card" href="https://jirehwang.github.io/LKC1958_June_1.github.io/apps/LKC_worship/admin" target="_blank">
+        <div class="icon-wrap">🎵</div>
+        <div class="title">敬拜團服事表</div>
+    </a>
+
+    <a class="card" href="https://jirehwang.github.io/LKC1958_June_1.github.io/apps/LKC_WhosCar" target="_blank">
+        <div class="icon-wrap">🚗</div>
+        <div class="title">教會車牌管理系統</div>
+    </a>
+
+    <a class="card" href="https://jirehwang.github.io/LKC1958_June_1.github.io/apps/LKC_Group" target="_blank">
+        <div class="icon-wrap">👥</div>
+        <div class="title">教會小組點名系統</div>
+    </a>
+
+    <a class="card" href="https://jirehwang.github.io/LKC1958_June_1.github.io/apps/LKC_SundayserviceAttendance" target="_blank">
+        <div class="icon-wrap">📝</div>
+        <div class="title">教會主日出席點名系統</div>
+    </a>
+
+    <a class="card" href="https://script.google.com/macros/s/AKfycbxxXU0AuFpIsDvkBXw0JVibi_jC-1H2-XL5GUR_wH1tndbKnEH9qfTIj1QTKLHmpnjStA/exec" target="_blank">
+        <div class="icon-wrap">🧒</div>
+        <div class="title">兒童主日出席點名系統</div>
+    </a>
+
+    <a class="card" href="https://lkcweekly.netlify.app/#section-9B23KUaK0Fu91NerT8/dev" target="_blank">
+        <div class="icon-wrap">📖</div>
+        <div class="title">教會電子週報</div>
+    </a>
+
+    <a class="card" href="https://jirehwang.github.io/LKC1958_June_1.github.io/apps/LKC_MasterSchedule" target="_blank">
+        <div class="icon-wrap">📅</div>
+        <div class="title">教會行事曆管理系統</div>
+    </a>
+
+    <a class="card" href="https://jirehwang.github.io/LKC1958_June_1.github.io/apps/LKC_SundayBulletin" target="_blank">
+        <div class="icon-wrap">📰</div>
+        <div class="title">教會週報管理系統</div>
+    </a>
+
+    <a class="card" href="https://jirehwang.github.io/LKC1958_June_1.github.io/apps/LKC_NewFamily" target="_blank">
+        <div class="icon-wrap">🤝</div>
+        <div class="title">新家人管理系統</div>
+    </a>
+
+</div>
+
+<footer>
+    © 林口教會管理系統
+</footer>
+
+<script>
+    let isGradientActive = true;
+
+    // 當頁面載入或視窗大小改變時，重新計算漸層
+    document.addEventListener('DOMContentLoaded', calculateDiagonalGradients);
+    window.addEventListener('resize', calculateDiagonalGradients);
+
+    function toggleGradient() {
+        isGradientActive = !isGradientActive;
+        const toggleBtn = document.getElementById('toggleBtn');
+        const container = document.getElementById('cardContainer');
+        const header = document.getElementById('mainHeader');
+        
+        if (isGradientActive) {
+            toggleBtn.textContent = '目前狀態：對角線漸層中 (點擊切換為預設)';
+            toggleBtn.classList.remove('inactive');
+            container.classList.remove('original-colors');
+            header.style.background = 'linear-gradient(to top right, #006030 0%, #30759f 55%, #6bb3f0 100%)';
+            calculateDiagonalGradients();
+        } else {
+            toggleBtn.textContent = '目前狀態：預設配色 (點擊開啟對角線漸層)';
+            toggleBtn.classList.add('inactive');
+            container.classList.add('original-colors');
+            header.style.background = ''; // 恢復原廠藍色漸層
+            resetCardStyles();
+        }
+    }
+
+    // 重設卡片樣式為空
+    function resetCardStyles() {
+        const cards = document.querySelectorAll('.card');
+        cards.forEach(card => {
+            card.style.borderTopColor = '';
+            const iconWrap = card.querySelector('.icon-wrap');
+            if (iconWrap) iconWrap.style.backgroundColor = '';
+        });
+    }
+
+    // 計算對角線漸層：由左下往右上，從深綠色 (#006030) 到天藍色 (#4a90e2)
+    function calculateDiagonalGradients() {
+        if (!isGradientActive) return;
+
+        const cards = Array.from(document.querySelectorAll('.card'));
+        if (cards.length === 0) return;
+
+        // 定義 RGB 起點與終點
+        // 深綠色 (Deep Green): rgb(0, 96, 48) -> #006030
+        // 天藍色 (Sky Blue): rgb(74, 144, 226) -> #4a90e2
+        const startColor = { r: 0, g: 96, b: 48 };
+        const endColor = { r: 74, g: 144, b: 226 };
+
+        // 1. 計算每個卡片的對角線得分 (score = X - Y)
+        // 因為右上角代表 X 大、Y 小，因此得分最高（偏天藍色）
+        // 左下角代表 X 小、Y 大，因此得分最低（偏深綠色）
+        let minScore = Infinity;
+        let maxScore = -Infinity;
+
+        const cardData = cards.map(card => {
+            const x = card.offsetLeft;
+            const y = card.offsetTop;
+            const score = x - y;
+            if (score < minScore) minScore = score;
+            if (score > maxScore) maxScore = score;
+            return { card, score };
+        });
+
+        // 2. 依照得分比例進行顏色線性插值 (Linear Interpolation)
+        cardData.forEach(item => {
+            // 避免除以 0
+            const ratio = maxScore !== minScore ? (item.score - minScore) / (maxScore - minScore) : 0.5;
+
+            // 插值計算 RGB 數值
+            const r = Math.round(startColor.r + ratio * (endColor.r - startColor.r));
+            const g = Math.round(startColor.g + ratio * (endColor.g - startColor.g));
+            const b = Math.round(startColor.b + ratio * (endColor.b - startColor.b));
+
+            // 套用顏色
+            item.card.style.borderTopColor = `rgb(${r}, ${g}, ${b})`;
+            
+            const iconWrap = item.card.querySelector('.icon-wrap');
+            if (iconWrap) {
+                // 圖示背景使用極淡的配色 (透明度 0.1)
+                iconWrap.style.backgroundColor = `rgba(${r}, ${g}, ${b}, 0.1)`;
+            }
+        });
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>漸層彩虹標籤色系模板 - 林口教會管理系統</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
+
+    :root {
+      --bg-gradient: linear-gradient(135deg, #f6f8fb 0%, #e9eef5 100%);
+      --card-bg: #ffffff;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+      --primary-color: #2c5f9e;
+      --shadow-color: rgba(165, 180, 203, 0.2);
+      --font-family: 'Outfit', 'Noto Sans TC', system-ui, -apple-system, sans-serif;
+    }
+
+    [data-theme="dark"] {
+      --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      --card-bg: #1e293b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --border-color: #334155;
+      --primary-color: #38bdf8;
+      --shadow-color: rgba(0, 0, 0, 0.4);
+    }
+
+    body {
+      font-family: var(--font-family);
+      background: var(--bg-gradient);
+      color: var(--text-main);
+      min-height: 100vh;
+      margin: 0;
+      padding: 40px 20px;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    .main-container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* Glassmorphism Header */
+    header {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 20px;
+      padding: 30px;
+      margin-bottom: 30px;
+      box-shadow: 0 10px 30px var(--shadow-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 20px;
+      transition: all 0.3s ease;
+    }
+
+    header h1 {
+      font-size: 28px;
+      font-weight: 800;
+      margin: 0;
+      background: linear-gradient(135deg, #2c5f9e 0%, #38bdf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 1px;
+    }
+
+    [data-theme="dark"] header h1 {
+      background: linear-gradient(135deg, #38bdf8 0%, #a855f7 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    header p {
+      margin: 5px 0 0 0;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    /* Beautiful Card Styling */
+    .dashboard-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 15px 35px var(--shadow-color);
+      margin-bottom: 30px;
+      transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .card-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Modern Controls Grid */
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      margin-bottom: 25px;
+    }
+
+    .control-item {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .control-item label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-select, .form-control {
+      background-color: var(--card-bg);
+      border: 1.5px solid var(--border-color);
+      color: var(--text-main);
+      border-radius: 10px;
+      padding: 10px 15px;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    .form-select:focus, .form-control:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.15);
+      background-color: var(--card-bg);
+      color: var(--text-main);
+    }
+
+    /* Beautiful Premium Buttons */
+    .btn-custom {
+      font-weight: 600;
+      border-radius: 10px;
+      padding: 10px 20px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+
+    .btn-custom-primary {
+      background: linear-gradient(135deg, #2c5f9e 0%, #4a90e2 100%);
+      border: none;
+      color: white;
+      box-shadow: 0 4px 14px rgba(44, 95, 158, 0.3);
+    }
+
+    .btn-custom-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(44, 95, 158, 0.4);
+      color: white;
+    }
+
+    .btn-custom-secondary {
+      background: transparent;
+      border: 1.5px solid var(--border-color);
+      color: var(--text-main);
+    }
+
+    .btn-custom-secondary:hover {
+      background: var(--border-color);
+      transform: translateY(-2px);
+    }
+
+    .btn-custom-danger {
+      background: linear-gradient(135deg, #ef4444 0%, #f43f5e 100%);
+      border: none;
+      color: white;
+      box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3);
+    }
+
+    .btn-custom-danger:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+      color: white;
+    }
+
+    /* Table Design */
+    .table-responsive {
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+    }
+
+    .custom-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0;
+    }
+
+    .custom-table th {
+      background-color: rgba(165, 180, 203, 0.1);
+      color: var(--text-main);
+      font-weight: 700;
+      text-align: left;
+      padding: 16px 20px;
+      font-size: 14px;
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .custom-table td {
+      padding: 16px 20px;
+      font-size: 14px;
+      color: var(--text-main);
+      border-bottom: 1px solid var(--border-color);
+      vertical-align: middle;
+    }
+
+    .custom-table tbody tr {
+      transition: background-color 0.2s ease, transform 0.2s ease;
+    }
+
+    .custom-table tbody tr:hover {
+      background-color: rgba(165, 180, 203, 0.05);
+    }
+
+    /* Smooth Entrance Animation for Rows */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .animated-row {
+      animation: fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    /* Rainbow Tag Styling */
+    .rainbow-tag {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+    }
+
+    /* Theme Switcher Toggle */
+    .theme-switch-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .theme-switch {
+      display: inline-block;
+      height: 26px;
+      position: relative;
+      width: 50px;
+    }
+
+    .theme-switch input {
+      display:none;
+    }
+
+    .slider {
+      background-color: #ccc;
+      bottom: 0;
+      cursor: pointer;
+      left: 0;
+      position: absolute;
+      right: 0;
+      top: 0;
+      transition: .4s;
+      border-radius: 34px;
+    }
+
+    .slider:before {
+      background-color: white;
+      bottom: 4px;
+      content: "";
+      height: 18px;
+      left: 4px;
+      position: absolute;
+      transition: .4s;
+      width: 18px;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: var(--primary-color);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(24px);
+    }
+
+    /* Custom Color Code Viewer */
+    .code-box {
+      background: #0f172a;
+      color: #cbd5e1;
+      padding: 20px;
+      border-radius: 12px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      overflow-x: auto;
+      border: 1px solid #334155;
+      position: relative;
+    }
+
+    .code-box-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #334155;
+    }
+
+    .code-lang {
+      font-weight: 700;
+      color: #38bdf8;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 1px;
+    }
+
+    .copy-btn {
+      background: transparent;
+      border: 1px solid #334155;
+      color: #94a3b8;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .copy-btn:hover {
+      background: #1e293b;
+      color: #f8fafc;
+      border-color: #475569;
+    }
+
+    .nav-tabs {
+      border-bottom: 1.5px solid var(--border-color);
+    }
+
+    .nav-link {
+      color: var(--text-muted);
+      font-weight: 600;
+      border: none;
+      border-bottom: 3px solid transparent;
+      padding: 10px 20px;
+      transition: all 0.2s;
+    }
+
+    .nav-link:hover {
+      color: var(--text-main);
+      border-bottom: 3px solid var(--border-color);
+    }
+
+    .nav-link.active {
+      color: var(--primary-color) !important;
+      background-color: transparent !important;
+      border: none !important;
+      border-bottom: 3px solid var(--primary-color) !important;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+
+<div class="main-container">
+  
+  <!-- Header with Theme Switcher -->
+  <header>
+    <div>
+      <h1>林口教會管理系統</h1>
+      <p>同列標籤彩虹漸層分佈示範模板 (Rainbow Gradient Tags Template)</p>
+    </div>
+    
+    <div class="theme-switch-wrapper">
+      <span style="font-size: 14px; font-weight: 600;">🌙 暗黑模式</span>
+      <label class="theme-switch" for="checkbox">
+        <input type="checkbox" id="checkbox" onchange="toggleTheme(this)">
+        <div class="slider"></div>
+      </label>
+    </div>
+  </header>
+
+  <!-- Interactive Controls Dashboard -->
+  <div class="dashboard-card">
+    <div class="card-title">
+      <span>🎨 漸層設定與即時預覽控制項</span>
+    </div>
+    
+    <div class="controls-grid">
+      <!-- Select target column -->
+      <div class="control-item">
+        <label for="columnSelect">目標套用欄位</label>
+        <select id="columnSelect" class="form-select" onchange="applyRainbowGradient()">
+          <option value="all">所有服事人員欄位</option>
+          <option value="leader" selected>敬拜帶領 (Worship)</option>
+          <option value="speaker">主講人 (Speaker)</option>
+          <option value="status">服事狀態 (Status)</option>
+        </select>
+      </div>
+
+      <!-- Select coloring scheme style -->
+      <div class="control-item">
+        <label for="colorStyle">色系風格</label>
+        <select id="colorStyle" class="form-select" onchange="applyRainbowGradient()">
+          <option value="pastel">馬卡龍粉雅 (Pastel Light)</option>
+          <option value="outline">時尚線框色 (Outline Border)</option>
+          <option value="vibrant">高飽和亮色 (Vibrant Bold)</option>
+        </select>
+      </div>
+
+      <!-- Select Hue Range -->
+      <div class="control-item">
+        <label for="hueRange">彩虹分佈區間</label>
+        <select id="hueRange" class="form-select" onchange="applyRainbowGradient()">
+          <option value="full" selected>經典全彩虹 (0° ~ 300°)</option>
+          <option value="cool">酷涼海洋綠藍 (120° ~ 270°)</option>
+          <option value="warm">溫暖朝陽橘紅 (0° ~ 60° & 320° ~ 360°)</option>
+          <option value="soft">浪漫粉紫系 (240° ~ 330°)</option>
+        </select>
+      </div>
+
+      <!-- Rows count display / Action buttons -->
+      <div class="control-item justify-content-end">
+        <label>動態操作列</label>
+        <div class="d-flex gap-2">
+          <button class="btn-custom btn-custom-primary flex-grow-1" onclick="addNewRow()">
+            <span>➕ 新增聚會列</span>
+          </button>
+          <button class="btn-custom btn-custom-danger" id="removeBtn" onclick="removeLastRow()">
+            <span>❌</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="alert alert-info py-2 px-3 small border-0 bg-info-subtle text-info-emphasis rounded-3">
+      💡 <b>原理說明</b>：透過 JavaScript 取得表格中目前可視的總列數，依據<b>行索引值 (Row Index)</b> 均勻分配 HSL 色碼的 <b>Hue (色相)</b> 值。不論表格有多少列，標籤色彩都會從上到下呈現滑順無縫的彩虹漸層過渡。
+    </div>
+  </div>
+
+  <!-- Live Table Card -->
+  <div class="dashboard-card">
+    <div class="card-title justify-content-between">
+      <span>📅 主日聚會事工排班表 (即時渲染)</span>
+      <span class="badge bg-secondary" id="rowCountBadge">8 筆聚會</span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="custom-table" id="scheduleTable">
+        <thead>
+          <tr>
+            <th>日期 (Date)</th>
+            <th>聚會名稱 (Event)</th>
+            <th>主講人 (Speaker)</th>
+            <th>敬拜帶領 (Worship)</th>
+            <th>司琴 (Pianist)</th>
+            <th>服事狀態 (Status)</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          <!-- Dynamically populated rows -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Developer Integration Guide (Tabs for JS / CSS code) -->
+  <div class="dashboard-card">
+    <div class="card-title">
+      <span>💻 開發者接入指南與程式碼範例</span>
+    </div>
+
+    <ul class="nav nav-tabs mb-3" id="codeTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="js-tab" data-bs-toggle="tab" data-bs-target="#js-content" type="button" role="tab">JavaScript 核心邏輯</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="css-tab" data-bs-toggle="tab" data-bs-target="#css-content" type="button" role="tab">CSS 基礎樣式</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="html-tab" data-bs-toggle="tab" data-bs-target="#html-content" type="button" role="tab">HTML 標籤結構</button>
+      </li>
+    </ul>
+
+    <div class="tab-content" id="codeTabsContent">
+      <!-- JS Content -->
+      <div class="tab-pane fade show active" id="js-content" role="tabpanel">
+        <p class="small text-muted mb-2">在渲染表格後執行此段程式，它會獲取所有的行，並依據其行索引從上到下為指定的標籤元素動態注入彩虹漸層 HSL 樣式：</p>
+        <div class="code-box">
+          <div class="code-box-header">
+            <span class="code-lang">javascript</span>
+            <button class="copy-btn" onclick="copyCode('jsCode')">複製代碼</button>
+          </div>
+          <pre id="jsCode"><code>function applyRainbowGradient() {
+  const rows = document.querySelectorAll('#scheduleTable tbody tr');
+  const totalRows = rows.length;
+  if (totalRows === 0) return;
+
+  // 取得 UI 面板所設定的風格與範圍參數
+  const colTarget = document.getElementById('columnSelect').value;
+  const styleMode = document.getElementById('colorStyle').value;
+  const hueRange = document.getElementById('hueRange').value;
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+  // 決定彩虹的色相 (Hue) 起點與終點
+  let startHue = 0;   // 紅色
+  let endHue = 300;   // 紫紅色
+  if (hueRange === 'cool') { startHue = 120; endHue = 270; }
+  else if (hueRange === 'warm') { startHue = -30; endHue = 45; }
+  else if (hueRange === 'soft') { startHue = 240; endHue = 330; }
+
+  rows.forEach((row, index) => {
+    // 依據當前列的 index 比例，計算出對應的 HSL Hue 色相
+    const ratio = totalRows > 1 ? index / (totalRows - 1) : 0;
+    let hue = startHue + ratio * (endHue - startHue);
+    if (hue < 0) hue += 360; // 確保色相在 0-360 區間
+
+    // 定義各個要套用的欄位標籤類別
+    const targets = {
+      leader: row.querySelector('.tag-leader'),
+      speaker: row.querySelector('.tag-speaker'),
+      status: row.querySelector('.tag-status')
+    };
+
+    // 針對選定的目標套用色彩
+    for (const [key, tagEl] of Object.entries(targets)) {
+      if (!tagEl) continue;
+
+      // 判斷是否為目前選中的目標列 (或全部)
+      const shouldApply = (colTarget === 'all' || colTarget === key);
+
+      if (shouldApply) {
+        // 套用動態 HSL
+        setTagStyle(tagEl, hue, styleMode, isDark);
+      } else {
+        // 重設為預設灰色調
+        tagEl.style.backgroundColor = isDark ? '#334155' : '#f1f5f9';
+        tagEl.style.color = isDark ? '#cbd5e1' : '#475569';
+        tagEl.style.borderColor = 'transparent';
+      }
+    }
+  });
+}
+
+function setTagStyle(element, hue, mode, isDark) {
+  if (mode === 'pastel') {
+    // 馬卡龍雅色：背景極淺 飽和度高，文字深色 飽和度更高
+    const bgL = isDark ? '15%' : '95%';
+    const textL = isDark ? '80%' : '25%';
+    const borderL = isDark ? '30%' : '85%';
+    
+    element.style.backgroundColor = `hsla(${hue}, 85%, ${bgL}, 1)`;
+    element.style.color = `hsla(${hue}, 85%, ${textL}, 1)`;
+    element.style.borderColor = `hsla(${hue}, 80%, ${borderL}, 1)`;
+    element.style.borderStyle = 'solid';
+    element.style.borderWidth = '1px';
+  } else if (mode === 'outline') {
+    // 線框色：背景透明，外框明顯，文字顏色與外框相同
+    const borderL = isDark ? '60%' : '50%';
+    element.style.backgroundColor = 'transparent';
+    element.style.color = `hsla(${hue}, 80%, ${borderL}, 1)`;
+    element.style.borderColor = `hsla(${hue}, 80%, ${borderL}, 0.8)`;
+    element.style.borderStyle = 'solid';
+    element.style.borderWidth = '1.5px';
+  } else if (mode === 'vibrant') {
+    // 亮眼色：飽和背景，文字均為純白
+    element.style.backgroundColor = `hsla(${hue}, 75%, 50%, 1)`;
+    element.style.color = '#ffffff';
+    element.style.borderColor = 'transparent';
+  }
+}</code></pre>
+        </div>
+      </div>
+
+      <!-- CSS Content -->
+      <div class="tab-pane fade" id="css-content" role="tabpanel">
+        <p class="small text-muted mb-2">CSS 樣式僅需設定基礎的圓角、內縮以及在 Outline 風格時所需的過渡動畫，具體色彩將交由 JS 動態變更：</p>
+        <div class="code-box">
+          <div class="code-box-header">
+            <span class="code-lang">css</span>
+            <button class="copy-btn" onclick="copyCode('cssCode')">複製代碼</button>
+          </div>
+          <pre id="cssCode"><code>/* 標籤基礎樣式設定 */
+.rainbow-tag {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 30px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+}
+
+/* 確保表格列有淡入的感覺 */
+.animated-row {
+  animation: fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}</code></pre>
+        </div>
+      </div>
+
+      <!-- HTML Content -->
+      <div class="tab-pane fade" id="html-content" role="tabpanel">
+        <p class="small text-muted mb-2">在表格單元格 (td) 之中，加入具有特定識別 class 的標籤：</p>
+        <div class="code-box">
+          <div class="code-box-header">
+            <span class="code-lang">html</span>
+            <button class="copy-btn" onclick="copyCode('htmlCode')">複製代碼</button>
+          </div>
+          <pre id="htmlCode"><code>&lt;!-- 欄位中的標籤結構範例 --&gt;
+&lt;tr&gt;
+  &lt;td&gt;2026-06-07&lt;/td&gt;
+  &lt;td&gt;華語主日崇拜&lt;/td&gt;
+  &lt;td&gt;&lt;span class="rainbow-tag tag-speaker"&gt;張茂松 牧師&lt;/span&gt;&lt;/td&gt;
+  &lt;td&gt;&lt;span class="rainbow-tag tag-leader"&gt;林弟兄&lt;/span&gt;&lt;/td&gt;
+  &lt;td&gt;陳姊妹&lt;/td&gt;
+  &lt;td&gt;&lt;span class="rainbow-tag tag-status"&gt;已確認&lt;/span&gt;&lt;/td&gt;
+&lt;/tr&gt;</code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- JavaScript and Mock Data Setup -->
+<script>
+  // Mock Data representation for church services
+  const mockPeople = [
+    { name: "陳冠宇 傳道", leader: "大衛小組", status: "已確認" },
+    { name: "張美玲 執事", leader: "雅各小組", status: "待確認" },
+    { name: "李明哲 弟兄", leader: "約書亞團契", status: "已排定" },
+    { name: "王佳玲 姊妹", leader: "喜樂小組", status: "請假中" },
+    { name: "徐志明 牧師", leader: "保羅小組", status: "已確認" },
+    { name: "林淑芬 姊妹", leader: "恩慈小組", status: "待確認" },
+    { name: "周建宏 弟兄", leader: "青年崇拜", status: "已確認" },
+    { name: "蔡佳穎 姊妹", leader: "兒童牧區", status: "待排定" },
+    { name: "黃俊傑 傳道", leader: "提摩太小組", status: "已排定" },
+    { name: "吳美惠 執事", leader: "迦勒小組", status: "已確認" }
+  ];
+
+  const mockEvents = [
+    "第一堂華語主日禮拜",
+    "第二堂華語主日禮拜",
+    "台語禮拜",
+    "週六青年崇拜",
+    "小組查經聚會",
+    "同工靈修禱告會",
+    "主日建造成人雙翼",
+    "新家人迎新茶會"
+  ];
+
+  // Initial table data seed
+  let tableData = [
+    { date: "2026-06-07", event: "第一堂華語主日禮拜", speaker: "徐志明 牧師", leader: "林淑芬 姊妹", pianist: "陳小組", status: "已確認" },
+    { date: "2026-06-14", event: "第二堂華語主日禮拜", speaker: "陳冠宇 傳道", leader: "周建宏 弟兄", pianist: "李姊妹", status: "待確認" },
+    { date: "2026-06-21", event: "台語主日禮拜", speaker: "張美玲 執事", leader: "李明哲 弟兄", pianist: "王弟兄", status: "已排定" },
+    { date: "2026-06-28", event: "週六社青崇拜", speaker: "黃俊傑 傳道", leader: "蔡佳穎 姊妹", pianist: "張小組", status: "已確認" },
+    { date: "2026-07-05", event: "華語/聯合主日禮拜", speaker: "徐志明 牧師", leader: "陳冠宇 傳道", pianist: "陳小組", status: "已確認" },
+    { date: "2026-07-12", event: "小組聯合感恩聚會", speaker: "吳美惠 執事", leader: "王佳玲 姊妹", pianist: "劉姊妹", status: "待確認" },
+    { date: "2026-07-19", event: "第一堂華語主日禮拜", speaker: "陳冠宇 傳道", leader: "林淑芬 姊妹", pianist: "林弟兄", status: "已排定" },
+    { date: "2026-07-26", event: "第二堂華語主日禮拜", speaker: "黃俊傑 傳道", leader: "周建宏 弟兄", pianist: "李姊妹", status: "已確認" }
+  ];
+
+  // Initialize and Render
+  document.addEventListener('DOMContentLoaded', () => {
+    renderTable();
+  });
+
+  // Render HTML rows from data array
+  function renderTable() {
+    const tableBody = document.getElementById('tableBody');
+    tableBody.innerHTML = '';
+    
+    tableData.forEach((row, index) => {
+      const tr = document.createElement('tr');
+      tr.className = 'animated-row';
+      // stagger entry animation delay
+      tr.style.animationDelay = `${index * 0.05}s`;
+      
+      tr.innerHTML = `
+        <td>${row.date}</td>
+        <td class="fw-bold">${row.event}</td>
+        <td><span class="rainbow-tag tag-speaker">${row.speaker}</span></td>
+        <td><span class="rainbow-tag tag-leader">${row.leader}</span></td>
+        <td>${row.pianist}</td>
+        <td><span class="rainbow-tag tag-status">${row.status}</span></td>
+      `;
+      tableBody.appendChild(tr);
+    });
+
+    // Update row counts badge
+    document.getElementById('rowCountBadge').textContent = `${tableData.length} 筆聚會`;
+    
+    // Apply HSL Rainbow Gradient calculations
+    applyRainbowGradient();
+  }
+
+  // CORE GRADIENT CALCULATION LOGIC
+  function applyRainbowGradient() {
+    const rows = document.querySelectorAll('#scheduleTable tbody tr');
+    const totalRows = rows.length;
+    if (totalRows === 0) return;
+
+    const colTarget = document.getElementById('columnSelect').value;
+    const styleMode = document.getElementById('colorStyle').value;
+    const hueRange = document.getElementById('hueRange').value;
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+    // Set Hue Range based on selector
+    let startHue = 0;   // Red
+    let endHue = 300;   // Purple/Violet
+    
+    if (hueRange === 'cool') {
+      startHue = 120; // Green
+      endHue = 270;   // Blue/Indigo
+    } else if (hueRange === 'warm') {
+      startHue = -20; // Red-orange
+      endHue = 50;    // Yellow
+    } else if (hueRange === 'soft') {
+      startHue = 240; // Soft Blue
+      endHue = 330;   // Pink-purple
+    }
+
+    rows.forEach((row, index) => {
+      // Calculate Hue linearly down the rows
+      const ratio = totalRows > 1 ? index / (totalRows - 1) : 0;
+      let hue = startHue + ratio * (endHue - startHue);
+      if (hue < 0) hue += 360;
+      
+      const targets = {
+        leader: row.querySelector('.tag-leader'),
+        speaker: row.querySelector('.tag-speaker'),
+        status: row.querySelector('.tag-status')
+      };
+
+      for (const [key, tagEl] of Object.entries(targets)) {
+        if (!tagEl) continue;
+        
+        const shouldApply = (colTarget === 'all' || colTarget === key);
+        
+        if (shouldApply) {
+          setTagStyle(tagEl, hue, styleMode, isDark);
+        } else {
+          // Reset style back to gray default
+          tagEl.style.backgroundColor = isDark ? '#334155' : '#f1f5f9';
+          tagEl.style.color = isDark ? '#cbd5e1' : '#475569';
+          tagEl.style.borderColor = 'transparent';
+        }
+      }
+    });
+  }
+
+  // Tag Styling Factory
+  function setTagStyle(element, hue, mode, isDark) {
+    if (mode === 'pastel') {
+      // Pastel colors with smart light/dark contrast
+      const bgL = isDark ? '18%' : '95%';
+      const textL = isDark ? '82%' : '24%';
+      const borderL = isDark ? '28%' : '84%';
+      
+      element.style.backgroundColor = `hsla(${hue}, 85%, ${bgL}, 1)`;
+      element.style.color = `hsla(${hue}, 85%, ${textL}, 1)`;
+      element.style.borderColor = `hsla(${hue}, 80%, ${borderL}, 1)`;
+      element.style.borderStyle = 'solid';
+      element.style.borderWidth = '1px';
+    } else if (mode === 'outline') {
+      // Outlined style with transparent background
+      const borderL = isDark ? '60%' : '50%';
+      element.style.backgroundColor = 'transparent';
+      element.style.color = `hsla(${hue}, 80%, ${borderL}, 1)`;
+      element.style.borderColor = `hsla(${hue}, 80%, ${borderL}, 0.8)`;
+      element.style.borderStyle = 'solid';
+      element.style.borderWidth = '1.5px';
+    } else if (mode === 'vibrant') {
+      // High vibrancy background with white text
+      element.style.backgroundColor = `hsla(${hue}, 75%, 50%, 1)`;
+      element.style.color = '#ffffff';
+      element.style.borderColor = 'transparent';
+    }
+  }
+
+  // Interaction: Add new row dynamically
+  function addNewRow() {
+    // Generate next date
+    let lastDateStr = tableData[tableData.length - 1]?.date || "2026-07-26";
+    let lastDate = new Date(lastDateStr);
+    lastDate.setDate(lastDate.getDate() + 7);
+    const newDateStr = lastDate.toISOString().split('T')[0];
+
+    // Pick random speaker, event, and leader
+    const randomSpeakerObj = mockPeople[Math.floor(Math.random() * mockPeople.length)];
+    const randomLeaderObj = mockPeople[Math.floor(Math.random() * mockPeople.length)];
+    const randomEvent = mockEvents[Math.floor(Math.random() * mockEvents.length)];
+    const randomPianist = ["陳小組", "李姊妹", "王弟兄", "劉姊妹", "林弟兄"][Math.floor(Math.random() * 5)];
+    const status = ["已確認", "待確認", "已排定"][Math.floor(Math.random() * 3)];
+
+    const newRow = {
+      date: newDateStr,
+      event: randomEvent,
+      speaker: randomSpeakerObj.name,
+      leader: randomLeaderObj.name,
+      pianist: randomPianist,
+      status: status
+    };
+
+    tableData.push(newRow);
+    renderTable();
+  }
+
+  // Interaction: Remove last row
+  function removeLastRow() {
+    if (tableData.length <= 1) {
+      alert("請至少保留一列數據以便預覽效果！");
+      return;
+    }
+    tableData.pop();
+    renderTable();
+  }
+
+  // Theme Toggler
+  function toggleTheme(checkbox) {
+    if (checkbox.checked) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
+    // Re-apply gradient with theme adjustments
+    applyRainbowGradient();
+  }
+
+  // Copy helper
+  function copyCode(elementId) {
+    const text = document.getElementById(elementId).innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      alert("代碼已成功複製到剪貼簿！");
+    }).catch(err => {
+      console.error("無法複製代碼: ", err);
+    });
+  }
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

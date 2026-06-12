@@ -1,0 +1,231 @@
+<h2>🎨 表格式標題列 - 方案 2 (整條橫向漸層版) 預覽</h2>
+<p class="subtitle">已根據您的要求優化：表頭採用單一橫向漸層（由最左側的 LKC 深綠 #006030 橫跨至最右側的 Portal 藍 #30759f），形成一條連貫大氣的漸層色帶，不再是各單元格重複小漸層。</p>
+
+<style>
+  /* Base Container Style */
+  .preview-wrapper {
+    background: radial-gradient(circle at 90% 10%, rgba(48, 117, 159, 0.08) 0%, rgba(0, 96, 48, 0.03) 100%), #fafbfa;
+    border: 1px solid rgba(0, 96, 48, 0.1);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    box-shadow: 0 12px 40px rgba(0, 96, 48, 0.03);
+  }
+
+  /* Header Simulation */
+  .header-sim {
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid rgba(0, 96, 48, 0.08);
+  }
+  .header-sim h3 {
+    color: #006030;
+    font-weight: 700;
+    font-size: 1.3rem;
+    margin: 0;
+  }
+
+  /* Table scroll container */
+  .table-scroll-sim {
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(0, 96, 48, 0.08);
+    border-radius: 12px;
+    overflow-x: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+  }
+
+  .mock-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.92rem;
+  }
+
+  /* Table TD Styling */
+  .mock-table td {
+    background: rgba(255, 255, 255, 0.75);
+    padding: 12px 10px;
+    border-bottom: 1px solid rgba(0, 96, 48, 0.04);
+    text-align: center;
+    vertical-align: middle;
+  }
+  .mock-table tr:hover td {
+    background: rgba(0, 96, 48, 0.02) !important;
+  }
+
+  /* Badges */
+  .badge-g {
+    background-color: #eaf5ee !important;
+    color: #006030 !important;
+    border: 1px solid rgba(0, 96, 48, 0.12);
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+  .badge-b {
+    background-color: #e6f0f7 !important;
+    color: #30759f !important;
+    border: 1px solid rgba(48, 117, 159, 0.12);
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    display: inline-block;
+  }
+  .badge-pending {
+    background-color: #fdf3e9 !important;
+    color: #b25e00 !important;
+    border: 1px solid rgba(178, 94, 0, 0.15);
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    display: inline-block;
+  }
+
+  /* 警語標籤 */
+  .date-warning-badge {
+    font-size: 0.82rem;
+    color: #b45309;
+    font-weight: 700;
+    background-color: #fef3c7;
+    border: 1px solid #fde047;
+    padding: 3px 8px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    box-shadow: 0 2px 4px rgba(217, 119, 6, 0.05);
+  }
+
+  /* 警告行樣式 */
+  .mock-table tr.warning-row td {
+    background: rgba(255, 243, 205, 0.3) !important;
+  }
+
+  .song-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+  }
+  .song-badge {
+    background: white;
+    border: 1px solid rgba(0, 96, 48, 0.08);
+    color: #006030;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+
+  /* ========================================== */
+  /* 🌟 標題列方案 2 (整條連貫漸層) CSS 實作 🌟 */
+  /* ========================================== */
+  .mock-table thead {
+    background: linear-gradient(90deg, rgba(0, 96, 48, 0.95) 0%, rgba(48, 117, 159, 0.95) 100%) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  .mock-table th {
+    background: transparent !important; /* 讓 cell 背景透明以顯示 thead 的連貫漸層 */
+    color: white !important;
+    padding: 14px 10px;
+    font-weight: 700;
+    text-align: center;
+    border-bottom: 2.5px solid rgba(0, 96, 48, 0.2) !important;
+    font-size: 0.95rem;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .mock-table th:last-child {
+    border-right: none;
+  }
+
+  /* Confirmation box */
+  .confirm-box {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: #eaf5ee;
+    border: 2px solid #006030;
+    border-radius: 12px;
+  }
+</style>
+
+<div class="preview-wrapper">
+  <!-- 頁首模擬 -->
+  <div class="header-sim">
+    <h3>⛪ 敬拜團服事公佈欄</h3>
+  </div>
+
+  <div class="table-scroll-sim">
+    <table class="mock-table">
+      <thead>
+        <tr>
+          <th style="width: 120px;">日期</th>
+          <th>聚會名稱</th>
+          <th>牧師</th>
+          <th>主領</th>
+          <th>琴手</th>
+          <th style="min-width: 200px;">敬拜曲目</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- 正常行 -->
+        <tr>
+          <td style="font-weight:bold; color:#006030;">06月07日</td>
+          <td>主日崇拜</td>
+          <td>陳牧師</td>
+          <td><span class="badge-b">王大明</span></td>
+          <td><span class="badge-b">林小華</span></td>
+          <td>
+            <div class="song-badges">
+              <span class="song-badge">🎵 萬民歌頌</span>
+              <span class="song-badge">🎵 遇見你</span>
+            </div>
+          </td>
+        </tr>
+        <!-- 警告行：卡片為淡黃色，警語標籤為黃橙色，背景有明顯區別 -->
+        <tr class="warning-row">
+          <td style="font-weight:bold; color:#9a4005;">
+            06月14日
+            <div class="date-warning-badge" style="display:block; margin-top:3px;">⚠️ 林小華請假</div>
+          </td>
+          <td>主日崇拜</td>
+          <td>張傳道</td>
+          <td><span class="badge-b">張大山</span></td>
+          <td><span class="badge-pending">【待定】</span></td>
+          <td><span style="color:#888; font-style:italic; font-size:0.75rem;">尚未填入曲目</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="confirm-box">
+  <h3 style="color:#006030; margin-bottom: 0.5rem;">👉 確認表格標題列的設計？</h3>
+  <p style="font-size:0.88rem; color:#333; margin-bottom: 1rem;">現在表頭已改為一整條跨欄的橫向綠藍漸層色，視覺極為流暢優雅。如果這符合您的預期，請點選下方按鈕，或在終端直接回覆 <strong>"OK"</strong>。</p>
+  <div class="options">
+    <div class="option" data-choice="confirm" onclick="toggleSelect()">
+      <div class="letter">✓</div>
+      <div class="content">
+        <h3>確認整條橫向漸層表頭設計</h3>
+        <p>確認使用跨欄連貫漸層的半透磨砂表頭，開始進行實施計劃。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function toggleSelect() {
+    if (window.parent && window.parent.postMessage) {
+      window.parent.postMessage({
+        type: 'select',
+        choice: 'confirm-gradient-full',
+        text: '確認整條漸層表頭設計'
+      }, '*');
+    }
+  }
+</script>
