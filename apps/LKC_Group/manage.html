@@ -39,6 +39,12 @@
             
             <h3 id="manage-title" style="margin-top: 0;">📋 小組參數管理</h3>
             <p style="color: #666; font-size: 14px;">修改名稱時，系統將自動同步修改資料庫的關聯分頁名稱，請謹慎操作。</p>
+
+            <!-- 介面切換頁籤 -->
+            <div class="tabs-container" style="display: flex; gap: 5px; margin-top: 20px; border-bottom: 2px solid #ddd; padding-bottom: 0;">
+                <button id="btn-tab-regular" class="tab-select-btn active" style="padding: 10px 20px; font-size: 15px; font-weight: bold; cursor: pointer; border: none; border-radius: 8px 8px 0 0;" onclick="switchTab('regular')">⛪ 常規小組管理</button>
+                <button id="btn-tab-happy" class="tab-select-btn" style="padding: 10px 20px; font-size: 15px; font-weight: bold; cursor: pointer; border: none; border-radius: 8px 8px 0 0;" onclick="switchTab('happy')">🍀 幸福小組管理</button>
+            </div>
             
             <table id="groupsTable">
                 <thead>
@@ -89,7 +95,7 @@
                 <select id="editNewStatus" style="width: 100%; margin-top: 5px; padding: 10px; font-size: 14px;">
                     <option value="顯示">✅ 顯示 (在首頁小組清單中顯示)</option>
                     <option value="隱藏">🚫 隱藏 (在首頁小組清單中隱藏)</option>
-                    <option value="結案">🍀 結案 (幸福小組結案封存狀態)</option>
+                    <option value="結案">🍀 結案 (小組結案封存狀態)</option>
                 </select>
             </div>
             
@@ -100,6 +106,6 @@
     
     <script>window._GAS_KEY = 'LKC_Group_TEST';</script>
     <script src="../../config.js"></script>
-    <script src="manage.js?v=20260612_1"></script>
+    <script src="manage.js?v=20260612_2"></script>
 </body>
 </html>

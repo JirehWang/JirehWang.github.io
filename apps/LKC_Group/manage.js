@@ -1,6 +1,8 @@
 let adminGroupsList = [];
 let currentEditingGroup = null; // 改為儲存完整的 group 物件（包含 uuid）
 let verifiedAdminCode = ""; // 儲存已驗證的管理員代碼
+let activeTab = 'regular'; // 'regular' or 'happy'
+let globalIsAdmin = false; // 儲存最高管理員權限狀態
 
 // showLoading / hideLoading / ensureAPIReady 由 config.js 提供。
 
@@ -59,6 +61,7 @@ async function loadGroups() {
         const res = await callAPI('getAdminGroupsList', { authCode: verifiedAdminCode });
         if (res.success) {
             adminGroupsList = res.groups;
+            globalIsAdmin = res.isAdmin; // ✅ 儲存權限狀態
             updatePermissionBadge(res.isAdmin); // ✅ 更新權限徽章
             renderTable(res.isAdmin); // ✅ 傳入權限等級
         } else {
@@ -69,6 +72,16 @@ async function loadGroups() {
     } finally {
         hideLoading();
     }
+}
+
+// 2.7 切換分頁
+function switchTab(tabName) {
+    activeTab = tabName;
+    const regTab = document.getElementById('btn-tab-regular');
+    const happyTab = document.getElementById('btn-tab-happy');
+    if (regTab) regTab.classList.toggle('active', tabName === 'regular');
+    if (happyTab) happyTab.classList.toggle('active', tabName === 'happy');
+    renderTable(globalIsAdmin);
 }
 
 // 2.5 更新權限徽章顯示
@@ -95,13 +108,24 @@ function renderTable(isAdmin) {
         dateColumn.style.display = 'none'; // 隱藏日期欄
     }
     
-    if (adminGroupsList.length === 0) {
+    const filteredGroups = adminGroupsList.filter(g => {
+        if (activeTab === 'happy') {
+            return g.type === '幸福小組';
+        } else {
+            return g.type !== '幸福小組';
+        }
+    });
+    
+    if (filteredGroups.length === 0) {
         const colspan = isAdmin ? '5' : '4';
         tbody.innerHTML = `<tr><td colspan="${colspan}" style="color: #999;">目前沒有小組資料</td></tr>`;
         return;
     }
 
-    tbody.innerHTML = adminGroupsList.map((g, index) => {
+    tbody.innerHTML = filteredGroups.map((g) => {
+        // 找出在原始名單中的 index，以便傳給編輯 Modal
+        const originalIndex = adminGroupsList.findIndex(orig => orig.uuid === g.uuid);
+
         // 狀態顯示樣式 (支援幸福小組結案狀態)
         let statusBadge = '';
         if (g.status === '顯示') {
@@ -140,7 +164,7 @@ function renderTable(isAdmin) {
                 <td>${statusBadge}</td>
                 ${dateCell}
                 <td>
-                    <button class="btn" style="background: #2196F3; padding: 6px 12px; font-size: 13px;" onclick="openEditModal(${index})">✏️ 編輯</button>${concludeBtn}${deleteBtn}
+                    <button class="btn" style="background: #2196F3; padding: 6px 12px; font-size: 13px;" onclick="openEditModal(${originalIndex})">✏️ 編輯</button>${concludeBtn}${deleteBtn}
                 </td>
             </tr>
         `;
