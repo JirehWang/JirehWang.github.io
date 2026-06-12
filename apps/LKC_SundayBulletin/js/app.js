@@ -446,16 +446,23 @@ const App = {
       let book = '';
       let chap = '';
       let sec = '';
+      let bookRegexPart = null;
       if (window.BibleFormatter && typeof window.BibleFormatter.bookRegexPart === 'string') {
-        const bookRegexPart = window.BibleFormatter.bookRegexPart;
-        const match = ref.match(new RegExp('^(' + bookRegexPart + ')\\s*(\\d+):(\\d+)(?:-(\\d+))?$'));
-        if (match) {
-          book = match[1];
-          chap = match[2];
-          const startSec = match[3];
-          const endSec = match[4];
-          sec = endSec ? `${startSec}-${endSec}` : startSec;
-        }
+        bookRegexPart = window.BibleFormatter.bookRegexPart;
+      }
+      let match = null;
+      if (bookRegexPart) {
+        match = ref.match(new RegExp('^(' + bookRegexPart + ')\\s*(\\d+):(\\d+)(?:-(\\d+))?$'));
+      } else {
+        // fallback regex for simple "Book Chapter:Verse" format
+        match = ref.match(/^(\S+)\s+(\d+):(\d+)(?:-(\d+))?$/);
+      }
+      if (match) {
+        book = match[1];
+        chap = match[2];
+        const startSec = match[3];
+        const endSec = match[4];
+        sec = endSec ? `${startSec}-${endSec}` : startSec;
       }
 
       if (book && chap) {
