@@ -876,7 +876,7 @@
             const chapNum = chineseToNumber(toHalfWidth(chap));
             const secNum = chineseToNumber(toHalfWidth(sec));
             
-            let formatted = `${currentBook}${chapNum}:${secNum}`;
+            let formatted = `${chapNum}:${secNum}`;
             if (endSec) {
               const endSecNum = chineseToNumber(toHalfWidth(endSec));
               formatted += `-${endSecNum}`;
