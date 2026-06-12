@@ -70,7 +70,7 @@ const App = {
     document.addEventListener('change', e => { const f = e.target.dataset.field; if (f) BulletinModel.set(f, e.target.value); });
     
     // 經文輸入框失去焦點時自動標準化格式
-    document.addEventListener('blur', e => {
+    document.addEventListener('blur', async e => {
       const f = e.target.dataset.field;
       if (f && (f === 'taiwanese.scripture' || f === 'mandarin.scripture' || f === 'taiwanese.callToWorship' || f === 'taiwanese.goldenVerse')) {
         if (window.BibleFormatter) {
@@ -79,6 +79,9 @@ const App = {
             e.target.value = formatted;
             BulletinModel.set(f, formatted);
             this.showToast('經文格式已自動轉換為標準格式', 'success');
+          }
+          if (f === 'taiwanese.goldenVerse') {
+            await this.autoFillGoldenVerseText();
           }
         }
       }
@@ -203,6 +206,7 @@ const App = {
 
       BulletinModel.applyAPIData({ calendar: calResult, service: svcResult, worshipSongs: songsResult });
       this.syncFormFromModel();
+      await this.autoFillGoldenVerseText();
       const msgs = [];
       if (!calResult.success) msgs.push(`行事曆失敗: ${calResult.error}`);
       else if (!calResult.data?.taiwanese && !calResult.data?.mandarin) msgs.push(`找不到 ${date} 的講道資訊`);
@@ -378,6 +382,7 @@ const App = {
       BulletinModel._current = data;
       this._els.bulletinDate.value = data.date;
       this.syncFormFromModel();
+      await this.autoFillGoldenVerseText();
       this.hideDraftModal();
       this.showToast(`草稿 ${date} 已載入`, 'success');
     } catch (err) { this.showToast('載入草稿失敗：' + err.message, 'error'); }
@@ -417,6 +422,53 @@ const App = {
     this.syncSmallGroupsUI(data.attendance?.smallGroups || {});
     this.syncEventsUI(data.events || []);
     this.syncOfferingUI(data.offeringReport?.monthlyItems || []);
+  },
+
+  async autoFillGoldenVerseText() {
+    const inputEl = document.querySelector('[data-field="taiwanese.goldenVerse"]');
+    if (!inputEl) return;
+    const val = inputEl.value.trim();
+    if (!val) return;
+    
+    // Check if it already has parentheses (meaning text is already filled)
+    if (/[(（)）]/.test(val)) return;
+    
+    // Format if needed
+    let ref = val;
+    if (window.BibleFormatter) {
+      ref = window.BibleFormatter.format(val);
+      if (ref !== val) {
+        inputEl.value = ref;
+        BulletinModel.set('taiwanese.goldenVerse', ref);
+      }
+    }
+    
+    // Parse reference using the exposed bookRegexPart
+    const bookRegexPart = window.BibleFormatter.bookRegexPart;
+    const match = ref.match(new RegExp('^(' + bookRegexPart + ')\\s*(\\d+):(\\d+)(?:-(\\d+))?$'));
+    if (match) {
+      const book = match[1];
+      const chap = match[2];
+      const startSec = match[3];
+      const endSec = match[4];
+      const sec = endSec ? `${startSec}-${endSec}` : startSec;
+      
+      this.showToast('正在自動查詢台語金句經文...', 'info');
+      try {
+        const res = await ChurchAPI.queryBible(book, chap, sec, 'tghg');
+        if (res && res.success && res.records && res.records.length > 0) {
+          const bibleText = res.records.map(r => r.text.replace(/<[^>]+>/g, '').trim()).join(' ');
+          if (bibleText) {
+            const newText = `${ref}（${bibleText}）`;
+            inputEl.value = newText;
+            BulletinModel.set('taiwanese.goldenVerse', newText);
+            this.showToast('台語金句已自動填入！', 'success');
+          }
+        }
+      } catch (err) {
+        console.error('[autoFillGoldenVerseText]', err);
+      }
+    }
   },
 
   // 動態渲染小組欄位（內容由 API 或 model 決定）

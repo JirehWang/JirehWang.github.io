@@ -891,7 +891,7 @@
       return tokens.join('');
     }
 
-    return { format };
+    return { format, bookRegexPart, BIBLE_BOOKS };
   })();
   window.BibleFormatter = BibleFormatter;
 
