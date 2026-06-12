@@ -227,7 +227,17 @@ function openAddEventModal(dateStr) {
   document.getElementById('eventModalTitle').innerText = '新增事項';
   document.getElementById('evf_eventId').value = '';
   document.getElementById('evf_typeId').value = '';
-  document.getElementById('evf_date').value = dateStr || window.formatYMD(new Date());
+  
+  // 確保日期欄位為 YYYY-MM-DD 格式以正確在 input[type=date] 顯示
+  let dateVal = dateStr || window.formatYMD(new Date());
+  if (typeof dateVal === 'string') {
+    const match = dateVal.trim().match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    if (match) {
+      dateVal = `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`;
+    }
+  }
+  document.getElementById('evf_date').value = dateVal;
+  
   document.getElementById('evf_title').value = '';
   document.getElementById('evf_fieldsContainer').innerHTML =
     '<div class="text-muted text-center py-4">請先選擇事項類型，下方會顯示對應欄位</div>';
@@ -239,7 +249,21 @@ async function openEditEventModal(event) {
   document.getElementById('eventModalTitle').innerText = '編輯事項';
   document.getElementById('evf_eventId').value = event.eventId;
   document.getElementById('evf_typeId').value = event.typeId;
-  document.getElementById('evf_date').value = event.date;
+  
+  // 確保日期欄位為 YYYY-MM-DD 格式以正確在 input[type=date] 顯示，防止時區偏移
+  let dateVal = event.date;
+  if (typeof dateVal === 'string') {
+    const match = dateVal.trim().match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    if (match) {
+      dateVal = `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`;
+    } else {
+      dateVal = window.formatYMD(dateVal);
+    }
+  } else {
+    dateVal = window.formatYMD(dateVal);
+  }
+  document.getElementById('evf_date').value = dateVal;
+  
   document.getElementById('evf_title').value = event.title || '';
   document.getElementById('evf_deleteBtn').style.display = '';
 
