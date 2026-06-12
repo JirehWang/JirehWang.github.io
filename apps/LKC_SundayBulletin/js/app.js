@@ -442,33 +442,39 @@ const App = {
         BulletinModel.set('taiwanese.goldenVerse', ref);
       }
     }
-    
-    // Parse reference using the exposed bookRegexPart
-    const bookRegexPart = window.BibleFormatter.bookRegexPart;
-    const match = ref.match(new RegExp('^(' + bookRegexPart + ')\\s*(\\d+):(\\d+)(?:-(\\d+))?$'));
-    if (match) {
-      const book = match[1];
-      const chap = match[2];
-      const startSec = match[3];
-      const endSec = match[4];
-      const sec = endSec ? `${startSec}-${endSec}` : startSec;
-      
-      this.showToast('正在自動查詢台語金句經文...', 'info');
-      try {
-        const res = await ChurchAPI.queryBible(book, chap, sec, 'tghg');
-        if (res && res.success && res.records && res.records.length > 0) {
-          const bibleText = res.records.map(r => r.text.replace(/<[^>]+>/g, '').trim()).join(' ');
-          if (bibleText) {
-            const newText = `${ref}（${bibleText}）`;
-            inputEl.value = newText;
-            BulletinModel.set('taiwanese.goldenVerse', newText);
-            this.showToast('台語金句已自動填入！', 'success');
-          }
+      // Parse reference using the exposed bookRegexPart, guard if unavailable
+      let book = '';
+      let chap = '';
+      let sec = '';
+      if (window.BibleFormatter && typeof window.BibleFormatter.bookRegexPart === 'string') {
+        const bookRegexPart = window.BibleFormatter.bookRegexPart;
+        const match = ref.match(new RegExp('^(' + bookRegexPart + ')\\s*(\\d+):(\\d+)(?:-(\\d+))?$'));
+        if (match) {
+          book = match[1];
+          chap = match[2];
+          const startSec = match[3];
+          const endSec = match[4];
+          sec = endSec ? `${startSec}-${endSec}` : startSec;
         }
-      } catch (err) {
-        console.error('[autoFillGoldenVerseText]', err);
       }
-    }
+
+      if (book && chap) {
+        this.showToast('正在自動查詢台語金句經文...', 'info');
+        try {
+          const res = await ChurchAPI.queryBible(book, chap, sec, 'tghg');
+          if (res && res.success && res.records && res.records.length > 0) {
+            const bibleText = res.records.map(r => r.text.replace(/<[^>]+>/g, '').trim()).join(' ');
+            if (bibleText) {
+              const newText = `${ref}（${bibleText}）`;
+              inputEl.value = newText;
+              BulletinModel.set('taiwanese.goldenVerse', newText);
+              this.showToast('台語金句已自動填入！', 'success');
+            }
+          }
+        } catch (err) {
+          console.error('[autoFillGoldenVerseText]', err);
+        }
+      }
   },
 
   // 動態渲染小組欄位（內容由 API 或 model 決定）
