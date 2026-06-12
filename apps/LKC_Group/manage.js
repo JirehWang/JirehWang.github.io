@@ -185,7 +185,24 @@ function openEditModal(index) {
     document.getElementById('editOldName').value = group.name;
     document.getElementById('editNewName').value = group.name;
     document.getElementById('editNewCode').value = group.code;
-    document.getElementById('editNewStatus').value = group.status || '顯示'; // ✅ 載入狀態
+    
+    const statusSelect = document.getElementById('editNewStatus');
+    // 先移除之前動態補上的結案選項
+    const concludeOpt = statusSelect.querySelector('option[value="結案"]');
+    if (concludeOpt) concludeOpt.remove();
+
+    // 如果該組已結案，動態加入唯讀結案選項並停用下拉選單
+    if (group.status === '結案') {
+        const opt = document.createElement('option');
+        opt.value = '結案';
+        opt.innerHTML = '🍀 結案 (已封存，不可修改狀態)';
+        statusSelect.appendChild(opt);
+        statusSelect.value = '結案';
+        statusSelect.disabled = true;
+    } else {
+        statusSelect.value = group.status || '顯示';
+        statusSelect.disabled = false;
+    }
     
     document.getElementById('edit-group-modal').style.display = 'block';
 }
