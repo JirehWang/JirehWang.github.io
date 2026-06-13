@@ -683,7 +683,7 @@ function renderDashboardTable(data) {
   // 然後才是服事同工（主領、配唱...等動態欄位）
   const fixedHeaders = ['日期', '聚會名稱', '聚會類別', '牧師', '題目', '經文', '敬拜曲目'];
   const allKeys = Object.keys(data[0]);
-  const excludedHeaders = ['hasWarning', 'warningMessage', '年度', '季度'];
+  const excludedHeaders = ['hasWarning', 'warningMessage', '年度', '季度', 'leaves'];
   const positionHeaders = currentPositions
     .map(p => p.positionName)
     .filter(role => role && data.some(row => Object.prototype.hasOwnProperty.call(row, role)));
