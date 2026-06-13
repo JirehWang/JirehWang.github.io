@@ -2097,7 +2097,7 @@ function _ms_renderFilterableTable({ container, fullMatrix, tableMinWidth, rende
     setTimeout(() => {
       const closestEl = document.getElementById('ms-closest-date-item');
       if (closestEl) {
-        closestEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        closestEl.scrollIntoView({ block: 'center' });
       }
     }, 150);
   }
@@ -2159,7 +2159,7 @@ function showBulletinBoard() {
       setTimeout(() => {
         const closestEl = document.getElementById('ms-closest-date-item');
         if (closestEl) {
-          closestEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          closestEl.scrollIntoView({ block: 'center' });
         }
       }, 50);
     };
