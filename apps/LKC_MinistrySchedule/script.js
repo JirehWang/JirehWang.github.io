@@ -2689,6 +2689,15 @@ function onSermonLinkChange(checkbox) {
 }
 
 function updateRowSermonState(rowDiv, isChecked, dateStr) {
+  // 同步更新「套用講道」勾選狀態，確保畫面顯示與連動狀態一致
+  const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
+  if (sermonLinkColIdx !== -1) {
+    const cb = rowDiv.querySelector(`input.grid-checkbox[data-c="${sermonLinkColIdx}"]`);
+    if (cb && cb.checked !== isChecked) {
+      cb.checked = isChecked;
+    }
+  }
+
   // 找出這一列中所有 grid-input
   const inputsMap = Array.from(rowDiv.querySelectorAll('.grid-input')).reduce((map, input) => {
     const c = input.dataset.c;
