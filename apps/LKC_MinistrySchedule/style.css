@@ -1168,3 +1168,27 @@ body {
   opacity: 0.5;
   cursor: not-allowed !important;
 }
+
+/* 最接近今天的聚會卡片樣式：清新淡綠色 */
+.glass-card.closest-date-card {
+  background: rgba(232, 247, 240, 0.85) !important;
+  border: 1.5px solid rgba(46, 125, 50, 0.4) !important;
+  box-shadow: 0 12px 35px rgba(46, 125, 50, 0.08), 0 1px 3px rgba(46, 125, 50, 0.02) !important;
+  --card-accent-color: #2e7d32; /* 更醒目的深綠色條 */
+}
+
+.glass-card.closest-date-card:hover {
+  background: rgba(232, 247, 240, 0.95) !important;
+  border-color: rgba(46, 125, 50, 0.6) !important;
+  box-shadow: 0 15px 35px rgba(46, 125, 50, 0.12) !important;
+}
+
+/* 最接近今天的聚會表格列樣式：清新淡綠色 */
+tr.closest-date-row {
+  background-color: rgba(232, 247, 240, 0.7) !important;
+}
+tr.closest-date-row td {
+  background-color: rgba(232, 247, 240, 0.7) !important;
+  border-bottom: 2px solid rgba(46, 125, 50, 0.2) !important;
+}
+

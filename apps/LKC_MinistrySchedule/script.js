@@ -1829,6 +1829,47 @@ async function _ms_fetchBothAggregated() {
   return _ms_aggCache;
 }
 
+/**
+ * 尋找當前 matrix 中最接近今天日期的資料列索引 (1-based)。
+ * 優先尋找今天或未來的聚會中，最靠近今天（差距最小）的那一列。
+ * 若全部聚會皆在過去，則回傳過去中距離今天最近（即最新）的一列。
+ */
+function _ms_findClosestRowIndex(matrix, dateColIdx) {
+  if (!matrix || matrix.length <= 1 || dateColIdx < 0) return -1;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayMs = today.getTime();
+
+  let closestIdx = -1;
+  let minDiffFuture = Infinity;
+  let closestIdxPast = -1;
+  let minDiffPast = Infinity;
+
+  for (let i = 1; i < matrix.length; i++) {
+    const dStr = matrix[i][dateColIdx];
+    const d = new Date(dStr);
+    if (isNaN(d)) continue;
+    d.setHours(0, 0, 0, 0);
+    const dMs = d.getTime();
+    
+    const diff = dMs - todayMs;
+    if (diff >= 0) {
+      if (diff < minDiffFuture) {
+        minDiffFuture = diff;
+        closestIdx = i;
+      }
+    } else {
+      const absDiff = Math.abs(diff);
+      if (absDiff < minDiffPast) {
+        minDiffPast = absDiff;
+        closestIdxPast = i;
+      }
+    }
+  }
+
+  return closestIdx !== -1 ? closestIdx : closestIdxPast;
+}
+
 function _ms_getDateColIdx(headers) {
   if (!Array.isArray(headers)) return -1;
   return headers.findIndex(h => String(h || '').includes('日期'));
@@ -1888,12 +1929,18 @@ function _ms_buildTableHtml(matrix, opts = {}) {
   if (!matrix || matrix.length <= 1) {
     return '<p class="text-center text-muted my-4">此範圍內沒有資料，請改選其他季度</p>';
   }
+  const dateColIdx = _ms_getDateColIdx(matrix[0]);
+  const closestIdx = _ms_findClosestRowIndex(matrix, dateColIdx);
+
   let html = `<table class="table table-bordered table-hover text-center align-middle m-0" style="min-width: ${minWidth}px;"><thead><tr>`;
   matrix[0].forEach(h => html += `<th class="bg-light" style="position: sticky; top: 0; z-index: 10; outline: 1px solid #dee2e6;">${h}</th>`);
   html += '</tr></thead><tbody>';
   // td 用 white-space: pre-line 讓合併日期時的「\n 換行」能正確呈現多行
   for (let i = 1; i < matrix.length; i++) {
-    html += '<tr>';
+    const isClosest = (i === closestIdx);
+    const trIdAttr = isClosest ? 'id="ms-closest-date-item"' : '';
+    const trClassAttr = isClosest ? 'class="closest-date-row"' : '';
+    html += `<tr ${trIdAttr} ${trClassAttr}>`;
     matrix[i].forEach(cell => html += `<td style="white-space: pre-line; vertical-align: top;">${cell || "-"}</td>`);
     html += '</tr>';
   }
@@ -1907,6 +1954,8 @@ function _ms_buildCardsHtml(matrix) {
   }
   const headers = matrix[0];
   const dateColIdx = _ms_getDateColIdx(headers);
+  const closestIdx = _ms_findClosestRowIndex(matrix, dateColIdx);
+
   const topicColIdx = headers.findIndex(h => h === '主題' || h === '聚會名稱');
   const verseColIdx = headers.findIndex(h => h === '經文');
   const locColIdx = headers.findIndex(h => h === '地點');
@@ -1960,8 +2009,12 @@ function _ms_buildCardsHtml(matrix) {
     if (location) metaItems.push(`<span>📍 <b>地點：</b>${location}</span>`);
     const metaHtml = metaItems.length > 0 ? `<div class="glass-meta">${metaItems.join('')}</div>` : '';
 
+    const isClosest = (i === closestIdx);
+    const cardIdAttr = isClosest ? 'id="ms-closest-date-item"' : '';
+    const closestClass = isClosest ? 'closest-date-card' : '';
+
     cardsHtml += `
-      <div class="glass-card color-ramp-${(i - 1) % 5}">
+      <div ${cardIdAttr} class="glass-card color-ramp-${(i - 1) % 5} ${closestClass}">
         <div class="glass-date">
           <div class="day">${day}</div>
           <div class="month-year">${yearMonth}</div>
@@ -2039,6 +2092,14 @@ function _ms_renderFilterableTable({ container, fullMatrix, tableMinWidth, rende
       rollingBtn.classList.toggle('btn-outline-primary', state.mode !== 'rolling');
     }
     if (typeof onFilteredChange === 'function') onFilteredChange(filtered);
+
+    // 自動滾動至最接近今日日期的列/卡片
+    setTimeout(() => {
+      const closestEl = document.getElementById('ms-closest-date-item');
+      if (closestEl) {
+        closestEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 150);
   }
 
   if (!noDateCol) {
