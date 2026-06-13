@@ -714,10 +714,11 @@ function renderTable(data) {
   document.querySelectorAll('.record-row').forEach(rowDiv => {
     if (sermonLinkColIdx !== -1) {
       const checkbox = rowDiv.querySelector(`input.sermon-link-checkbox[data-c="${sermonLinkColIdx}"]`);
-      const badge = rowDiv.querySelector(`.sermon-lang-toggle[data-c="${sermonLinkColIdx}"]`);
+      const sw = rowDiv.querySelector(`input.sermon-lang-switch[data-c="${sermonLinkColIdx}"]`);
       if (checkbox && checkbox.checked && dateColIdx !== -1) {
         const dVal = rowDiv.querySelector(`input.grid-input[data-c="${dateColIdx}"]`).value.trim();
-        updateRowSermonState(rowDiv, badge ? badge.dataset.val : "Y", dVal);
+        const langVal = sw && sw.checked ? "台語/聯合" : "華語/聯合";
+        updateRowSermonState(rowDiv, langVal, dVal);
       }
     }
   });
@@ -752,16 +753,19 @@ function createRowHTML(rowData, gridTemplate) {
         langVal = currentSermonSettings.sermonType || "華語/聯合";
       }
       
-      const langText = langVal === "台語/聯合" ? "台" : "華";
-      const badgeColorClass = langVal === "台語/聯合" ? "bg-success" : "bg-primary";
-      const badgeStyle = isChecked ? "cursor: pointer;" : "cursor: not-allowed; opacity: 0.4; pointer-events: none;";
+      const isTaiwanese = langVal === "台語/聯合";
+      const leftOpacity = (isChecked && !isTaiwanese) ? "1" : "0.4";
+      const rightOpacity = (isChecked && isTaiwanese) ? "1" : "0.4";
+      const switchDisabledAttr = isChecked ? "" : "disabled";
       
       const cellHtml = `
-        <div class="d-flex align-items-center justify-content-center gap-2" style="width: 100%; height: 100%;">
-          <input type="checkbox" class="grid-checkbox sermon-link-checkbox" data-c="${cIdx}" ${isChecked ? 'checked' : ''} onchange="onSermonCheckboxChange(this)">
-          <span class="sermon-lang-toggle badge ${isChecked ? badgeColorClass : 'bg-secondary'}" data-c="${cIdx}" data-val="${langVal}" onclick="onSermonLangToggle(this)" style="user-select: none; padding: 4px 6px; font-size: 0.75rem; ${badgeStyle}">
-            ${langText}
-          </span>
+        <div class="d-flex align-items-center justify-content-center gap-1" style="width: 100%; height: 100%; font-size: 0.8rem; user-select: none;">
+          <input type="checkbox" class="grid-checkbox sermon-link-checkbox" data-c="${cIdx}" ${isChecked ? 'checked' : ''} onchange="onSermonCheckboxChange(this)" style="margin-right: 2px;">
+          <span class="text-primary fw-bold" id="lang-label-left-${cIdx}" style="font-size: 0.72rem; opacity: ${leftOpacity}; transition: opacity 0.2s;">華</span>
+          <div class="form-check form-switch m-0 p-0 d-flex align-items-center" style="min-height: auto;">
+            <input class="form-check-input sermon-lang-switch" type="checkbox" role="switch" data-c="${cIdx}" ${isTaiwanese ? 'checked' : ''} ${switchDisabledAttr} onchange="onSermonSwitchChange(this)" style="cursor: pointer; margin: 0; width: 1.6em; height: 0.95em; transition: all 0.2s;">
+          </div>
+          <span class="text-success fw-bold" id="lang-label-right-${cIdx}" style="font-size: 0.72rem; opacity: ${rightOpacity}; transition: opacity 0.2s;">台</span>
         </div>
       `;
       rowHtml += `<div class="record-cell d-flex align-items-center justify-content-center">${cellHtml}</div>`;
@@ -1191,8 +1195,9 @@ function initGridInteraction() {
             if (sermonLinkColIdx !== -1) {
               const checkbox = rowDiv.querySelector(`input.sermon-link-checkbox[data-c="${sermonLinkColIdx}"]`);
               if (checkbox && checkbox.checked) {
-                const badge = rowDiv.querySelector(`.sermon-lang-toggle[data-c="${sermonLinkColIdx}"]`);
-                updateRowSermonState(rowDiv, badge ? badge.dataset.val : "Y", slashDate);
+                const sw = rowDiv.querySelector(`input.sermon-lang-switch[data-c="${sermonLinkColIdx}"]`);
+                const langVal = sw && sw.checked ? "台語/聯合" : "華語/聯合";
+                updateRowSermonState(rowDiv, langVal, slashDate);
               }
             }
             
@@ -1247,9 +1252,9 @@ function initGridInteraction() {
               if (val === '華語/聯合' || val === '台語/聯合') {
                 langVal = val;
               }
-              const badge = targetRowDiv.querySelector(`.sermon-lang-toggle[data-c="${c}"]`);
-              if (badge) {
-                badge.dataset.val = langVal;
+              const sw = targetRowDiv.querySelector(`input.sermon-lang-switch[data-c="${c}"]`);
+              if (sw) {
+                sw.checked = langVal === "台語/聯合";
               }
               onSermonCheckboxChange(input);
             } else if (input.type === 'checkbox') {
@@ -1271,8 +1276,9 @@ function initGridInteraction() {
                 if (sermonLinkColIdx !== -1) {
                   const checkbox = targetRowDiv.querySelector(`input.sermon-link-checkbox[data-c="${sermonLinkColIdx}"]`);
                   if (checkbox && checkbox.checked) {
-                    const badge = targetRowDiv.querySelector(`.sermon-lang-toggle[data-c="${sermonLinkColIdx}"]`);
-                    updateRowSermonState(targetRowDiv, badge ? badge.dataset.val : "Y", val.trim());
+                    const sw = targetRowDiv.querySelector(`input.sermon-lang-switch[data-c="${sermonLinkColIdx}"]`);
+                    const langVal = sw && sw.checked ? "台語/聯合" : "華語/聯合";
+                    updateRowSermonState(targetRowDiv, langVal, val.trim());
                   }
                 }
               }
@@ -1519,9 +1525,9 @@ function fillTableWithData(parsedRows) {
             if (val === '華語/聯合' || val === '台語/聯合') {
               langVal = val;
             }
-            const badge = target.rowDiv.querySelector(`.sermon-lang-toggle[data-c="${colIdx}"]`);
-            if (badge) {
-              badge.dataset.val = langVal;
+            const sw = target.rowDiv.querySelector(`input.sermon-lang-switch[data-c="${colIdx}"]`);
+            if (sw) {
+              sw.checked = langVal === "台語/聯合";
             }
             onSermonCheckboxChange(input);
           } else if (input.type === 'checkbox') {
@@ -1547,8 +1553,9 @@ function fillTableWithData(parsedRows) {
       const checkbox = target.rowDiv.querySelector(`input.sermon-link-checkbox[data-c="${sermonLinkColIdx}"]`);
       const dInput = target.inputsMap[dateColIdx];
       if (checkbox && checkbox.checked && dInput && dInput.value) {
-        const badge = target.rowDiv.querySelector(`.sermon-lang-toggle[data-c="${sermonLinkColIdx}"]`);
-        updateRowSermonState(target.rowDiv, badge ? badge.dataset.val : "Y", dInput.value.trim());
+        const sw = target.rowDiv.querySelector(`input.sermon-lang-switch[data-c="${sermonLinkColIdx}"]`);
+        const langVal = sw && sw.checked ? "台語/聯合" : "華語/聯合";
+        updateRowSermonState(target.rowDiv, langVal, dInput.value.trim());
       }
     }
   });
@@ -1576,9 +1583,10 @@ async function saveData() {
       currentTableHeaders.forEach((header, cIdx) => {
         if (header === "套用講道") {
           const checkbox = rowDiv.querySelector(`input.sermon-link-checkbox[data-c="${cIdx}"]`);
-          const badge = rowDiv.querySelector(`.sermon-lang-toggle[data-c="${cIdx}"]`);
+          const sw = rowDiv.querySelector(`input.sermon-lang-switch[data-c="${cIdx}"]`);
           const isChecked = checkbox && checkbox.checked;
-          row.push(isChecked ? (badge ? badge.dataset.val : "Y") : "N");
+          const langVal = sw && sw.checked ? "台語/聯合" : "華語/聯合";
+          row.push(isChecked ? langVal : "N");
         } else {
           const input = rowDiv.querySelector(`input.grid-input[data-c="${cIdx}"]`);
           row.push(input ? input.value : "");
@@ -2744,11 +2752,13 @@ function onSermonLinkChange(checkbox) {
 }
 
 function updateRowSermonState(rowDiv, linkType, dateStr) {
-  // 同步更新「套用講道」勾選框與語言切換狀態，確保畫面顯示與連動狀態一致
+  // 同步更新「套用講道」勾選框與語言滑動開關狀態，確保畫面顯示與連動狀態一致
   const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
   if (sermonLinkColIdx !== -1) {
     const checkbox = rowDiv.querySelector(`input.sermon-link-checkbox[data-c="${sermonLinkColIdx}"]`);
-    const badge = rowDiv.querySelector(`.sermon-lang-toggle[data-c="${sermonLinkColIdx}"]`);
+    const sw = rowDiv.querySelector(`input.sermon-lang-switch[data-c="${sermonLinkColIdx}"]`);
+    const lblLeft = rowDiv.querySelector(`#lang-label-left-${sermonLinkColIdx}`);
+    const lblRight = rowDiv.querySelector(`#lang-label-right-${sermonLinkColIdx}`);
     
     const isLinked = linkType !== "N" && linkType !== "";
     
@@ -2756,27 +2766,28 @@ function updateRowSermonState(rowDiv, linkType, dateStr) {
       checkbox.checked = isLinked;
     }
     
-    if (badge) {
+    if (sw) {
       let langVal = linkType === "Y" ? currentSermonSettings.sermonType : linkType;
       if (langVal !== "華語/聯合" && langVal !== "台語/聯合") {
-        langVal = badge.dataset.val || currentSermonSettings.sermonType || "華語/聯合";
+        let isSwChecked = sw.checked;
+        langVal = isSwChecked ? "台語/聯合" : "華語/聯合";
       }
       
-      badge.dataset.val = langVal;
-      badge.innerText = langVal === "台語/聯合" ? "台" : "華";
+      const isTaiwanese = langVal === "台語/聯合";
+      if (sw.checked !== isTaiwanese) {
+        sw.checked = isTaiwanese;
+      }
+      sw.disabled = !isLinked;
       
-      if (isLinked) {
-        badge.style.cursor = "pointer";
-        badge.style.opacity = "1";
-        badge.style.pointerEvents = "auto";
-        badge.classList.remove('bg-secondary', 'bg-primary', 'bg-success');
-        badge.classList.add(langVal === "台語/聯合" ? 'bg-success' : 'bg-primary');
-      } else {
-        badge.style.cursor = "not-allowed";
-        badge.style.opacity = "0.4";
-        badge.style.pointerEvents = "none";
-        badge.classList.remove('bg-primary', 'bg-success');
-        badge.classList.add('bg-secondary');
+      // 更新標籤透明度
+      if (lblLeft && lblRight) {
+        if (isLinked) {
+          lblLeft.style.opacity = isTaiwanese ? "0.4" : "1";
+          lblRight.style.opacity = isTaiwanese ? "1" : "0.4";
+        } else {
+          lblLeft.style.opacity = "0.4";
+          lblRight.style.opacity = "0.4";
+        }
       }
     }
   }
@@ -2946,8 +2957,9 @@ async function forceSyncSermonData() {
         const checkbox = rowDiv.querySelector(`input.sermon-link-checkbox[data-c="${sermonLinkColIdx}"]`);
         if (checkbox && checkbox.checked && dateColIdx !== -1) {
           const dVal = rowDiv.querySelector(`input.grid-input[data-c="${dateColIdx}"]`).value.trim();
-          const badge = rowDiv.querySelector(`.sermon-lang-toggle[data-c="${sermonLinkColIdx}"]`);
-          updateRowSermonState(rowDiv, badge ? badge.dataset.val : "Y", dVal);
+          const sw = rowDiv.querySelector(`input.sermon-lang-switch[data-c="${sermonLinkColIdx}"]`);
+          const langVal = sw && sw.checked ? "台語/聯合" : "華語/聯合";
+          updateRowSermonState(rowDiv, langVal, dVal);
         }
       }
     });
@@ -2968,54 +2980,48 @@ function onSermonCheckboxChange(checkbox) {
   const dateInput = rowDiv.querySelector(`input[data-c="${dateColIdx}"]`);
   const dateVal = dateInput ? dateInput.value.trim() : "";
 
-  const badge = rowDiv.querySelector(`.sermon-lang-toggle[data-c="${checkbox.dataset.c}"]`);
-  const langVal = badge ? badge.dataset.val : currentSermonSettings.sermonType;
+  const sw = rowDiv.querySelector(`input.sermon-lang-switch[data-c="${checkbox.dataset.c}"]`);
+  const lblLeft = rowDiv.querySelector(`#lang-label-left-${checkbox.dataset.c}`);
+  const lblRight = rowDiv.querySelector(`#lang-label-right-${checkbox.dataset.c}`);
 
-  if (badge) {
+  if (sw) {
+    sw.disabled = !checkbox.checked;
+  }
+
+  const isTaiwanese = sw ? sw.checked : false;
+  if (lblLeft && lblRight) {
     if (checkbox.checked) {
-      badge.style.cursor = "pointer";
-      badge.style.opacity = "1";
-      badge.style.pointerEvents = "auto";
-      badge.classList.remove('bg-secondary');
-      badge.classList.add(langVal === "台語/聯合" ? 'bg-success' : 'bg-primary');
+      lblLeft.style.opacity = isTaiwanese ? "0.4" : "1";
+      lblRight.style.opacity = isTaiwanese ? "1" : "0.4";
     } else {
-      badge.style.cursor = "not-allowed";
-      badge.style.opacity = "0.4";
-      badge.style.pointerEvents = "none";
-      badge.classList.remove('bg-success', 'bg-primary');
-      badge.classList.add('bg-secondary');
+      lblLeft.style.opacity = "0.4";
+      lblRight.style.opacity = "0.4";
     }
   }
 
+  const langVal = isTaiwanese ? "台語/聯合" : "華語/聯合";
   const linkType = checkbox.checked ? langVal : "N";
   updateRowSermonState(rowDiv, linkType, dateVal);
 }
 
-function onSermonLangToggle(badge) {
-  const rowDiv = badge.closest('.record-row');
-  const checkbox = rowDiv.querySelector(`input.sermon-link-checkbox[data-c="${badge.dataset.c}"]`);
-  if (!checkbox || !checkbox.checked) return;
-
+function onSermonSwitchChange(sw) {
+  const rowDiv = sw.closest('.record-row');
   const dateColIdx = currentTableHeaders.findIndex(h => h.includes("日期"));
   if (dateColIdx === -1) return;
   const dateInput = rowDiv.querySelector(`input[data-c="${dateColIdx}"]`);
   const dateVal = dateInput ? dateInput.value.trim() : "";
 
-  const currentLang = badge.dataset.val;
-  const nextLang = currentLang === "台語/聯合" ? "華語/聯合" : "台語/聯合";
-  
-  badge.dataset.val = nextLang;
-  badge.innerText = nextLang === "台語/聯合" ? "台" : "華";
-  
-  if (nextLang === "台語/聯合") {
-    badge.classList.remove('bg-primary');
-    badge.classList.add('bg-success');
-  } else {
-    badge.classList.remove('bg-success');
-    badge.classList.add('bg-primary');
+  const lblLeft = rowDiv.querySelector(`#lang-label-left-${sw.dataset.c}`);
+  const lblRight = rowDiv.querySelector(`#lang-label-right-${sw.dataset.c}`);
+
+  const isTaiwanese = sw.checked;
+  if (lblLeft && lblRight) {
+    lblLeft.style.opacity = isTaiwanese ? "0.4" : "1";
+    lblRight.style.opacity = isTaiwanese ? "1" : "0.4";
   }
 
-  updateRowSermonState(rowDiv, nextLang, dateVal);
+  const langVal = isTaiwanese ? "台語/聯合" : "華語/聯合";
+  updateRowSermonState(rowDiv, langVal, dateVal);
 }
 
 // 註冊至全域 window，確保 inline HTML 呼叫無誤
@@ -3023,7 +3029,7 @@ window.toggleSermonTypeSelect = toggleSermonTypeSelect;
 window.saveSermonSettings = saveSermonSettings;
 window.onSermonLinkChange = onSermonLinkChange;
 window.onSermonCheckboxChange = onSermonCheckboxChange;
-window.onSermonLangToggle = onSermonLangToggle;
+window.onSermonSwitchChange = onSermonSwitchChange;
 window.forceSyncSermonData = forceSyncSermonData;
 
 function togglePrimaryActions() {
