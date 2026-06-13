@@ -2166,18 +2166,42 @@ window.submitUnlockVerifyCode = submitUnlockVerifyCode;
 function downloadExcel() {
   if (window.event) window.event.preventDefault();
 
-  // 若 modal 開啟過且已套用篩選，下載篩選後的內容；否則取整份編輯表單的可見資料
+  const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
+  
+  // 產生過濾掉「套用講道」的標題列
+  const exportHeaders = currentTableHeaders.filter(h => h !== "套用講道");
+
   let matrix;
   if (Array.isArray(_currentBulletinFiltered) && _currentBulletinFiltered.length > 1) {
-    matrix = _currentBulletinFiltered;
+    // 若有篩選快取，將每一列的「套用講道」欄位濾除
+    matrix = _currentBulletinFiltered.map((row, rIdx) => {
+      if (rIdx === 0) return exportHeaders; // 標題列
+      if (sermonLinkColIdx !== -1) {
+        return row.filter((_, cIdx) => cIdx !== sermonLinkColIdx);
+      }
+      return row;
+    });
   } else {
-    matrix = [currentTableHeaders];
+    matrix = [exportHeaders];
     document.querySelectorAll('.record-row').forEach(rowDiv => {
       if (rowDiv.classList.contains('hidden')) return;
-      const row = Array.from(rowDiv.querySelectorAll('.grid-input')).map(i => i.value.trim());
-      if (row.some(v => v !== "")) matrix.push(row);
+      
+      const row = [];
+      currentTableHeaders.forEach((header, cIdx) => {
+        if (header === "套用講道") {
+          // 下載排班表時不納入此欄位，直接跳過
+          return;
+        }
+        const input = rowDiv.querySelector(`input.grid-input[data-c="${cIdx}"]`);
+        row.push(input ? input.value.trim() : "");
+      });
+
+      if (row.some(v => v !== "")) {
+        matrix.push(row);
+      }
     });
   }
+
   if (matrix.length === 1) {
     getNotifier().warning("⚠️ 目前沒有資料可以下載！");
     return;
@@ -2502,6 +2526,20 @@ function downloadAggregatedExcel(matrix, fileName) {
 
 
 // ============================================================
+//  🛠️ 輔助工具：將 0-based 欄位索引轉成 Excel 字母 (如 0->A)
+// ============================================================
+function getColLetter(colIdx) {
+  let temp = colIdx;
+  let letter = "";
+  while (temp >= 0) {
+    letter = String.fromCharCode((temp % 26) + 65) + letter;
+    temp = Math.floor(temp / 26) - 1;
+  }
+  return letter;
+}
+
+
+// ============================================================
 //  📥 匯出空白 Excel 模板
 // ============================================================
 function exportBlankTemplate() {
@@ -2510,8 +2548,22 @@ function exportBlankTemplate() {
     return;
   }
   const blankRow = currentTableHeaders.map(() => "");
-  const data = [currentTableHeaders, blankRow, blankRow, blankRow, blankRow, blankRow];
-  const ws = XLSX.utils.aoa_to_sheet(data);
+  const ws = XLSX.utils.aoa_to_sheet([currentTableHeaders, blankRow, blankRow, blankRow, blankRow, blankRow]);
+
+  // 加入 "套用講道" 的下拉選單資料驗證
+  const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
+  if (sermonLinkColIdx !== -1) {
+    const colLetter = getColLetter(sermonLinkColIdx);
+    ws['!dataValidation'] = [
+      {
+        sqref: `${colLetter}2:${colLetter}500`,
+        type: "list",
+        formula1: '"N,華語/聯合,台語/聯合"',
+        showDropDown: true
+      }
+    ];
+  }
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "填寫模板");
   XLSX.writeFile(wb, `${activeGroupName}_Excel填寫模板.xlsx`);
