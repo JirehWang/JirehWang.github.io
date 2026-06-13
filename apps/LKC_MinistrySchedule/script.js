@@ -2149,6 +2149,23 @@ function showBulletinBoard() {
       keyboard: false
     });
   }
+
+  const modalEl = document.getElementById('bulletinModal');
+  if (modalEl) {
+    if (modalEl._shownListener) {
+      modalEl.removeEventListener('shown.bs.modal', modalEl._shownListener);
+    }
+    modalEl._shownListener = () => {
+      setTimeout(() => {
+        const closestEl = document.getElementById('ms-closest-date-item');
+        if (closestEl) {
+          closestEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 50);
+    };
+    modalEl.addEventListener('shown.bs.modal', modalEl._shownListener);
+  }
+
   bulletinModalInstance.show();
 }
 
