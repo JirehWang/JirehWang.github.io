@@ -91,7 +91,7 @@
 
     .summary {
       display: grid;
-      grid-template-columns: repeat(4, minmax(120px, 1fr));
+      grid-template-columns: repeat(5, minmax(120px, 1fr));
       gap: 12px;
       margin-bottom: 18px;
     }
@@ -245,6 +245,7 @@
       <div class="metric"><span class="muted">Error/Critical</span><strong id="errorCount">0</strong></div>
       <div class="metric"><span class="muted">Warn</span><strong id="warnCount">0</strong></div>
       <div class="metric"><span class="muted">平均耗時</span><strong id="avgDuration">0ms</strong></div>
+      <div class="metric"><span class="muted">總耗時</span><strong id="sumDuration">0ms</strong></div>
     </section>
 
     <div id="statusBox" class="status">載入中...</div>
@@ -297,6 +298,7 @@
     const errorCount = document.getElementById('errorCount');
     const warnCount = document.getElementById('warnCount');
     const avgDuration = document.getElementById('avgDuration');
+    const sumDuration = document.getElementById('sumDuration');
 
     function todayKey() {
       const d = new Date();
@@ -368,14 +370,35 @@
 
     function renderSummary(logs) {
       const durations = logs.map(item => Number(item.durationMs)).filter(Number.isFinite);
+      const sum = durations.reduce((acc, value) => acc + value, 0);
       const avg = durations.length
-        ? Math.round(durations.reduce((sum, value) => sum + value, 0) / durations.length)
+        ? Math.round(sum / durations.length)
         : 0;
 
       totalCount.textContent = logs.length;
       errorCount.textContent = logs.filter(item => item.level === 'error' || item.level === 'critical').length;
       warnCount.textContent = logs.filter(item => item.level === 'warn').length;
       avgDuration.textContent = `${avg}ms`;
+
+      // 格式化總耗時為易讀的格式
+      let sumText = `${sum}ms`;
+      if (sum >= 1000) {
+        const sec = sum / 1000;
+        if (sec < 60) {
+          sumText = `${sec.toFixed(1)}秒`;
+        } else {
+          const min = Math.floor(sec / 60);
+          const remSec = Math.round(sec % 60);
+          if (min < 60) {
+            sumText = `${min}分${remSec}秒`;
+          } else {
+            const hr = Math.floor(min / 60);
+            const remMin = min % 60;
+            sumText = `${hr}小時${remMin}分`;
+          }
+        }
+      }
+      sumDuration.textContent = sumText;
     }
 
     function renderRows(logs) {
