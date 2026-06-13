@@ -710,13 +710,13 @@ function renderTable(data) {
   document.getElementById('dynamicFormContainer').innerHTML = html;
   initGridInteraction();
 
-  // 載入時，針對所有有勾選連動講道的列，進行一次講道資料的自動套用初始化
+  // 載入時，針對所有有連動講道的列，進行一次講道資料的自動套用初始化
   document.querySelectorAll('.record-row').forEach(rowDiv => {
     if (sermonLinkColIdx !== -1) {
-      const cb = rowDiv.querySelector(`input.grid-checkbox[data-c="${sermonLinkColIdx}"]`);
-      if (cb && cb.checked && dateColIdx !== -1) {
+      const selectEl = rowDiv.querySelector(`select.sermon-link-select[data-c="${sermonLinkColIdx}"]`);
+      if (selectEl && selectEl.value !== "N" && dateColIdx !== -1) {
         const dVal = rowDiv.querySelector(`input.grid-input[data-c="${dateColIdx}"]`).value.trim();
-        updateRowSermonState(rowDiv, true, dVal);
+        updateRowSermonState(rowDiv, selectEl.value, dVal);
       }
     }
   });
@@ -731,8 +731,8 @@ function createRowHTML(rowData, gridTemplate) {
   let rowHtml = `<div class="record-row align-items-center" style="display: grid; grid-template-columns: ${gridTemplate};">`;
 
   const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
-  const isRowSermonLinked = sermonLinkColIdx !== -1 && 
-    (rowData[sermonLinkColIdx] === 'Y' || rowData[sermonLinkColIdx] === 'true' || rowData[sermonLinkColIdx] === true);
+  const rowLinkVal = sermonLinkColIdx !== -1 ? String(rowData[sermonLinkColIdx] || "N").trim() : "N";
+  const isRowSermonLinked = rowLinkVal !== "N" && rowLinkVal !== "";
 
   currentTableHeaders.forEach((header, cIdx) => {
     let val = rowData[cIdx] || "";
@@ -740,7 +740,15 @@ function createRowHTML(rowData, gridTemplate) {
       val = window.BibleFormatter.format(val);
     }
     if (header === "套用講道") {
-      rowHtml += `<div class="record-cell d-flex align-items-center justify-content-center"><input type="checkbox" class="grid-checkbox" data-c="${cIdx}" ${isRowSermonLinked ? 'checked' : ''} onchange="onSermonLinkChange(this)"></div>`;
+      const currentLinkVal = rowData[cIdx] || "N";
+      const selectHtml = `
+        <select class="grid-select sermon-link-select form-select form-select-sm" data-c="${cIdx}" onchange="onSermonLinkSelectChange(this)" style="width: 100%; height: 100%; padding: 2px 4px; font-size: 0.85rem; border-color: #ced4da;">
+          <option value="N" ${currentLinkVal === 'N' ? 'selected' : ''}>無</option>
+          <option value="華語/聯合" ${(currentLinkVal === '華語/聯合' || (currentLinkVal === 'Y' && currentSermonSettings.sermonType === '華語/聯合')) ? 'selected' : ''}>華語</option>
+          <option value="台語/聯合" ${(currentLinkVal === '台語/聯合' || (currentLinkVal === 'Y' && currentSermonSettings.sermonType === '台語/聯合')) ? 'selected' : ''}>台語</option>
+        </select>
+      `;
+      rowHtml += `<div class="record-cell d-flex align-items-center justify-content-center">${selectHtml}</div>`;
       return;
     }
 
@@ -978,13 +986,13 @@ function generateQuarterRows() {
     if (existingDates.has(date)) return;
     const row = Array(currentTableHeaders.length).fill("");
     row[dateColIdx] = date;
-    if (sermonLinkColIdx !== -1) row[sermonLinkColIdx] = useSermonForNewRows ? "Y" : "N";
+    if (sermonLinkColIdx !== -1) row[sermonLinkColIdx] = useSermonForNewRows ? currentSermonSettings.sermonType : "N";
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = createRowHTML(row);
     const rowEl = tempDiv.firstElementChild;
     document.getElementById('rowsContainer').appendChild(rowEl);
     if (sermonLinkColIdx !== -1 && useSermonForNewRows) {
-      updateRowSermonState(rowEl, true, date);
+      updateRowSermonState(rowEl, currentSermonSettings.sermonType, date);
     }
     addedDates.push(date);
     added++;
@@ -1165,9 +1173,9 @@ function initGridInteraction() {
             const rowDiv = target.closest('.record-row');
             const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
             if (sermonLinkColIdx !== -1) {
-              const checkbox = rowDiv.querySelector(`input.grid-checkbox[data-c="${sermonLinkColIdx}"]`);
-              if (checkbox && checkbox.checked) {
-                updateRowSermonState(rowDiv, true, slashDate);
+              const selectEl = rowDiv.querySelector(`select.sermon-link-select[data-c="${sermonLinkColIdx}"]`);
+              if (selectEl && selectEl.value !== "N") {
+                updateRowSermonState(rowDiv, selectEl.value, slashDate);
               }
             }
             
@@ -1211,9 +1219,18 @@ function initGridInteraction() {
         const cols = rows[i].split('\t');
         for (let j = 0; j < cols.length; j++) {
           const c = startC + j;
-          const input = targetRowDiv.querySelector(`input[data-c="${c}"]`);
+          const input = targetRowDiv.querySelector(`[data-c="${c}"]`);
           if (input) {
-            if (input.type === 'checkbox') {
+            if (input.tagName === 'SELECT') {
+              let val = cols[j].trim();
+              if (val === 'Y' || val === 'true' || val === '1') val = currentSermonSettings.sermonType;
+              else if (val === 'N' || val === 'false' || val === '0') val = 'N';
+              input.value = val;
+              // 觸發連動更新
+              const dateColIdx = currentTableHeaders.findIndex(h => h.includes("日期"));
+              const dateVal = dateColIdx !== -1 ? targetRowDiv.querySelector(`input[data-c="${dateColIdx}"]`).value.trim() : "";
+              updateRowSermonState(targetRowDiv, val, dateVal);
+            } else if (input.type === 'checkbox') {
               input.checked = (cols[j] === 'Y' || cols[j] === 'true' || cols[j] === true);
               onSermonLinkChange(input);
             } else {
@@ -1226,13 +1243,13 @@ function initGridInteraction() {
               input.classList.add('highlight');
               setTimeout(() => input.classList.remove('highlight'), 2000);
               
-              // 貼上日期時，如果同列的勾選框是勾選狀態，觸發重算講道
+              // 貼上日期時，如果同列的講道連動是啟用狀態，觸發重算講道
               if (currentTableHeaders[c] && currentTableHeaders[c].includes("日期")) {
                 const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
                 if (sermonLinkColIdx !== -1) {
-                  const checkbox = targetRowDiv.querySelector(`input.grid-checkbox[data-c="${sermonLinkColIdx}"]`);
-                  if (checkbox && checkbox.checked) {
-                    updateRowSermonState(targetRowDiv, true, val.trim());
+                  const selectEl = targetRowDiv.querySelector(`select.sermon-link-select[data-c="${sermonLinkColIdx}"]`);
+                  if (selectEl && selectEl.value !== "N") {
+                    updateRowSermonState(targetRowDiv, selectEl.value, val.trim());
                   }
                 }
               }
@@ -1405,10 +1422,10 @@ function fillTableWithData(parsedRows) {
   const container = document.getElementById('rowsContainer');
   const dateColIdx = currentTableHeaders.findIndex(h => h.includes("日期"));
 
-  // 預先快取目前所有 row 與其 inputsMap (cIdx -> input/checkbox)
+  // 預先快取目前所有 row 與其 inputsMap (cIdx -> input/checkbox/select)
   const rowCache = Array.from(container.querySelectorAll('.record-row')).map(rowDiv => ({
     rowDiv,
-    inputsMap: Array.from(rowDiv.querySelectorAll('input')).reduce((map, input) => {
+    inputsMap: Array.from(rowDiv.querySelectorAll('input, select')).reduce((map, input) => {
       const c = input.dataset.c;
       if (c !== undefined) map[c] = input;
       return map;
@@ -1458,7 +1475,7 @@ function fillTableWithData(parsedRows) {
       const rowDiv = container.lastElementChild;
       target = {
         rowDiv,
-        inputsMap: Array.from(rowDiv.querySelectorAll('input')).reduce((map, input) => {
+        inputsMap: Array.from(rowDiv.querySelectorAll('input, select')).reduce((map, input) => {
           const c = input.dataset.c;
           if (c !== undefined) map[c] = input;
           return map;
@@ -1472,7 +1489,12 @@ function fillTableWithData(parsedRows) {
       if (val !== undefined && val !== null && val !== "") {
         const input = target.inputsMap[colIdx];
         if (input) {
-          if (input.type === 'checkbox') {
+          if (input.tagName === 'SELECT') {
+            let sVal = String(val).trim();
+            if (sVal === 'Y' || sVal === 'true' || sVal === '1') sVal = currentSermonSettings.sermonType;
+            else if (sVal === 'N' || sVal === 'false' || sVal === '0') sVal = 'N';
+            input.value = sVal;
+          } else if (input.type === 'checkbox') {
             input.checked = (val === 'Y' || val === 'true' || val === true);
             onSermonLinkChange(input);
           } else {
@@ -1494,8 +1516,8 @@ function fillTableWithData(parsedRows) {
     if (sermonLinkColIdx !== -1 && dateColIdx !== -1) {
       const cb = target.inputsMap[sermonLinkColIdx];
       const dInput = target.inputsMap[dateColIdx];
-      if (cb && cb.checked && dInput && dInput.value) {
-        updateRowSermonState(target.rowDiv, true, dInput.value.trim());
+      if (cb && cb.value && cb.value !== "N" && dInput && dInput.value) {
+        updateRowSermonState(target.rowDiv, cb.value, dInput.value.trim());
       }
     }
   });
@@ -1522,8 +1544,8 @@ async function saveData() {
       const row = [];
       currentTableHeaders.forEach((header, cIdx) => {
         if (header === "套用講道") {
-          const cb = rowDiv.querySelector(`input.grid-checkbox[data-c="${cIdx}"]`);
-          row.push(cb && cb.checked ? "Y" : "N");
+          const selectEl = rowDiv.querySelector(`select.sermon-link-select[data-c="${cIdx}"]`);
+          row.push(selectEl ? selectEl.value : "N");
         } else {
           const input = rowDiv.querySelector(`input.grid-input[data-c="${cIdx}"]`);
           row.push(input ? input.value : "");
@@ -2688,13 +2710,13 @@ function onSermonLinkChange(checkbox) {
   updateRowSermonState(rowDiv, checkbox.checked, dateVal);
 }
 
-function updateRowSermonState(rowDiv, isChecked, dateStr) {
-  // 同步更新「套用講道」勾選狀態，確保畫面顯示與連動狀態一致
+function updateRowSermonState(rowDiv, linkType, dateStr) {
+  // 同步更新「套用講道」下拉選單狀態，確保畫面顯示與連動狀態一致
   const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
   if (sermonLinkColIdx !== -1) {
-    const cb = rowDiv.querySelector(`input.grid-checkbox[data-c="${sermonLinkColIdx}"]`);
-    if (cb && cb.checked !== isChecked) {
-      cb.checked = isChecked;
+    const sel = rowDiv.querySelector(`select.sermon-link-select[data-c="${sermonLinkColIdx}"]`);
+    if (sel && sel.value !== linkType) {
+      sel.value = linkType;
     }
   }
 
@@ -2712,9 +2734,11 @@ function updateRowSermonState(rowDiv, isChecked, dateStr) {
     fieldIndices[f] = currentTableHeaders.indexOf(f);
   });
 
-  console.log(`[SermonLink] updateRowSermonState: isChecked=${isChecked}, dateStr="${dateStr}", sermonType="${currentSermonSettings ? currentSermonSettings.sermonType : 'undefined'}"`);
+  console.log(`[SermonLink] updateRowSermonState: linkType="${linkType}", dateStr="${dateStr}", sermonType="${currentSermonSettings ? currentSermonSettings.sermonType : 'undefined'}"`);
 
-  if (isChecked) {
+  const isLinked = linkType !== "N" && linkType !== "";
+
+  if (isLinked) {
     // 設為唯讀
     fields.forEach(f => {
       const idx = fieldIndices[f];
@@ -2725,7 +2749,8 @@ function updateRowSermonState(rowDiv, isChecked, dateStr) {
 
     // 尋找對應講道資訊並套用
     if (dateStr) {
-      const sermon = findSermonForDate(dateStr, currentSermonSettings.sermonType);
+      const activeSermonType = (linkType === "Y") ? currentSermonSettings.sermonType : linkType;
+      const sermon = findSermonForDate(dateStr, activeSermonType);
       console.log(`[SermonLink] findSermonForDate returned:`, sermon);
       if (sermon) {
         fields.forEach(f => {
@@ -2752,7 +2777,7 @@ function updateRowSermonState(rowDiv, isChecked, dateStr) {
       }
     });
   } else {
-    // 取消勾選：設為可編輯
+    // 取消或啟用為不可連動狀態：設為可編輯
     fields.forEach(f => {
       const idx = fieldIndices[f];
       if (idx !== -1 && inputsMap[idx]) {
@@ -2857,10 +2882,10 @@ async function forceSyncSermonData() {
     
     document.querySelectorAll('.record-row').forEach(rowDiv => {
       if (sermonLinkColIdx !== -1) {
-        const cb = rowDiv.querySelector(`input.grid-checkbox[data-c="${sermonLinkColIdx}"]`);
-        if (cb && cb.checked && dateColIdx !== -1) {
+        const selectEl = rowDiv.querySelector(`select.sermon-link-select[data-c="${sermonLinkColIdx}"]`);
+        if (selectEl && selectEl.value !== "N" && dateColIdx !== -1) {
           const dVal = rowDiv.querySelector(`input.grid-input[data-c="${dateColIdx}"]`).value.trim();
-          updateRowSermonState(rowDiv, true, dVal);
+          updateRowSermonState(rowDiv, selectEl.value, dVal);
         }
       }
     });
@@ -2874,10 +2899,21 @@ async function forceSyncSermonData() {
   }
 }
 
+function onSermonLinkSelectChange(select) {
+  const rowDiv = select.closest('.record-row');
+  const dateColIdx = currentTableHeaders.findIndex(h => h.includes("日期"));
+  if (dateColIdx === -1) return;
+  const dateInput = rowDiv.querySelector(`input[data-c="${dateColIdx}"]`);
+  const dateVal = dateInput ? dateInput.value.trim() : "";
+
+  updateRowSermonState(rowDiv, select.value, dateVal);
+}
+
 // 註冊至全域 window，確保 inline HTML 呼叫無誤
 window.toggleSermonTypeSelect = toggleSermonTypeSelect;
 window.saveSermonSettings = saveSermonSettings;
 window.onSermonLinkChange = onSermonLinkChange;
+window.onSermonLinkSelectChange = onSermonLinkSelectChange;
 window.forceSyncSermonData = forceSyncSermonData;
 
 function togglePrimaryActions() {
