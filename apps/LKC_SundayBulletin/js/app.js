@@ -206,6 +206,24 @@ const App = {
       const songsResult = v(songsR);
 
       BulletinModel.applyAPIData({ calendar: calResult, service: svcResult, worshipSongs: songsResult });
+      
+      if (calResult.success && calResult.data) {
+        const tw = calResult.data.taiwanese;
+        const zh = calResult.data.mandarin;
+        const isUnited = (tw && (String(tw.category || '').includes('聯合') || String(tw.name || '').includes('聯合')))
+                      || (zh && (String(zh.category || '').includes('聯合') || String(zh.name || '').includes('聯合')));
+        if (isUnited) {
+          const currentType = BulletinModel.get().serviceType;
+          const targetType = currentType?.startsWith('聯合') ? currentType : '聯合-台語';
+          BulletinModel.set('serviceType', targetType);
+        } else {
+          const currentType = BulletinModel.get().serviceType;
+          if (currentType?.startsWith('聯合')) {
+            BulletinModel.set('serviceType', '台華語');
+          }
+        }
+      }
+
       this.syncFormFromModel();
       await this.autoFillGoldenVerseText();
       const msgs = [];
