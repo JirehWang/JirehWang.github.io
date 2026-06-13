@@ -735,7 +735,10 @@ function createRowHTML(rowData, gridTemplate) {
     (rowData[sermonLinkColIdx] === 'Y' || rowData[sermonLinkColIdx] === 'true' || rowData[sermonLinkColIdx] === true);
 
   currentTableHeaders.forEach((header, cIdx) => {
-    const val = rowData[cIdx] || "";
+    let val = rowData[cIdx] || "";
+    if (header === "經文" && (currentTemplate === "小組聚會表模板" || currentTemplate === "團契聚會表模板") && window.BibleFormatter) {
+      val = window.BibleFormatter.format(val);
+    }
     if (header === "套用講道") {
       rowHtml += `<div class="record-cell d-flex align-items-center justify-content-center"><input type="checkbox" class="grid-checkbox" data-c="${cIdx}" ${isRowSermonLinked ? 'checked' : ''} onchange="onSermonLinkChange(this)"></div>`;
       return;
@@ -1177,6 +1180,15 @@ function initGridInteraction() {
             target.focus();
           }
         }
+      } else if (header && header === "經文" && (currentTemplate === "小組聚會表模板" || currentTemplate === "團契聚會表模板") && window.BibleFormatter) {
+        const val = target.value.trim();
+        if (val !== "") {
+          const formatted = window.BibleFormatter.format(val);
+          if (formatted !== val) {
+            target.value = formatted;
+            target.title = formatted;
+          }
+        }
       }
     }
   });
@@ -1205,7 +1217,12 @@ function initGridInteraction() {
               input.checked = (cols[j] === 'Y' || cols[j] === 'true' || cols[j] === true);
               onSermonLinkChange(input);
             } else {
-              input.value = cols[j];
+              let val = cols[j];
+              if (currentTableHeaders[c] === "經文" && (currentTemplate === "小組聚會表模板" || currentTemplate === "團契聚會表模板") && window.BibleFormatter) {
+                val = window.BibleFormatter.format(val);
+              }
+              input.value = val;
+              input.title = val;
               input.classList.add('highlight');
               setTimeout(() => input.classList.remove('highlight'), 2000);
               
@@ -1215,7 +1232,7 @@ function initGridInteraction() {
                 if (sermonLinkColIdx !== -1) {
                   const checkbox = targetRowDiv.querySelector(`input.grid-checkbox[data-c="${sermonLinkColIdx}"]`);
                   if (checkbox && checkbox.checked) {
-                    updateRowSermonState(targetRowDiv, true, cols[j].trim());
+                    updateRowSermonState(targetRowDiv, true, val.trim());
                   }
                 }
               }
@@ -1459,7 +1476,12 @@ function fillTableWithData(parsedRows) {
             input.checked = (val === 'Y' || val === 'true' || val === true);
             onSermonLinkChange(input);
           } else {
-            input.value = val;
+            let finalVal = val;
+            if (header === "經文" && (currentTemplate === "小組聚會表模板" || currentTemplate === "團契聚會表模板") && window.BibleFormatter) {
+              finalVal = window.BibleFormatter.format(val);
+            }
+            input.value = finalVal;
+            input.title = finalVal;
             input.classList.add('highlight');
             setTimeout(() => input.classList.remove('highlight'), 2000);
           }
