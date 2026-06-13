@@ -428,10 +428,29 @@ const App = {
     const inputEl = document.querySelector('[data-field="taiwanese.goldenVerse"]');
     if (!inputEl) return;
     const val = inputEl.value.trim();
-    if (!val) return;
+    const textEl = document.querySelector('[data-field="taiwanese.goldenVerseText"]');
+    
+    if (!val) {
+      BulletinModel.set('taiwanese.goldenVerseText', '');
+      if (textEl) textEl.value = '';
+      return;
+    }
     
     // Check if it already has parentheses (meaning text is already filled)
-    if (/[(（)）]/.test(val)) return;
+    if (/[(（)）]/.test(val)) {
+      // If it contains parentheses, split it into reference and text
+      const match = val.match(/^([^(（]+)[(（]([^)）]+)[)）]$/);
+      if (match) {
+        const refPart = match[1].trim();
+        const textPart = match[2].trim();
+        
+        inputEl.value = refPart;
+        BulletinModel.set('taiwanese.goldenVerse', refPart);
+        BulletinModel.set('taiwanese.goldenVerseText', textPart);
+        if (textEl) textEl.value = textPart;
+      }
+      return;
+    }
     
     // Format if needed
     let ref = val;
@@ -442,46 +461,52 @@ const App = {
         BulletinModel.set('taiwanese.goldenVerse', ref);
       }
     }
-      // Parse reference using the exposed bookRegexPart, guard if unavailable
-      let book = '';
-      let chap = '';
-      let sec = '';
-      let bookRegexPart = null;
-      if (window.BibleFormatter && typeof window.BibleFormatter.bookRegexPart === 'string') {
-        bookRegexPart = window.BibleFormatter.bookRegexPart;
-      }
-      let match = null;
-      if (bookRegexPart) {
-        match = ref.match(new RegExp('^(' + bookRegexPart + ')\\s*(\\d+):(\\d+)(?:-(\\d+))?$'));
-      } else {
-        // fallback regex for simple "Book Chapter:Verse" format
-        match = ref.match(/^(\S+)\s+(\d+):(\d+)(?:-(\d+))?$/);
-      }
-      if (match) {
-        book = match[1];
-        chap = match[2];
-        const startSec = match[3];
-        const endSec = match[4];
-        sec = endSec ? `${startSec}-${endSec}` : startSec;
-      }
+    
+    // Parse reference using the exposed bookRegexPart, guard if unavailable
+    let book = '';
+    let chap = '';
+    let sec = '';
+    let bookRegexPart = null;
+    if (window.BibleFormatter && typeof window.BibleFormatter.bookRegexPart === 'string') {
+      bookRegexPart = window.BibleFormatter.bookRegexPart;
+    }
+    
+    let match = null;
+    if (bookRegexPart) {
+      match = ref.match(new RegExp('^(' + bookRegexPart + ')\\s*(\\d+):(\\d+)(?:-(\\d+))?$'));
+    } else {
+      match = ref.match(/^([^\d\s:]+)\s*(\d+):(\d+)(?:-(\\d+))?$/);
+    }
+    
+    if (!match) {
+      // Try no-space match
+      match = ref.match(/^([^\d\s:]+)(\d+):(\d+)(?:-(\\d+))?$/);
+    }
+    
+    if (match) {
+      book = match[1];
+      chap = match[2];
+      const startSec = match[3];
+      const endSec = match[4];
+      sec = endSec ? `${startSec}-${endSec}` : startSec;
+    }
 
-      if (book && chap) {
-        this.showToast('正在自動查詢台語金句經文...', 'info');
-        try {
-          const res = await ChurchAPI.queryBible(book, chap, sec, 'tghg');
-          if (res && res.success && res.records && res.records.length > 0) {
-            const bibleText = res.records.map(r => r.text.replace(/<[^>]+>/g, '').trim()).join(' ');
-            if (bibleText) {
-              const newText = `${ref}（${bibleText}）`;
-              inputEl.value = newText;
-              BulletinModel.set('taiwanese.goldenVerse', newText);
-              this.showToast('台語金句已自動填入！', 'success');
-            }
+    if (book && chap) {
+      this.showToast('正在自動查詢台語金句經文...', 'info');
+      try {
+        const res = await ChurchAPI.queryBible(book, chap, sec, 'tghg');
+        if (res && res.success && res.records && res.records.length > 0) {
+          const bibleText = res.records.map(r => r.text.replace(/<[^>]+>/g, '').trim()).join(' ');
+          if (bibleText) {
+            BulletinModel.set('taiwanese.goldenVerseText', bibleText);
+            if (textEl) textEl.value = bibleText;
+            this.showToast('台語金句已自動填入！', 'success');
           }
-        } catch (err) {
-          console.error('[autoFillGoldenVerseText]', err);
         }
+      } catch (err) {
+        console.error('[autoFillGoldenVerseText]', err);
       }
+    }
   },
 
   // 動態渲染小組欄位（內容由 API 或 model 決定）

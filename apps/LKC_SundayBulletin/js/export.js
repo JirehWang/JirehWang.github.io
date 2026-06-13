@@ -114,6 +114,11 @@ const BulletinExport = {
           { label: '', value: '一樓', bold: false, size: 18 }
         ];
 
+    let twGoldenVerseFull = tw.goldenVerse || '___';
+    if (tw.goldenVerseText && !/[(（)）]/.test(twGoldenVerseFull)) {
+      twGoldenVerseFull = `${twGoldenVerseFull}（${tw.goldenVerseText}）`;
+    }
+
     // 左欄 - 台語程序
     const twLines = [
       ...twHeader,
@@ -136,7 +141,7 @@ const BulletinExport = {
       { label: '「回應上帝的話」', value: '', bold: true },
       { label: `聖詩 ${tw.responseHymn || '___'} 首`, value: '(會眾)' },
       { label: '報告', value: '(司會者)' },
-      { label: `金句 ${tw.goldenVerse || '___'}`, value: '(會眾)' },
+      { label: `金句 ${twGoldenVerseFull}`, value: '(會眾)' },
       { label: `奉獻${tw.offeringNote ? ' ' + tw.offeringNote : ''}`, value: '(會眾)' },
       { label: `頌榮 ${tw.doxologyHymn || '___'} 首`, value: '(會眾)' },
       { label: '祝禱', value: '(主理者)' },

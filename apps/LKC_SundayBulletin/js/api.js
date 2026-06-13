@@ -265,18 +265,48 @@ const ChurchAPI = {
     } : null;
 
     // If golden verse reference exists, fetch its text via queryBible and attach as goldenVerseText
-    async function fetchGoldenText(ref) {
+    async function fetchGoldenText(ref, version = 'unv') {
       if (!ref) return '';
-      // Simple parser: expect "Book Chapter:Verse" format, ignore extra parts
-      const parts = ref.trim().split(/\s+/);
-      if (parts.length < 2) return '';
-      const book = parts[0];
-      const chapSec = parts[1];
-      const [chap, sec] = chapSec.split(':');
+      let book = '';
+      let chap = '';
+      let sec = '';
+
+      let bookRegexPart = null;
+      if (window.BibleFormatter && typeof window.BibleFormatter.bookRegexPart === 'string') {
+        bookRegexPart = window.BibleFormatter.bookRegexPart;
+      }
+
+      let match = null;
+      if (bookRegexPart) {
+        match = ref.match(new RegExp('^(' + bookRegexPart + ')\\s*(\\d+):(\\d+)(?:-(\\d+))?'));
+      } else {
+        match = ref.match(/^([^\d\s:]+)\s*(\d+):(\d+)(?:-(\d+))?/);
+      }
+
+      if (match) {
+        book = match[1];
+        chap = match[2];
+        const startSec = match[3];
+        const endSec = match[4];
+        sec = endSec ? `${startSec}-${endSec}` : startSec;
+      } else {
+        // Fallback simple parser
+        const parts = ref.trim().split(/\s+/);
+        if (parts.length >= 2) {
+          book = parts[0];
+          const chapSec = parts[1];
+          const [c, s] = chapSec.split(':');
+          chap = c;
+          sec = s || '';
+        }
+      }
+
+      if (!book || !chap) return '';
+
       try {
-        const res = await this.queryBible(book, chap, sec || '');
+        const res = await this.queryBible(book, chap, sec, version);
         if (res && res.success && Array.isArray(res.records)) {
-          return res.records.map(r => r.text).join(' ');
+          return res.records.map(r => r.text.replace(/<[^>]+>/g, '').trim()).join(' ');
         }
       } catch (e) {
         console.error('[ChurchAPI fetchGoldenText] error', e);
@@ -285,10 +315,10 @@ const ChurchAPI = {
     }
 
     if (twService && twService.goldenVerse) {
-      twService.goldenVerseText = await fetchGoldenText.call(this, twService.goldenVerse);
+      twService.goldenVerseText = await fetchGoldenText.call(this, twService.goldenVerse, 'tghg');
     }
     if (zhService && zhService.goldenVerse) {
-      zhService.goldenVerseText = await fetchGoldenText.call(this, zhService.goldenVerse);
+      zhService.goldenVerseText = await fetchGoldenText.call(this, zhService.goldenVerse, 'unv');
     }
 
     const today = new Date(date);
