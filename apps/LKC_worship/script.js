@@ -1429,10 +1429,9 @@ function renderPreviewTable(data) {
 
         sel.onchange = function() {
           generatedScheduleData[idx][h] = this.value;
-          this.style.backgroundColor = this.value === '【待定】' ? '#ffebee' : '#fff';
-          this.style.color = this.value === '【待定】' ? '#c62828' : 'inherit';
-          this.style.fontWeight = this.value === '【待定】' ? 'bold' : 'normal';
+          validateCellSelection(idx, h, this.value, this, true);
         };
+        validateCellSelection(idx, h, row[h], sel, false);
         td.appendChild(sel);
       }
 
@@ -1462,4 +1461,64 @@ async function saveGeneratedSchedule() {
   }
   btn.disabled = false; 
   btn.innerText = "💾 儲存並發佈";
+}
+
+// 🌟 驗證手動選擇同工是否違反規則（請假、重複、連續三週以上服事）
+function validateCellSelection(idx, positionName, value, selectEl, triggerAlert = false) {
+  if (!value || value === '【待定】' || value === '待定') {
+    selectEl.style.backgroundColor = value === '【待定】' ? '#ffebee' : '#fff';
+    selectEl.style.color = value === '【待定】' ? '#c62828' : 'inherit';
+    selectEl.style.fontWeight = value === '【待定】' ? 'bold' : 'normal';
+    selectEl.title = '';
+    return;
+  }
+
+  const row = generatedScheduleData[idx];
+  const warnings = [];
+
+  // 1. 該人員請假
+  const leaves = row.leaves || [];
+  if (leaves.includes(value)) {
+    warnings.push(`[${value}] 此日請假`);
+  }
+
+  // 2. 同日重複
+  const duplicatePositions = currentPositions
+    .map(p => p.positionName)
+    .filter(posName => posName !== positionName && row[posName] === value);
+  if (duplicatePositions.length > 0) {
+    warnings.push(`[${value}] 此日重複服事 (${duplicatePositions.join('、')})`);
+  }
+
+  // 3. 連續三週以上服事
+  const inRow = (r) => {
+    if (!r) return false;
+    return currentPositions.some(p => r[p.positionName] === value);
+  };
+  const inPrev1 = idx >= 1 && inRow(generatedScheduleData[idx - 1]);
+  const inPrev2 = idx >= 2 && inRow(generatedScheduleData[idx - 2]);
+  const inNext1 = idx < generatedScheduleData.length - 1 && inRow(generatedScheduleData[idx + 1]);
+  const inNext2 = idx < generatedScheduleData.length - 2 && inRow(generatedScheduleData[idx + 2]);
+
+  if ((inPrev1 && inPrev2) || (inPrev1 && inNext1) || (inNext1 && inNext2)) {
+    warnings.push(`[${value}] 已連續三週以上服事`);
+  }
+
+  if (warnings.length > 0) {
+    const warnMsg = warnings.join(' | ');
+    selectEl.style.backgroundColor = '#fff3cd'; // Bootstrap warning bg (light yellow)
+    selectEl.style.color = '#664d03';           // Bootstrap warning text (dark gold)
+    selectEl.style.fontWeight = 'bold';
+    selectEl.title = `⚠️ 警告：${warnMsg}`;
+    
+    // 彈出通知 (僅限使用者手動切換時，避免渲染時彈出一大堆)
+    if (triggerAlert && typeof userNotification !== 'undefined' && userNotification.warning) {
+      userNotification.warning(`⚠️ 警告：${warnMsg}`);
+    }
+  } else {
+    selectEl.style.backgroundColor = '#fff';
+    selectEl.style.color = 'inherit';
+    selectEl.style.fontWeight = 'normal';
+    selectEl.title = '';
+  }
 }

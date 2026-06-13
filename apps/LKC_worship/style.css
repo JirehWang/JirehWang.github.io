@@ -69,6 +69,8 @@ input, textarea, select {
     background: white; 
     border-radius: 12px; 
     overflow-x: auto; 
+    overflow-y: auto;
+    max-height: 70vh;
     border: 1px solid var(--border-subtle); 
     position: relative; 
     -webkit-overflow-scrolling: touch;
