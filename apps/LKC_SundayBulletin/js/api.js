@@ -314,11 +314,33 @@ const ChurchAPI = {
       return '';
     }
 
+    const isUnited = dayEvents.some(e => String(e.category || '').includes('聯合') || String(e.name || '').includes('聯合'));
+
     if (twService && twService.goldenVerse) {
-      twService.goldenVerseText = await fetchGoldenText.call(this, twService.goldenVerse, 'tghg');
+      if (isUnited) {
+        const twText = await fetchGoldenText.call(this, twService.goldenVerse, 'tghg');
+        const zhText = await fetchGoldenText.call(this, twService.goldenVerse, 'unv');
+        if (twText && zhText) {
+          twService.goldenVerseText = `台：${twText} 華：${zhText}`;
+        } else {
+          twService.goldenVerseText = twText || zhText || '';
+        }
+      } else {
+        twService.goldenVerseText = await fetchGoldenText.call(this, twService.goldenVerse, 'tghg');
+      }
     }
     if (zhService && zhService.goldenVerse) {
-      zhService.goldenVerseText = await fetchGoldenText.call(this, zhService.goldenVerse, 'unv');
+      if (isUnited) {
+        const twText = await fetchGoldenText.call(this, zhService.goldenVerse, 'tghg');
+        const zhText = await fetchGoldenText.call(this, zhService.goldenVerse, 'unv');
+        if (twText && zhText) {
+          zhService.goldenVerseText = `台：${twText} 華：${zhText}`;
+        } else {
+          zhService.goldenVerseText = twText || zhText || '';
+        }
+      } else {
+        zhService.goldenVerseText = await fetchGoldenText.call(this, zhService.goldenVerse, 'unv');
+      }
     }
 
     const today = new Date(date);

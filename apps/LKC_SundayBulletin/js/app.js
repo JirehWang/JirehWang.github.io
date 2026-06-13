@@ -93,11 +93,12 @@ const App = {
     const { serviceTypePrimary: primary, serviceTypeSecondary: secondary, serviceTypeSecondaryWrap: secWrap } = this._els;
     if (!primary || !secondary || !secWrap) return;
 
-    const onChange = () => {
+    const onChange = async () => {
       secWrap.style.display = (primary.value === '聯合') ? '' : 'none';
       const t = this.computeServiceType();
       BulletinModel.set('serviceType', t);
       this.applyServiceMode(t);
+      await this.autoFillGoldenVerseText();
     };
     primary.addEventListener('change', onChange);
     secondary.addEventListener('change', onChange);
@@ -492,15 +493,45 @@ const App = {
     }
 
     if (book && chap) {
-      this.showToast('正在自動查詢台語金句經文...', 'info');
       try {
-        const res = await ChurchAPI.queryBible(book, chap, sec, 'tghg');
-        if (res && res.success && res.records && res.records.length > 0) {
-          const bibleText = res.records.map(r => r.text.replace(/<[^>]+>/g, '').trim()).join(' ');
-          if (bibleText) {
-            BulletinModel.set('taiwanese.goldenVerseText', bibleText);
-            if (textEl) textEl.value = bibleText;
-            this.showToast('台語金句已自動填入！', 'success');
+        const isUnited = BulletinModel.get().serviceType?.startsWith('聯合');
+        if (isUnited) {
+          this.showToast('正在自動查詢聯合禮拜雙語金句...', 'info');
+          const [resTw, resZh] = await Promise.all([
+            ChurchAPI.queryBible(book, chap, sec, 'tghg'),
+            ChurchAPI.queryBible(book, chap, sec, 'unv')
+          ]);
+          let twText = '';
+          let zhText = '';
+          if (resTw && resTw.success && resTw.records && resTw.records.length > 0) {
+            twText = resTw.records.map(r => r.text.replace(/<[^>]+>/g, '').trim()).join(' ');
+          }
+          if (resZh && resZh.success && resZh.records && resZh.records.length > 0) {
+            zhText = resZh.records.map(r => r.text.replace(/<[^>]+>/g, '').trim()).join(' ');
+          }
+          if (twText && zhText) {
+            const combinedText = `台：${twText} 華：${zhText}`;
+            BulletinModel.set('taiwanese.goldenVerseText', combinedText);
+            if (textEl) textEl.value = combinedText;
+            this.showToast('聯合禮拜金句已自動填入（台華語）！', 'success');
+          } else {
+            const text = twText || zhText || '';
+            if (text) {
+              BulletinModel.set('taiwanese.goldenVerseText', text);
+              if (textEl) textEl.value = text;
+              this.showToast('金句已自動填入！', 'success');
+            }
+          }
+        } else {
+          this.showToast('正在自動查詢台語金句經文...', 'info');
+          const res = await ChurchAPI.queryBible(book, chap, sec, 'tghg');
+          if (res && res.success && res.records && res.records.length > 0) {
+            const bibleText = res.records.map(r => r.text.replace(/<[^>]+>/g, '').trim()).join(' ');
+            if (bibleText) {
+              BulletinModel.set('taiwanese.goldenVerseText', bibleText);
+              if (textEl) textEl.value = bibleText;
+              this.showToast('台語金句已自動填入！', 'success');
+            }
           }
         }
       } catch (err) {
