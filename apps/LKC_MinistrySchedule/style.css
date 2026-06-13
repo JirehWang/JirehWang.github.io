@@ -1155,8 +1155,8 @@ body {
 
 /* 講道連動語言切換開關 (左右滑動型) */
 .sermon-lang-switch:checked {
-  background-color: #198754 !important; /* 台語 (綠色) */
-  border-color: #198754 !important;
+  background-color: #fd7e14 !important; /* 台語 (橘色) */
+  border-color: #fd7e14 !important;
 }
 .sermon-lang-switch:not(:checked) {
   background-color: #0d6efd !important; /* 華語 (藍色) */

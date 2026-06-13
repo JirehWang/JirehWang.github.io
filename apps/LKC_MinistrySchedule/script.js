@@ -765,7 +765,7 @@ function createRowHTML(rowData, gridTemplate) {
           <div class="form-check form-switch m-0 p-0 d-flex align-items-center" style="min-height: auto;">
             <input class="form-check-input sermon-lang-switch" type="checkbox" role="switch" data-c="${cIdx}" ${isTaiwanese ? 'checked' : ''} ${switchDisabledAttr} onchange="onSermonSwitchChange(this)" style="cursor: pointer; margin: 0; width: 1.6em; height: 0.95em; transition: all 0.2s;">
           </div>
-          <span class="text-success fw-bold" id="lang-label-right-${cIdx}" style="font-size: 0.72rem; opacity: ${rightOpacity}; transition: opacity 0.2s;">台</span>
+          <span class="fw-bold" id="lang-label-right-${cIdx}" style="color: #fd7e14 !important; font-size: 0.72rem; opacity: ${rightOpacity}; transition: opacity 0.2s;">台</span>
         </div>
       `;
       rowHtml += `<div class="record-cell d-flex align-items-center justify-content-center">${cellHtml}</div>`;
