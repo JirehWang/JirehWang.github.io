@@ -1474,21 +1474,16 @@ function validateCellSelection(idx, positionName, value, selectEl, triggerAlert 
   }
 
   const row = generatedScheduleData[idx];
-  const warnings = [];
 
   // 1. 該人員請假
   const leaves = row.leaves || [];
-  if (leaves.includes(value)) {
-    warnings.push(`[${value}] 此日請假`);
-  }
+  const hasLeave = leaves.includes(value);
 
   // 2. 同日重複
   const duplicatePositions = currentPositions
     .map(p => p.positionName)
     .filter(posName => posName !== positionName && row[posName] === value);
-  if (duplicatePositions.length > 0) {
-    warnings.push(`[${value}] 此日重複服事 (${duplicatePositions.join('、')})`);
-  }
+  const hasDuplicate = duplicatePositions.length > 0;
 
   // 3. 連續三週以上服事
   const inRow = (r) => {
@@ -1499,15 +1494,30 @@ function validateCellSelection(idx, positionName, value, selectEl, triggerAlert 
   const inPrev2 = idx >= 2 && inRow(generatedScheduleData[idx - 2]);
   const inNext1 = idx < generatedScheduleData.length - 1 && inRow(generatedScheduleData[idx + 1]);
   const inNext2 = idx < generatedScheduleData.length - 2 && inRow(generatedScheduleData[idx + 2]);
+  const hasConsecutive = (inPrev1 && inPrev2) || (inPrev1 && inNext1) || (inNext1 && inNext2);
 
-  if ((inPrev1 && inPrev2) || (inPrev1 && inNext1) || (inNext1 && inNext2)) {
-    warnings.push(`[${value}] 已連續三週以上服事`);
-  }
+  const warnings = [];
+  if (hasLeave) warnings.push(`[${value}] 此日請假`);
+  if (hasDuplicate) warnings.push(`[${value}] 此日重複服事 (${duplicatePositions.join('、')})`);
+  if (hasConsecutive) warnings.push(`[${value}] 已連續三週以上服事`);
 
-  if (warnings.length > 0) {
+  if (hasLeave || hasDuplicate) {
+    // 嚴重違規：紅色標示 (Bootstrap Danger)
     const warnMsg = warnings.join(' | ');
-    selectEl.style.backgroundColor = '#fff3cd'; // Bootstrap warning bg (light yellow)
-    selectEl.style.color = '#664d03';           // Bootstrap warning text (dark gold)
+    selectEl.style.backgroundColor = '#f8d7da'; // light red
+    selectEl.style.color = '#842029';           // dark red
+    selectEl.style.fontWeight = 'bold';
+    selectEl.title = `❌ 錯誤：${warnMsg}`;
+    
+    // 彈出通知 (僅限使用者手動切換時，避免渲染時彈出一大堆)
+    if (triggerAlert && typeof userNotification !== 'undefined' && userNotification.warning) {
+      userNotification.warning(`❌ 錯誤：${warnMsg}`);
+    }
+  } else if (hasConsecutive) {
+    // 警示違規：黃色標示 (Bootstrap Warning)
+    const warnMsg = warnings.join(' | ');
+    selectEl.style.backgroundColor = '#fff3cd'; // light yellow
+    selectEl.style.color = '#664d03';           // dark gold
     selectEl.style.fontWeight = 'bold';
     selectEl.title = `⚠️ 警告：${warnMsg}`;
     
@@ -1516,6 +1526,7 @@ function validateCellSelection(idx, positionName, value, selectEl, triggerAlert 
       userNotification.warning(`⚠️ 警告：${warnMsg}`);
     }
   } else {
+    // 無違規：還原樣式
     selectEl.style.backgroundColor = '#fff';
     selectEl.style.color = 'inherit';
     selectEl.style.fontWeight = 'normal';
