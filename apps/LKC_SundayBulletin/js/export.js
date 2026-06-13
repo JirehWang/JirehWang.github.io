@@ -13,14 +13,20 @@ const BulletinExport = {
   // 共用樣式創建函數
   _para(text, opts = {}) {
     const { docx } = window;
-    return new docx.Paragraph({
-      children: [new docx.TextRun({
-        text: String(text || ''),
+    const runs = [];
+    const lines = String(text || '').split('\n');
+    lines.forEach((line, idx) => {
+      runs.push(new docx.TextRun({
+        text: line,
         font: { name: opts.font || this.FONT_CN },
         size: opts.size || 20,
         bold: opts.bold || false,
-        color: opts.color || '000000'
-      })],
+        color: opts.color || '000000',
+        break: idx > 0 ? 1 : undefined
+      }));
+    });
+    return new docx.Paragraph({
+      children: runs,
       alignment: opts.align || docx.AlignmentType.LEFT,
       spacing: { before: opts.spaceBefore || 40, after: opts.spaceAfter || 40 },
       indent: opts.indent ? { left: opts.indent } : undefined
@@ -39,14 +45,20 @@ const BulletinExport = {
 
   _cell(text, opts = {}) {
     const { docx } = window;
+    const runs = [];
+    const lines = String(text || '').split('\n');
+    lines.forEach((line, idx) => {
+      runs.push(new docx.TextRun({
+        text: line,
+        font: { name: opts.font || this.FONT_CN },
+        size: opts.size || 18,
+        bold: opts.bold || false,
+        break: idx > 0 ? 1 : undefined
+      }));
+    });
     return new docx.TableCell({
       children: [new docx.Paragraph({
-        children: [new docx.TextRun({
-          text: String(text || ''),
-          font: { name: opts.font || this.FONT_CN },
-          size: opts.size || 18,
-          bold: opts.bold || false
-        })],
+        children: runs,
         alignment: opts.align || docx.AlignmentType.LEFT,
         spacing: { before: 20, after: 20 }
       })],
@@ -192,13 +204,19 @@ const BulletinExport = {
     const buildCellContent = (lines) => {
       return lines.map(line => {
         const text = line.label + (line.value ? '　' + line.value : '');
-        return new docx.Paragraph({
-          children: [new docx.TextRun({
-            text: text.trim() || ' ',
+        const runs = [];
+        const splitLines = String(text.trim() || ' ').split('\n');
+        splitLines.forEach((sLine, idx) => {
+          runs.push(new docx.TextRun({
+            text: sLine,
             font: { name: this.FONT_CN },
             size: line.size || 18,
-            bold: line.bold || false
-          })],
+            bold: line.bold || false,
+            break: idx > 0 ? 1 : undefined
+          }));
+        });
+        return new docx.Paragraph({
+          children: runs,
           spacing: { before: 30, after: 30 }
         });
       });

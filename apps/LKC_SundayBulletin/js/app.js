@@ -510,7 +510,7 @@ const App = {
             zhText = resZh.records.map(r => r.text.replace(/<[^>]+>/g, '').trim()).join(' ');
           }
           if (twText && zhText) {
-            const combinedText = `台：${twText} 華：${zhText}`;
+            const combinedText = `台：${twText}\n華：${zhText}`;
             BulletinModel.set('taiwanese.goldenVerseText', combinedText);
             if (textEl) textEl.value = combinedText;
             this.showToast('聯合禮拜金句已自動填入（台華語）！', 'success');

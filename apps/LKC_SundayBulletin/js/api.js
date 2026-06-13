@@ -321,7 +321,7 @@ const ChurchAPI = {
         const twText = await fetchGoldenText.call(this, twService.goldenVerse, 'tghg');
         const zhText = await fetchGoldenText.call(this, twService.goldenVerse, 'unv');
         if (twText && zhText) {
-          twService.goldenVerseText = `台：${twText} 華：${zhText}`;
+          twService.goldenVerseText = `台：${twText}\n華：${zhText}`;
         } else {
           twService.goldenVerseText = twText || zhText || '';
         }
@@ -334,7 +334,7 @@ const ChurchAPI = {
         const twText = await fetchGoldenText.call(this, zhService.goldenVerse, 'tghg');
         const zhText = await fetchGoldenText.call(this, zhService.goldenVerse, 'unv');
         if (twText && zhText) {
-          zhService.goldenVerseText = `台：${twText} 華：${zhText}`;
+          zhService.goldenVerseText = `台：${twText}\n華：${zhText}`;
         } else {
           zhService.goldenVerseText = twText || zhText || '';
         }
