@@ -15,8 +15,6 @@ function _hideFloatingDropdown() {
   const dd = document.getElementById('_floatingDropdown');
   if (dd) dd.remove();
   document.removeEventListener('mousedown', _floatingDropdownOutsideClick, { capture: true });
-  window.removeEventListener('scroll', _hideFloatingDropdown, { capture: true });
-  window.removeEventListener('resize', _hideFloatingDropdown);
 }
 function _floatingDropdownOutsideClick(e) {
   const dd = document.getElementById('_floatingDropdown');
@@ -96,14 +94,9 @@ function _showFloatingDropdown(anchorEl, items, onPick, opts = {}) {
   document.body.appendChild(dd);
   setTimeout(() => search.focus(), 30);
 
-  // 外部點擊 / 捲動 / Resize 關閉 (手機版鍵盤彈出會觸發 scroll/resize，因此在手機上不監聽這兩個事件)
+  // 外部點擊關閉 (不再監聽 scroll/resize，防止任何行動裝置或虛擬鍵盤彈起導致選單被收合)
   setTimeout(() => {
     document.addEventListener('mousedown', _floatingDropdownOutsideClick, { capture: true });
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 0);
-    if (!isMobile) {
-      window.addEventListener('scroll', _hideFloatingDropdown, { capture: true });
-      window.addEventListener('resize', _hideFloatingDropdown);
-    }
   }, 0);
 }
 
