@@ -111,7 +111,7 @@
           <span>選年度、季度、星期幾，自動產生一季日期。</span>
         </button>
         <button class="ministry-action-card" type="button" onclick="openAiScheduleModal()">
-          <strong>貼上排班內容</strong>
+          <strong>貼上聚會表內容</strong>
           <span>貼 LINE、Word、Excel 文字，依目前欄位解析。</span>
         </button>
         <div class="ministry-action-card ministry-file-card">
@@ -193,7 +193,7 @@
     <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content">
         <div class="modal-header bg-success text-white">
-          <h5 class="modal-title fw-bold">貼上排班內容</h5>
+          <h5 class="modal-title fw-bold">貼上聚會表內容</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
@@ -206,9 +206,9 @@
           </div>
 
           <div class="ai-box shadow-sm mb-0">
-            <textarea id="aiRawText" class="form-control" rows="6" placeholder="可貼上已打好的排班文字，或輸入排班條件讓 AI 自動排班。"></textarea>
+            <textarea id="aiRawText" class="form-control" rows="6" placeholder="可貼上已打好的聚會表文字，或輸入排班條件讓 AI 自動排班。"></textarea>
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
-              <div id="aiStatus" class="form-text text-muted">貼上排班文字或輸入排班條件後，點擊解析。</div>
+              <div id="aiStatus" class="form-text text-muted">貼上聚會表文字或輸入排班條件後，點擊解析。</div>
               <button class="btn btn-success fw-bold" onclick="processAI()">AI 解析</button>
             </div>
           </div>

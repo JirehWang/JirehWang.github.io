@@ -1428,9 +1428,9 @@ async function processAI() {
       template: currentTemplate
     });
 
-    fillTableWithData(resData);
-    getNotifier().success("✅ AI 排班完成！");
-    document.getElementById('aiStatus').innerText = "✅ 解析/排班完成！";
+    fillTableWithData(resData, true);
+    getNotifier().success("✅ 貼上聚會表解析完成！");
+    document.getElementById('aiStatus').innerText = "✅ 解析/聚會表填充完成！";
     document.getElementById('aiRawText').value = "";
   } catch (err) {
     handleAPIError(err);
@@ -1447,7 +1447,7 @@ async function processAI() {
 // ============================================================
 //  📝 填充表單資料
 // ============================================================
-function fillTableWithData(parsedRows) {
+function fillTableWithData(parsedRows, isPaste = false) {
   const container = document.getElementById('rowsContainer');
   const dateColIdx = currentTableHeaders.findIndex(h => h.includes("日期"));
 
@@ -1511,6 +1511,11 @@ function fillTableWithData(parsedRows) {
         }, {})
       };
       rowCache.push(target);
+    }
+
+    if (isPaste) {
+      rowData["套用講道"] = "N";
+      updateRowSermonState(target.rowDiv, "N", aiDate);
     }
 
     currentTableHeaders.forEach((header, colIdx) => {
