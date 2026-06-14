@@ -878,7 +878,9 @@ function addNewRow() {
   }
   
   tempDiv.innerHTML = createRowHTML(defaultRow);
-  container.prepend(tempDiv.firstElementChild);
+  const newRowEl = tempDiv.firstElementChild;
+  container.prepend(newRowEl);
+  return newRowEl;
 }
 
 function deleteRow(btnElement) {
@@ -1530,8 +1532,7 @@ function fillTableWithData(parsedRows, isPaste = false) {
 
     // 都沒有 → 新增一列並加入 cache
     if (!target) {
-      addNewRow();
-      const rowDiv = container.lastElementChild;
+      const rowDiv = addNewRow();
       target = {
         rowDiv,
         inputsMap: Array.from(rowDiv.querySelectorAll('input, select')).reduce((map, input) => {
