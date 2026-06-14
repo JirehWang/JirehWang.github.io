@@ -222,6 +222,10 @@ async function ensurePositionsLoaded() {
   const result = await callAPI('getPositions', {});
   if (result && result.status === 'success') {
     currentPositions = result.data || [];
+    // Populate uniquePersonnel from currentPositions
+    let nameSet = new Set();
+    currentPositions.forEach(pos => (pos.personnel || '').split(',').forEach(n => n.trim() && nameSet.add(n.trim())));
+    uniquePersonnel = Array.from(nameSet).sort();
   }
 }
 
@@ -1660,4 +1664,28 @@ function clearMemberSearch() {
     resultDiv.innerHTML = '';
     resultDiv.style.display = 'none';
   }
+}
+
+// 🌟 顯示團員個人班表查詢的可搜尋模糊下拉選單
+function showMemberSearchDropdown(anchorEl) {
+  if (!uniquePersonnel || uniquePersonnel.length === 0) {
+    let nameSet = new Set();
+    currentPositions.forEach(pos => (pos.personnel || '').split(',').forEach(n => n.trim() && nameSet.add(n.trim())));
+    uniquePersonnel = Array.from(nameSet).sort();
+  }
+
+  const items = uniquePersonnel.map(name => ({
+    label: name,
+    value: name
+  }));
+
+  _showFloatingDropdown(anchorEl, items, (item) => {
+    anchorEl.value = item.value;
+    queryMemberSchedule();
+    _hideFloatingDropdown();
+  }, {
+    placeholder: '🔍 輸入關鍵字模糊搜尋...',
+    emptyText: '查無此團員',
+    width: anchorEl.offsetWidth
+  });
 }

@@ -48,7 +48,7 @@
       </div>
       <div class="col-12 col-md-7">
         <div class="input-group">
-          <input type="text" id="memberSearchInput" class="form-control fw-bold" placeholder="請輸入您的姓名（例如：張三）..." oninput="queryMemberSchedule()">
+          <input type="text" id="memberSearchInput" class="form-control fw-bold" placeholder="輸入或選取您的姓名..." oninput="queryMemberSchedule()" onfocus="showMemberSearchDropdown(this)" onclick="showMemberSearchDropdown(this)" autocomplete="off">
           <button class="btn btn-outline-secondary" type="button" onclick="clearMemberSearch()">清除</button>
         </div>
       </div>
