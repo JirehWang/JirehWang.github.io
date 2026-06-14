@@ -96,11 +96,14 @@ function _showFloatingDropdown(anchorEl, items, onPick, opts = {}) {
   document.body.appendChild(dd);
   setTimeout(() => search.focus(), 30);
 
-  // 外部點擊 / 捲動 / Resize 關閉
+  // 外部點擊 / 捲動 / Resize 關閉 (手機版鍵盤彈出會觸發 scroll/resize，因此在手機上不監聽這兩個事件)
   setTimeout(() => {
     document.addEventListener('mousedown', _floatingDropdownOutsideClick, { capture: true });
-    window.addEventListener('scroll', _hideFloatingDropdown, { capture: true });
-    window.addEventListener('resize', _hideFloatingDropdown);
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 0);
+    if (!isMobile) {
+      window.addEventListener('scroll', _hideFloatingDropdown, { capture: true });
+      window.addEventListener('resize', _hideFloatingDropdown);
+    }
   }, 0);
 }
 
