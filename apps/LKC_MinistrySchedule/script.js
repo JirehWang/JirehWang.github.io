@@ -2620,32 +2620,59 @@ function getColLetter(colIdx) {
 // ============================================================
 //  📥 匯出空白 Excel 模板
 // ============================================================
-function exportBlankTemplate() {
+async function exportBlankTemplate() {
   if (!currentTableHeaders || currentTableHeaders.length === 0) {
     getNotifier().warning("⚠️ 找不到表格標題，請先載入排班表！");
     return;
   }
-  const blankRow = currentTableHeaders.map(() => "");
-  const ws = XLSX.utils.aoa_to_sheet([currentTableHeaders, blankRow, blankRow, blankRow, blankRow, blankRow]);
 
-  // 加入 "套用講道" 的下拉選單資料驗證
-  const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
-  if (sermonLinkColIdx !== -1) {
-    const colLetter = getColLetter(sermonLinkColIdx);
-    ws['!dataValidation'] = [
-      {
-        sqref: `${colLetter}2:${colLetter}500`,
-        type: "list",
-        formula1: '"N,華語/聯合,台語/聯合"',
-        showDropDown: true
+  getNotifier().showLoading("⏳ 正在產生 Excel 模板...");
+
+  try {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("填寫模板");
+
+    // 設定標題列
+    worksheet.addRow(currentTableHeaders);
+
+    // 增加 5 筆空白列
+    for (let i = 0; i < 5; i++) {
+      worksheet.addRow(currentTableHeaders.map(() => ""));
+    }
+
+    // 尋找「套用講道」欄位
+    const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
+    if (sermonLinkColIdx !== -1) {
+      const colLetter = getColLetter(sermonLinkColIdx);
+      // 為該欄的每一行設定 dataValidation (從第 2 行到第 500 行)
+      for (let rowNum = 2; rowNum <= 500; rowNum++) {
+        const cell = worksheet.getCell(`${colLetter}${rowNum}`);
+        cell.dataValidation = {
+          type: 'list',
+          allowBlank: true,
+          formulae: ['"N,華語/聯合,台語/聯合"'],
+          showDropDown: true
+        };
       }
-    ];
-  }
+    }
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "填寫模板");
-  XLSX.writeFile(wb, `${activeGroupName}_Excel填寫模板.xlsx`);
-  getNotifier().success("✅ Excel 模板已下載！請填寫日期後匯入。");
+    // 匯出並下載
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `${activeGroupName}_Excel填寫模板.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    getNotifier().success("✅ Excel 模板已下載！請填寫日期後匯入。");
+  } catch (err) {
+    console.error("產生模板失敗：", err);
+    getNotifier().error("❌ 產生模板失敗：" + err.message);
+  } finally {
+    getNotifier().hideLoading();
+  }
 }
 
 
