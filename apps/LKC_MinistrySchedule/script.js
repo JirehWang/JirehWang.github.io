@@ -1428,7 +1428,12 @@ async function processAI() {
       template: currentTemplate
     });
 
-    fillTableWithData(resData, true);
+    resData.forEach(row => {
+      if (row["套用講道"] === undefined || row["套用講道"] === null || row["套用講道"] === "") {
+        row["套用講道"] = "N";
+      }
+    });
+    fillTableWithData(resData);
     getNotifier().success("✅ 貼上聚會表解析完成！");
     document.getElementById('aiStatus').innerText = "✅ 解析/聚會表填充完成！";
     document.getElementById('aiRawText').value = "";
@@ -2910,10 +2915,14 @@ function onSermonLinkChange(checkbox) {
   const dateInput = rowDiv.querySelector(`input[data-c="${dateColIdx}"]`);
   const dateVal = dateInput ? dateInput.value.trim() : "";
 
-  updateRowSermonState(rowDiv, checkbox.checked, dateVal);
+  const linkType = checkbox.checked ? "Y" : "N";
+  updateRowSermonState(rowDiv, linkType, dateVal);
 }
 
 function updateRowSermonState(rowDiv, linkType, dateStr) {
+  if (typeof linkType === 'boolean') {
+    linkType = linkType ? "Y" : "N";
+  }
   // 同步更新「套用講道」勾選框與語言滑動開關狀態，確保畫面顯示與連動狀態一致
   const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
   if (sermonLinkColIdx !== -1) {
