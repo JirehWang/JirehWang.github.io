@@ -38,16 +38,25 @@ export async function writeLog(entry) {
   const level = entry.level || 'info';
   const dateKey = _localDateKey(now);
   const logRef = push(ref(rtdb, `${ROOT}/${system}/${dateKey}`));
+  const meta = _sanitizeMeta(entry.meta || {});
 
   await set(logRef, {
     time: now.toISOString(),
     system,
     level,
+    requestId: entry.requestId || (meta && meta.requestId) || '',
+    environment: entry.environment || (meta && meta.environment) || '',
+    appVersion: entry.appVersion || (meta && meta.appVersion) || '',
+    sessionId: entry.sessionId || (meta && meta.sessionId) || '',
     action: entry.action || '',
     message: entry.message || '',
+    errorType: entry.errorType || (meta && meta.errorType) || '',
     durationMs: entry.durationMs ?? null,
     source: entry.source || 'config.js',
     page: typeof location !== 'undefined' ? location.pathname + location.search : '',
-    meta: _sanitizeMeta(entry.meta || {})
+    cache: _sanitizeMeta(entry.cache || (meta && meta.cache) || {}),
+    payload: _sanitizeMeta(entry.payload || (meta && meta.payload) || {}),
+    invalidation: _sanitizeMeta(entry.invalidation || (meta && meta.invalidation) || {}),
+    meta
   });
 }

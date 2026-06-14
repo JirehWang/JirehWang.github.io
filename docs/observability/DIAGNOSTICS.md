@@ -43,6 +43,21 @@ Return:
 4. `health_check` results become `metrics` and `chaos_tests` evidence for `arch_stability_bot.py`.
 5. The stability bot produces the current score and next actions.
 
+## Log Fields Used By The Bot
+
+The frontend logger should keep these fields structured:
+
+- `requestId`: groups one user/API flow across cache, fallback, and direct GAS events.
+- `environment`: `prod` or `test`.
+- `appVersion`: frontend logging/config version.
+- `sessionId`: anonymous device/session id, not a real user identity.
+- `errorType`: normalized failure class such as `GAS_NON_SUCCESS`, `FIREBASE_CACHE_ERROR`, or `INVALID_CACHE_RESPONSE`.
+- `cache`: `{ enabled, topic, subkey, ttl, source, hit, miss, fallback }`.
+- `payload`: `{ requestBytes, responseBytes, itemCount }`.
+- `invalidation`: `{ writeAction, topics, count, failedTopics, durationMs }`.
+
+These fields let the Python bot detect cache hit-rate drops, large payloads, repeated error classes, stale cache, and expensive invalidation.
+
 ## Do Not Log
 
 - Tokens.

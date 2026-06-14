@@ -42,6 +42,7 @@
 
   const _AUTH_TOKEN = "ChurchApp-2026";
   const _SESSION_TTL_MS = 3600000; // 1 小時
+  const _APP_VERSION = window.LKC_APP_VERSION || '2026-06-14-observability-v2';
 
   // 🌟 路由判斷：_GAS_KEY 優先，其次 pathname / hostname
   const rawPath = window.location.pathname.split('/')[1] || "";
@@ -54,6 +55,23 @@
                      window.location.hostname === '127.0.0.1' || 
                      window.location.protocol === 'file:' ||
                      isTestQuery;
+  const _ENVIRONMENT = isLocalEnv ? 'test' : 'prod';
+
+  function _getAnonSessionId() {
+    try {
+      const key = 'lkc_log_session_id';
+      let value = window.localStorage && window.localStorage.getItem(key);
+      if (!value) {
+        value = 'sess_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+        window.localStorage && window.localStorage.setItem(key, value);
+      }
+      return value;
+    } catch (e) {
+      return 'session_unavailable';
+    }
+  }
+
+  const _LOG_SESSION_ID = _getAnonSessionId();
 
   if (isLocalEnv && window._GAS_KEY && !window._GAS_KEY.endsWith('_TEST')) {
     const testKey = window._GAS_KEY + '_TEST';
@@ -250,6 +268,11 @@
 
   function _logEvent(level, action, message, meta = {}) {
     if (!currentKey) return;
+    const requestId = meta.requestId || '';
+    const cache = meta.cache || null;
+    const payload = meta.payload || null;
+    const invalidation = meta.invalidation || null;
+    const errorType = meta.errorType || meta.type || '';
     _getFirebaseLogger().then(logger => {
       if (!logger || !logger.writeLog) return;
       return logger.writeLog({
@@ -257,8 +280,16 @@
         level,
         action,
         message,
+        requestId,
+        environment: _ENVIRONMENT,
+        appVersion: _APP_VERSION,
+        sessionId: _LOG_SESSION_ID,
+        errorType,
         durationMs: meta.durationMs,
         source: 'config.js',
+        cache,
+        payload,
+        invalidation,
         meta
       });
     }).catch(err => {
@@ -287,13 +318,56 @@
   }
 
   // 直接打 GAS（不走 cache）
+  function _newRequestId(realAction) {
+    return [
+      currentKey || 'unknown',
+      realAction || 'unknown',
+      Date.now().toString(36),
+      Math.random().toString(36).slice(2, 8)
+    ].join('-').replace(/[^a-zA-Z0-9_-]/g, '_');
+  }
+
+  function _jsonSizeBytes(value) {
+    try {
+      const text = JSON.stringify(value == null ? null : value);
+      if (window.TextEncoder) return new TextEncoder().encode(text).length;
+      return unescape(encodeURIComponent(text)).length;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function _estimateItemCount(value) {
+    if (!value) return null;
+    if (Array.isArray(value)) return value.length;
+    if (typeof value !== 'object') return null;
+    const data = value.data || value.items || value.records || value.rows || value.list || value.value;
+    if (Array.isArray(data)) return data.length;
+    if (data && typeof data === 'object') return Object.keys(data).length;
+    return null;
+  }
+
+  function _payloadMeta(requestBody, result) {
+    return {
+      requestBytes: _jsonSizeBytes(requestBody),
+      responseBytes: _jsonSizeBytes(result),
+      itemCount: _estimateItemCount(result)
+    };
+  }
+
   async function _doDirectCall(realAction, data) {
+    const requestBody = { action: realAction, token: window.AUTH_TOKEN, data: data };
     const resp = await fetch(window.GAS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: realAction, token: window.AUTH_TOKEN, data: data })
+      body: JSON.stringify(requestBody)
     });
-    return await resp.json();
+    const result = await resp.json();
+    return {
+      result,
+      payload: _payloadMeta(requestBody, result),
+      httpStatus: resp.status
+    };
   }
 
   window.churchAPI = async function(action, data = {}) {
@@ -305,11 +379,16 @@
     const realAction = (_actionPrefix && action.indexOf(_actionPrefix) !== 0)
       ? _actionPrefix + action
       : action;
+    const requestId = _newRequestId(realAction);
     const ttl = _CACHEABLE_ACTIONS[realAction];
     const isWriteAction = Object.prototype.hasOwnProperty.call(_INVALIDATE_ON_WRITE, realAction);
 
     function logApi(level, message, extra = {}) {
       _logEvent(level, realAction, message, Object.assign({
+        requestId,
+        environment: _ENVIRONMENT,
+        appVersion: _APP_VERSION,
+        sessionId: _LOG_SESSION_ID,
         requestedAction: action,
         durationMs: Date.now() - startedAt,
         cacheable: Boolean(ttl),
@@ -324,11 +403,31 @@
         if (fb && fb.cacheGetOrFetch) {
           const subkey = _makeSubkey(data);
           try {
-            const cacheLoader = () => _doDirectCall(realAction, data);
+            let freshDirect = null;
+            const cacheLoader = async () => {
+              freshDirect = await _doDirectCall(realAction, data);
+              return freshDirect.result;
+            };
             const cacheResult = fb.cacheGetOrFetchWithMeta
               ? await fb.cacheGetOrFetchWithMeta(realAction, subkey, cacheLoader, ttl)
               : { value: await fb.cacheGetOrFetch(realAction, subkey, cacheLoader, ttl), source: 'unknown' };
             const result = cacheResult.value;
+            const payload = freshDirect
+              ? freshDirect.payload
+              : {
+                  requestBytes: _jsonSizeBytes({ action: realAction, token: window.AUTH_TOKEN, data: data }),
+                  responseBytes: _jsonSizeBytes(result),
+                  itemCount: _estimateItemCount(result)
+                };
+            const cacheMeta = {
+              enabled: true,
+              topic: realAction,
+              subkey,
+              ttl,
+              source: cacheResult.source,
+              hit: cacheResult.source === 'cache',
+              miss: cacheResult.source !== 'cache'
+            };
             if (_isInvalidApiResponse(result)) {
               if (fb.cacheDelete) {
                 fb.cacheDelete(realAction, subkey).catch(err => {
@@ -340,13 +439,18 @@
                 });
               }
               logApi('warn', 'invalid cache response, fallback to GAS', {
-                cacheSource: cacheResult.source,
-                subkey,
+                errorType: 'INVALID_CACHE_RESPONSE',
+                cache: Object.assign({}, cacheMeta, { invalid: true, fallback: true }),
+                payload,
                 responseStatus: result.status
               });
-              const fallbackResult = await _doDirectCall(realAction, data);
+              const fallbackDirect = await _doDirectCall(realAction, data);
+              const fallbackResult = fallbackDirect.result;
               logApi('warn', 'fallback GAS completed after invalid cache', {
-                subkey,
+                errorType: 'CACHE_FALLBACK_COMPLETED',
+                cache: Object.assign({}, cacheMeta, { source: 'fallback-gas', fallback: true }),
+                payload: fallbackDirect.payload,
+                httpStatus: fallbackDirect.httpStatus,
                 responseStatus: fallbackResult && fallbackResult.status
               });
               return fallbackResult;
@@ -354,8 +458,9 @@
             const durationMs = Date.now() - startedAt;
             if (cacheResult.source === 'fresh' || durationMs > 3000) {
               logApi(durationMs > 5000 ? 'warn' : 'info', 'cacheable API completed', {
-                cacheSource: cacheResult.source,
-                subkey,
+                cache: cacheMeta,
+                payload,
+                httpStatus: freshDirect && freshDirect.httpStatus,
                 responseStatus: result && result.status
               });
             }
@@ -363,22 +468,37 @@
           } catch (e) {
             console.warn('[firebase-cache]', realAction, '失敗，回退直接呼叫:', e);
             logApi('warn', 'firebase cache failed, fallback to GAS', {
+              errorType: 'FIREBASE_CACHE_ERROR',
               error: e && e.message ? e.message : String(e),
-              subkey
+              cache: {
+                enabled: true,
+                topic: realAction,
+                subkey,
+                ttl,
+                source: 'cache-error',
+                fallback: true
+              }
             });
           }
         }
       }
 
       // 直接呼叫 GAS
-      const result = await _doDirectCall(realAction, data);
+      const direct = await _doDirectCall(realAction, data);
+      const result = direct.result;
       if (_isInvalidApiResponse(result)) {
         logApi('error', 'GAS returned non-success response', {
+          errorType: 'GAS_NON_SUCCESS',
+          payload: direct.payload,
+          httpStatus: direct.httpStatus,
           responseStatus: result.status,
           message: result.message || ''
         });
       } else if (isWriteAction || Date.now() - startedAt > 3000) {
         logApi(Date.now() - startedAt > 5000 ? 'warn' : 'info', 'direct GAS API completed', {
+          cache: { enabled: Boolean(ttl), source: 'direct-gas', hit: false },
+          payload: direct.payload,
+          httpStatus: direct.httpStatus,
           responseStatus: result && result.status
         });
       }
@@ -391,14 +511,23 @@
         const fb = await _getFirebaseCache();
         if (fb && fb.cacheDeleteAll) {
           try {
+            const invalidationStartedAt = Date.now();
+            const failedTopics = [];
             await Promise.all(toInvalidate.map(topic =>
               fb.cacheDeleteAll(topic).catch(err => {
                 console.warn('[invalidate]', topic, err);
+                failedTopics.push(topic);
               })
             ));
             console.log('[invalidate] cleared:', toInvalidate.join(', '));
             logApi('info', 'cache invalidated after write', {
-              topics: toInvalidate
+              invalidation: {
+                writeAction: realAction,
+                topics: toInvalidate,
+                count: toInvalidate.length,
+                failedTopics,
+                durationMs: Date.now() - invalidationStartedAt
+              }
             });
           } catch (e) { /* 已個別 catch */ }
         }
@@ -408,6 +537,7 @@
     } catch (err) {
       console.error("📡 API 通訊失敗:", err);
       logApi('error', 'API request failed', {
+        errorType: err && err.type ? err.type : (err && err.name ? err.name : 'API_REQUEST_FAILED'),
         error: err && err.message ? err.message : String(err),
         errorName: err && err.name,
         httpStatus: err && err.httpStatus,
