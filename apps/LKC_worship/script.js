@@ -6,6 +6,7 @@ let generatedScheduleData = [];
 let uniquePersonnel = [];
 let sortablePositions = null;
 let _worshipTeamCache = null; // 敬拜團員名單快取（供「位置與同工」下拉使用）
+let loadedDashboardData = []; // 供團員查詢服事天數使用
 
 // ==========================================
 // 🔍 共用：可搜尋浮動下拉選單元件
@@ -651,10 +652,19 @@ function switchView(mode) {
 
 async function loadDashboard() {
   const container = document.getElementById('dashboardContainer');
+  const yearSelect = document.getElementById('yearSelect');
   const quarterSelect = document.getElementById('quarterSelect');
   if (!container || !quarterSelect) return;
 
-  const [year, quarter] = quarterSelect.value.split('-');
+  let year, quarter;
+  if (yearSelect) {
+    year = yearSelect.value;
+    quarter = quarterSelect.value;
+  } else {
+    const parts = quarterSelect.value.split('-');
+    year = parts[0];
+    quarter = parts[1];
+  }
   container.innerHTML = `<div class="text-center p-5 text-primary"><div class="spinner-border"></div><div class="mt-2">同步 ${year}-${quarter} 資料中...</div></div>`;
 
   try {
@@ -674,6 +684,16 @@ async function loadDashboard() {
 
 function renderDashboardTable(data) {
   const container = document.getElementById('dashboardContainer');
+  loadedDashboardData = data || []; // 儲存已載入的資料供團員查詢使用
+  
+  // 載入新季度資料時，如果查詢框有內容則自動更新查詢結果，否則清除結果
+  const memberSearchInput = document.getElementById('memberSearchInput');
+  if (memberSearchInput && memberSearchInput.value.trim() === '') {
+    clearMemberSearch();
+  } else if (memberSearchInput) {
+    queryMemberSchedule();
+  }
+
   if (!data || data.length === 0) {
     container.innerHTML = '<div class="alert alert-light text-center m-4">📋 本季度暫無排班資料。</div>';
     return;
@@ -1044,8 +1064,19 @@ async function initScheduleTab() {
 }
 
 async function loadScheduleByQuarter() {
-  const select = document.getElementById('editQuarterSelect');
-  const [year, quarter] = select.value.split('-');
+  const yearSelect = document.getElementById('editYearSelect');
+  const quarterSelect = document.getElementById('editQuarterSelect');
+  
+  let year, quarter;
+  if (yearSelect && quarterSelect) {
+    year = yearSelect.value;
+    quarter = quarterSelect.value;
+  } else {
+    const select = document.getElementById('editQuarterSelect');
+    const parts = select.value.split('-');
+    year = parts[0];
+    quarter = parts[1];
+  }
   
   document.getElementById('previewContainer').style.display = 'none';
   document.getElementById('saveScheduleBtn').style.display = 'none';
@@ -1531,5 +1562,102 @@ function validateCellSelection(idx, positionName, value, selectEl, triggerAlert 
     selectEl.style.color = 'inherit';
     selectEl.style.fontWeight = 'normal';
     selectEl.title = '';
+  }
+}
+
+// 🔍 團員個人班表查詢與統計邏輯
+function queryMemberSchedule() {
+  const input = document.getElementById('memberSearchInput');
+  const resultDiv = document.getElementById('memberSearchResult');
+  if (!input || !resultDiv) return;
+
+  const kw = input.value.trim();
+  if (!kw) {
+    resultDiv.innerHTML = '';
+    resultDiv.style.display = 'none';
+    return;
+  }
+
+  if (!loadedDashboardData || loadedDashboardData.length === 0) {
+    resultDiv.innerHTML = '<div class="alert alert-light text-center mb-0">無本季排班資料可供查詢</div>';
+    resultDiv.style.display = 'block';
+    return;
+  }
+
+  // 尋找此同工在所有職位中的排班
+  const matches = [];
+  loadedDashboardData.forEach(row => {
+    const positions = [];
+    currentPositions.forEach(pos => {
+      const role = pos.positionName;
+      if (row[role] && String(row[role]).trim() === kw) {
+        positions.push(role);
+      }
+    });
+
+    if (positions.length > 0) {
+      matches.push({
+        date: row['日期'],
+        meetingName: row['聚會名稱'] || '主日崇拜',
+        meetingType: row['聚會類別'] || '華語',
+        roles: positions
+      });
+    }
+  });
+
+  resultDiv.style.display = 'block';
+  if (matches.length === 0) {
+    resultDiv.innerHTML = `<div class="alert alert-warning text-center mb-0">⚠️ 查無 <strong>${kw}</strong> 在本季度的服事安排。</div>`;
+  } else {
+    let html = `
+      <div class="card border-success shadow-sm" style="background: rgba(25, 135, 84, 0.02); border-radius: 12px;">
+        <div class="card-body py-3">
+          <h6 class="card-title fw-bold text-success mb-2 d-flex justify-content-between align-items-center">
+            <span>🎉 查詢結果：<strong>${kw}</strong> 本季服事統計</span>
+            <span class="badge bg-success fs-6 rounded-pill">共 ${matches.length} 天服事</span>
+          </h6>
+          <div class="table-responsive mt-2">
+            <table class="table table-sm table-bordered bg-white align-middle text-center mb-0" style="font-size: 0.88rem; border-radius: 8px; overflow: hidden; border: 1px solid rgba(0,0,0,0.08);">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 25%;">日期</th>
+                  <th style="width: 35%;">聚會名稱</th>
+                  <th style="width: 20%;">聚會類別</th>
+                  <th style="width: 20%;">擔任位置</th>
+                </tr>
+              </thead>
+              <tbody>
+    `;
+
+    matches.forEach(m => {
+      const rolesBadge = m.roles.map(r => `<span class="badge bg-primary rounded-pill me-1" style="font-size:0.75rem; padding: 4px 8px;">${r}</span>`).join('');
+      html += `
+        <tr>
+          <td><span class="badge bg-secondary rounded-pill" style="font-size:0.82rem;">${m.date}</span></td>
+          <td><strong>${m.meetingName}</strong></td>
+          <td><span class="badge-g" style="font-size:0.78rem;">${m.meetingType}</span></td>
+          <td>${rolesBadge}</td>
+        </tr>
+      `;
+    });
+
+    html += `
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+    resultDiv.innerHTML = html;
+  }
+}
+
+function clearMemberSearch() {
+  const input = document.getElementById('memberSearchInput');
+  const resultDiv = document.getElementById('memberSearchResult');
+  if (input) input.value = '';
+  if (resultDiv) {
+    resultDiv.innerHTML = '';
+    resultDiv.style.display = 'none';
   }
 }
