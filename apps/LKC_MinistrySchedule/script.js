@@ -1419,12 +1419,37 @@ async function processAI() {
   getNotifier().showLoading("🤖 AI 運算中，請稍候...");
   document.getElementById('aiStatus').innerText = "⏳ 處理中...";
 
+  // 構造表頭欄位指示與範例 JSON，強制 AI 生成精確符合目前 Excel 欄位的鍵值
+  const formatExampleObj = currentTableHeaders.reduce((obj, h) => {
+    if (h === "日期") obj[h] = "2026/06/14";
+    else if (h === "套用講道") obj[h] = "N";
+    else if (h === "主題") obj[h] = "主題名稱";
+    else if (h === "經文") obj[h] = "經文範圍";
+    else obj[h] = "人員姓名";
+    return obj;
+  }, {});
+
+  const headerPrompt = `
+【重要指令：輸出格式與欄位對齊指南】
+請將排班資料轉換為 JSON 陣列，每個物件代表一筆聚會，且物件的屬性（Keys）必須與以下 Excel 欄位陣列「完全相同且精確對應」：
+${JSON.stringify(currentTableHeaders)}
+
+精確格式範例如下：
+${JSON.stringify([formatExampleObj], null, 2)}
+
+注意事項：
+1. 屬性（Keys）的字元必須完全一致，包括中文字元，不能自創或修改欄位名稱。
+2. 「日期」欄位必須標準化為西元格式 (yyyy/mm/dd)。
+3. 「套用講道」若未特別提及一律填入 "N"。
+4. 服事人員名稱必須使用名單中的人名。
+`;
+
   try {
     const resData = await fetchAPI("parseWithAI", {
       text: rawText,
       headers: currentTableHeaders,
       members: currentGroupMembers,
-      groupPrompt: currentGroupPrompt + "\n" + currentAutoRoleRules,
+      groupPrompt: currentGroupPrompt + "\n" + currentAutoRoleRules + "\n" + headerPrompt,
       template: currentTemplate
     });
 
