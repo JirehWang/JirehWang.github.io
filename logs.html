@@ -51,7 +51,7 @@
 
     .toolbar {
       display: grid;
-      grid-template-columns: minmax(160px, 1fr) minmax(180px, 1.2fr) minmax(140px, 0.8fr) auto;
+      grid-template-columns: minmax(160px, 1fr) minmax(180px, 1.2fr) minmax(140px, 0.8fr) auto auto;
       gap: 12px;
       align-items: end;
       margin-bottom: 18px;
@@ -238,6 +238,7 @@
         </select>
       </label>
       <button id="refreshBtn" type="button">重新整理</button>
+      <button id="exportBtn" type="button">匯出 JSON</button>
     </section>
 
     <section class="summary" aria-label="紀錄摘要">
@@ -290,6 +291,7 @@
     const systemSelect = document.getElementById('systemSelect');
     const levelSelect = document.getElementById('levelSelect');
     const refreshBtn = document.getElementById('refreshBtn');
+    const exportBtn = document.getElementById('exportBtn');
     const statusBox = document.getElementById('statusBox');
     const tableWrap = document.getElementById('tableWrap');
     const logRows = document.getElementById('logRows');
@@ -299,6 +301,7 @@
     const warnCount = document.getElementById('warnCount');
     const avgDuration = document.getElementById('avgDuration');
     const sumDuration = document.getElementById('sumDuration');
+    let currentLogs = [];
 
     function todayKey() {
       const d = new Date();
@@ -349,6 +352,7 @@
           logs = logs.filter(item => item.level === selectedLevel);
         }
         logs.sort((a, b) => String(b.time || '').localeCompare(String(a.time || '')));
+        currentLogs = logs;
 
         renderSummary(logs);
         renderRows(logs);
@@ -419,8 +423,32 @@
       }).join('');
     }
 
+    function exportCurrentLogs() {
+      const dateKey = dateInput.value || todayKey();
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        date: dateKey,
+        system: systemSelect.value,
+        level: levelSelect.value,
+        count: currentLogs.length,
+        logs: currentLogs
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const systemPart = systemSelect.value === 'all' ? 'all' : systemSelect.value;
+      const levelPart = levelSelect.value === 'all' ? 'all' : levelSelect.value;
+      link.href = url;
+      link.download = `lkc-logs-${dateKey}-${systemPart}-${levelPart}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
     dateInput.value = todayKey();
     refreshBtn.addEventListener('click', loadLogs);
+    exportBtn.addEventListener('click', exportCurrentLogs);
     systemSelect.addEventListener('change', loadLogs);
     levelSelect.addEventListener('change', loadLogs);
     dateInput.addEventListener('change', loadLogs);
