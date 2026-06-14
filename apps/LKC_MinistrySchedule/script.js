@@ -2654,16 +2654,14 @@ async function exportBlankTemplate() {
     const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
     if (sermonLinkColIdx !== -1) {
       const colLetter = getColLetter(sermonLinkColIdx);
-      // 為該欄的每一行設定 dataValidation (從第 2 行到第 500 行)
-      for (let rowNum = 2; rowNum <= 500; rowNum++) {
-        const cell = worksheet.getCell(`${colLetter}${rowNum}`);
-        cell.dataValidation = {
-          type: 'list',
-          allowBlank: true,
-          formulae: ['"N,華語/聯合,台語/聯合"'],
-          showDropDown: true
-        };
-      }
+      // 使用 worksheet.dataValidations.add 針對整個範圍進行資料驗證設定
+      // 這能確保即使儲存格為空白，Excel 也能正確載入下拉選單限制
+      worksheet.dataValidations.add(`${colLetter}2:${colLetter}500`, {
+        type: 'list',
+        allowBlank: true,
+        formulae: ['"N,華語/聯合,台語/聯合"'],
+        showDropDown: true
+      });
     }
 
     // 匯出並下載
