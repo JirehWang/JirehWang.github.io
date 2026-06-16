@@ -334,7 +334,14 @@
     const grpSelect = document.getElementById('statsGroupSelect');
     const start = document.getElementById('statsStart').value;
     const end = document.getElementById('statsEnd').value;
-    if (!start || !end || !grpSelect || !grpSelect.value) return;
+    if (!start || !end || grpSelect && !grpSelect.value) return;
+
+    let recentWeeks = parseInt(document.getElementById('trendRecentWeeks').value, 10) || 8;
+    if (recentWeeks < 3) {
+      alert("近期分析週數至少需設定為 3 週！");
+      recentWeeks = 3;
+      document.getElementById('trendRecentWeeks').value = 3;
+    }
 
     document.getElementById('trendLoading').style.display = 'block';
     document.getElementById('trendResult').innerHTML = '';
@@ -345,6 +352,7 @@
       start: start,
       end: getNextDayString(end),
       baseSheet: document.getElementById('baseSheetSource').value || '會友名單',
+      recentWeeks: recentWeeks,
       targetGroups: grpSelect.value.indexOf('合計') !== -1
         ? (globalStatsGroupConfig[catSelect.value] || []) : []
     };
@@ -371,16 +379,17 @@
 
 function renderTrendResult(data, threshold) {
     const subtitle = document.getElementById('trendSubtitle');
+    const recentWeeks = parseInt(document.getElementById('trendRecentWeeks').value, 10) || 8;
 
     subtitle.innerHTML =
-      `🔍 綜合衰退指數分析（歷史長度最多一年 vs 近期八週）<br>` +
+      `🔍 綜合衰退指數分析（歷史長度最多一年 vs 近期 ${recentWeeks} 週）<br>` +
       `<span class="text-muted small">歷史：<b>${data.periodHistory}</b>（${data.sessionsHistory} 場）</span><br>` +
       `<span class="text-muted small">近期：<b>${data.periodRecent}</b>（${data.sessionsRecent} 場）</span>`;
 
     const container = document.getElementById('trendResult');
 
     if (data.sessionsRecent === 0) {
-      container.innerHTML = `<div class="text-center text-muted py-4 small">近期（八週內）無任何場次，無法進行分析。</div>`;
+      container.innerHTML = `<div class="text-center text-muted py-4 small">近期（${recentWeeks} 週內）無任何場次，無法進行分析。</div>`;
       return;
     }
 
