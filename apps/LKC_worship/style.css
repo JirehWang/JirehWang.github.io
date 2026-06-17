@@ -746,3 +746,12 @@ h1, h2, h3, h4, h5, h6 {
     white-space: nowrap;
     display: inline-block;
 }
+
+/* 最接近今天的聚會卡片樣式：微風綠邊框與外發光 */
+.dashboard-card.closest-date-card {
+    border: 1.5px solid rgba(0, 96, 48, 0.5) !important;
+    box-shadow: 0 12px 35px rgba(0, 96, 48, 0.08), 0 0 0 3px rgba(0, 96, 48, 0.08) !important;
+}
+.dashboard-card.closest-date-card:hover {
+    border-color: rgba(0, 96, 48, 0.7) !important;
+}

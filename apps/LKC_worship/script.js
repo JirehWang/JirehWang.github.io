@@ -630,6 +630,42 @@ async function saveTeamMembersToServer() {
 // ==========================================
 let currentViewMode = 'cards'; // 預設為玻璃卡片
 
+function _findClosestCardIndex(data) {
+  if (!data || data.length === 0) return -1;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayMs = today.getTime();
+
+  let closestIdx = -1;
+  let minDiffFuture = Infinity;
+  let closestIdxPast = -1;
+  let minDiffPast = Infinity;
+
+  for (let i = 0; i < data.length; i++) {
+    const dStr = data[i]['日期'];
+    if (!dStr) continue;
+    const d = parseDateSafe(dStr);
+    d.setHours(0, 0, 0, 0);
+    const dMs = d.getTime();
+    
+    const diff = dMs - todayMs;
+    if (diff >= 0) {
+      if (diff < minDiffFuture) {
+        minDiffFuture = diff;
+        closestIdx = i;
+      }
+    } else {
+      const absDiff = Math.abs(diff);
+      if (absDiff < minDiffPast) {
+        minDiffPast = absDiff;
+        closestIdxPast = i;
+      }
+    }
+  }
+
+  return closestIdx !== -1 ? closestIdx : closestIdxPast;
+}
+
 function switchView(mode) {
   currentViewMode = mode;
   const cardsContainer = document.getElementById('dashboardCardsContainer');
@@ -642,6 +678,14 @@ function switchView(mode) {
     if (tableContainer) tableContainer.style.display = 'none';
     if (btnCards) btnCards.classList.add('active');
     if (btnTable) btnTable.classList.remove('active');
+    
+    // 自動平滑滾動至最接近今日日期的卡片
+    setTimeout(() => {
+      const closestCard = document.getElementById('worship-closest-date-item');
+      if (closestCard) {
+        closestCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 150);
   } else {
     if (cardsContainer) cardsContainer.style.display = 'none';
     if (tableContainer) tableContainer.style.display = 'block';
@@ -736,15 +780,21 @@ function renderDashboardTable(data) {
   const cardsContainer = document.getElementById('dashboardCardsContainer');
   const tableContainer = document.getElementById('dashboardTableContainer');
 
+  // 找出最接近今日的聚會卡片索引
+  const closestIdx = _findClosestCardIndex(data);
+
   // --- 1. 渲染卡片視圖 ---
   let cardsHtml = `<div class="dashboard-grid">`;
   
-  data.forEach(row => {
+  data.forEach((row, idx) => {
     const hasWarning = row.hasWarning || false;
     const warningMsg = row.warningMessage || '';
     
-    // 卡片背景微調
-    cardsHtml += `<div class="dashboard-card" style="${hasWarning ? 'background: rgba(255, 243, 205, 0.3) !important;' : ''}">
+    // 卡片背景微調 (最接近今日的聚會卡片加上 id="worship-closest-date-item" 與 closest-date-card 樣式類別)
+    const isClosest = (idx === closestIdx);
+    const cardIdAttr = isClosest ? 'id="worship-closest-date-item"' : '';
+    const closestClass = isClosest ? 'closest-date-card' : '';
+    cardsHtml += `<div ${cardIdAttr} class="dashboard-card ${closestClass}" style="${hasWarning ? 'background: rgba(255, 243, 205, 0.3) !important;' : ''}">
       <div>
         <!-- 卡片頂部 -->
         <div class="card-top">
