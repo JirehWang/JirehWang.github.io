@@ -260,52 +260,113 @@ function handleBgImageUpload(e) {
     reader.readAsDataURL(file);
 }
 
-// 6. 智能經文解析邏輯
-function parseScriptureInput(inputStr) {
-    const trimmed = inputStr.trim();
-    if (!trimmed) return null;
+// 6. 智能經文解析與數字轉換邏輯
+function chineseToArabic(str) {
+    const charMap = {
+        '零': 0, '〇': 0,
+        '一': 1, '二': 2, '兩': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9,
+        '十': 10, '廿': 20, '卅': 30, '卌': 40, '百': 100
+    };
+    if (/^\d+$/.test(str)) {
+        return parseInt(str, 10);
+    }
+    let val = 0;
+    let temp = 0;
+    
+    for (let i = 0; i < str.length; i++) {
+        const char = str[i];
+        const num = charMap[char];
+        if (num === undefined) continue;
+        
+        if (num === 10) {
+            if (temp === 0) temp = 1;
+            val += temp * 10;
+            temp = 0;
+        } else if (num === 20 || num === 30 || num === 40) {
+            val += num;
+            temp = 0;
+        } else if (num === 100) {
+            if (temp === 0) temp = 1;
+            val += temp * 100;
+            temp = 0;
+        } else {
+            temp = num;
+        }
+    }
+    val += temp;
+    return val;
+}
 
-    // 正則匹配結構：書卷名稱 [空格] 章:節範圍
-    // 支持匹配 "以弗所書 5:1-4", "以弗所書5:1-4", "弗 5:1-4", "Eph 5:1-4", "Eph 5:1,3" 等
-    const regex = /^([1-3]?[\u4e00-\u9fa5a-zA-Z\s]+?)\s*(\d+)\s*:\s*([\d\-\s,]+)$/;
-    const match = trimmed.match(regex);
+function idToRegex(id) {
+    let escaped = id.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    escaped = escaped.replace(/\s+/g, '\\s*');
+    const chars = id.replace(/\s+/g, '').split('');
+    const pattern = chars.map(c => c + '\\s*').join('');
+    if (/^[a-zA-Z0-9\s]+$/.test(id)) {
+        return new RegExp('^' + pattern, 'i');
+    } else {
+        return new RegExp('^' + pattern);
+    }
+}
+
+function parseChapterAndVerse(str) {
+    let normalized = str.trim()
+        .replace(/：/g, ':')
+        .replace(/[~～－—至]/g, '-')
+        .replace(/\s+/g, ' ');
+    
+    // 分流正則：
+    // regex1: 章與節之間有明確分隔符 (冒號或空格)
+    // regex2: 中文數字章直接連著阿拉伯數字節 (無分隔符，如「一1-11」)
+    const regex1 = /^([零〇一二兩三四五六七八九十廿卅卌百]+|\d+)\s*[:\s]\s*([\d\-,\s]+)$/;
+    const regex2 = /^([零〇一二兩三四五六七八九十廿卅卌百]+)\s*([\d\-,\s]+)$/;
+    
+    let match = normalized.match(regex1) || normalized.match(regex2);
     if (!match) return null;
-
-    const bookInput = match[1].trim();
-    const chap = parseInt(match[2], 10);
-    const sec = match[3].replace(/\s+/g, ''); // 移除節裡面的空白
-
-    // 模糊匹配書卷名稱
-    const matchedBook = findBook(bookInput);
-    if (!matchedBook) return null;
-
+    
+    const chapStr = match[1];
+    const secStr = match[2].replace(/\s+/g, '');
+    
+    const chap = chineseToArabic(chapStr);
+    if (isNaN(chap) || chap <= 0) return null;
+    
     return {
-        eng: matchedBook.eng,
         chap: chap,
-        sec: sec,
-        bookName: matchedBook.full
+        sec: secStr
     };
 }
 
-function findBook(inputName) {
-    const normalized = inputName.toLowerCase().replace(/\s+/g, '');
+function parseScriptureInput(inputStr) {
+    const trimmed = inputStr.trim();
+    if (!trimmed) return null;
     
-    // 1. 完全匹配英文簡寫 (不區分大小寫)
-    let found = BIBLE_BOOKS.find(b => b.eng.toLowerCase() === normalized);
-    if (found) return found;
-
-    // 2. 完全匹配中文全名
-    found = BIBLE_BOOKS.find(b => b.full === normalized);
-    if (found) return found;
-
-    // 3. 完全匹配中文簡稱
-    found = BIBLE_BOOKS.find(b => b.short === normalized);
-    if (found) return found;
-
-    // 4. 模糊匹配中文名 (開頭相同)
-    found = BIBLE_BOOKS.find(b => b.full.startsWith(inputName) || inputName.startsWith(b.short));
-    if (found) return found;
-
+    // 生成所有可能匹配的候選書卷，長度遞減排序
+    const candidates = [];
+    for (const book of BIBLE_BOOKS) {
+        candidates.push({ book, id: book.full });
+        candidates.push({ book, id: book.short });
+        candidates.push({ book, id: book.eng });
+    }
+    candidates.sort((a, b) => b.id.length - a.id.length);
+    
+    // 遍歷匹配 (支援回溯)
+    for (const cand of candidates) {
+        const regex = idToRegex(cand.id);
+        const match = trimmed.match(regex);
+        if (match) {
+            const matchedLength = match[0].length;
+            const rest = trimmed.slice(matchedLength).trim();
+            const parsedCV = parseChapterAndVerse(rest);
+            if (parsedCV) {
+                return {
+                    eng: cand.book.eng,
+                    chap: parsedCV.chap,
+                    sec: parsedCV.sec,
+                    bookName: cand.book.full
+                };
+            }
+        }
+    }
     return null;
 }
 
@@ -327,16 +388,14 @@ async function performQuery() {
         let parsed = parseScriptureInput(part);
         
         if (!parsed) {
-            // 如果解析失敗，看看是不是省略了書卷名稱（例如 "4:1-6"）
-            const omitRegex = /^(\d+)\s*:\s*([\d\-\s,]+)$/;
-            const omitMatch = part.match(omitRegex);
-            
-            if (omitMatch && lastBookObj) {
+            // 如果解析失敗，看看是不是省略了書卷名稱（例如 "4:1-6" 或 "四1-6" 或 "4 1-6"）
+            const parsedCV = parseChapterAndVerse(part);
+            if (parsedCV && lastBookObj) {
                 // 繼承前一段書卷
                 parsed = {
                     eng: lastBookObj.eng,
-                    chap: parseInt(omitMatch[1], 10),
-                    sec: omitMatch[2].replace(/\s+/g, ''),
+                    chap: parsedCV.chap,
+                    sec: parsedCV.sec,
                     bookName: lastBookObj.bookName
                 };
             }
