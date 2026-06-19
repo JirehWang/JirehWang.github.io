@@ -318,15 +318,37 @@ async function performQuery() {
     }
 
     // 支援以分號分割多段查詢 (例如: 詩篇37:25-26; 以賽亞書32:17-18; 提摩太後書3:16)
+    // 同時支援省略書卷名稱的同卷跨章節查詢 (例如: 創1:1-3; 4:1-6)
     const parts = inputVal.split(/[;；]/).map(p => p.trim()).filter(p => p.length > 0);
     const queries = [];
+    let lastBookObj = null; // 記錄最近一次解析成功的書卷，以供後面省略書卷時繼承
 
     for (let part of parts) {
-        const parsed = parseScriptureInput(part);
+        let parsed = parseScriptureInput(part);
+        
+        if (!parsed) {
+            // 如果解析失敗，看看是不是省略了書卷名稱（例如 "4:1-6"）
+            const omitRegex = /^(\d+)\s*:\s*([\d\-\s,]+)$/;
+            const omitMatch = part.match(omitRegex);
+            
+            if (omitMatch && lastBookObj) {
+                // 繼承前一段書卷
+                parsed = {
+                    eng: lastBookObj.eng,
+                    chap: parseInt(omitMatch[1], 10),
+                    sec: omitMatch[2].replace(/\s+/g, ''),
+                    bookName: lastBookObj.bookName
+                };
+            }
+        }
+
         if (!parsed) {
             showToast(`無法識別其中一段經文格式: "${part}"，請檢查是否輸入如「以弗所書 5:1-4」`, 'warning');
             return;
         }
+
+        // 記錄當前解析出的書卷以供後續繼承
+        lastBookObj = BIBLE_BOOKS.find(b => b.eng === parsed.eng);
         queries.push(parsed);
     }
 
