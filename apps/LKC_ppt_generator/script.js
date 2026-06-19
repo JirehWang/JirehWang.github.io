@@ -212,8 +212,10 @@ function handleLanguageChange() {
         verSelect.add(opt2);
     } else {
         // 華語譯本選項
-        const opt1 = new Option('華語：和合本神版 (unv)', 'unv');
+        const opt1 = new Option('華語：和合本上帝版 (unv_god)', 'unv_god');
+        const opt2 = new Option('華語：和合本神版 (unv)', 'unv');
         verSelect.add(opt1);
+        verSelect.add(opt2);
     }
     currentVersion = verSelect.value;
 }
@@ -323,8 +325,10 @@ async function performQuery() {
 
     // 拼裝 FHL API URL
     // 使用 qsb.php，傳入標準簡寫如太 1:1 或 Eph 5:1-4
+    // 上帝版底層使用 unv (和合本神版) 資料庫查詢，取得經文後再於前端替換
+    const apiVersion = currentVersion === 'unv_god' ? 'unv' : currentVersion;
     const qstr = `${queryObj.eng} ${queryObj.chap}:${queryObj.sec}`;
-    const apiUrl = `https://bible.fhl.net/json/qsb.php?qstr=${encodeURIComponent(qstr)}&version=${currentVersion}&gb=0`;
+    const apiUrl = `https://bible.fhl.net/json/qsb.php?qstr=${encodeURIComponent(qstr)}&version=${apiVersion}&gb=0`;
 
     try {
         const response = await fetch(apiUrl);
@@ -346,6 +350,17 @@ async function performQuery() {
 
         // 成功取得經文，保存資料
         fetchedVerses = data.record;
+
+        // 若選擇和合本上帝版，將「 　神」與「神」字替換為「上帝」
+        if (currentVersion === 'unv_god') {
+            fetchedVerses = fetchedVerses.map(v => {
+                return {
+                    ...v,
+                    bible_text: v.bible_text.replace(/(?:[ 　]+|^)神/g, '上帝')
+                };
+            });
+        }
+
         // 預設全選
         selectedVerses = [...fetchedVerses];
 
