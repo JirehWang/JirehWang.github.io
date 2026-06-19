@@ -1,17 +1,17 @@
 /* 聖經 PPT 產生器 - style.css */
 
 :root {
-    --bg-dark: #0f172a;
-    --bg-card: rgba(30, 41, 59, 0.7);
-    --bg-card-hover: rgba(30, 41, 59, 0.85);
-    --border-color: rgba(255, 255, 255, 0.08);
+    --bg-dark: #070a13; /* 更深邃的底色 */
+    --bg-card: #0f172a; /* 實色編輯面板底色 */
+    --bg-card-hover: #131e35;
+    --border-color: rgba(255, 255, 255, 0.06);
     --text-primary: #f8fafc;
     --text-secondary: #94a3b8;
     --primary: #10b981;
-    --primary-hover: #059669;
-    --primary-glow: rgba(16, 185, 129, 0.2);
+    --primary-hover: #34d399; /* 亮綠色提升對比 */
+    --primary-glow: rgba(16, 185, 129, 0.25);
     --danger: #ef4444;
-    --shadow-main: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    --shadow-main: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
     --font-outfit: 'Outfit', sans-serif;
     --font-sans: 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
 }
@@ -110,7 +110,7 @@ body {
     display: grid;
     grid-template-columns: 460px 1fr;
     gap: 24px;
-    align-items: start;
+    align-items: stretch;
     flex: 1;
 }
 
@@ -142,8 +142,6 @@ body {
 /* Glassmorphism Cards */
 .panel-card {
     background: var(--bg-card);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--border-color);
     border-radius: 16px;
     padding: 24px;
@@ -151,11 +149,13 @@ body {
     display: flex;
     flex-direction: column;
     gap: 20px;
-    transition: background 0.2s ease;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .panel-card:hover {
     background: var(--bg-card-hover);
+    border-color: rgba(16, 185, 129, 0.25);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
 }
 
 .panel-title {
@@ -180,6 +180,7 @@ body {
     font-size: 13px;
     font-weight: 700;
     font-family: var(--font-outfit);
+    box-shadow: 0 0 12px var(--primary-glow);
 }
 
 /* Form elements */
@@ -581,8 +582,15 @@ body {
     color: #9ca3af;
 }
 
-/* Right Preview Panel */
+/* Right Preview Panel (Stage Canvas) */
 .preview-panel {
+    background: #111625;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.035) 1.5px, transparent 0);
+    background-size: 24px 24px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 20px;
+    padding: 32px;
+    box-shadow: inset 0 0 32px rgba(0, 0, 0, 0.5), var(--shadow-main);
     display: flex;
     flex-direction: column;
     gap: 20px;
@@ -605,6 +613,7 @@ body {
 .preview-header h2 {
     font-size: 16px;
     font-weight: 700;
+    letter-spacing: 0.5px;
 }
 
 .slide-navigation {
@@ -660,7 +669,8 @@ body {
     border-radius: 16px;
     position: relative;
     overflow: hidden;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    transition: all 0.3s ease;
 }
 
 .slide-container-inner {
