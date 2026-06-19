@@ -360,6 +360,7 @@ function parseScriptureInput(inputStr) {
             if (parsedCV) {
                 return {
                     eng: cand.book.eng,
+                    short: cand.book.short,
                     chap: parsedCV.chap,
                     sec: parsedCV.sec,
                     bookName: cand.book.full
@@ -394,6 +395,7 @@ async function performQuery() {
                 // 繼承前一段書卷
                 parsed = {
                     eng: lastBookObj.eng,
+                    short: lastBookObj.short,
                     chap: parsedCV.chap,
                     sec: parsedCV.sec,
                     bookName: lastBookObj.bookName
@@ -418,7 +420,8 @@ async function performQuery() {
     try {
         // 並行發送所有經文段落的 API 請求
         const fetchPromises = queries.map(async (queryObj) => {
-            const qstr = `${queryObj.eng} ${queryObj.chap}:${queryObj.sec}`;
+            const fhlBook = queryObj.eng === 'Heb' ? '來' : queryObj.short;
+            const qstr = `${fhlBook} ${queryObj.chap}:${queryObj.sec}`;
             const apiVersion = currentVersion === 'unv_god' ? 'unv' : currentVersion;
             const apiUrl = `https://bible.fhl.net/json/qsb.php?qstr=${encodeURIComponent(qstr)}&version=${apiVersion}&gb=0`;
             
