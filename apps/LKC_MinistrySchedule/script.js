@@ -2041,7 +2041,7 @@ function _ms_buildCardsHtml(matrix) {
     `).join('');
 
     const metaItems = [];
-    if (verse) metaItems.push(`<span>📖 <b>經文：</b>${verse}</span>`);
+    if (verse) metaItems.push(`<span>📖 <b>經文：</b><a href="verse_view.html?q=${encodeURIComponent(verse)}" target="_blank" class="verse-link">${verse}</a></span>`);
     if (location) metaItems.push(`<span>📍 <b>地點：</b>${location}</span>`);
     const metaHtml = metaItems.length > 0 ? `<div class="glass-meta">${metaItems.join('')}</div>` : '';
 

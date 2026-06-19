@@ -130,6 +130,17 @@
             font-size: 0.9em;
         }
         .admin-link:hover { color: #2b6cb0; text-decoration: underline; }
+        .verse-link {
+            color: #2b6cb0;
+            text-decoration: none;
+            font-weight: 600;
+            border-bottom: 1px dashed #2b6cb0;
+            transition: all 0.2s ease;
+        }
+        .verse-link:hover {
+            color: #1a365d;
+            border-bottom-style: solid;
+        }
         
         .spinner {
             margin: 100px auto;
@@ -258,7 +269,7 @@
                                 </div>
 
                                 ${event["地點"] ? `<div class="info-row small mt-2"><span class="info-label">📍 地點:</span> <span>${event["地點"]}</span></div>` : ''}
-                                ${event["經文"] ? `<div class="info-row small"><span class="info-label">📖 經文:</span> <span>${event["經文"]}</span></div>` : ''}
+                                ${event["經文"] ? `<div class="info-row small"><span class="info-label">📖 經文:</span> <span><a href="verse_view.html?q=${encodeURIComponent(event["經文"])}" target="_blank" class="verse-link">${event["經文"]}</a></span></div>` : ''}
                             </div>
                         </div>
                     `;

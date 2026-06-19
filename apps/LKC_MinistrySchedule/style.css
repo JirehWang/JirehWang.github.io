@@ -78,6 +78,19 @@ body {
 .group-link:hover .card-title { color: var(--lkc-green) !important; }
 .card-title { font-weight: 700; transition: color 0.2s; margin: 0; }
 
+.verse-link {
+  color: var(--lkc-green) !important;
+  text-decoration: none !important;
+  font-weight: 600;
+  border-bottom: 1px dashed var(--lkc-green);
+  transition: all 0.2s ease;
+  display: inline-block;
+}
+.verse-link:hover {
+  color: var(--lkc-green-hover) !important;
+  border-bottom-style: solid;
+}
+
 .search-box { 
   margin-bottom: 1.5rem; 
   border-radius: 50px; 
