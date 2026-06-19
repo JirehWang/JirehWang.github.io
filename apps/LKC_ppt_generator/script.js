@@ -181,6 +181,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // 監聽視窗大小改變以動態縮放預覽字型
+    window.addEventListener('resize', updatePreview);
+
     // 簡報分頁導覽
     btnPrevSlide.addEventListener('click', () => {
         if (currentPreviewPageIndex > 0) {
@@ -613,6 +616,11 @@ function updatePreview() {
         slidePreviewBox.style.backgroundImage = 'none';
     }
 
+    // 計算預覽視窗縮放比例 (簡報在 96 dpi 下的標準尺寸為 960 x 540 像素)
+    const previewBoxWidth = slidePreviewBox.offsetWidth || 960;
+    const scale = previewBoxWidth / 960;
+    const ptToPx = 96 / 72; // pt 轉 px 比例
+
     // 2. 標題預覽渲染
     previewTitle.textContent = titleText;
     previewTitle.style.left = `${titleX.value}%`;
@@ -620,12 +628,12 @@ function updatePreview() {
     previewTitle.style.width = `${titleW.value}%`;
     previewTitle.style.height = `${titleH.value}%`;
     previewTitle.style.fontFamily = `"${titleFont.value}", "Microsoft JhengHei"`;
-    previewTitle.style.fontSize = `${parseFloat(titleSize.value) * 0.8}px`; // 視窗縮放預覽微調
+    previewTitle.style.fontSize = `${parseFloat(titleSize.value) * ptToPx * scale}px`; // 動態等比例字型大小
     previewTitle.style.color = titleColor.value;
     previewTitle.style.textAlign = titleAlign.value;
     previewTitle.style.fontWeight = titleBold.checked ? 'bold' : 'normal';
     previewTitle.style.fontStyle = titleItalic.checked ? 'italic' : 'normal';
-    previewTitle.style.borderBottom = titleUnderline.checked ? `2px solid ${titleColor.value}` : 'none';
+    previewTitle.style.borderBottom = titleUnderline.checked ? `${2 * scale}px solid ${titleColor.value}` : 'none';
 
     // 3. 內文預覽渲染
     previewContent.textContent = contentText;
@@ -634,15 +642,15 @@ function updatePreview() {
     previewContent.style.width = `${contentW.value}%`;
     previewContent.style.height = `${contentH.value}%`;
     previewContent.style.fontFamily = `"${contentFont.value}", "Microsoft JhengHei"`;
-    previewContent.style.fontSize = `${parseFloat(contentSize.value) * 0.8}px`;
+    previewContent.style.fontSize = `${parseFloat(contentSize.value) * ptToPx * scale}px`; // 動態等比例字型大小
     previewContent.style.color = contentColor.value;
     previewContent.style.textAlign = contentAlign.value;
     previewContent.style.fontWeight = contentBold.checked ? 'bold' : 'normal';
     previewContent.style.fontStyle = contentItalic.checked ? 'italic' : 'normal';
     
-    // 行高套用
-    const fontSizePx = parseFloat(contentSize.value) * 0.8;
-    previewContent.style.lineHeight = contentSpacing.value;
+    // 行高套用 (以像素為單位設定行高，確保行高也等比例縮放)
+    const calculatedLineHeight = parseFloat(contentSize.value) * ptToPx * parseFloat(contentSpacing.value) * scale;
+    previewContent.style.lineHeight = `${calculatedLineHeight}px`;
 }
 
 // 根據當前頁包含的經文，生成標題範圍，如 "以弗所書 5:1-2"
