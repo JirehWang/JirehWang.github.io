@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>聖經 PPT 產生器 - 林口教會</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Style Sheet -->
+    <link rel="stylesheet" href="style.css">
+    <!-- PptxGenJS (using bundle version which includes jszip) -->
+    <script src="https://cdn.jsdelivr.net/gh/gitbrent/PptxGenJS@3.12.0/dist/pptxgen.bundle.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo-area">
+                <span class="logo-icon">🖨️</span>
+                <div>
+                    <h1>聖經 PPT 產生器</h1>
+                    <p>LKC Bible Slide Generator</p>
+                </div>
+            </div>
+            <a href="../../index.html" class="btn-back">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                返回管理首頁
+            </a>
+        </header>
+
+        <!-- Main Layout -->
+        <main class="app-main">
+            <!-- Sidebar: Controls -->
+            <section class="control-panel">
+                <!-- Section 1: Bible Query -->
+                <div class="panel-card">
+                    <h2 class="panel-title"><span class="title-num">1</span> 經文查詢與選擇</h2>
+                    
+                    <div class="form-group">
+                        <label for="language-select">預設語系</label>
+                        <select id="language-select" class="form-select">
+                            <option value="zh">華語 (和合本)</option>
+                            <option value="tw" selected>台語 (巴克禮台漢本)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="version-select">聖經譯本</label>
+                        <select id="version-select" class="form-select">
+                            <!-- JS will populate options based on language, or allow custom override -->
+                            <option value="tghg">台語：巴克禮台漢本 (tghg)</option>
+                            <option value="ttvhl2021">台語：現代台語2021漢字版 (ttvhl2021)</option>
+                            <option value="unv">華語：和合本神版 (unv)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="query-input">輸入經文範圍</label>
+                        <div class="query-input-wrap">
+                            <input type="text" id="query-input" placeholder="例如: 弗 5:1-4 或 以弗所書 5:1-4" class="form-input">
+                            <button id="btn-query" class="btn-primary">查詢</button>
+                        </div>
+                        <span class="input-helper">支援格式：以弗所書 5:1-4、弗5:1-4、Eph 5:1-4 等</span>
+                    </div>
+
+                    <!-- Query Result List -->
+                    <div class="verses-list-container" id="verses-list-container" style="display: none;">
+                        <div class="verses-list-header">
+                            <h3>查詢結果</h3>
+                            <button id="btn-select-all" class="btn-link">全選</button>
+                        </div>
+                        <div class="verses-list" id="verses-list">
+                            <!-- JavaScript will generate list items here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 2: Layout & PPT Settings -->
+                <div class="panel-card">
+                    <h2 class="panel-title"><span class="title-num">2</span> 投影片排版模式</h2>
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" name="layout-mode" value="single" checked>
+                            <span class="radio-custom"></span>
+                            <div class="radio-text">
+                                <strong>單節單頁</strong>
+                                <p>每頁投影片只放一節經文，標題顯示單節經文編號</p>
+                            </div>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="layout-mode" value="auto">
+                            <span class="radio-custom"></span>
+                            <div class="radio-text">
+                                <strong>最大內文版面填入</strong>
+                                <p>以節為單位，自動計算並在不溢出情況下塞入最多文字</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Section 3: Templates Settings -->
+                <div class="panel-card">
+                    <h2 class="panel-title"><span class="title-num">3</span> PPT 模板自訂</h2>
+                    
+                    <div class="template-section">
+                        <h3>背景設定</h3>
+                        <div class="form-group row-group">
+                            <div class="half-group">
+                                <label for="bg-color">背景底色</label>
+                                <div class="color-picker-wrap">
+                                    <input type="color" id="bg-color" value="#000000" class="form-color">
+                                    <input type="text" id="bg-color-text" value="#000000" class="form-input text-center">
+                                </div>
+                            </div>
+                            <div class="half-group">
+                                <label for="bg-image-upload">背景圖片 (選填)</label>
+                                <label class="file-upload-btn">
+                                    <input type="file" id="bg-image-upload" accept="image/*" style="display: none;">
+                                    選擇檔案
+                                </label>
+                                <span id="bg-image-filename" class="file-name-hint">未選擇檔案</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="template-section">
+                        <h3>標題設定 (經卷章節範圍)</h3>
+                        <div class="form-group row-group">
+                            <div class="half-group">
+                                <label for="title-font">標題字型</label>
+                                <select id="title-font" class="form-select">
+                                    <option value="Microsoft JhengHei" selected>微軟正黑體</option>
+                                    <option value="Noto Sans TC">Noto Sans TC</option>
+                                    <option value="Noto Serif TC">Noto Serif TC</option>
+                                    <option value="DFKai-SB">標楷體</option>
+                                    <option value="Arial">Arial</option>
+                                </select>
+                            </div>
+                            <div class="half-group">
+                                <label for="title-size">字型大小 (pt)</label>
+                                <input type="number" id="title-size" value="40" class="form-input">
+                            </div>
+                        </div>
+                        <div class="form-group row-group">
+                            <div class="half-group">
+                                <label for="title-color">文字顏色</label>
+                                <div class="color-picker-wrap">
+                                    <input type="color" id="title-color" value="#FFFFFF" class="form-color">
+                                    <input type="text" id="title-color-text" value="#FFFFFF" class="form-input text-center">
+                                </div>
+                            </div>
+                            <div class="half-group">
+                                <label for="title-align">水平對齊</label>
+                                <select id="title-align" class="form-select">
+                                    <option value="center" selected>置中對齊</option>
+                                    <option value="left">靠左對齊</option>
+                                    <option value="right">靠右對齊</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="title-underline" checked>
+                                <span class="checkbox-custom"></span>
+                                啟用標題下劃底線 (白線)
+                            </label>
+                        </div>
+                        <!-- Coordinates -->
+                        <div class="coordinates-grid">
+                            <div class="coord-item">
+                                <label for="title-x">X 位置 (%)</label>
+                                <input type="number" id="title-x" value="10" min="0" max="100" class="form-input">
+                            </div>
+                            <div class="coord-item">
+                                <label for="title-y">Y 位置 (%)</label>
+                                <input type="number" id="title-y" value="8" min="0" max="100" class="form-input">
+                            </div>
+                            <div class="coord-item">
+                                <label for="title-w">寬度 (%)</label>
+                                <input type="number" id="title-w" value="80" min="10" max="100" class="form-input">
+                            </div>
+                            <div class="coord-item">
+                                <label for="title-h">高度 (%)</label>
+                                <input type="number" id="title-h" value="15" min="5" max="100" class="form-input">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="template-section">
+                        <h3>內文設定 (經文文字)</h3>
+                        <div class="form-group row-group">
+                            <div class="half-group">
+                                <label for="content-font">內文字型</label>
+                                <select id="content-font" class="form-select">
+                                    <option value="Microsoft JhengHei" selected>微軟正黑體</option>
+                                    <option value="Noto Sans TC">Noto Sans TC</option>
+                                    <option value="Noto Serif TC">Noto Serif TC</option>
+                                    <option value="DFKai-SB">標楷體</option>
+                                    <option value="Arial">Arial</option>
+                                </select>
+                            </div>
+                            <div class="half-group">
+                                <label for="content-size">字型大小 (pt)</label>
+                                <input type="number" id="content-size" value="28" class="form-input">
+                            </div>
+                        </div>
+                        <div class="form-group row-group">
+                            <div class="half-group">
+                                <label for="content-color">文字顏色</label>
+                                <div class="color-picker-wrap">
+                                    <input type="color" id="content-color" value="#FFFFFF" class="form-color">
+                                    <input type="text" id="content-color-text" value="#FFFFFF" class="form-input text-center">
+                                </div>
+                            </div>
+                            <div class="half-group">
+                                <label for="content-align">水平對齊</label>
+                                <select id="content-align" class="form-select">
+                                    <option value="left" selected>靠左對齊</option>
+                                    <option value="center">置中對齊</option>
+                                    <option value="right">靠右對齊</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="content-spacing">行距比例 (Line Spacing)</label>
+                            <input type="number" id="content-spacing" value="1.3" step="0.1" min="1.0" max="2.5" class="form-input">
+                        </div>
+                        <!-- Coordinates -->
+                        <div class="coordinates-grid">
+                            <div class="coord-item">
+                                <label for="content-x">X 位置 (%)</label>
+                                <input type="number" id="content-x" value="8" min="0" max="100" class="form-input">
+                            </div>
+                            <div class="coord-item">
+                                <label for="content-y">Y 位置 (%)</label>
+                                <input type="number" id="content-y" value="32" min="0" max="100" class="form-input">
+                            </div>
+                            <div class="coord-item">
+                                <label for="content-w">寬度 (%)</label>
+                                <input type="number" id="content-w" value="84" min="10" max="100" class="form-input">
+                            </div>
+                            <div class="coord-item">
+                                <label for="content-h">高度 (%)</label>
+                                <input type="number" id="content-h" value="58" min="10" max="100" class="form-input">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Export Slide Button -->
+                <button id="btn-export-pptx" class="btn-submit" disabled>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px;">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                    </svg>
+                    匯出 PPTX 投影片
+                </button>
+            </section>
+
+            <!-- Preview Board -->
+            <section class="preview-panel">
+                <div class="preview-sticky">
+                    <div class="preview-header">
+                        <h2>投影片即時預覽 (16:9)</h2>
+                        <div class="slide-navigation">
+                            <button id="btn-prev-slide" class="btn-nav" disabled>&lt;</button>
+                            <span id="slide-page-indicator">第 0 / 0 頁</span>
+                            <button id="btn-next-slide" class="btn-nav" disabled>&gt;</button>
+                        </div>
+                    </div>
+
+                    <!-- Slide Canvas Box -->
+                    <div class="slide-container-outer">
+                        <div class="slide-container-inner" id="slide-preview-box">
+                            <div class="preview-title-box" id="preview-title">
+                                以弗所書 5:1-4
+                            </div>
+                            <div class="preview-content-box" id="preview-content">
+                                經文預覽內容將顯示於此...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Prompt Box / Toast Message -->
+                    <div id="toast-message" class="toast-card">
+                        請先在左側輸入經文並進行查詢。
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Script Resource -->
+    <script src="script.js"></script>
+</body>
+</html>
