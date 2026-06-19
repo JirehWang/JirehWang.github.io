@@ -317,53 +317,69 @@ async function performQuery() {
         return;
     }
 
-    const queryObj = parseScriptureInput(inputVal);
-    if (!queryObj) {
-        showToast('無法識別書卷格式，請確認輸入如「以弗所書 5:1-4」或「弗 5:1-4」', 'warning');
-        return;
-    }
+    // 支援以分號分割多段查詢 (例如: 詩篇37:25-26; 以賽亞書32:17-18; 提摩太後書3:16)
+    const parts = inputVal.split(/[;；]/).map(p => p.trim()).filter(p => p.length > 0);
+    const queries = [];
 
-    currentQueryObj = queryObj;
-    showToast('正在向信望愛聖經 API 載入經文，請稍候...', 'info');
-
-    // 拼裝 FHL API URL
-    // 使用 qsb.php，傳入標準簡寫如太 1:1 或 Eph 5:1-4
-    // 上帝版底層使用 unv (和合本神版) 資料庫查詢，取得經文後再於前端替換
-    const apiVersion = currentVersion === 'unv_god' ? 'unv' : currentVersion;
-    const qstr = `${queryObj.eng} ${queryObj.chap}:${queryObj.sec}`;
-    const apiUrl = `https://bible.fhl.net/json/qsb.php?qstr=${encodeURIComponent(qstr)}&version=${apiVersion}&gb=0`;
-
-    try {
-        const response = await fetch(apiUrl);
-        if (!response.ok) {
-            throw new Error(`HTTP 錯誤! 狀態碼: ${response.status}`);
-        }
-        const data = await response.json();
-        
-        if (data.status !== 'success') {
-            throw new Error(data.message || 'API 傳回失敗狀態');
-        }
-
-        if (!data.record || data.record.length === 0) {
-            showToast('查無該段經文，請確認章節範圍是否正確。', 'warning');
-            versesListContainer.style.display = 'none';
-            btnExportPptx.disabled = true;
+    for (let part of parts) {
+        const parsed = parseScriptureInput(part);
+        if (!parsed) {
+            showToast(`無法識別其中一段經文格式: "${part}"，請檢查是否輸入如「以弗所書 5:1-4」`, 'warning');
             return;
         }
+        queries.push(parsed);
+    }
 
-        // 成功取得經文，保存資料
-        fetchedVerses = data.record;
+    // 將第一個 queryObj 設為全域作為 fallback
+    currentQueryObj = queries[0];
+    showToast(`正在向信望愛聖經 API 載入 ${queries.length} 段經文，請稍候...`, 'info');
 
-        // 若選擇和合本上帝版，將「 　神」與「神」字替換為「上帝」
-        if (currentVersion === 'unv_god') {
-            fetchedVerses = fetchedVerses.map(v => {
-                return {
+    try {
+        // 並行發送所有經文段落的 API 請求
+        const fetchPromises = queries.map(async (queryObj) => {
+            const qstr = `${queryObj.eng} ${queryObj.chap}:${queryObj.sec}`;
+            const apiVersion = currentVersion === 'unv_god' ? 'unv' : currentVersion;
+            const apiUrl = `https://bible.fhl.net/json/qsb.php?qstr=${encodeURIComponent(qstr)}&version=${apiVersion}&gb=0`;
+            
+            const response = await fetch(apiUrl);
+            if (!response.ok) {
+                throw new Error(`查詢 "${qstr}" 時發生錯誤: HTTP ${response.status}`);
+            }
+            const data = await response.json();
+            
+            if (data.status !== 'success') {
+                throw new Error(`查詢 "${qstr}" 失敗: ${data.message || 'API 傳回錯誤'}`);
+            }
+
+            if (!data.record || data.record.length === 0) {
+                throw new Error(`查無此段經文: "${qstr}"`);
+            }
+
+            let record = data.record;
+            // 若為上帝版，替換「神」字為「上帝」
+            if (currentVersion === 'unv_god') {
+                record = record.map(v => ({
                     ...v,
                     bible_text: v.bible_text.replace(/(?:[ 　]+|^)神/g, '上帝')
-                };
-            });
-        }
+                }));
+            }
 
+            // 標記這段經文所屬的書卷、章節與段落 Key，用於排版時跨段落強制分頁與生成正確標題
+            return record.map(v => ({
+                ...v,
+                queryBookName: queryObj.bookName,
+                queryChap: queryObj.chap,
+                querySec: queryObj.sec,
+                queryGroupKey: `${queryObj.bookName}_${queryObj.chap}_${queryObj.sec}`
+            }));
+        });
+
+        // 等待所有請求完成
+        const results = await Promise.all(fetchPromises);
+        
+        // 合併所有取得的經文
+        fetchedVerses = results.flat();
+        
         // 預設全選
         selectedVerses = [...fetchedVerses];
 
@@ -374,12 +390,12 @@ async function performQuery() {
         recalculateLayout();
         updatePreview();
 
-        showToast(`成功載入 ${fetchedVerses.length} 節經文！`, 'success');
+        showToast(`成功載入共 ${fetchedVerses.length} 節經文！`, 'success');
         btnExportPptx.disabled = false;
 
     } catch (error) {
         console.error('查詢聖經 API 發生錯誤:', error);
-        showToast(`讀取聖經失敗，原因: ${error.message}，請稍後再試。`, 'danger');
+        showToast(`讀取聖經失敗，原因: ${error.message}，請檢查拼寫後再試。`, 'danger');
     }
 }
 
@@ -507,7 +523,14 @@ function paginateVersesAuto() {
     for (let i = 0; i < selectedVerses.length; i++) {
         const verse = selectedVerses[i];
         
-        // 模擬把這節加到當前頁
+        // 1. 如果當前頁面已經有經文，且即將加入的這一節屬於不同的 queryGroupKey，就必須強制分開（斷頁），避免不同段經文拼在同一頁上
+        if (currentPage.length > 0 && currentPage[0].queryGroupKey !== verse.queryGroupKey) {
+            pages.push(currentPage);
+            currentPage = [verse];
+            continue;
+        }
+
+        // 2. 否則進行常規排版模擬高度計算
         const testPage = [...currentPage, verse];
         const combinedText = buildCombinedText(testPage);
 
@@ -656,8 +679,10 @@ function updatePreview() {
 // 根據當前頁包含的經文，生成標題範圍，如 "以弗所書 5:1-2"
 function buildTitleRangeText(pageVerses) {
     if (!pageVerses || pageVerses.length === 0) return '';
-    const bookName = currentQueryObj ? currentQueryObj.bookName : '聖經';
-    const chap = pageVerses[0].chap;
+    
+    // 直接從當前頁的第一個經節中取得其所屬的書卷和章資訊，支援多段跨書卷經文
+    const bookName = pageVerses[0].queryBookName || (currentQueryObj ? currentQueryObj.bookName : '聖經');
+    const chap = pageVerses[0].queryChap || pageVerses[0].chap;
     
     if (pageVerses.length === 1) {
         return `${bookName} ${chap}:${pageVerses[0].sec}`;
