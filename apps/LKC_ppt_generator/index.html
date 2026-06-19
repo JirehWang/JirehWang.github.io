@@ -162,11 +162,21 @@
                                 </select>
                             </div>
                         </div>
-                        <div class="form-group">
+                        <div class="form-group row-group">
                             <label class="checkbox-label">
                                 <input type="checkbox" id="title-underline" checked>
                                 <span class="checkbox-custom"></span>
-                                啟用標題下劃底線 (白線)
+                                啟用標題下劃底線
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="title-bold">
+                                <span class="checkbox-custom"></span>
+                                粗體
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="title-italic">
+                                <span class="checkbox-custom"></span>
+                                斜體
                             </label>
                         </div>
                         <!-- Coordinates -->
@@ -225,9 +235,23 @@
                                 </select>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label for="content-spacing">行距比例 (Line Spacing)</label>
-                            <input type="number" id="content-spacing" value="1.3" step="0.1" min="1.0" max="2.5" class="form-input">
+                        <div class="form-group row-group">
+                            <div class="half-group">
+                                <label for="content-spacing">行距比例 (Line Spacing)</label>
+                                <input type="number" id="content-spacing" value="1.3" step="0.1" min="1.0" max="2.5" class="form-input">
+                            </div>
+                            <div class="half-group" style="justify-content: flex-end; gap: 16px; flex-direction: row; align-items: center; padding-top: 20px;">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="content-bold">
+                                    <span class="checkbox-custom"></span>
+                                    粗體
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="content-italic">
+                                    <span class="checkbox-custom"></span>
+                                    斜體
+                                </label>
+                            </div>
                         </div>
                         <!-- Coordinates -->
                         <div class="coordinates-grid">

@@ -107,6 +107,8 @@ const titleX = document.getElementById('title-x');
 const titleY = document.getElementById('title-y');
 const titleW = document.getElementById('title-w');
 const titleH = document.getElementById('title-h');
+const titleBold = document.getElementById('title-bold');
+const titleItalic = document.getElementById('title-italic');
 
 const contentFont = document.getElementById('content-font');
 const contentSize = document.getElementById('content-size');
@@ -118,6 +120,8 @@ const contentX = document.getElementById('content-x');
 const contentY = document.getElementById('content-y');
 const contentW = document.getElementById('content-w');
 const contentH = document.getElementById('content-h');
+const contentBold = document.getElementById('content-bold');
+const contentItalic = document.getElementById('content-italic');
 
 const layoutModes = document.getElementsByName('layout-mode');
 const btnExportPptx = document.getElementById('btn-export-pptx');
@@ -160,9 +164,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // 模板變動即時重繪預覽
     const templateInputs = [
         bgColorInput, bgImageUpload, titleFont, titleSize, titleColor, 
-        titleAlign, titleUnderline, titleX, titleY, titleW, titleH,
+        titleAlign, titleUnderline, titleBold, titleItalic, titleX, titleY, titleW, titleH,
         contentFont, contentSize, contentColor, contentAlign, contentSpacing,
-        contentX, contentY, contentW, contentH
+        contentBold, contentItalic, contentX, contentY, contentW, contentH
     ];
     templateInputs.forEach(input => {
         input.addEventListener('input', updatePreview);
@@ -604,6 +608,8 @@ function updatePreview() {
     previewTitle.style.fontSize = `${parseFloat(titleSize.value) * 0.8}px`; // 視窗縮放預覽微調
     previewTitle.style.color = titleColor.value;
     previewTitle.style.textAlign = titleAlign.value;
+    previewTitle.style.fontWeight = titleBold.checked ? 'bold' : 'normal';
+    previewTitle.style.fontStyle = titleItalic.checked ? 'italic' : 'normal';
     previewTitle.style.borderBottom = titleUnderline.checked ? `2px solid ${titleColor.value}` : 'none';
 
     // 3. 內文預覽渲染
@@ -616,6 +622,8 @@ function updatePreview() {
     previewContent.style.fontSize = `${parseFloat(contentSize.value) * 0.8}px`;
     previewContent.style.color = contentColor.value;
     previewContent.style.textAlign = contentAlign.value;
+    previewContent.style.fontWeight = contentBold.checked ? 'bold' : 'normal';
+    previewContent.style.fontStyle = contentItalic.checked ? 'italic' : 'normal';
     
     // 行高套用
     const fontSizePx = parseFloat(contentSize.value) * 0.8;
@@ -668,6 +676,8 @@ function exportToPPTX() {
         const tColor = titleColor.value.replace('#', '');
         const tAlign = titleAlign.value;
         const tUnder = titleUnderline.checked;
+        const tBold = titleBold.checked;
+        const tItalic = titleItalic.checked;
         
         const txVal = (parseFloat(titleX.value) || 0) / 100 * slideW;
         const tyVal = (parseFloat(titleY.value) || 0) / 100 * slideH;
@@ -679,6 +689,8 @@ function exportToPPTX() {
         const cColor = contentColor.value.replace('#', '');
         const cAlign = contentAlign.value;
         const cSpacing = parseFloat(contentSpacing.value) || 1.3;
+        const cBold = contentBold.checked;
+        const cItalic = contentItalic.checked;
 
         const cxVal = (parseFloat(contentX.value) || 0) / 100 * slideW;
         const cyVal = (parseFloat(contentY.value) || 0) / 100 * slideH;
@@ -719,6 +731,8 @@ function exportToPPTX() {
                 color: tColor,
                 align: tAlign,
                 valign: 'middle',
+                bold: tBold,
+                italic: tItalic,
                 margin: 0
             });
 
@@ -755,6 +769,8 @@ function exportToPPTX() {
                 align: cAlign,
                 valign: 'top',
                 lineSpacing: calculatedLineSpacingPt,
+                bold: cBold,
+                italic: cItalic,
                 margin: 0
             });
         });
