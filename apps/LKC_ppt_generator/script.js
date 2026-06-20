@@ -208,20 +208,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const verParam = urlParams.get('ver');
     const autoParam = urlParams.get('auto');
 
+    console.log("PPT Generator parameter parser detected parameters:", { queryParam, langParam, verParam, autoParam });
+
     if (queryParam) {
-        queryInput.value = decodeURIComponent(queryParam);
+        queryInput.value = queryParam;
+        console.log("Set queryInput.value to:", queryInput.value);
         
         if (langParam) {
             langSelect.value = langParam;
+            console.log("Set langSelect.value to:", langSelect.value);
             handleLanguageChange();
         }
         
         if (verParam) {
             verSelect.value = verParam;
             currentVersion = verParam;
+            console.log("Set verSelect.value to:", verSelect.value, ", currentVersion set to:", currentVersion);
         }
         
         if (autoParam === '1' || autoParam === 'true') {
+            console.log("Auto query execution triggered.");
             performQuery();
         }
     }
