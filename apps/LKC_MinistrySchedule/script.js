@@ -1885,9 +1885,8 @@ function _ms_findClosestRowIndex(matrix, dateColIdx) {
 
   for (let i = 1; i < matrix.length; i++) {
     const dStr = matrix[i][dateColIdx];
-    const d = new Date(dStr);
-    if (isNaN(d)) continue;
-    d.setHours(0, 0, 0, 0);
+    const d = _ms_parseLocalDate(dStr);
+    if (!d) continue;
     const dMs = d.getTime();
     
     const diff = dMs - todayMs;
@@ -1917,8 +1916,8 @@ function _ms_yearsFromMatrix(matrix, dateColIdx) {
   if (!matrix || matrix.length < 2 || dateColIdx < 0) return [new Date().getFullYear()];
   const ys = new Set();
   for (let i = 1; i < matrix.length; i++) {
-    const d = new Date(matrix[i][dateColIdx]);
-    if (!isNaN(d)) ys.add(d.getFullYear());
+    const d = _ms_parseLocalDate(matrix[i][dateColIdx]);
+    if (d) ys.add(d.getFullYear());
   }
   const arr = Array.from(ys).sort((a, b) => b - a);
   const cur = new Date().getFullYear();
@@ -1928,6 +1927,35 @@ function _ms_yearsFromMatrix(matrix, dateColIdx) {
 
 function _ms_currentQuarter() {
   return Math.floor(new Date().getMonth() / 3) + 1;
+}
+
+function _ms_parseLocalDate(value) {
+  if (value instanceof Date && !isNaN(value)) {
+    return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+  }
+
+  const parts = String(value || '').match(/\d+/g);
+  if (!parts || parts.length < 3) return null;
+
+  let year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10);
+  const day = parseInt(parts[2], 10);
+
+  if (year <= 99) {
+    year += 2000;
+  } else if (year <= 200) {
+    year += 1911;
+  }
+
+  const parsed = new Date(year, month - 1, day);
+  if (
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
+  ) return null;
+
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
 }
 
 function _ms_rollingWindow() {
@@ -1955,8 +1983,8 @@ function _ms_applyDateFilter(matrix, dateColIdx, mode, year, quarter) {
     predicate = d => d.getFullYear() === year && (d.getMonth() + 1) >= m1 && (d.getMonth() + 1) <= m1 + 2;
   }
   const filtered = matrix.slice(1).filter(row => {
-    const d = new Date(row[dateColIdx]);
-    if (isNaN(d)) return false;
+    const d = _ms_parseLocalDate(row[dateColIdx]);
+    if (!d) return false;
     return predicate(d);
   });
   return [headers, ...filtered];
@@ -2007,11 +2035,11 @@ function _ms_buildCardsHtml(matrix) {
     const row = matrix[i];
     const dateVal = dateColIdx >= 0 ? row[dateColIdx] : '';
 
-    const dateObj = new Date(dateVal);
+    const dateObj = _ms_parseLocalDate(dateVal);
     let day = '';
     let yearMonth = '';
     let weekDay = '';
-    if (!isNaN(dateObj)) {
+    if (dateObj) {
       day = String(dateObj.getDate()).padStart(2, '0');
       yearMonth = `${dateObj.getFullYear()}年 ${String(dateObj.getMonth() + 1).padStart(2, '0')}月`;
       weekDay = '星期' + ['日', '一', '二', '三', '四', '五', '六'][dateObj.getDay()];
@@ -2582,11 +2610,14 @@ async function showAggregatedReport(type) {
           return { ...obj, '話語分享(講員)': combined };
         });
 
-        // 依日期升冪排序（用 Date 解析以容忍不同日期格式）
+        // 依日期升冪排序，統一用本地日期解析，避免 yyyy-mm-dd 被瀏覽器當 UTC。
         objs.sort((a, b) => {
-          const da = new Date(a['日期'] || 0).getTime() || 0;
-          const db = new Date(b['日期'] || 0).getTime() || 0;
-          return da - db;
+          const da = _ms_parseLocalDate(a['日期']);
+          const db = _ms_parseLocalDate(b['日期']);
+          if (!da && !db) return 0;
+          if (!da) return 1;
+          if (!db) return -1;
+          return da.getTime() - db.getTime();
         });
 
         matrix = _ms_objectsToMatrix(objs, finalHeaders, { strict: true });
@@ -3256,33 +3287,3 @@ function parseToSlashDate(rawStr) {
   return hypenDate.replace(/-/g, "/");
 }
 window.parseToSlashDate = parseToSlashDate;
-
-async function refreshPageData() {
-  if (getUIState().isLocked('refreshPageData')) return;
-  getUIState().lock('refreshPageData');
-
-  getNotifier().showLoading("🔄 正在重新整理快取並載入最新資料...");
-  try {
-    // 呼叫後端清除快取
-    await fetchAPI("refreshCaches", {});
-    
-    // 若前端有 churchAPIInvalidate，也手動清除快取
-    if (typeof window.churchAPIInvalidate === 'function') {
-      try {
-        await window.churchAPIInvalidate('ministry_getPageConfig');
-      } catch(e) {
-        console.warn("Invalidate cache error", e);
-      }
-    }
-    
-    // 重新整理頁面
-    location.reload();
-  } catch (err) {
-    handleAPIError(err);
-  } finally {
-    getNotifier().hideLoading();
-    getUIState().unlock('refreshPageData');
-  }
-}
-window.refreshPageData = refreshPageData;
-

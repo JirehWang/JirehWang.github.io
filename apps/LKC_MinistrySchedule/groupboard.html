@@ -225,9 +225,10 @@
 
                 // 過濾與排序
                 const filteredEvents = allRawData.filter(item => {
-                    const itemDate = new Date(item["日期"]);
+                    const itemDate = parseLocalDate(item["日期"]);
+                    if (!itemDate) return false;
                     return itemDate >= today && itemDate <= next7Days;
-                }).sort((a, b) => new Date(a["日期"]) - new Date(b["日期"]));
+                }).sort((a, b) => parseLocalDate(a["日期"]) - parseLocalDate(b["日期"]));
 
                 if (filteredEvents.length === 0) {
                     container.innerHTML = '<div class="no-data">✨ 近期小組尚無已排定的聚會資訊</div>';
@@ -236,7 +237,7 @@
 
                 // 渲染
                 container.innerHTML = filteredEvents.map(event => {
-                    const dateObj = new Date(event["日期"]);
+                    const dateObj = parseLocalDate(event["日期"]);
                     const day = String(dateObj.getDate()).padStart(2, '0');
                     const yearMonth = `${dateObj.getFullYear()}年 ${dateObj.getMonth() + 1}月`;
                     const weekDay = ['日', '一', '二', '三', '四', '五', '六'][dateObj.getDay()];
@@ -293,6 +294,28 @@
 
         function formatDate(date) {
             return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        }
+
+        function parseLocalDate(value) {
+            if (value instanceof Date && !isNaN(value)) {
+                return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+            }
+            const parts = String(value || '').match(/\d+/g);
+            if (!parts || parts.length < 3) return null;
+
+            let year = parseInt(parts[0], 10);
+            let month = parseInt(parts[1], 10);
+            let day = parseInt(parts[2], 10);
+            if (year < 100) year += 2000;
+            if (year >= 100 && year <= 200) year += 1911;
+
+            const parsed = new Date(year, month - 1, day);
+            if (
+                parsed.getFullYear() !== year ||
+                parsed.getMonth() !== month - 1 ||
+                parsed.getDate() !== day
+            ) return null;
+            return parsed;
         }
     </script>
 </body>
