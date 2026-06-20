@@ -93,7 +93,7 @@ async function checkGroupStatus() {
 
 function goToSchedule() {
     if (!groupCode) return userNotification.warning("未取得小組編號，無法跳轉。");
-    window.open(`https://jirehwang.github.io/LKC1958_June_1.github.io/apps/LKC_MinistrySchedule/?id=${groupCode}`, '_blank');
+    window.open(`https://jirehwang.github.io/LKC1958_June_1.github.io/apps/LKC_MinistrySchedule/?id=${groupCode}&from=group`, '_blank');
 }
 
 function goToFullStats() {

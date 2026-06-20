@@ -401,7 +401,9 @@ window.onload = async () => {
     showSection('reportSection');
     initDateQuickFilter();
     try {
-      const data = await fetchAPI('getPageConfig', { id: currentId });
+      const urlParams = new URLSearchParams(window.location.search);
+      const autoCreate = urlParams.get('from') === 'group' || urlParams.get('autoCreate') === '1';
+      const data = await fetchAPI('getPageConfig', { id: currentId, autoCreate: autoCreate });
       renderTable(data);
 
       // 如果未解鎖，才顯示佈告欄 (預覽模式)
