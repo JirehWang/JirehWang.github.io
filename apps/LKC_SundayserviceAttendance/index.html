@@ -59,7 +59,7 @@
       display: flex; 
       flex-direction: row !important; 
       align-items: center; 
-      justify-content: center; 
+      justify-content: flex-start; 
       font-weight: 600; 
       border-radius: var(--radius-lg);
       border: 1px solid rgba(255, 255, 255, 0.45);
@@ -67,9 +67,20 @@
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       box-shadow: 0 8px 32px 0 rgba(15, 42, 53, 0.02);
-      padding: 0 48px 0 24px; /* More padding on the right to offset the arrow */
+      padding: 0 48px 0 24px; 
       position: relative;
       overflow: hidden;
+    }
+    .nav-card-body {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      width: 100%;
+      max-width: 260px; 
+      margin: 0 auto;
+      text-align: left;
+      padding-left: 12px;
+      box-sizing: border-box;
     }
     /* Flowing glass shimmer effect */
     .nav-card::after {
@@ -221,7 +232,7 @@
       </div>
       
       <div class="card nav-card mb-3" onclick="loadAttendancePage('台語')" style="--theme-color: var(--color-teal);">
-        <div class="d-flex align-items-center">
+        <div class="nav-card-body">
           <div class="nav-icon-wrapper">🎤</div>
           <div class="nav-text-group">
             <span class="nav-text">主日點名系統</span>
@@ -232,7 +243,7 @@
       </div>
       
       <div class="card nav-card mb-3" onclick="loadPage('MEMBERS')" style="--theme-color: var(--color-green);">
-        <div class="d-flex align-items-center">
+        <div class="nav-card-body">
           <div class="nav-icon-wrapper">👥</div>
           <div class="nav-text-group">
             <span class="nav-text">會友名單管理</span>
@@ -243,7 +254,7 @@
       </div>
       
       <div class="card nav-card mb-3" onclick="loadPage('STATS')" style="--theme-color: var(--color-gold);">
-        <div class="d-flex align-items-center">
+        <div class="nav-card-body">
           <div class="nav-icon-wrapper">📊</div>
           <div class="nav-text-group">
             <span class="nav-text">出席統計查詢</span>
@@ -254,7 +265,7 @@
       </div>
 
       <div class="card nav-card mb-3" onclick="loadPage('TREND_CHART')" style="--theme-color: var(--color-rose);">
-        <div class="d-flex align-items-center">
+        <div class="nav-card-body">
           <div class="nav-icon-wrapper">📈</div>
           <div class="nav-text-group">
             <span class="nav-text">趨勢分析圖表</span>
