@@ -851,7 +851,7 @@ function renderDashboardTable(data) {
     cardsHtml += `<div class="sermon-box">
       🎙️ <strong>講道：</strong>${preacher || '-'}<br>
       📖 <strong>題目：</strong>${title || '-'}<br>
-      📜 <strong>經文：</strong>${scripture || '-'}
+      📜 <strong>經文：</strong>${formatScriptureLink(scripture)}
     </div>`;
 
     cardsHtml += `</div>`; // dashboard-card 結束
@@ -901,7 +901,7 @@ function renderDashboardTable(data) {
     let sermonInfo = '';
     if (preacher) sermonInfo += `🎙️ <strong>${preacher}</strong><br>`;
     if (title && title !== '-') sermonInfo += `📖 <span class="text-muted">${title}</span><br>`;
-    if (scripture && scripture !== '-') sermonInfo += `📜 <span class="text-muted" style="font-size:0.82rem;">${scripture}</span>`;
+    if (scripture && scripture !== '-') sermonInfo += `📜 <span class="text-muted" style="font-size:0.82rem;">${formatScriptureLink(scripture)}</span>`;
     if (!sermonInfo) sermonInfo = '-';
     
     tableHtml += `<tr class="${hasWarning ? 'warning-row' : ''}">
@@ -1734,4 +1734,14 @@ function showMemberSearchDropdown(anchorEl) {
     emptyText: '查無此團員',
     width: anchorEl.offsetWidth
   });
+}
+
+// 經文超連結腳本，點擊後進入 PPT 產生器自動查詢
+function formatScriptureLink(scriptureText) {
+  if (!scriptureText || scriptureText.trim() === '-' || scriptureText.trim() === '') {
+    return '-';
+  }
+  const text = scriptureText.trim();
+  const url = `../LKC_ppt_generator/index.html?query=${encodeURIComponent(text)}&lang=zh&ver=unv&auto=1`;
+  return `<a href="${url}" target="_blank" class="scripture-link" title="點擊進入自動製作 PPT">${text}</a>`;
 }

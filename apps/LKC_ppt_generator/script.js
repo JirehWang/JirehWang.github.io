@@ -200,6 +200,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 匯出按鈕
     btnExportPptx.addEventListener('click', exportToPPTX);
+
+    // 解析網址傳遞的經文參數進行自動查詢
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryParam = urlParams.get('query');
+    const langParam = urlParams.get('lang');
+    const verParam = urlParams.get('ver');
+    const autoParam = urlParams.get('auto');
+
+    if (queryParam) {
+        queryInput.value = decodeURIComponent(queryParam);
+        
+        if (langParam) {
+            langSelect.value = langParam;
+            handleLanguageChange();
+        }
+        
+        if (verParam) {
+            verSelect.value = verParam;
+            currentVersion = verParam;
+        }
+        
+        if (autoParam === '1' || autoParam === 'true') {
+            performQuery();
+        }
+    }
 });
 
 // 5. 語系與譯本選擇邏輯

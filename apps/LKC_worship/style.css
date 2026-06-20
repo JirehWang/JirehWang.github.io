@@ -602,6 +602,18 @@ h1, h2, h3, h4, h5, h6 {
     color: #1d1d1f;
     line-height: 1.5;
 }
+.scripture-link {
+    color: #006030;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    font-weight: 500;
+    transition: color 0.2s ease, opacity 0.2s ease;
+}
+.scripture-link:hover {
+    color: #008f47;
+    text-decoration: underline;
+    opacity: 0.85;
+}
 
 /* --- 📱 雙視圖切換與紅設計表格樣式 --- */
 
