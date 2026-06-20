@@ -3257,3 +3257,32 @@ function parseToSlashDate(rawStr) {
 }
 window.parseToSlashDate = parseToSlashDate;
 
+async function refreshPageData() {
+  if (getUIState().isLocked('refreshPageData')) return;
+  getUIState().lock('refreshPageData');
+
+  getNotifier().showLoading("🔄 正在重新整理快取並載入最新資料...");
+  try {
+    // 呼叫後端清除快取
+    await fetchAPI("refreshCaches", {});
+    
+    // 若前端有 churchAPIInvalidate，也手動清除快取
+    if (typeof window.churchAPIInvalidate === 'function') {
+      try {
+        await window.churchAPIInvalidate('ministry_getPageConfig');
+      } catch(e) {
+        console.warn("Invalidate cache error", e);
+      }
+    }
+    
+    // 重新整理頁面
+    location.reload();
+  } catch (err) {
+    handleAPIError(err);
+  } finally {
+    getNotifier().hideLoading();
+    getUIState().unlock('refreshPageData');
+  }
+}
+window.refreshPageData = refreshPageData;
+
