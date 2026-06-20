@@ -96,6 +96,7 @@ const bgColorInput = document.getElementById('bg-color');
 const bgColorText = document.getElementById('bg-color-text');
 const bgImageUpload = document.getElementById('bg-image-upload');
 const bgImageFilename = document.getElementById('bg-image-filename');
+const btnResetBg = document.getElementById('btn-reset-bg');
 
 const titleFont = document.getElementById('title-font');
 const titleSize = document.getElementById('title-size');
@@ -160,6 +161,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 背景圖片上傳處理
     bgImageUpload.addEventListener('change', handleBgImageUpload);
+
+    // 重製背景圖片按鈕
+    btnResetBg.addEventListener('click', () => {
+        bgImageUpload.value = ''; // 清空 file input 的值以允許重複選取同張圖
+        uploadedBgImageBase64 = null;
+        bgImageFilename.textContent = '未選擇檔案';
+        showToast('背景圖片已清除，已恢復為純色底。', 'success');
+        updatePreview();
+    });
 
     // 模板變動即時重繪預覽
     const templateInputs = [

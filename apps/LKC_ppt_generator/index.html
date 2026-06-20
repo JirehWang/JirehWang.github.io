@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <!-- Style Sheet -->
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=20260620_reset_bg">
     <!-- PptxGenJS (using bundle version which includes jszip) -->
     <script src="https://cdn.jsdelivr.net/gh/gitbrent/PptxGenJS@3.12.0/dist/pptxgen.bundle.js"></script>
 </head>
@@ -120,10 +120,15 @@
                             </div>
                             <div class="half-group">
                                 <label for="bg-image-upload">背景圖片 (選填)</label>
-                                <label class="file-upload-btn">
-                                    <input type="file" id="bg-image-upload" accept="image/*" style="display: none;">
-                                    選擇檔案
-                                </label>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <label class="file-upload-btn" style="flex: 1; margin: 0; padding: 10px 12px;">
+                                        <input type="file" id="bg-image-upload" accept="image/*" style="display: none;">
+                                        選擇檔案
+                                    </label>
+                                    <button type="button" id="btn-reset-bg" class="btn-secondary" style="padding: 10px 12px; font-size: 13px;" title="清除圖片，恢復純色背景">
+                                        重製
+                                    </button>
+                                </div>
                                 <span id="bg-image-filename" class="file-name-hint">未選擇檔案</span>
                             </div>
                         </div>
@@ -321,6 +326,6 @@
     </div>
 
     <!-- Script Resource -->
-    <script src="script.js?v=20260620_ppt_link"></script>
+    <script src="script.js?v=20260620_reset_bg"></script>
 </body>
 </html>
