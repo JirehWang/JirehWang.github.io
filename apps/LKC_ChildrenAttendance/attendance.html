@@ -1,124 +1,230 @@
 <style>
-  /* 通用適應性排版 - 所有螢幕寬度自動適應 */
-  
+  /* 通用適應性排版與活潑風格 */
   .attendance-scroll-area {
-    height: calc(100vh - 260px);
-    background: #f8f9fa;
-    padding: 2%;
+    height: calc(100vh - 290px);
+    background: #ffffff;
+    padding: 15px;
     overflow-y: auto;
-    border-radius: 12px;
-    border: 1px solid #dee2e6;
+    border-radius: 24px;
+    border: 1px solid rgba(226, 232, 240, 0.8);
     box-sizing: border-box;
+    box-shadow: inset 0 2px 8px rgba(148, 163, 184, 0.05);
   }
- /* 調整姓名框大小 */
+  
   #attendanceListBody {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(22%, 70px), 1fr));
-    gap: 8px;
-    }
-
+    grid-template-columns: repeat(auto-fill, minmax(min(22%, 85px), 1fr));
+    gap: 10px;
+  }
 
   .att-item {
-    background: white;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    padding: clamp(2px, 1%, 4px);
+    background: #f8fafc;
+    border: 1px solid #f1f5f9;
+    border-radius: 16px;
+    padding: 6px 4px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    height: clamp(60px, 15vw, 85px);
-    transition: all 0.1s;
+    height: 80px;
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
     position: relative;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -1px rgba(0,0,0,0.01);
     user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
 
-  .att-item:active { transform: scale(0.96); }
-   /* 調整姓名框內名字大小 */
+  .att-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 16px -2px rgba(148, 163, 184, 0.12);
+    background: #ffffff;
+    border-color: #cbd5e1;
+  }
+
+  .att-item:active { transform: scale(0.95); }
+
   .att-name {
-    font-size: clamp(0.8rem, 2.5vw, 1rem);
-    font-weight: bold;
+    font-size: clamp(0.85rem, 2.5vw, 1.05rem);
+    font-weight: 800;
     text-align: center;
-    line-height: 1.1;
+    line-height: 1.2;
+    color: #1e293b;
     word-break: break-all;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    margin-top: 4px;
   }
-/* 調整姓名框內性別大小 */
+
   .att-info {
-    font-size: clamp(0.7rem, 1.5vw, 0.9rem);
-    margin-top: clamp(1px, 0.5%, 2px);
+    font-size: clamp(0.65rem, 1.5vw, 0.8rem);
+    margin-top: 2px;
+    font-weight: 700;
   }
 
   .att-item input[type="checkbox"] {
-    width: clamp(12px, 3vw, 18px);
-    height: clamp(12px, 3vw, 18px);
-    margin-bottom: clamp(2px, 0.5%, 4px);
+    width: 16px;
+    height: 16px;
+    margin-bottom: 2px;
     pointer-events: none;
+    accent-color: #3b82f6;
   }
 
-  .att-item.selected { background-color: #0d6efd !important; color: white !important; border-color: #0a58ca; }
-  .att-item.selected .att-info, .att-item.selected .gender-text { color: #e9ecef !important; }
-  .att-item.submitted { background-color: #d1e7dd !important; border-color: #badbcc !important; cursor: pointer; }
-  .att-item.submitted .att-name { color: #0f5132 !important; }
-  .att-item.submitted::after { content: "✓"; position: absolute; top: 2px; right: 5px; color: #198754; font-weight: 900; font-size: clamp(10px, 2vw, 14px); }
-  .att-item.locked { background-color: #e9ecef !important; border-color: #ced4da !important; cursor: not-allowed !important; opacity: 0.6; }
-  .att-item.locked::after { content: "🔒"; position: absolute; top: 2px; right: 5px; font-size: clamp(8px, 1.5vw, 12px); opacity: 0.5; }
+  /* 勾選但尚未送出：溫暖明亮的藍色漸層 */
+  .att-item.selected {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+    color: white !important;
+    border-color: transparent !important;
+    box-shadow: 0 8px 16px rgba(59, 130, 246, 0.3) !important;
+  }
+  .att-item.selected .att-name { color: white !important; }
+  .att-item.selected .att-info, .att-item.selected .gender-text { color: rgba(255, 255, 255, 0.9) !important; }
   
-  .full-width-msg { grid-column: 1 / -1; text-align: center; padding: clamp(30px, 5%, 60px) clamp(10px, 2%, 20px); color: #6c757d; width: 100%; }
+  /* 已送出：充滿活力的綠色漸層 */
+  .att-item.submitted {
+    background: linear-gradient(135deg, #10b981 0%, #047857 100%) !important;
+    border-color: transparent !important;
+    box-shadow: 0 8px 16px rgba(16, 185, 129, 0.3) !important;
+    cursor: pointer;
+  }
+  .att-item.submitted .att-name { color: white !important; }
+  .att-item.submitted .att-info, .att-item.submitted .gender-text { color: rgba(255, 255, 255, 0.9) !important; }
+  .att-item.submitted::after {
+    content: "✓";
+    position: absolute;
+    top: 4px;
+    right: 8px;
+    color: white;
+    font-weight: 900;
+    font-size: 14px;
+  }
   
-  .custom-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; overflow-y: auto; }
+  /* 鎖定中 */
+  .att-item.locked {
+    background: #f1f5f9 !important;
+    border-color: #e2e8f0 !important;
+    cursor: not-allowed !important;
+    opacity: 0.55;
+    box-shadow: none !important;
+  }
+  .att-item.locked::after {
+    content: "🔒";
+    position: absolute;
+    top: 4px;
+    right: 8px;
+    font-size: 10px;
+    opacity: 0.6;
+  }
   
-  .custom-modal-content { background: white; margin: clamp(10px, 5%, 40px) auto; padding: clamp(15px, 3%, 30px); width: min(90%, 500px); border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); position: relative; text-align: left; box-sizing: border-box; }
+  .full-width-msg {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 50px 20px;
+    color: #64748b;
+    width: 100%;
+    font-weight: bold;
+  }
+  
+  .custom-overlay {
+    display:none;
+    position:fixed;
+    top:0; left:0;
+    width:100%; height:100%;
+    background:rgba(15, 23, 42, 0.6);
+    z-index:9999;
+    overflow-y: auto;
+    backdrop-filter: blur(4px);
+  }
+  
+  .custom-modal-content {
+    background: white;
+    margin: 30px auto;
+    padding: 30px 25px;
+    width: min(92%, 500px);
+    border-radius: 24px;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.15);
+    position: relative;
+    text-align: left;
+    box-sizing: border-box;
+    border: 1px solid rgba(255,255,255,0.8);
+  }
+  
+  .form-control, .form-select {
+    border-radius: 12px !important;
+    border: 1.5px solid #cbd5e1 !important;
+    padding: 10px 14px !important;
+    transition: all 0.2s;
+  }
+  
+  .form-control:focus, .form-select:focus {
+    border-color: #10b981 !important;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15) !important;
+  }
+  
+  .btn-gradient-submit {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white !important;
+    border: none !important;
+    font-weight: 900;
+    border-radius: 16px !important;
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.25);
+    transition: all 0.2s;
+  }
+  
+  .btn-gradient-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(16, 185, 129, 0.35);
+  }
+  
+  .btn-gradient-submit:active {
+    transform: translateY(0) scale(0.97);
+  }
 </style>
 
-<div class="mb-3 bg-white p-2 rounded shadow-sm border">
+<div class="mb-3 bg-white p-3 rounded-4 shadow-sm border border-light">
   <div class="d-flex justify-content-between align-items-center mb-2">
-    <span class="fw-bold">📷 QR Code 快速報到</span>
+    <span class="fw-bold text-dark"><span style="font-size: 1.2rem; margin-right: 4px;">📷</span> QR Code 快速報到</span>
     <div class="d-flex gap-1">
-      <button class="btn btn-sm btn-outline-info" onclick="triggerVenueDownload()" title="下載目前選定場次的自動跳轉卡">
+      <button class="btn btn-sm btn-outline-info rounded-pill px-3 fw-bold" onclick="triggerVenueDownload()" title="下載目前選定場次的自動跳轉卡">
         📥 下載場次QR
       </button>
-      <button id="scanBtn" class="btn btn-sm btn-outline-primary" onclick="toggleScanner()">開啟相機</button>
+      <button id="scanBtn" class="btn btn-sm btn-primary rounded-pill px-3 fw-bold" onclick="toggleScanner()">開啟相機</button>
     </div>
   </div>
-  <div id="reader" style="display: none; width: 100%; border-radius: 8px; overflow: hidden;"></div>
+  <div id="reader" style="display: none; width: 100%; border-radius: 12px; overflow: hidden; border: 1.5px solid #dee2e6;"></div>
 </div>
 
-<div class="card p-3 shadow-sm border-0 bg-light">
+<div class="bg-white p-4 shadow-sm border border-light" style="border-radius: 24px;">
   <!-- 鎖定模式 Banner -->
-  <div id="lockModeBanner" class="alert alert-warning py-2 px-3 mb-3 fw-bold text-center" style="display: none; border-radius: 8px;">
+  <div id="lockModeBanner" class="alert alert-warning py-2 px-3 mb-3 fw-bold text-center" style="display: none; border-radius: 12px;">
     🔒 鎖定點名場次：<span id="lockModeText"></span>
   </div>
 
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h4 class="mb-0 fw-bold text-dark">🎤 兒童點名系統</h4>
-    <button id="btnGroupAdd" class="btn btn-sm btn-outline-primary fw-bold shadow-sm" onclick="openGroupAddModal()" style="border-radius: 20px;">
+    <h4 class="mb-0 fw-black text-dark" style="font-size: 1.35rem;">🎤 兒童點名系統</h4>
+    <button id="btnGroupAdd" class="btn btn-sm btn-outline-success fw-bold shadow-sm rounded-pill px-3" onclick="openGroupAddModal()">
     ➕ 新增群組
     </button>
   </div>
   
   <div class="d-flex justify-content-between gap-2 mb-3">
-    <div id="presentCountBadge" class="badge bg-success text-white p-2 small shadow-sm d-flex align-items-center flex-grow-1 justify-content-center">
+    <div id="presentCountBadge" class="badge bg-success text-white p-2 small shadow-sm d-flex align-items-center flex-grow-1 justify-content-center rounded-pill" style="font-size: 0.85rem; font-weight: 700;">
         ✅ 已出席：<span id="presentCount" class="mx-1">0</span> 人
     </div>
-    <div id="todayDateDisplay" class="badge bg-white text-primary border p-2 small shadow-sm d-flex align-items-center flex-grow-1 justify-content-center"></div>
+    <div id="todayDateDisplay" class="badge bg-white text-primary border p-2 small shadow-sm d-flex align-items-center flex-grow-1 justify-content-center rounded-pill" style="font-size: 0.85rem; font-weight: 700; border-color: #cbd5e1 !important;"></div>
   </div>
 
-  <div id="groupSelectRow" class="row g-2 mb-3 bg-white p-2 rounded border shadow-sm align-items-end">
-    <div class="col-5">
-      <label class="small text-muted fw-bold mb-1">📂 點名類別</label>
-      <select id="categorySelect" class="form-select form-select-sm fw-bold border-secondary" onchange="updateGroupSelect()">
+  <div id="groupSelectRow" class="row g-2 mb-3 bg-light p-2 rounded-4 border border-light align-items-end mx-0">
+    <div class="col-5 px-1">
+      <label class="small text-muted fw-bold mb-1 ps-1">📂 點名類別</label>
+      <select id="categorySelect" class="form-select form-select-sm fw-bold border-secondary text-secondary" onchange="updateGroupSelect()">
         <option value="" disabled selected>載入中...</option>
       </select>
     </div>
-    <div class="col-7">
-      <label class="small text-muted fw-bold mb-1">📌 選擇群組</label>
+    <div class="col-7 px-1">
+      <label class="small text-muted fw-bold mb-1 ps-1">📌 選擇群組</label>
       <select id="groupSelect" class="form-select form-select-sm fw-bold border-primary text-primary shadow-sm" onchange="handleGroupSelect()">
         <option value="" disabled selected>載入中...</option>
       </select>
@@ -127,10 +233,10 @@
 
   <div class="row g-2 mb-3">
     <div class="col-12">
-      <div class="input-group shadow-sm">
-        <span class="input-group-text bg-white border-end-0 text-muted">🔍</span>
-        <input type="text" id="attSearchInput" class="form-control border-start-0" placeholder="搜尋..." oninput="filterAttList()">
-        <button class="btn btn-outline-success fw-bold" onclick="openAttendanceAddModal()">➕ 新增</button>
+      <div class="input-group shadow-sm border rounded-pill overflow-hidden bg-white">
+        <span class="input-group-text bg-white border-0 text-muted ps-3">🔍</span>
+        <input type="text" id="attSearchInput" class="form-control border-0 px-2" placeholder="搜尋..." oninput="filterAttList()" style="box-shadow: none !important;">
+        <button class="btn btn-success fw-bold px-3 border-0" onclick="openAttendanceAddModal()" style="border-radius: 0 !important;">➕ 新增</button>
       </div>
     </div>
   </div>
@@ -141,16 +247,16 @@
 
   <div class="d-flex align-items-center gap-2 mt-3">
     <div class="d-flex flex-column gap-2" style="width: 170px; flex-shrink: 0;">
-      <div class="input-group input-group-sm shadow-sm border rounded overflow-hidden">
+      <div class="input-group input-group-sm shadow-sm border rounded-3 overflow-hidden">
         <span class="input-group-text bg-white text-primary border-0 fw-bold small px-2" style="width: 80px;">👦 新(男)</span>
         <input type="number" id="newFriendsMale" class="form-control border-0 text-center fw-bold px-1" value="0" min="0">
       </div>
-      <div class="input-group input-group-sm shadow-sm border rounded overflow-hidden">
+      <div class="input-group input-group-sm shadow-sm border rounded-3 overflow-hidden">
         <span class="input-group-text bg-white text-danger border-0 fw-bold small px-2" style="width: 80px;">👧 新(女)</span>
         <input type="number" id="newFriendsFemale" class="form-control border-0 text-center fw-bold px-1" value="0" min="0">
       </div>
     </div>
-    <button id="submitBtn" class="btn btn-success btn-lg shadow fw-bold flex-grow-1 py-2 h-100" onclick="submitAttendance()" style="font-size: 1.1rem; min-height: 64px;">
+    <button id="submitBtn" class="btn btn-gradient-submit btn-lg shadow fw-bold flex-grow-1 py-2 h-100" onclick="submitAttendance()" style="font-size: 1.15rem; min-height: 68px;">
       確認送出
     </button>
   </div>

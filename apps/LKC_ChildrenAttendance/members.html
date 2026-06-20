@@ -1,38 +1,47 @@
 <style>
   .member-table-container {
-    height: calc(100vh - 200px); 
+    height: calc(100vh - 220px); 
     overflow: auto;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    border-radius: 24px;
     background: white;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.02);
   }
   .member-table-container thead th {
     position: sticky;
     top: 0;
     z-index: 10;
-    background-color: #212529 !important;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
     color: white;
-    box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
+    font-weight: 800;
+    border: none !important;
+    box-shadow: 0 2px 8px rgba(5, 150, 105, 0.15);
+    padding: 12px 8px !important;
   }
   .member-table-container thead th:first-child { position: sticky; left: 0; z-index: 11; }
   .member-table-container tbody td:first-child {
     position: sticky;
     left: 0;
     z-index: 5;
-    background-color: #f8f9fa; 
-    border-right: 1px solid #dee2e6; 
-    box-shadow: 2px 0 4px -2px rgba(0,0,0,0.1); 
+    background-color: #f8fafc; 
+    border-right: 1px solid #e2e8f0; 
+    box-shadow: 2px 0 4px -2px rgba(0,0,0,0.05); 
+    font-weight: bold;
+  }
+  .member-table-container tbody td {
+    padding: 12px 8px !important;
+    border-bottom: 1.5px solid #f1f5f9;
   }
 </style>
 
 <div class="members-main-wrapper p-2">
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <div class="input-group input-group-sm shadow-sm" style="width: 250px;">
-      <span class="input-group-text bg-white border-end-0 text-muted">🔍</span>
-      <input type="text" id="memberSearchInput" class="form-control border-start-0 border-end-0" placeholder="輸入姓名即時查找..." oninput="filterMembers()">
-      <button id="memberClearBtn" class="btn bg-white border-start-0 text-muted" type="button" onclick="clearMemberSearch()" style="display: none;">✕</button>
+    <div class="input-group shadow-sm border rounded-pill overflow-hidden bg-white" style="width: 250px;">
+      <span class="input-group-text bg-white border-0 text-muted ps-3">🔍</span>
+      <input type="text" id="memberSearchInput" class="form-control border-0 px-2" placeholder="輸入姓名即時查找..." oninput="filterMembers()" style="box-shadow: none !important; font-size: 0.85rem; padding: 6px 12px !important;">
+      <button id="memberClearBtn" class="btn bg-white border-0 text-muted" type="button" onclick="clearMemberSearch()" style="display: none;">✕</button>
     </div>
-    <button class="btn btn-primary btn-sm shadow-sm px-3" onclick="openMemberModal()">＋ 新增會友</button>
+    <button class="btn btn-success btn-sm shadow-sm rounded-pill px-3 fw-bold" onclick="openMemberModal()" style="font-size: 0.85rem; padding: 6px 16px !important;">＋ 新增會友</button>
   </div>
 
   <div class="member-table-container shadow-sm">
@@ -56,8 +65,8 @@
 </div>
 
 <!-- 會友編輯 Modal -->
-<div id="memberListModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; overflow-y: auto;">
-  <div class="custom-modal-content" style="background: white; margin: 5% auto; padding: 25px; width: 90%; max-width: 500px; border-radius: 15px;">
+<div id="memberListModal" class="custom-modal-backdrop">
+  <div class="custom-modal-content" style="max-width: 500px;">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <h5 id="memModalHeader" class="fw-bold mb-0 text-dark">新增會友資料</h5>
       <button type="button" class="btn-close" onclick="closeMemberModal()"></button>
@@ -69,7 +78,7 @@
         <label class="form-label fw-bold small text-muted">系統編號</label>
         <div class="input-group">
           <input type="text" id="editModal_Uid" class="form-control bg-light" readonly placeholder="讀取中/無編號">
-          <button type="button" class="btn btn-outline-primary fw-bold" id="btnShowQrCode" onclick="openQrModal()">📷 顯示 QR / 卡片</button>
+          <button type="button" class="btn btn-outline-success fw-bold" id="btnShowQrCode" onclick="openQrModal()">📷 顯示 QR / 卡片</button>
         </div>
       </div>
       <div class="col-md-8">
@@ -95,8 +104,8 @@
       </div>
     </div>
     <div class="text-end mt-4">
-      <button class="btn btn-light px-4 me-2" onclick="closeMemberModal()">取消</button>
-      <button id="saveMemBtn" class="btn btn-primary px-4 fw-bold" onclick="processMemberSave()">確認儲存</button>
+      <button class="btn btn-light px-4 me-2 rounded-pill" onclick="closeMemberModal()">取消</button>
+      <button id="saveMemBtn" class="btn btn-success px-4 fw-bold rounded-pill" onclick="processMemberSave()">確認儲存</button>
     </div>
   </div>
 </div>

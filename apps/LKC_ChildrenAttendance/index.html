@@ -9,11 +9,20 @@
   <title>⛪ 兒童主日出席點名系統</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css?v=20260420">
   <link rel="manifest" href="../../manifest.json">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Quicksand:wght@500;700;900&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
+    body {
+      background: linear-gradient(135deg, #fef9c3 0%, #ecfdf5 50%, #dbeafe 100%);
+      font-family: 'Quicksand', 'Noto Sans TC', system-ui, -apple-system, sans-serif;
+      color: #1e293b;
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+    }
     .app-container {
       width: 100%;
-      padding: 15px;
+      padding: 20px 15px;
       margin-right: auto;
       margin-left: auto;
       transition: max-width 0.3s ease;
@@ -24,73 +33,92 @@
     }
     .nav-card { 
       cursor: pointer; 
-      transition: 0.3s; 
-      height: 85px; 
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+      height: 95px; 
       display: flex; 
       align-items: center; 
       justify-content: center; 
-      font-weight: bold; 
-      border-radius: 12px;
+      font-weight: 900; 
+      border-radius: 20px !important;
+      border: none !important;
+      color: white !important;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.06);
     }
     .nav-card:hover { 
-      background-color: #f8f9fa; 
-      transform: translateY(-2px); 
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+      transform: translateY(-5px) scale(1.02); 
+      box-shadow: 0 15px 30px rgba(0,0,0,0.12); 
     }
-    .nav-icon { font-size: 1.8rem; margin-right: 15px; }
-    .nav-text { font-size: 1.2rem; }
+    .nav-card:active {
+      transform: translateY(-1px) scale(0.98);
+    }
+    .bg-gradient-green { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+    .bg-gradient-blue { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); }
+    .bg-gradient-orange { background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%); }
+    .bg-gradient-pink { background: linear-gradient(135deg, #ec4899 0%, #be185d 100%); }
+
+    .nav-icon { font-size: 2rem; margin-right: 15px; }
+    .nav-text { font-size: 1.25rem; font-weight: 900; letter-spacing: 0.5px; }
     .custom-modal-backdrop {
       display: none; 
       position: fixed; 
       top: 0; left: 0; 
       width: 100%; height: 100%; 
-      background: rgba(0,0,0,0.6); 
+      background: rgba(15, 23, 42, 0.6); 
       z-index: 9999; 
       overflow-y: auto;
+      backdrop-filter: blur(4px);
     }
     .custom-modal-content {
       background: white;
-      padding: 20px;
-      border-radius: 12px;
-      margin: 20px auto;
+      padding: 30px 20px;
+      border-radius: 24px;
+      margin: 40px auto;
       width: 95%;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+      border: 1px solid rgba(255,255,255,0.8);
     }
-
+    .fw-black {
+      font-weight: 900;
+    }
   </style>
 </head>
 <body>
   <div class="app-container">
     
     <div id="main-nav">
-      <div class="d-flex justify-content-center align-items-end mb-4">
-        <h2 class="fw-bold mb-0">⛪ 兒童主日出席點名系統</h2>
+      <div class="d-flex flex-column align-items-center mb-5 text-center">
+        <div class="logo-circle mb-3 bg-white shadow-sm d-flex align-items-center justify-content-center" style="width: 80px; height: 80px; border-radius: 50%; border: 3px solid #10b981;">
+          <span style="font-size: 2.8rem;">🧒</span>
+        </div>
+        <h1 class="fw-black mb-1" style="background: linear-gradient(135deg, #059669 0%, #2563eb 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 900; letter-spacing: -1px; font-size: 2rem;">兒童出席點名系統</h1>
+        <p class="text-muted fw-bold small mb-2">Church Children's Attendance Portal</p>
         <a href="https://www.canva.com/design/DAHCGu-ynJs/eI1qlAREHLG-vLxNELzXxg/view?utm_content=DAHCGu-ynJs&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=h30d97a479b" 
            target="_blank" 
-           class="text-secondary text-decoration-none ms-2 mb-1 border-bottom border-secondary pb-0" 
-           style="font-size: 0.85rem;" title="查看系統操作說明">
-           📖 操作說明
+           class="btn btn-sm btn-white rounded-pill px-3 shadow-sm border mt-1 bg-white" 
+           style="font-size: 0.8rem; font-weight: 700; color: #475569;">
+           📖 系統操作說明
         </a>
       </div>
       
-      <div class="card nav-card text-primary border-primary shadow-sm mb-3" onclick="loadAttendancePage(null)">
+      <div class="card nav-card bg-gradient-green shadow mb-3" onclick="loadAttendancePage(null)">
         <div class="d-flex align-items-center"><span class="nav-icon">🎤</span><span class="nav-text">主日點名系統</span></div>
       </div>
       
-      <div class="card nav-card text-secondary shadow-sm mb-3" onclick="loadPage('MEMBERS')">
+      <div class="card nav-card bg-gradient-blue shadow mb-3" onclick="loadPage('MEMBERS')">
         <div class="d-flex align-items-center"><span class="nav-icon">👥</span><span class="nav-text">會友名單管理</span></div>
       </div>
       
-      <div class="card nav-card text-success shadow-sm mb-3" onclick="loadPage('STATS')">
+      <div class="card nav-card bg-gradient-orange shadow mb-3" onclick="loadPage('STATS')">
         <div class="d-flex align-items-center"><span class="nav-icon">📊</span><span class="nav-text">出席統計查詢</span></div>
       </div>
-
-      <div class="card nav-card text-info shadow-sm mb-3" onclick="loadPage('TREND_CHART')">
+ 
+      <div class="card nav-card bg-gradient-pink shadow mb-3" onclick="loadPage('TREND_CHART')">
         <div class="d-flex align-items-center"><span class="nav-icon">📈</span><span class="nav-text">趨勢分析圖表</span></div>
       </div>
     </div>
-
+ 
     <div id="content-area" style="display:none;">
-      <button class="btn btn-outline-secondary mb-3 shadow-sm" onclick="showHome()">← 回主選單</button>
+      <button class="btn btn-outline-secondary mb-4 shadow-sm rounded-pill px-3 fw-bold" onclick="showHome()">← 回主選單</button>
       
       <div id="page-ATTENDANCE" class="page-section"></div>
       <div id="page-MEMBERS" class="page-section"></div>

@@ -1,21 +1,31 @@
 <style>
-  .stats-container { padding: 10px; background-color: #fff; border-radius: 8px; }
-  .progress { background-color: #e9ecef; border-radius: 5px; box-shadow: inset 0 1px 2px rgba(0,0,0,.1); }
-  .mode-switch-btn { width: 50%; font-weight: bold; }
-  .stat-card { border-radius: 8px; padding: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); height: 100%; display: flex; flex-direction: column; justify-content: center; border: 1px solid #dee2e6; }
+  .stats-container { padding: 10px; background-color: #fff; border-radius: 24px; }
+  .progress { background-color: #f1f5f9; border-radius: 10px; box-shadow: inset 0 1px 2px rgba(0,0,0,.05); height: 12px; }
+  .mode-switch-btn { width: 50%; font-weight: 800; border-radius: 12px !important; }
+  .stat-card { border-radius: 18px; padding: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.02); height: 100%; display: flex; flex-direction: column; justify-content: center; border: 1.5px solid #f1f5f9; background: #ffffff; }
+  .form-control, .form-select {
+    border-radius: 12px !important;
+    border: 1.5px solid #cbd5e1 !important;
+    padding: 8px 12px !important;
+    transition: all 0.2s;
+  }
+  .form-control:focus, .form-select:focus {
+    border-color: #10b981 !important;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15) !important;
+  }
 </style>
 
 <div class="stats-container">
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h4 class="fw-bold mb-0 text-dark">📊 聚會出席統計</h4>
+    <h4 class="fw-black mb-0 text-dark" style="font-size: 1.35rem;">📊 聚會出席統計</h4>
   </div>
   
-  <div class="bg-light p-3 rounded border mb-3">
-    <div class="btn-group w-100 mb-3" role="group">
+  <div class="bg-light p-3 rounded-4 border border-light mb-3">
+    <div class="btn-group w-100 mb-3" role="group" style="background: rgba(148, 163, 184, 0.05); padding: 4px; border-radius: 16px;">
       <input type="radio" class="btn-check" name="statMode" id="modeRange" autocomplete="off" checked onclick="toggleStatMode('range')">
-      <label class="btn btn-outline-primary mode-switch-btn" for="modeRange">📅 區間統計</label>
+      <label class="btn btn-outline-success mode-switch-btn border-0 py-2" for="modeRange">📅 區間統計</label>
       <input type="radio" class="btn-check" name="statMode" id="modeSingle" autocomplete="off" onclick="toggleStatMode('single')">
-      <label class="btn btn-outline-primary mode-switch-btn" for="modeSingle">📆 單日檢視</label>
+      <label class="btn btn-outline-success mode-switch-btn border-0 py-2" for="modeSingle">📆 單日檢視</label>
     </div>
 
     <div class="row g-2 align-items-end" id="rangeInputArea">
@@ -67,16 +77,16 @@
 
     <div class="row g-2 mt-3">
       <div class="col-6">
-        <button class="btn btn-primary btn-sm w-100 fw-bold shadow-sm" onclick="fetchStatsData()">🔍 開始查詢</button>
+        <button class="btn btn-success btn-sm w-100 fw-bold shadow-sm rounded-pill py-2" onclick="fetchStatsData()">🔍 開始查詢</button>
       </div>
       <div class="col-6">
-        <button class="btn btn-success btn-sm w-100 fw-bold shadow-sm" onclick="exportToCSV()">📥 匯出 Excel</button>
+        <button class="btn btn-outline-success btn-sm w-100 fw-bold shadow-sm rounded-pill py-2 bg-white" onclick="exportToCSV()">📥 匯出 Excel</button>
       </div>
     </div>
 
     <div class="row g-2 mt-2" id="trendAnalysisRow" style="display:none;">
       <div class="col-12">
-        <button class="btn btn-warning btn-sm w-100 fw-bold shadow-sm" onclick="openTrendModal()">📈📉 出席頻率變化分析</button>
+        <button class="btn btn-warning btn-sm w-100 fw-bold shadow-sm rounded-pill py-2" onclick="openTrendModal()">📈📉 出席頻率變化分析</button>
       </div>
     </div>
     
