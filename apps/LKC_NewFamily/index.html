@@ -160,6 +160,7 @@
         </div>
         <div class="actions compact">
           <button id="closedSearchBtn" class="btn primary" type="button">查詢</button>
+          <button id="closedExportBtn" class="btn secondary" type="button">匯出 Excel</button>
         </div>
       </div>
 
@@ -291,6 +292,24 @@
         <button id="sessionConfirmBtn" class="btn primary" type="button">確認送出</button>
       </div>
     </section>
+  </div>
+
+  <!-- Excel-like header filter popover -->
+  <div id="headerFilterPopover" class="filter-popover" hidden>
+    <div class="popover-search">
+      <input type="text" id="popoverSearchInput" placeholder="搜尋包含文字...">
+    </div>
+    <div class="popover-options-wrap">
+      <label class="popover-option select-all-label">
+        <input type="checkbox" id="popoverSelectAll" checked>
+        <span>(全選)</span>
+      </label>
+      <div id="popoverOptionsList" class="popover-options-list"></div>
+    </div>
+    <div class="popover-actions">
+      <button type="button" id="popoverCancelBtn" class="btn secondary">取消</button>
+      <button type="button" id="popoverConfirmBtn" class="btn primary">確定</button>
+    </div>
   </div>
 
   <script>window._GAS_KEY = 'LKC_NewFamily';</script>

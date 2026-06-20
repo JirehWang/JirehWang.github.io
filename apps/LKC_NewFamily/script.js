@@ -51,6 +51,16 @@ const closedNotice = document.getElementById('closedNotice');
 const closedContent = document.getElementById('closedContent');
 const closedCount = document.getElementById('closedCount');
 const closedSearchBtn = document.getElementById('closedSearchBtn');
+const closedExportBtn = document.getElementById('closedExportBtn');
+
+// Filter popover elements
+const headerFilterPopover = document.getElementById('headerFilterPopover');
+const popoverSearchInput = document.getElementById('popoverSearchInput');
+const popoverSelectAll = document.getElementById('popoverSelectAll');
+const popoverOptionsList = document.getElementById('popoverOptionsList');
+const popoverConfirmBtn = document.getElementById('popoverConfirmBtn');
+const popoverCancelBtn = document.getElementById('popoverCancelBtn');
+
 const editModal = document.getElementById('editModal');
 const editCaseForm = document.getElementById('editCaseForm');
 const editFieldContainer = document.getElementById('editFields');
@@ -80,6 +90,8 @@ let meetingOptions = [];
 let settlementOptions = ['請安拜訪'];
 let editingCase = null;
 let trackingCases = [];
+let closedCasesBase = []; // Base loaded closed cases list
+let activeClosedFilters = {}; // Maps column -> { search: string, selected: Set }
 let firebaseCacheModulePromise = null;
 let memberDirectoryPromise = null;
 let currentAnalysisRows = [];
@@ -125,6 +137,7 @@ trackingSearchBtn.addEventListener('click', loadTrackingCases);
 addMembersBtn.addEventListener('click', openSessionModal);
 closeBtn.addEventListener('click', closeSelectedCases);
 closedSearchBtn.addEventListener('click', loadClosedCases);
+closedExportBtn.addEventListener('click', exportClosedCases);
 analysisOpenBtn.addEventListener('click', openAnalysisModal);
 analysisExportDetailBtn.addEventListener('click', exportAnalysisDetail);
 analysisExportSummaryBtn.addEventListener('click', exportAnalysisSummary);
@@ -306,10 +319,13 @@ async function loadSettlementStatusOptions() {
   }
 }
 
-document.addEventListener('click', () => {
+document.addEventListener('click', event => {
   document.querySelectorAll('.action-menu').forEach(menu => {
     menu.hidden = true;
   });
+  if (headerFilterPopover && !headerFilterPopover.hidden && !headerFilterPopover.contains(event.target) && !event.target.classList.contains('header-filter-btn')) {
+    closeHeaderFilterPopover();
+  }
 });
 
 function switchTab(tabName) {
@@ -575,6 +591,7 @@ async function loadClosedCases() {
   closedContent.className = 'empty';
   closedContent.textContent = '載入中...';
   closedSearchBtn.disabled = true;
+  activeClosedFilters = {}; // Reset active header filters on new search
 
   try {
     const filters = {
@@ -595,17 +612,79 @@ async function loadClosedCases() {
 }
 
 function renderClosedCases(rows) {
-  closedCount.textContent = `共 ${rows.length} 筆`;
+  closedCasesBase = rows;
+  renderFilteredClosedCases();
+}
 
-  if (!rows.length) {
+function renderFilteredClosedCases() {
+  const filtered = getFilteredClosedCases();
+  
+  const isFiltered = Object.keys(activeClosedFilters).length > 0;
+  closedCount.textContent = `共 ${filtered.length} 筆${isFiltered ? ' (已篩選)' : ''}`;
+
+  if (!filtered.length) {
     closedContent.className = 'empty';
-    closedContent.textContent = '沒有符合條件的已結案資料';
+    closedContent.textContent = '沒有符合篩選條件的已結案資料';
     return;
   }
 
   closedContent.className = 'table-wrap';
   closedContent.textContent = '';
-  closedContent.appendChild(buildCaseTable(rows, false, closedColumns));
+  // Note the last argument is true to indicate isClosed = true
+  closedContent.appendChild(buildCaseTable(filtered, false, closedColumns, true));
+  
+  highlightActiveFilters();
+}
+
+// Global variable tracking which filter popover is active
+let activeFilterPopoverColumn = null;
+
+function getFilteredClosedCases() {
+  return closedCasesBase.filter(item => {
+    for (const column in activeClosedFilters) {
+      const filter = activeClosedFilters[column];
+      const val = getFilterValue(item, column);
+      
+      // Check search text (contains keyword)
+      if (filter.search && !val.toLowerCase().includes(filter.search.toLowerCase())) {
+        return false;
+      }
+      
+      // Check checkbox select values
+      if (filter.selected && filter.selected.size > 0) {
+        if (!filter.selected.has(val)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  });
+}
+
+function getFilterValue(item, column) {
+  if (column === '落戶狀態') {
+    return getDisplaySettlementStatus(item);
+  }
+  if (column === '主日點名小組') {
+    return item['主日點名小組'] || '';
+  }
+  return String(item[column] || '').trim();
+}
+
+function highlightActiveFilters() {
+  document.querySelectorAll('.filterable-header').forEach(th => {
+    const col = th.dataset.column;
+    const filterBtn = th.querySelector('.header-filter-btn');
+    if (filterBtn) {
+      if (activeClosedFilters[col]) {
+        filterBtn.classList.add('active');
+        filterBtn.textContent = '▼(篩)';
+      } else {
+        filterBtn.classList.remove('active');
+        filterBtn.textContent = '▼';
+      }
+    }
+  });
 }
 
 async function refreshAnalysisPreview() {
@@ -1522,50 +1601,95 @@ function filterCases(rows, filters) {
   });
 }
 
-function buildCaseTable(rows, selectable, columns) {
+function buildCaseTable(rows, selectable, columns, isClosed = false) {
   const table = document.createElement('table');
   const thead = document.createElement('thead');
   const tbody = document.createElement('tbody');
   const headRow = document.createElement('tr');
 
-  headRow.innerHTML = `${selectable ? '<th class="check-cell">結案</th><th class="action-cell"></th>' : ''}${columns.map(column => `<th>${escapeHtml(getColumnLabel(column))}</th>`).join('')}`;
+  // Checkbox column is only for tracking cases (selectable = true)
+  if (selectable) {
+    const thCheck = document.createElement('th');
+    thCheck.className = 'check-cell';
+    thCheck.textContent = '結案';
+    headRow.appendChild(thCheck);
+  }
+
+  // Action column is present for BOTH tracking and closed cases
+  const thAction = document.createElement('th');
+  thAction.className = 'action-cell';
+  headRow.appendChild(thAction);
+
+  // Column headers
+  columns.forEach(column => {
+    const th = document.createElement('th');
+    th.dataset.column = column;
+    
+    const titleSpan = document.createElement('span');
+    titleSpan.textContent = getColumnLabel(column);
+    th.appendChild(titleSpan);
+
+    if (isClosed) {
+      th.classList.add('filterable-header');
+      const filterBtn = document.createElement('button');
+      filterBtn.type = 'button';
+      filterBtn.className = 'header-filter-btn';
+      filterBtn.textContent = activeClosedFilters[column] ? '▼(篩)' : '▼';
+      if (activeClosedFilters[column]) filterBtn.classList.add('active');
+      filterBtn.setAttribute('aria-label', `篩選 ${getColumnLabel(column)}`);
+      
+      filterBtn.addEventListener('click', event => {
+        event.stopPropagation();
+        toggleHeaderFilter(event, column);
+      });
+      th.appendChild(filterBtn);
+    }
+    
+    headRow.appendChild(th);
+  });
+  
   thead.appendChild(headRow);
 
   rows.forEach(item => {
     const row = document.createElement('tr');
 
+    // Checkbox cell
     if (selectable) {
       const checkboxCell = document.createElement('td');
       checkboxCell.className = 'check-cell';
       checkboxCell.innerHTML = `<input type="checkbox" value="${item.rowNumber}" aria-label="勾選 ${escapeHtml(item['新家人姓名'] || '此筆資料')} 結案">`;
       row.appendChild(checkboxCell);
+    }
 
-      const actionCell = document.createElement('td');
-      actionCell.className = 'action-cell';
-      
-      const dropdown = document.createElement('div');
-      dropdown.className = 'action-dropdown';
+    // Action cell
+    const actionCell = document.createElement('td');
+    actionCell.className = 'action-cell';
+    
+    const dropdown = document.createElement('div');
+    dropdown.className = 'action-dropdown';
 
-      const toggleButton = document.createElement('button');
-      toggleButton.type = 'button';
-      toggleButton.className = 'btn secondary action-toggle-btn';
-      toggleButton.textContent = '操作';
-      dropdown.appendChild(toggleButton);
+    const toggleButton = document.createElement('button');
+    toggleButton.type = 'button';
+    toggleButton.className = 'btn secondary action-toggle-btn';
+    toggleButton.textContent = '操作';
+    dropdown.appendChild(toggleButton);
 
-      const menu = document.createElement('div');
-      menu.className = 'action-menu';
+    const menu = document.createElement('div');
+    menu.className = 'action-menu';
+    menu.hidden = true;
+
+    const editItem = document.createElement('button');
+    editItem.type = 'button';
+    editItem.className = 'menu-item';
+    editItem.textContent = '編輯';
+    editItem.addEventListener('click', () => {
       menu.hidden = true;
+      openEditModal(item, isClosed);
+    });
+    menu.appendChild(editItem);
 
-      const editItem = document.createElement('button');
-      editItem.type = 'button';
-      editItem.className = 'menu-item';
-      editItem.textContent = '編輯';
-      editItem.addEventListener('click', () => {
-        menu.hidden = true;
-        openEditModal(item);
-      });
-      menu.appendChild(editItem);
-
+    // Only show delete button for tracking cases (not closed cases)
+    if (!isClosed) {
       const deleteItem = document.createElement('button');
       deleteItem.type = 'button';
       deleteItem.className = 'menu-item danger';
@@ -1575,19 +1699,19 @@ function buildCaseTable(rows, selectable, columns) {
         deleteSingleCase(item);
       });
       menu.appendChild(deleteItem);
-
-      dropdown.appendChild(menu);
-      actionCell.appendChild(dropdown);
-      row.appendChild(actionCell);
-
-      toggleButton.addEventListener('click', event => {
-        event.stopPropagation();
-        document.querySelectorAll('.action-menu').forEach(m => {
-          if (m !== menu) m.hidden = true;
-        });
-        menu.hidden = !menu.hidden;
-      });
     }
+
+    dropdown.appendChild(menu);
+    actionCell.appendChild(dropdown);
+    row.appendChild(actionCell);
+
+    toggleButton.addEventListener('click', event => {
+      event.stopPropagation();
+      document.querySelectorAll('.action-menu').forEach(m => {
+        if (m !== menu) m.hidden = true;
+      });
+      menu.hidden = !menu.hidden;
+    });
 
     columns.forEach(column => {
       const cell = document.createElement('td');
@@ -1630,8 +1754,9 @@ function shortenGroupName(groupName) {
   return normalized.length > 4 ? `${normalized.slice(0, 3)}...` : normalized;
 }
 
-function openEditModal(item) {
-  editingCase = item;
+function openEditModal(item, isClosed = false) {
+  editingCase = { ...item, isClosed };
+  document.getElementById('editTitle').textContent = isClosed ? '編輯已結案資料' : '編輯追蹤中資料';
   editSubtitle.textContent = item['新家人姓名']
     ? `${item['新家人姓名']}，表單號 ${item['表單號'] || '未填'}`
     : `表單號 ${item['表單號'] || '未填'}`;
@@ -1736,14 +1861,22 @@ async function saveTrackingCase(event) {
   setNotice(editNotice, '儲存中...');
   editSaveBtn.disabled = true;
 
+  const isClosed = editingCase.isClosed;
+  const action = isClosed ? 'updateClosedCase' : 'updateTrackingCase';
+  const noticeElement = isClosed ? closedNotice : trackingNotice;
+
   try {
-    const result = await callApi('updateTrackingCase', {
+    const result = await callApi(action, {
       rowNumber: editingCase.rowNumber,
       values: Object.fromEntries(new FormData(editCaseForm).entries())
     });
-    setNotice(trackingNotice, result.message, 'success');
+    setNotice(noticeElement, result.message, 'success');
     closeEditModal();
-    await loadTrackingCases();
+    if (isClosed) {
+      await loadClosedCases();
+    } else {
+      await loadTrackingCases();
+    }
   } catch (error) {
     setNotice(editNotice, error.message || String(error), 'error');
   } finally {
@@ -1811,3 +1944,199 @@ function escapeHtml(value) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 }
+
+// ============================================================
+// 🟢 已結案 Excel 匯出與表頭篩選功能
+// ============================================================
+async function exportClosedCases() {
+  setNotice(closedNotice, '準備匯出中...');
+  try {
+    const filteredRows = getFilteredClosedCases();
+
+    if (!filteredRows.length) {
+      setNotice(closedNotice, '目前沒有符合篩選條件的已結案資料可供匯出', 'error');
+      return;
+    }
+
+    const headers = [
+      '新家人姓名',
+      '新家人性別',
+      '參加的聚會是',
+      '表單號',
+      '手機',
+      '關懷同工',
+      '邀約人',
+      '日期',
+      '落戶狀態',
+      '備註',
+      '會友名單狀態',
+      '點名系統代碼',
+      '現行小組'
+    ];
+
+    const dataRows = [
+      headers,
+      ...filteredRows.map(item => [
+        item['新家人姓名'] || '',
+        item['新家人性別'] || '',
+        item['參加的聚會是'] || '',
+        item['表單號'] ? Number(item['表單號']) : '',
+        item['手機'] || '',
+        item['關懷同工'] || '',
+        item['邀約人'] || '',
+        item['日期'] || '',
+        getDisplaySettlementStatus(item) || '',
+        item['備註'] || '',
+        item['會友名單狀態'] || '',
+        item['點名系統代碼'] || '',
+        item['主日點名小組'] || ''
+      ])
+    ];
+
+    const sheets = [
+      { name: '已結案新家人名單', rows: dataRows }
+    ];
+
+    const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    exportWorkbook(sheets, `已結案新家人名單_篩選後_截至${todayStr}`);
+    setNotice(closedNotice, '匯出成功', 'success');
+  } catch (error) {
+    setNotice(closedNotice, error.message || String(error), 'error');
+  }
+}
+
+function toggleHeaderFilter(event, column) {
+  activeFilterPopoverColumn = column;
+  
+  // Clean popover inputs
+  popoverSearchInput.value = activeClosedFilters[column]?.search || '';
+  popoverOptionsList.innerHTML = '';
+  
+  // Get all unique values in this column
+  const uniqueVals = Array.from(new Set(closedCasesBase.map(item => getFilterValue(item, column))))
+    .map(v => v === '' ? '(空白)' : v)
+    .sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+  
+  const currentFilter = activeClosedFilters[column];
+  
+  uniqueVals.forEach(val => {
+    const label = document.createElement('label');
+    label.className = 'popover-option';
+    label.dataset.value = val === '(空白)' ? '' : val;
+    
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    
+    // Checked if no filter is active, or if this value is in the selected set
+    const origVal = val === '(空白)' ? '' : val;
+    checkbox.checked = !currentFilter || currentFilter.selected.has(origVal);
+    
+    const span = document.createElement('span');
+    span.textContent = val;
+    
+    label.appendChild(checkbox);
+    label.appendChild(span);
+    popoverOptionsList.appendChild(label);
+  });
+  
+  // Bind select all change
+  updateSelectAllCheckboxState();
+  
+  popoverSelectAll.onchange = () => {
+    const checked = popoverSelectAll.checked;
+    // Toggle visible options
+    popoverOptionsList.querySelectorAll('.popover-option').forEach(label => {
+      if (label.style.display !== 'none') {
+        label.querySelector('input').checked = checked;
+      }
+    });
+  };
+  
+  // Bind input filter search
+  popoverSearchInput.oninput = () => {
+    const searchVal = popoverSearchInput.value.toLowerCase();
+    popoverOptionsList.querySelectorAll('.popover-option').forEach(label => {
+      const text = label.textContent.toLowerCase();
+      if (text.includes(searchVal)) {
+        label.style.display = 'flex';
+      } else {
+        label.style.display = 'none';
+      }
+    });
+    updateSelectAllCheckboxState();
+  };
+  
+  // Bind change event to checkboxes to update select all state
+  popoverOptionsList.querySelectorAll('.popover-option input').forEach(input => {
+    input.onchange = updateSelectAllCheckboxState;
+  });
+
+  // Position and show popover
+  const rect = event.currentTarget.getBoundingClientRect();
+  headerFilterPopover.style.top = `${window.scrollY + rect.bottom + 4}px`;
+  
+  const popoverWidth = 220;
+  let left = window.scrollX + rect.left;
+  if (left + popoverWidth > window.innerWidth) {
+    left = window.innerWidth - popoverWidth - 10;
+  }
+  headerFilterPopover.style.left = `${left < 0 ? 10 : left}px`;
+  headerFilterPopover.hidden = false;
+}
+
+function updateSelectAllCheckboxState() {
+  const visibleCheckboxes = Array.from(popoverOptionsList.querySelectorAll('.popover-option'))
+    .filter(label => label.style.display !== 'none')
+    .map(label => label.querySelector('input'));
+  
+  if (visibleCheckboxes.length === 0) {
+    popoverSelectAll.checked = false;
+    popoverSelectAll.indeterminate = false;
+    return;
+  }
+  
+  const checkedCount = visibleCheckboxes.filter(cb => cb.checked).length;
+  popoverSelectAll.checked = checkedCount === visibleCheckboxes.length;
+  popoverSelectAll.indeterminate = checkedCount > 0 && checkedCount < visibleCheckboxes.length;
+}
+
+function applyHeaderFilter(column) {
+  const searchVal = popoverSearchInput.value.trim();
+  const checkedValues = [];
+  
+  popoverOptionsList.querySelectorAll('.popover-option').forEach(label => {
+    const val = label.dataset.value;
+    const checked = label.querySelector('input').checked;
+    if (checked) {
+      checkedValues.push(val);
+    }
+  });
+
+  const totalOptions = popoverOptionsList.querySelectorAll('.popover-option').length;
+  
+  if (checkedValues.length === totalOptions && !searchVal) {
+    // No filter needed if all are selected and search text is empty
+    delete activeClosedFilters[column];
+  } else {
+    activeClosedFilters[column] = {
+      search: searchVal,
+      selected: new Set(checkedValues)
+    };
+  }
+
+  renderFilteredClosedCases();
+  closeHeaderFilterPopover();
+}
+
+function closeHeaderFilterPopover() {
+  headerFilterPopover.hidden = true;
+  activeFilterPopoverColumn = null;
+}
+
+popoverConfirmBtn.addEventListener('click', () => {
+  if (activeFilterPopoverColumn) {
+    applyHeaderFilter(activeFilterPopoverColumn);
+  }
+});
+
+popoverCancelBtn.addEventListener('click', closeHeaderFilterPopover);

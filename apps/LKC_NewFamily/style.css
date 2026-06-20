@@ -563,3 +563,128 @@ tr:last-child td {
     padding: 16px;
   }
 }
+
+/* ============================================================
+   🟢 Excel-like Column Header Filter Styles
+   ============================================================ */
+.filterable-header {
+  position: relative;
+  vertical-align: middle;
+  padding-right: 28px; /* Leave room for filter button */
+}
+
+.filterable-header span {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.header-filter-btn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 6px;
+  font-size: 11px;
+  border-radius: 4px;
+}
+
+.header-filter-btn:hover {
+  background: var(--surface-2);
+  color: var(--primary);
+}
+
+.header-filter-btn.active {
+  color: var(--primary);
+  font-weight: bold;
+  background: var(--surface-2);
+}
+
+/* Popover container */
+.filter-popover {
+  position: absolute;
+  z-index: 1000;
+  width: 220px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(16, 30, 25, 0.15);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-popover[hidden] {
+  display: none;
+}
+
+.popover-search input {
+  min-height: 32px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.popover-options-wrap {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  max-height: 160px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.popover-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+  font-weight: normal;
+  width: 100%;
+}
+
+.popover-option:hover {
+  background: var(--surface-2);
+}
+
+.popover-option input {
+  width: 15px;
+  height: 15px;
+  min-height: auto;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.select-all-label {
+  border-bottom: 1px solid var(--line);
+  font-weight: bold;
+  background: var(--surface-2);
+}
+
+.popover-options-list {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.popover-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.popover-actions .btn {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+}
