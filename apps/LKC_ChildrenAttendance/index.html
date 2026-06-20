@@ -71,7 +71,6 @@
     .custom-modal-content {
       background: white;
       padding: 30px 20px;
-      border-radius: 24px;
       margin: 40px auto;
       width: 95%;
       box-shadow: 0 20px 40px rgba(0,0,0,0.15);
@@ -79,6 +78,37 @@
     }
     .fw-black {
       font-weight: 900;
+    }
+
+    /* 統一視覺圓角與表單元件規範 (全體套用圓角矩形，摒棄膠囊型/Pill以求一致性) */
+    .btn, 
+    .badge, 
+    .form-control, 
+    .form-select, 
+    .input-group, 
+    .custom-modal-content {
+      border-radius: 14px !important;
+    }
+
+    /* 修正 input-group 內部的元件邊框與圓角疊合怪異問題 */
+    .input-group .form-control, 
+    .input-group .form-select, 
+    .input-group .input-group-text, 
+    .input-group .btn {
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      margin: 0 !important;
+    }
+    
+    .input-group.border {
+      border: 1.5px solid #cbd5e1 !important;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    
+    .input-group.border:focus-within {
+      border-color: #10b981 !important;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15) !important;
     }
   </style>
 </head>
@@ -91,7 +121,7 @@
         <p class="text-muted fw-bold small mb-2">Church Children's Attendance Portal</p>
         <a href="https://www.canva.com/design/DAHCGu-ynJs/eI1qlAREHLG-vLxNELzXxg/view?utm_content=DAHCGu-ynJs&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=h30d97a479b" 
            target="_blank" 
-           class="btn btn-sm btn-white rounded-pill px-3 shadow-sm border mt-1 bg-white" 
+           class="btn btn-sm btn-white px-3 shadow-sm border mt-1 bg-white" 
            style="font-size: 0.8rem; font-weight: 700; color: #475569;">
            📖 系統操作說明
         </a>
@@ -115,7 +145,7 @@
     </div>
  
     <div id="content-area" style="display:none;">
-      <button class="btn btn-outline-secondary mb-4 shadow-sm rounded-pill px-3 fw-bold" onclick="showHome()">← 回主選單</button>
+      <button class="btn btn-outline-secondary mb-4 shadow-sm px-3 fw-bold" onclick="showHome()">← 回主選單</button>
       
       <div id="page-ATTENDANCE" class="page-section"></div>
       <div id="page-MEMBERS" class="page-section"></div>

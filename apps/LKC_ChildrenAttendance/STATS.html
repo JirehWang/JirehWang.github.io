@@ -3,13 +3,36 @@
   .progress { background-color: #f1f5f9; border-radius: 10px; box-shadow: inset 0 1px 2px rgba(0,0,0,.05); height: 12px; }
   .mode-switch-btn { width: 50%; font-weight: 800; border-radius: 12px !important; }
   .stat-card { border-radius: 18px; padding: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.02); height: 100%; display: flex; flex-direction: column; justify-content: center; border: 1.5px solid #f1f5f9; background: #ffffff; }
+  /* 基礎表單欄位樣式 */
   .form-control, .form-select {
-    border-radius: 12px !important;
-    border: 1.5px solid #cbd5e1 !important;
-    padding: 8px 12px !important;
+    border-radius: 12px;
+    border: 1.5px solid #cbd5e1;
+    padding: 8px 12px;
     transition: all 0.2s;
   }
   .form-control:focus, .form-select:focus {
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+    outline: none;
+  }
+
+  /* 修正 input-group 內部的元件邊框疊合怪異問題 */
+  .input-group .form-control, 
+  .input-group .form-select, 
+  .input-group .input-group-text, 
+  .input-group .btn {
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+  }
+  
+  .input-group.border {
+    border: 1.5px solid #cbd5e1 !important;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  
+  .input-group.border:focus-within {
     border-color: #10b981 !important;
     box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15) !important;
   }
@@ -77,29 +100,30 @@
 
     <div class="row g-2 mt-3">
       <div class="col-6">
-        <button class="btn btn-success btn-sm w-100 fw-bold shadow-sm rounded-pill py-2" onclick="fetchStatsData()">🔍 開始查詢</button>
+        <button class="btn btn-success btn-sm w-100 fw-bold shadow-sm py-2" onclick="fetchStatsData()">🔍 開始查詢</button>
       </div>
       <div class="col-6">
-        <button class="btn btn-outline-success btn-sm w-100 fw-bold shadow-sm rounded-pill py-2 bg-white" onclick="exportToCSV()">📥 匯出 Excel</button>
+        <button class="btn btn-outline-success btn-sm w-100 fw-bold shadow-sm py-2 bg-white" onclick="exportToCSV()">📥 匯出 Excel</button>
       </div>
     </div>
 
     <div class="row g-2 mt-2" id="trendAnalysisRow" style="display:none;">
       <div class="col-12">
-        <button class="btn btn-warning btn-sm w-100 fw-bold shadow-sm rounded-pill py-2" onclick="openTrendModal()">📈📉 出席頻率變化分析</button>
+        <button class="btn btn-warning btn-sm w-100 fw-bold shadow-sm py-2" onclick="openTrendModal()">📈📉 出席頻率變化分析</button>
       </div>
     </div>
     
     <div class="row g-2 mt-2">
       <div class="col-12">
-        <div class="input-group input-group-sm shadow-sm">
-          <span class="input-group-text bg-white">🔍</span>
-          <input type="text" id="statsNameSearch" class="form-control"
+        <div class="input-group shadow-sm border overflow-hidden bg-white">
+          <span class="input-group-text bg-white border-0 text-muted ps-3">🔍</span>
+          <input type="text" id="statsNameSearch" class="form-control border-0 px-2"
                  placeholder="輸入姓名即時過濾（注音/拼音可直接輸入）..."
                  autocomplete="off"
                  oninput="filterStatsTable()"
-                 oncompositionend="filterStatsTable()">
-          <button type="button" class="btn btn-outline-secondary" id="statsNameClearBtn"
+                 oncompositionend="filterStatsTable()"
+                 style="box-shadow: none !important; font-size: 0.85rem; padding: 6px 12px !important;">
+          <button type="button" class="btn bg-white border-0 text-muted" id="statsNameClearBtn"
                   style="display:none;"
                   onclick="document.getElementById('statsNameSearch').value=''; filterStatsTable();">✕</button>
         </div>
