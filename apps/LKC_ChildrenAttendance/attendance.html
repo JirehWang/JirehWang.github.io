@@ -1,0 +1,225 @@
+<style>
+  /* 通用適應性排版 - 所有螢幕寬度自動適應 */
+  
+  .attendance-scroll-area {
+    height: calc(100vh - 260px);
+    background: #f8f9fa;
+    padding: 2%;
+    overflow-y: auto;
+    border-radius: 12px;
+    border: 1px solid #dee2e6;
+    box-sizing: border-box;
+  }
+ /* 調整姓名框大小 */
+  #attendanceListBody {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(22%, 70px), 1fr));
+    gap: 8px;
+    }
+
+
+  .att-item {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: clamp(2px, 1%, 4px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    height: clamp(60px, 15vw, 85px);
+    transition: all 0.1s;
+    position: relative;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .att-item:active { transform: scale(0.96); }
+   /* 調整姓名框內名字大小 */
+  .att-name {
+    font-size: clamp(0.8rem, 2.5vw, 1rem);
+    font-weight: bold;
+    text-align: center;
+    line-height: 1.1;
+    word-break: break-all;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+/* 調整姓名框內性別大小 */
+  .att-info {
+    font-size: clamp(0.7rem, 1.5vw, 0.9rem);
+    margin-top: clamp(1px, 0.5%, 2px);
+  }
+
+  .att-item input[type="checkbox"] {
+    width: clamp(12px, 3vw, 18px);
+    height: clamp(12px, 3vw, 18px);
+    margin-bottom: clamp(2px, 0.5%, 4px);
+    pointer-events: none;
+  }
+
+  .att-item.selected { background-color: #0d6efd !important; color: white !important; border-color: #0a58ca; }
+  .att-item.selected .att-info, .att-item.selected .gender-text { color: #e9ecef !important; }
+  .att-item.submitted { background-color: #d1e7dd !important; border-color: #badbcc !important; cursor: pointer; }
+  .att-item.submitted .att-name { color: #0f5132 !important; }
+  .att-item.submitted::after { content: "✓"; position: absolute; top: 2px; right: 5px; color: #198754; font-weight: 900; font-size: clamp(10px, 2vw, 14px); }
+  .att-item.locked { background-color: #e9ecef !important; border-color: #ced4da !important; cursor: not-allowed !important; opacity: 0.6; }
+  .att-item.locked::after { content: "🔒"; position: absolute; top: 2px; right: 5px; font-size: clamp(8px, 1.5vw, 12px); opacity: 0.5; }
+  
+  .full-width-msg { grid-column: 1 / -1; text-align: center; padding: clamp(30px, 5%, 60px) clamp(10px, 2%, 20px); color: #6c757d; width: 100%; }
+  
+  .custom-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; overflow-y: auto; }
+  
+  .custom-modal-content { background: white; margin: clamp(10px, 5%, 40px) auto; padding: clamp(15px, 3%, 30px); width: min(90%, 500px); border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); position: relative; text-align: left; box-sizing: border-box; }
+</style>
+
+<div class="mb-3 bg-white p-2 rounded shadow-sm border">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <span class="fw-bold">📷 QR Code 快速報到</span>
+    <div class="d-flex gap-1">
+      <button class="btn btn-sm btn-outline-info" onclick="triggerVenueDownload()" title="下載目前選定場次的自動跳轉卡">
+        📥 下載場次QR
+      </button>
+      <button id="scanBtn" class="btn btn-sm btn-outline-primary" onclick="toggleScanner()">開啟相機</button>
+    </div>
+  </div>
+  <div id="reader" style="display: none; width: 100%; border-radius: 8px; overflow: hidden;"></div>
+</div>
+
+<div class="card p-3 shadow-sm border-0 bg-light">
+  <!-- 鎖定模式 Banner -->
+  <div id="lockModeBanner" class="alert alert-warning py-2 px-3 mb-3 fw-bold text-center" style="display: none; border-radius: 8px;">
+    🔒 鎖定點名場次：<span id="lockModeText"></span>
+  </div>
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0 fw-bold text-dark">🎤 兒童點名系統</h4>
+    <button id="btnGroupAdd" class="btn btn-sm btn-outline-primary fw-bold shadow-sm" onclick="openGroupAddModal()" style="border-radius: 20px;">
+    ➕ 新增群組
+    </button>
+  </div>
+  
+  <div class="d-flex justify-content-between gap-2 mb-3">
+    <div id="presentCountBadge" class="badge bg-success text-white p-2 small shadow-sm d-flex align-items-center flex-grow-1 justify-content-center">
+        ✅ 已出席：<span id="presentCount" class="mx-1">0</span> 人
+    </div>
+    <div id="todayDateDisplay" class="badge bg-white text-primary border p-2 small shadow-sm d-flex align-items-center flex-grow-1 justify-content-center"></div>
+  </div>
+
+  <div id="groupSelectRow" class="row g-2 mb-3 bg-white p-2 rounded border shadow-sm align-items-end">
+    <div class="col-5">
+      <label class="small text-muted fw-bold mb-1">📂 點名類別</label>
+      <select id="categorySelect" class="form-select form-select-sm fw-bold border-secondary" onchange="updateGroupSelect()">
+        <option value="" disabled selected>載入中...</option>
+      </select>
+    </div>
+    <div class="col-7">
+      <label class="small text-muted fw-bold mb-1">📌 選擇群組</label>
+      <select id="groupSelect" class="form-select form-select-sm fw-bold border-primary text-primary shadow-sm" onchange="handleGroupSelect()">
+        <option value="" disabled selected>載入中...</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="row g-2 mb-3">
+    <div class="col-12">
+      <div class="input-group shadow-sm">
+        <span class="input-group-text bg-white border-end-0 text-muted">🔍</span>
+        <input type="text" id="attSearchInput" class="form-control border-start-0" placeholder="搜尋..." oninput="filterAttList()">
+        <button class="btn btn-outline-success fw-bold" onclick="openAttendanceAddModal()">➕ 新增</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="attendance-scroll-area">
+    <div id="attendanceListBody"></div>
+  </div>
+
+  <div class="d-flex align-items-center gap-2 mt-3">
+    <div class="d-flex flex-column gap-2" style="width: 170px; flex-shrink: 0;">
+      <div class="input-group input-group-sm shadow-sm border rounded overflow-hidden">
+        <span class="input-group-text bg-white text-primary border-0 fw-bold small px-2" style="width: 80px;">👦 新(男)</span>
+        <input type="number" id="newFriendsMale" class="form-control border-0 text-center fw-bold px-1" value="0" min="0">
+      </div>
+      <div class="input-group input-group-sm shadow-sm border rounded overflow-hidden">
+        <span class="input-group-text bg-white text-danger border-0 fw-bold small px-2" style="width: 80px;">👧 新(女)</span>
+        <input type="number" id="newFriendsFemale" class="form-control border-0 text-center fw-bold px-1" value="0" min="0">
+      </div>
+    </div>
+    <button id="submitBtn" class="btn btn-success btn-lg shadow fw-bold flex-grow-1 py-2 h-100" onclick="submitAttendance()" style="font-size: 1.1rem; min-height: 64px;">
+      確認送出
+    </button>
+  </div>
+</div>
+
+<!-- 新增群組 Modal -->
+<div id="groupAddModal" class="custom-overlay">
+  <div class="custom-modal-content">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0 text-dark">➕ 新增點名群組</h5>
+      <button type="button" class="btn-close" onclick="closeGroupAddModal()"></button>
+    </div>
+    <hr>
+    <div class="row g-3">
+      <div class="col-12">
+        <label class="form-label fw-bold small text-muted">所屬類別</label>
+        <select id="newGroupCategory" class="form-select form-select-lg mb-2"></select>
+        <input type="text" id="newGroupCategoryCustom" class="form-control" placeholder="或在此輸入全新類別名稱">
+      </div>
+      <div class="col-12">
+        <label class="form-label fw-bold small text-muted">群組名稱</label>
+        <input type="text" id="newGroupName" class="form-control form-control-lg" placeholder="例如：幼兒班">
+      </div>
+    </div>
+    <div class="text-end mt-4">
+      <button class="btn btn-light px-4 me-2" onclick="closeGroupAddModal()">取消</button>
+      <button id="saveNewGroupBtn" class="btn btn-primary px-4 fw-bold" onclick="saveNewGroup()">確認新增</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新增會友 Modal -->
+<div id="attendanceAddModal" class="custom-overlay">
+  <div class="custom-modal-content">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0 text-dark">新增會友資料</h5>
+      <button type="button" class="btn-close" onclick="closeAttendanceAddModal()"></button>
+    </div>
+    <hr>
+    <div class="row g-3">
+      <div class="col-md-8">
+        <label class="form-label fw-bold small text-muted">姓名</label>
+        <input type="text" id="editName_Att" class="form-control form-control-lg" placeholder="請輸入姓名">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-bold small text-muted">性別</label>
+        <select id="editGender_Att" class="form-select form-select-lg">
+          <option value="男">男 👦</option>
+          <option value="女">女 👧</option>
+        </select>
+      </div>
+      <div class="col-12">
+        <label class="form-label fw-bold small text-muted">備註</label>
+        <textarea id="editNote_Att" class="form-control" rows="2" placeholder="電話、地址或其他資訊..."></textarea>
+      </div>
+      <div class="col-12">
+        <div class="form-check form-switch mt-2">
+          <input class="form-check-input" type="checkbox" id="editIsExcluded_Att">
+          <label class="form-check-label fw-bold" for="editIsExcluded_Att">不列入主日出席率統計</label>
+        </div>
+      </div>
+    </div>
+    <div class="text-end mt-4">
+      <button class="btn btn-light px-4 me-2" onclick="closeAttendanceAddModal()">取消</button>
+      <button id="saveNewMemberBtn_Att" class="btn btn-primary px-4 fw-bold" onclick="saveNewMemberFromAttendance()">確認儲存</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+<script src="attendance.js"></script>

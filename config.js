@@ -24,6 +24,8 @@
     "LKC_WhosCar":                      "https://script.google.com/macros/s/AKfycbxOkoaNquIx_V8n_7eS_5ULmoqxPVly_Bezx9_QsmWSzNOcojrCI9Oa6UNd5hOD2euS/exec",
     "LKC_SundayserviceAttendance":      "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
     "LKC_SundayserviceAttendance_TEST": "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
+    "LKC_ChildrenAttendance":           "https://script.google.com/macros/s/AKfycbxxXU0AuFpIsDvkBXw0JVibi_jC-1H2-XL5GUR_wH1tndbKnEH9qfTIj1QTKLHmpnjStA/exec",
+    "LKC_ChildrenAttendance_TEST":      "https://script.google.com/macros/s/AKfycbxxXU0AuFpIsDvkBXw0JVibi_jC-1H2-XL5GUR_wH1tndbKnEH9qfTIj1QTKLHmpnjStA/exec",
     // 🔀 方案 B 整合：小組系統共用主日 GAS
     "LKC_Group_TEST":                   "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
     // 🔀 方案 C 整合：事工管理共用主日 GAS（action 自動加 ministry_ 前綴）
@@ -38,6 +40,8 @@
   const _ACTION_PREFIX = {
     "LKC_MinistrySchedule_TEST": "ministry_",
     "LKC_worship_TEST":          "worship_",
+    "LKC_ChildrenAttendance":    "children_",
+    "LKC_ChildrenAttendance_TEST": "children_",
   };
 
   const _AUTH_TOKEN = "ChurchApp-2026";
@@ -172,7 +176,15 @@
     'cal_getTypes':                 _SIX_HOURS,  // 事項類型（含 children 樹）
     'cal_getFields':                _SIX_HOURS,  // 欄位定義（含繼承解析）
     'cal_getEvents':                _SIX_HOURS,  // 事項清單（依日期/類型篩選）
-    'cal_getEvent':                 _SIX_HOURS   // 單一事項詳情
+    'cal_getEvent':                 _SIX_HOURS,   // 單一事項詳情
+
+    // 兒童點名系統 (children_ 前綴)
+    'children_getAllMembers':            _SIX_HOURS,
+    'children_getSmartAttendanceList':   _SIX_HOURS,
+    'children_getGroupConfig':          _SIX_HOURS,
+    'children_getAttendanceStats':       _SIX_HOURS,
+    'children_getAttendanceTrend':       _SIX_HOURS,
+    'children_getCategoryChartData':     _SIX_HOURS
   };
 
   // 寫入時要連帶清除的 read-cache（key = 寫入 action，value = 要清掉的 read action 陣列）
@@ -246,7 +258,15 @@
     // 整批操作
     'cal_setupSchema':         ['cal_getTypes', 'cal_getFields', 'cal_getEvents', 'cal_getEvent'],
     'cal_migrateOldData':      ['cal_getTypes', 'cal_getFields', 'cal_getEvents', 'cal_getEvent', 'getSchedule', 'getScheduleByDateRange'],
-    'cal_clearNewData':        ['cal_getEvents', 'cal_getEvent', 'getSchedule', 'getScheduleByDateRange']
+    'cal_clearNewData':        ['cal_getEvents', 'cal_getEvent', 'getSchedule', 'getScheduleByDateRange'],
+
+    // ── 兒童點名異動 ──
+    'children_addMember':              ['children_getAllMembers', 'children_getSmartAttendanceList', 'children_getAttendanceStats'],
+    'children_updateMember':           ['children_getAllMembers', 'children_getSmartAttendanceList', 'children_getAttendanceStats'],
+    'children_deleteMember':           ['children_getAllMembers', 'children_getSmartAttendanceList', 'children_getAttendanceStats'],
+    'children_saveAttendance':         ['children_getSmartAttendanceList', 'children_getAttendanceStats', 'children_getAttendanceTrend', 'children_getCategoryChartData'],
+    'children_revokeAttendance':       ['children_getSmartAttendanceList', 'children_getAttendanceStats', 'children_getAttendanceTrend', 'children_getCategoryChartData'],
+    'children_createAttendanceGroup':  ['children_getGroupConfig']
   };
 
   // Lazy-load Firebase cache module（僅在需要時 import；失敗則自動 fallback 至直接 GAS 呼叫）
