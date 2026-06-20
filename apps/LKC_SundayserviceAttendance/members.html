@@ -1,38 +1,51 @@
 <style>
   .member-table-container {
-    height: calc(100vh - 200px); 
+    height: calc(100vh - 225px); 
     overflow: auto;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
     background: white;
+    box-shadow: var(--shadow-soft);
   }
   .member-table-container thead th {
     position: sticky;
     top: 0;
     z-index: 10;
-    background-color: #212529 !important;
+    background-color: var(--text-primary) !important;
     color: white;
-    box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
+    font-weight: 600;
+    border-bottom: 0;
+    padding: 12px 16px;
   }
   .member-table-container thead th:first-child { position: sticky; left: 0; z-index: 11; }
   .member-table-container tbody td:first-child {
     position: sticky;
     left: 0;
     z-index: 5;
-    background-color: #f8f9fa; 
-    border-right: 1px solid #dee2e6; 
-    box-shadow: 2px 0 4px -2px rgba(0,0,0,0.1); 
+    background-color: #f8fafc; 
+    border-right: 1px solid var(--border-color); 
+    box-shadow: 2px 0 6px rgba(15, 42, 53, 0.03); 
+  }
+  .member-table-container tbody td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .member-table-container tbody tr:hover td {
+    background-color: rgba(6, 182, 212, 0.03) !important;
+  }
+  .member-table-container tbody tr:hover td:first-child {
+    background-color: #f1f5f9 !important;
   }
 </style>
 
 <div class="members-main-wrapper p-2">
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <div class="input-group input-group-sm shadow-sm" style="width: 250px;">
-      <span class="input-group-text bg-white border-end-0 text-muted">🔍</span>
-      <input type="text" id="memberSearchInput" class="form-control border-start-0 border-end-0" placeholder="輸入姓名即時查找..." oninput="filterMembers()">
-      <button id="memberClearBtn" class="btn bg-white border-start-0 text-muted" type="button" onclick="clearMemberSearch()" style="display: none;">✕</button>
+    <div class="input-group shadow-sm border-0" style="width: 280px; border-radius: 20px; overflow: hidden;">
+      <span class="input-group-text bg-white border-0 text-muted px-3" style="font-size: 0.9rem;">🔍</span>
+      <input type="text" id="memberSearchInput" class="form-control border-0 py-2" placeholder="輸入姓名即時查找..." oninput="filterMembers()" style="font-size: 0.9rem;">
+      <button id="memberClearBtn" class="btn bg-white border-0 text-muted pe-3" type="button" onclick="clearMemberSearch()" style="display: none; font-size: 0.9rem;">✕</button>
     </div>
-    <button class="btn btn-primary btn-sm shadow-sm px-3" onclick="openMemberModal()">＋ 新增會友</button>
+    <button class="btn btn-primary border-0 shadow-sm px-4 py-2 fw-bold" onclick="openMemberModal()" style="border-radius: 20px; font-size: 0.9rem; background-color: var(--color-teal);">＋ 新增會友</button>
   </div>
 
   <div class="member-table-container shadow-sm">
@@ -56,83 +69,83 @@
 </div>
 
 <!-- 會友編輯 Modal -->
-<div id="memberListModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; overflow-y: auto;">
-  <div class="custom-modal-content" style="background: white; margin: 5% auto; padding: 25px; width: 90%; max-width: 500px; border-radius: 15px;">
+<div id="memberListModal" class="custom-overlay">
+  <div class="custom-modal-content">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <h5 id="memModalHeader" class="fw-bold mb-0 text-dark">新增會友資料</h5>
       <button type="button" class="btn-close" onclick="closeMemberModal()"></button>
     </div>
-    <hr>
+    <hr style="opacity: 0.1;">
     <input type="hidden" id="editOldName_Mem">
     <div class="row g-3">
       <div class="col-12">
-        <label class="form-label fw-bold small text-muted">系統編號</label>
-        <div class="input-group">
-          <input type="text" id="editModal_Uid" class="form-control bg-light" readonly placeholder="讀取中/無編號">
-          <button type="button" class="btn btn-outline-primary fw-bold" id="btnShowQrCode" onclick="openQrModal()">📷 顯示 QR / 卡片</button>
+        <label class="form-label fw-bold small text-secondary">系統編號</label>
+        <div class="input-group shadow-sm" style="border-radius: 10px; overflow: hidden;">
+          <input type="text" id="editModal_Uid" class="form-control border-0 bg-light" readonly placeholder="讀取中/無編號" style="font-size: 0.95rem;">
+          <button type="button" class="btn btn-light border-0 fw-bold px-3 text-secondary" id="btnShowQrCode" onclick="openQrModal()" style="font-size: 0.85rem;">📷 顯示 QR / 卡片</button>
         </div>
       </div>
       <div class="col-md-8">
-        <label class="form-label fw-bold small text-muted">姓名</label>
-        <input type="text" id="editName_Mem" class="form-control form-control-lg" placeholder="請輸入姓名">
+        <label class="form-label fw-bold small text-secondary">姓名</label>
+        <input type="text" id="editName_Mem" class="form-control border-0 bg-light py-2.5" placeholder="請輸入姓名" style="border-radius: 10px; font-size: 0.95rem;">
       </div>
       <div class="col-md-4">
-        <label class="form-label fw-bold small text-muted">性別</label>
-        <select id="editGender_Mem" class="form-select form-select-lg">
+        <label class="form-label fw-bold small text-secondary">性別</label>
+        <select id="editGender_Mem" class="form-select border-0 bg-light py-2.5" style="border-radius: 10px; font-size: 0.95rem;">
           <option value="男">男 👦</option>
           <option value="女">女 👧</option>
         </select>
       </div>
       <div class="col-12">
-        <label class="form-label fw-bold small text-muted">備註</label>
-        <textarea id="editNote_Mem" class="form-control" rows="3" placeholder="其他聯絡資訊或註記..."></textarea>
+        <label class="form-label fw-bold small text-secondary">備註</label>
+        <textarea id="editNote_Mem" class="form-control border-0 bg-light" rows="3" placeholder="其他聯絡資訊或註記..." style="border-radius: 10px; font-size: 0.95rem;"></textarea>
       </div>
       <div class="col-12">
         <div class="form-check form-switch mt-2">
           <input class="form-check-input" type="checkbox" id="editIsExcluded_Mem">
-          <label class="form-check-label fw-bold" for="editIsExcluded_Mem">不列入主日出席率統計</label>
+          <label class="form-check-label fw-bold text-dark" for="editIsExcluded_Mem">不列入主日出席率統計</label>
         </div>
-        <small class="text-muted">
-          ℹ️ 所屬小組與身分請至「<a href="../LKC_Group/" target="_blank">小組系統</a>」管理
+        <small class="text-secondary mt-1 d-block" style="font-size: 0.75rem;">
+          ℹ️ 所屬小組與身分請至「<a href="../LKC_Group/" target="_blank" class="text-teal text-decoration-none border-bottom border-teal">小組系統</a>」管理
         </small>
       </div>
     </div>
     <div class="text-end mt-4">
-      <button class="btn btn-light px-4 me-2" onclick="closeMemberModal()">取消</button>
-      <button id="saveMemBtn" class="btn btn-primary px-4 fw-bold" onclick="processMemberSave()">確認儲存</button>
+      <button class="btn btn-light px-4 me-2 border-0" onclick="closeMemberModal()" style="border-radius: 20px;">取消</button>
+      <button id="saveMemBtn" class="btn btn-primary px-4 fw-bold border-0" onclick="processMemberSave()" style="border-radius: 20px; background-color: var(--color-teal);">確認儲存</button>
     </div>
   </div>
 </div>
 
 <!-- QR Code Modal -->
-<div id="qrCodeModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000; overflow-y: auto;">
-  <div class="custom-modal-content" style="background: white; margin: 5% auto; padding: 25px; width: 90%; max-width: 600px; border-radius: 15px;">
+<div id="qrCodeModal" class="custom-overlay">
+  <div class="custom-modal-content" style="max-width: 600px;">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <h5 class="fw-bold mb-0 text-dark" id="qrModalTitle">專屬 QR Code / 卡片預覽</h5>
       <button type="button" class="btn-close" onclick="closeQrModal()"></button>
     </div>
-    <hr>
+    <hr style="opacity: 0.1;">
     <div class="text-center mb-3">
-      <div class="btn-group shadow-sm" role="group">
+      <div class="btn-group shadow-sm" role="group" style="border-radius: 20px; overflow: hidden; border: 1px solid var(--border-color);">
         <input type="radio" class="btn-check" name="previewType" id="typeQr" autocomplete="off" checked onclick="togglePreviewMode('qr')">
-        <label class="btn btn-outline-primary" for="typeQr">純 QR Code</label>
+        <label class="btn btn-light px-4 border-0 fw-bold" for="typeQr" style="font-size: 0.85rem;">純 QR Code</label>
         <input type="radio" class="btn-check" name="previewType" id="typeCard" autocomplete="off" onclick="togglePreviewMode('card')">
-        <label class="btn btn-outline-primary" for="typeCard">🖼️ 預覽實體卡片</label>
+        <label class="btn btn-light px-4 border-0 fw-bold" for="typeCard" style="font-size: 0.85rem;">🖼️ 預覽實體卡片</label>
       </div>
     </div>
-    <div class="p-4 bg-light border rounded mb-3 d-flex justify-content-center align-items-center flex-column" style="min-height: 280px;">
-      <img id="qrModal_Img" src="" alt="預覽圖" style="max-width: 100%; max-height: 280px; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-      <span id="qrModal_EmptyText" class="text-muted">此會友尚無資料</span>
+    <div class="p-4 bg-light border-0 rounded-4 mb-3 d-flex justify-content-center align-items-center flex-column" style="min-height: 280px; border-radius: var(--radius-md) !important; background-color: #f8fafc !important;">
+      <img id="qrModal_Img" src="" alt="預覽圖" style="max-width: 100%; max-height: 280px; display: none; box-shadow: 0 10px 30px rgba(15, 42, 53, 0.08); border-radius: 8px;">
+      <span id="qrModal_EmptyText" class="text-secondary">此會友尚無資料</span>
       <div id="previewLoading" style="display: none;" class="text-center">
-        <div class="spinner-border text-primary mb-2" role="status"></div>
-        <div class="small text-muted">雲端繪製中，請稍候...</div>
+        <div class="water-ripple mb-2"><div></div><div></div></div>
+        <div class="small text-secondary">雲端繪製中，請稍候...</div>
       </div>
     </div>
     <div class="text-end mt-4">
-      <button class="btn btn-light px-3 me-2" onclick="closeQrModal()">返回</button>
-      <button id="btnDownloadQr" class="btn btn-success px-3 fw-bold me-2" onclick="downloadQrCode()">📥 下載 QR</button>
-      <button id="btnDownloadCard" class="btn btn-warning px-3 fw-bold text-dark me-2" style="display:none;" onclick="downloadCardJpg()">📥 下載卡片圖檔 (JPG)</button>
-      <button id="btnCreateCard" class="btn btn-info px-3 fw-bold text-white" onclick="createCardAction()">📇 儲存卡片至雲端</button>
+      <button class="btn btn-light px-3 me-2 border-0" onclick="closeQrModal()" style="border-radius: 20px;">返回</button>
+      <button id="btnDownloadQr" class="btn btn-success px-3 fw-bold me-2 border-0" onclick="downloadQrCode()" style="border-radius: 20px; background-color: var(--color-green);">📥 下載 QR</button>
+      <button id="btnDownloadCard" class="btn btn-warning px-3 fw-bold text-dark me-2 border-0" style="display:none; border-radius: 20px; background-color: var(--color-gold);" onclick="downloadCardJpg()">📥 下載卡片圖檔 (JPG)</button>
+      <button id="btnCreateCard" class="btn btn-info px-3 fw-bold text-white border-0" onclick="createCardAction()" style="border-radius: 20px; background-color: var(--color-teal);">📇 儲存卡片至雲端</button>
     </div>
   </div>
 </div>
@@ -182,15 +195,15 @@
       const rowJson = JSON.stringify(row).replace(/'/g, "&#39;");
       html += `<tr>
         <td class="text-dark"><strong>${row[0]}</strong></td>
-        <td><code class="text-secondary">${row[7] || ''}</code></td>
-        <td>${row[1] || ''}</td>
-        <td><small class="text-muted">${dateStr}</small></td>
-        <td title="${row[3] || ''}"><div class="text-truncate" style="max-width:200px;">${row[3] || ''}</div></td>
-        <td>${isExcluded ? '<span class="badge bg-warning text-dark">不統計</span>' : '<span class="badge bg-success bg-opacity-10 text-success border border-success">正常</span>'}</td>
+        <td><code class="text-secondary" style="font-family: var(--font-sans);">${row[7] || ''}</code></td>
+        <td>${row[1] === '男' ? '👦 男' : (row[1] === '女' ? '👧 女' : row[1] || '')}</td>
+        <td><small class="text-secondary">${dateStr}</small></td>
+        <td title="${row[3] || ''}"><div class="text-truncate text-secondary" style="max-width:200px;">${row[3] || ''}</div></td>
+        <td>${isExcluded ? '<span class="badge bg-warning bg-opacity-10 text-warning border-0 px-2 py-1" style="color: #d97706 !important;">不統計</span>' : '<span class="badge bg-success bg-opacity-10 text-success border-0 px-2 py-1">正常</span>'}</td>
         <td>
-          <div class="btn-group">
-            <button class="btn btn-sm btn-outline-primary" onclick='openMemberModal(${rowJson})'>編輯</button>
-            <button class="btn btn-sm btn-outline-danger" onclick="deleteMemberAction('${row[0]}')">刪除</button>
+          <div class="btn-group" style="gap: 4px;">
+            <button class="btn btn-sm btn-outline-primary border-0 fw-bold" onclick='openMemberModal(${rowJson})' style="border-radius: 12px; font-size: 0.8rem; color: var(--color-teal); background-color: rgba(6, 182, 212, 0.05);">編輯</button>
+            <button class="btn btn-sm btn-outline-danger border-0 fw-bold" onclick="deleteMemberAction('${row[0]}')" style="border-radius: 12px; font-size: 0.8rem; color: var(--color-rose); background-color: rgba(244, 63, 94, 0.05);">刪除</button>
           </div>
         </td>
       </tr>`;

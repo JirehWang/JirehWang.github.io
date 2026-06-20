@@ -8,9 +8,39 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>⛪ 教會主日出席點名系統</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css?v=20260420">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="manifest" href="../../manifest.json">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
+    :root {
+      --font-sans: 'Plus Jakarta Sans', 'Noto Sans TC', system-ui, -apple-system, sans-serif;
+      --bg-primary: #f0f7f9; /* Pale crystalline water blue-white */
+      --bg-card: #ffffff;
+      --text-primary: #0f2a35; /* Deep ocean teal */
+      --text-secondary: #3b525e; /* Soft water gray */
+      --color-teal: #06b6d4; /* Translucent spring cyan */
+      --color-teal-hover: #0891b2;
+      --color-green: #10b981; /* Water drop green */
+      --color-gold: #f59e0b; /* Sunshine gold */
+      --color-rose: #f43f5e; /* Coral rose */
+      --border-color: #e2e8f0;
+      --shadow-soft: 0 10px 30px rgba(15, 42, 53, 0.04);
+      --shadow-hover: 0 20px 40px rgba(15, 42, 53, 0.08);
+      --radius-lg: 16px;
+      --radius-md: 12px;
+    }
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(6, 182, 212, 0.05) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.03) 0px, transparent 50%);
+      background-attachment: fixed;
+      min-height: 100vh;
+    }
     .app-container {
       width: 100%;
       padding: 15px;
@@ -24,68 +54,214 @@
     }
     .nav-card { 
       cursor: pointer; 
-      transition: 0.3s; 
-      height: 85px; 
+      transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); 
+      height: 96px; 
       display: flex; 
+      flex-direction: row !important; 
       align-items: center; 
       justify-content: center; 
-      font-weight: bold; 
-      border-radius: 12px;
+      font-weight: 600; 
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.3) 100%);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 8px 32px 0 rgba(15, 42, 53, 0.02);
+      padding: 0 48px 0 24px; /* More padding on the right to offset the arrow */
+      position: relative;
+      overflow: hidden;
+    }
+    /* Flowing glass shimmer effect */
+    .nav-card::after {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%;
+      width: 50%; height: 100%;
+      background: linear-gradient(
+        90deg, 
+        rgba(255, 255, 255, 0) 0%, 
+        rgba(255, 255, 255, 0.35) 50%, 
+        rgba(255, 255, 255, 0) 100%
+      );
+      transform: skewX(-25deg);
+      transition: none;
+      pointer-events: none;
+    }
+    .nav-card:hover::after {
+      left: 150%;
+      transition: all 0.85s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .nav-card::before {
+      content: '';
+      position: absolute;
+      top: 24px; left: 0; 
+      width: 4px; height: 48px;
+      background: var(--theme-color);
+      border-radius: 0 4px 4px 0;
+      transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .nav-card:hover { 
-      background-color: #f8f9fa; 
-      transform: translateY(-2px); 
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.55) 100%); 
+      transform: translateY(-4px); 
+      box-shadow: 
+        0 20px 40px rgba(15, 42, 53, 0.05), 
+        0 0 0 1px color-mix(in srgb, var(--theme-color) 12%, transparent);
+      border-color: rgba(255, 255, 255, 0.7);
     }
-    .nav-icon { font-size: 1.8rem; margin-right: 15px; }
-    .nav-text { font-size: 1.2rem; }
+    .nav-card:hover::before {
+      top: 16px;
+      height: 64px;
+      box-shadow: 0 0 16px var(--theme-color);
+    }
+    .nav-icon-wrapper {
+      margin-right: 18px;
+      font-size: 1.8rem;
+      transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .nav-card:hover .nav-icon-wrapper {
+      transform: scale(1.18) rotate(5deg);
+    }
+    .nav-text-group {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .nav-text { 
+      font-size: 1.05rem; 
+      font-weight: 700;
+      color: var(--text-primary); 
+      letter-spacing: -0.2px;
+    }
+    .nav-subtitle {
+      font-size: 0.68rem;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      opacity: 0.7;
+    }
+    .nav-arrow { 
+      font-size: 1.3rem; 
+      opacity: 0.25; 
+      transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1); 
+      color: var(--text-secondary); 
+      position: absolute;
+      right: 24px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    .nav-card:hover .nav-arrow { 
+      opacity: 1; 
+      transform: translateX(4px) translateY(-50%); 
+      color: var(--theme-color); 
+    }
+    
     .custom-modal-backdrop {
       display: none; 
       position: fixed; 
       top: 0; left: 0; 
       width: 100%; height: 100%; 
-      background: rgba(0,0,0,0.6); 
+      background: rgba(15, 42, 53, 0.4); 
+      backdrop-filter: blur(4px);
       z-index: 9999; 
       overflow-y: auto;
     }
     .custom-modal-content {
       background: white;
-      padding: 20px;
-      border-radius: 12px;
+      padding: 24px;
+      border-radius: var(--radius-lg);
       margin: 20px auto;
       width: 95%;
+      box-shadow: 0 20px 50px rgba(15, 42, 53, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.5);
     }
-
+    /* Water drop ripple spinner */
+    .water-ripple {
+      display: inline-block;
+      position: relative;
+      width: 80px;
+      height: 80px;
+    }
+    .water-ripple div {
+      position: absolute;
+      border: 4px solid var(--color-teal);
+      opacity: 1;
+      border-radius: 50%;
+      animation: water-ripple 1.5s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
+    }
+    .water-ripple div:nth-child(2) {
+      animation-delay: -0.5s;
+    }
+    @keyframes water-ripple {
+      0% {
+        top: 36px; left: 36px; width: 0; height: 0; opacity: 1;
+      }
+      100% {
+        top: 0px; left: 0px; width: 72px; height: 72px; opacity: 0;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="app-container">
     
     <div id="main-nav">
-      <div class="d-flex justify-content-center align-items-end mb-4">
-        <h2 class="fw-bold mb-0">⛪ 教會主日出席點名系統</h2>
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold mb-0 text-dark" style="font-size: 1.6rem; letter-spacing: -0.5px;">⛪ 主日出席點名系統</h2>
         <a href="https://www.canva.com/design/DAHCGu-ynJs/eI1qlAREHLG-vLxNELzXxg/view?utm_content=DAHCGu-ynJs&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=h30d97a479b" 
            target="_blank" 
-           class="text-secondary text-decoration-none ms-2 mb-1 border-bottom border-secondary pb-0" 
+           class="text-secondary text-decoration-none border-bottom border-secondary pb-0" 
            style="font-size: 0.85rem;" title="查看系統操作說明">
            📖 操作說明
         </a>
       </div>
       
-      <div class="card nav-card text-primary border-primary shadow-sm mb-3" onclick="loadAttendancePage('台語')">
-        <div class="d-flex align-items-center"><span class="nav-icon">🎤</span><span class="nav-text">主日點名系統</span></div>
+      <div class="card nav-card mb-3" onclick="loadAttendancePage('台語')" style="--theme-color: var(--color-teal);">
+        <div class="d-flex align-items-center">
+          <div class="nav-icon-wrapper">🎤</div>
+          <div class="nav-text-group">
+            <span class="nav-text">主日點名系統</span>
+            <span class="nav-subtitle">Sunday Attendance Roll Call</span>
+          </div>
+        </div>
+        <span class="nav-arrow">→</span>
       </div>
       
-      <div class="card nav-card text-secondary shadow-sm mb-3" onclick="loadPage('MEMBERS')">
-        <div class="d-flex align-items-center"><span class="nav-icon">👥</span><span class="nav-text">會友名單管理</span></div>
+      <div class="card nav-card mb-3" onclick="loadPage('MEMBERS')" style="--theme-color: var(--color-green);">
+        <div class="d-flex align-items-center">
+          <div class="nav-icon-wrapper">👥</div>
+          <div class="nav-text-group">
+            <span class="nav-text">會友名單管理</span>
+            <span class="nav-subtitle">Member Directory Management</span>
+          </div>
+        </div>
+        <span class="nav-arrow">→</span>
       </div>
       
-      <div class="card nav-card text-success shadow-sm mb-3" onclick="loadPage('STATS')">
-        <div class="d-flex align-items-center"><span class="nav-icon">📊</span><span class="nav-text">出席統計查詢</span></div>
+      <div class="card nav-card mb-3" onclick="loadPage('STATS')" style="--theme-color: var(--color-gold);">
+        <div class="d-flex align-items-center">
+          <div class="nav-icon-wrapper">📊</div>
+          <div class="nav-text-group">
+            <span class="nav-text">出席統計查詢</span>
+            <span class="nav-subtitle">Attendance Statistics</span>
+          </div>
+        </div>
+        <span class="nav-arrow">→</span>
       </div>
 
-      <div class="card nav-card text-info shadow-sm mb-3" onclick="loadPage('TREND_CHART')">
-        <div class="d-flex align-items-center"><span class="nav-icon">📈</span><span class="nav-text">趨勢分析圖表</span></div>
+      <div class="card nav-card mb-3" onclick="loadPage('TREND_CHART')" style="--theme-color: var(--color-rose);">
+        <div class="d-flex align-items-center">
+          <div class="nav-icon-wrapper">📈</div>
+          <div class="nav-text-group">
+            <span class="nav-text">趨勢分析圖表</span>
+            <span class="nav-subtitle">Attendance Trend Charts</span>
+          </div>
+        </div>
+        <span class="nav-arrow">→</span>
       </div>
     </div>
 
@@ -117,9 +293,9 @@
   async function loadPageContent(pageId, filename) {
     if (pageLoaded[pageId]) return;
     const container = document.getElementById('page-' + pageId);
-    container.innerHTML = '<div id="page-loading"><div class="spinner-border text-primary me-3"></div> 載入中...</div>';
+    container.innerHTML = '<div id="page-loading" class="d-flex flex-column align-items-center justify-content-center py-5"><div class="water-ripple mb-3"><div></div><div></div></div><div class="fw-bold" style="color: var(--text-secondary);">清泉流淌中...</div></div>';
     try {
-      const res = await fetch(filename + '.html');
+      const res = await fetch(filename + '.html?v=' + Date.now());
       if (!res.ok) throw new Error('找不到 ' + filename + '.html');
       container.innerHTML = await res.text();
       pageLoaded[pageId] = true;
@@ -127,7 +303,13 @@
       container.querySelectorAll('script').forEach(oldScript => {
         const newScript = document.createElement('script');
         if (oldScript.src) {
-          newScript.src = oldScript.src;
+          const separator = oldScript.src.includes('?') ? '&' : '?';
+          // Only bypass cache for local project scripts
+          if (!oldScript.src.startsWith('http') || oldScript.src.includes('localhost') || oldScript.src.includes('127.0.0.1')) {
+            newScript.src = oldScript.src + separator + 'v=' + Date.now();
+          } else {
+            newScript.src = oldScript.src;
+          }
         } else {
           newScript.textContent = oldScript.textContent;
         }

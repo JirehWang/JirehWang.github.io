@@ -19,10 +19,13 @@
     var count = pCountEl ? pCountEl.innerText : '0';
     if (!badge) return;
     if (sleepMode) {
-      badge.className = "badge bg-secondary text-white p-2 small shadow-sm d-flex align-items-center flex-grow-1 justify-content-center";
-      badge.innerHTML = "💤 休眠中(點擊) | 已出席：<span id='presentCount' class='mx-1'>" + count + "</span> 人";
+      badge.className = "badge p-2.5 small shadow-sm d-flex align-items-center flex-grow-1 justify-content-center border-0 sleep-pulse";
+      badge.style.backgroundColor = "#4f46e5";
+      badge.innerHTML = "💤 休眠中(點擊醒來) | 已出席：<span id='presentCount' class='mx-1'>" + count + "</span> 人";
     } else {
-      badge.className = "badge bg-success text-white p-2 small shadow-sm d-flex align-items-center flex-grow-1 justify-content-center";
+      badge.className = "badge p-2.5 small shadow-sm d-flex align-items-center flex-grow-1 justify-content-center border-0";
+      badge.style.backgroundColor = "var(--color-green)";
+      badge.style.boxShadow = "none";
       badge.innerHTML = "✅ 已出席：<span id='presentCount' class='mx-1'>" + count + "</span> 人";
     }
   }
@@ -187,11 +190,11 @@
       }
       var checkState = isChecked ? "checked" : "";
       var isDisabled = (isSubmitted || isLocked) ? "disabled" : "";
-      var statusColor = m.gender === '男' ? '#007bff' : (m.gender === '女' ? '#e64980' : '#6c757d');
+      var statusColor = m.gender === '男' ? '#0284c7' : (m.gender === '女' ? '#f43f5e' : 'var(--text-secondary)');
       var lockIcon = ""; 
       if (isSubmitted) {
         label.classList.add('submitted');
-        statusColor = '#198754';
+        statusColor = '#065f46';
         label.onclick = (function(memUid, memName) {
           return function(e) {
             e.preventDefault();
@@ -206,7 +209,7 @@
         lockIcon = ' <span style="font-size:12px;">🔒</span>'; 
       } else if (isChecked) {
         label.classList.add('selected');
-        statusColor = '#e9ecef';
+        statusColor = 'rgba(255, 255, 255, 0.85)';
       } 
       if (!isSubmitted && !isLocked) {
         label.onclick = function(e) {
