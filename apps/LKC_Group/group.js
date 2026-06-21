@@ -460,6 +460,8 @@ function renderEditList() {
             handle: '.drag-handle',
             ghostClass: 'sortable-ghost',
             chosenClass: 'sortable-chosen',
+            forceFallback: true, // 啟用 Fallback 機制，確保手機端觸控拖曳順暢
+            fallbackTolerance: 3, // 容許微小位移，避免誤點擊
             onEnd: function() {
                 // 依 DOM 當前順序重排 editingMembers
                 const newOrder = Array.from(container.children)

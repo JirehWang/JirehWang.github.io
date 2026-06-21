@@ -86,6 +86,9 @@ input, select, textarea {
     margin: 40px auto; padding: 30px; border-radius: 16px; 
     position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     box-sizing: border-box;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
 }
 .modal-content h3 { margin-top: 0; color: #333; }
 .close-btn { position: absolute; top: 15px; right: 15px; font-size: 24px; cursor: pointer; color: #999; }
@@ -144,7 +147,15 @@ input, select, textarea {
 .edit-add-box input[type="text"] { flex: 2; min-width: 100px; }
 .edit-role-select { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; background: white; min-width: 80px; }
 .btn-add { background: #FF9800; color: white; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; white-space: nowrap; margin-top: 0;}
-.edit-list-container { max-height: 350px; overflow-y: auto; border: 1px solid #eee; border-radius: 6px; padding: 5px; background: #fafafa; }
+.edit-list-container { 
+    flex: 1; 
+    overflow-y: auto; 
+    border: 1px solid #eee; 
+    border-radius: 6px; 
+    padding: 5px; 
+    background: #fafafa; 
+    min-height: 120px; 
+}
 .edit-member-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; background: white; margin-bottom: 5px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
 .btn-remove { background: #ffebee; color: #c62828; border: none; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; font-weight: bold; transition: 0.2s; margin-top: 0;}
 
@@ -245,14 +256,7 @@ input, select, textarea {
         margin: 20px auto;
         width: 95%;
         box-sizing: border-box;
-    }
-    
-    .edit-list-container {
-        max-height: 35vh !important;
-    }
-    
-    #editAttendanceMemberList {
-        max-height: 25vh !important;
+        max-height: 90vh;
     }
     
     .edit-add-box {
