@@ -336,13 +336,88 @@ const AdminController = {
     const preview = document.getElementById('aiPreview');
     if (!preview) return;
 
+    if (!file.type.startsWith('image/')) {
+      alert('請選擇圖片檔案！');
+      return;
+    }
+
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       preview.src = e.target.result;
       preview.style.display = 'block';
       
-      // 提示 AI 功能狀態
-      alert('🤖 AI 照片/收據辨識系統目前處於預留介面開發階段。\n本階段請先利用下方的文字批次匯入功能貼上 Excel 資料，謝謝您的配合！');
+      const dataUrl = e.target.result;
+      const commaIdx = dataUrl.indexOf(',');
+      if (commaIdx === -1) return;
+      const base64Data = dataUrl.substring(commaIdx + 1);
+      const mimeType = file.type;
+
+      const spinner = document.getElementById('uploadSpinner');
+      const previewSection = document.getElementById('previewSection');
+      const statsInfo = document.getElementById('previewStats');
+      const tableBody = document.querySelector('#previewTable tbody');
+
+      if (previewSection) previewSection.style.display = 'block';
+      if (spinner) spinner.style.display = 'flex';
+      if (statsInfo) statsInfo.textContent = '🤖 AI 正在辨識圖片收據中，請稍候...';
+      if (tableBody) tableBody.innerHTML = '';
+
+      try {
+        const res = await OfferingAPI.processReceiptImage(mimeType, base64Data);
+        
+        if (res && res.success && Array.isArray(res.items)) {
+          this.parsedItems = [];
+          tableBody.innerHTML = '';
+          
+          let totalAmount = 0;
+          let validCount = 0;
+          
+          res.items.forEach(item => {
+            const code = (item.code || '').trim();
+            const name = (item.name || '').trim();
+            const type = (item.type || '月定奉獻').trim();
+            const amount = Number(item.amount) || 0;
+            const notes = (item.notes || '').trim();
+            
+            const isValidCode = code.length >= 3;
+            const isValidAmount = amount > 0;
+            const isRowValid = isValidCode && isValidAmount;
+            
+            if (isRowValid) {
+              this.parsedItems.push({ code, type, amount, notes });
+              totalAmount += amount;
+              validCount++;
+            }
+            
+            const tr = document.createElement('tr');
+            if (!isRowValid) {
+              tr.style.backgroundColor = 'rgba(239, 68, 68, 0.08)';
+              tr.style.color = '#dc2626';
+            }
+            
+            const dispCode = name ? `${code} (${name})` : code;
+            tr.innerHTML = `
+              <td>${isValidCode ? dispCode : `⚠️ 格式錯誤 (${code || '無代號'})`}</td>
+              <td><span class="badge badge-primary">${type}</span></td>
+              <td style="font-weight:700;">${isValidAmount ? formatCurrency(amount) : '⚠️ 金額錯誤'}</td>
+              <td>${notes || '-'}</td>
+            `;
+            tableBody.appendChild(tr);
+          });
+          
+          if (statsInfo) {
+            statsInfo.textContent = `🤖 AI 辨識完成！成功解析：${validCount} 筆資料，合計金額：${formatCurrency(totalAmount)}`;
+          }
+        } else {
+          alert('❌ AI 辨識失敗：' + (res.error || '無法提取奉獻明細'));
+          if (statsInfo) statsInfo.textContent = '❌ AI 辨識失敗';
+        }
+      } catch (err) {
+        alert('❌ 系統發生錯誤：' + err.message);
+        if (statsInfo) statsInfo.textContent = '❌ AI 辨識發生錯誤';
+      } finally {
+        if (spinner) spinner.style.display = 'none';
+      }
     };
     reader.readAsDataURL(file);
   }
