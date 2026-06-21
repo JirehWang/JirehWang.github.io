@@ -316,7 +316,7 @@
         if (oldScript.src) {
           const separator = oldScript.src.includes('?') ? '&' : '?';
           // Only bypass cache for local project scripts
-          if (!oldScript.src.startsWith('http') || oldScript.src.includes('localhost') || oldScript.src.includes('127.0.0.1')) {
+          if (!oldScript.src.startsWith('http') || oldScript.src.startsWith(window.location.origin) || oldScript.src.includes('localhost') || oldScript.src.includes('127.0.0.1')) {
             newScript.src = oldScript.src + separator + 'v=' + Date.now();
           } else {
             newScript.src = oldScript.src;
