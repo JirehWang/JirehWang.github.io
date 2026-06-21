@@ -171,7 +171,7 @@
       color: var(--theme-color); 
     }
     
-    .custom-modal-backdrop {
+    .custom-overlay, .custom-modal-backdrop {
       display: none; 
       position: fixed; 
       top: 0; left: 0; 
@@ -339,14 +339,18 @@
   }
 
   function cleanUrlParams() {
-    if (window.history && window.history.replaceState) {
-      const url = new URL(window.location.href);
-      if (url.searchParams.has('cat') || url.searchParams.has('grp')) {
-        url.searchParams.delete('cat');
-        url.searchParams.delete('grp');
-        window.history.replaceState({}, document.title, url.pathname + url.search);
-        console.log("🧹已清除網址參數以防止重複導向");
+    try {
+      if (window.history && window.history.replaceState) {
+        const url = new URL(window.location.href);
+        if (url.searchParams.has('cat') || url.searchParams.has('grp')) {
+          url.searchParams.delete('cat');
+          url.searchParams.delete('grp');
+          window.history.replaceState({}, document.title, url.pathname + url.search);
+          console.log("🧹已清除網址參數以防止重複導向");
+        }
       }
+    } catch (e) {
+      console.warn("Unable to clear URL params:", e);
     }
   }
 
