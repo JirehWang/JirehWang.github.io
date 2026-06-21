@@ -85,6 +85,7 @@ input, select, textarea {
     background: white; width: 90%; max-width: 450px; 
     margin: 40px auto; padding: 30px; border-radius: 16px; 
     position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    box-sizing: border-box;
 }
 .modal-content h3 { margin-top: 0; color: #333; }
 .close-btn { position: absolute; top: 15px; right: 15px; font-size: 24px; cursor: pointer; color: #999; }
@@ -257,5 +258,23 @@ input, select, textarea {
     .edit-add-box .btn-add {
         width: 100% !important;
         box-sizing: border-box;
+    }
+
+    .edit-member-item > div {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px !important;
+    }
+
+    .edit-member-item .edit-role-select {
+        flex: 1 1 100px !important;
+        min-width: 100px !important;
+        margin-top: 0;
+    }
+
+    .edit-member-item input[placeholder="暱稱"] {
+        flex: 1 1 80px !important;
+        width: auto !important;
+        margin-top: 0;
     }
 }
