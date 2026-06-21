@@ -175,7 +175,7 @@
 
 <!-- 頻率變化分析 Modal -->
 <div id="trendModal" class="custom-overlay" style="display:none; align-items:center; justify-content:center;">
-  <div class="custom-modal-content" style="max-width:540px; margin: 40px auto; overflow-y:auto; padding:24px;">
+  <div class="custom-modal-content" style="max-width:540px; width:95%; margin: 20px auto; max-height:85vh; display:flex; flex-direction:column; overflow:hidden; padding:24px; position:relative;">
     <button onclick="closeTrendModal()" class="btn-close" style="position:absolute;top:20px;right:20px;border:none;background:none;font-size:18px;cursor:pointer;"></button>
     <h5 class="fw-bold mb-1">📈 出席頻率變化分析</h5>
     <div class="text-secondary small mb-3" id="trendSubtitle"></div>
@@ -203,7 +203,7 @@
       <div class="water-ripple mb-2"><div></div><div></div></div>
       <div class="small text-secondary mt-2">演算法分析中...</div>
     </div>
-    <div id="trendResult"></div>
+    <div id="trendResult" style="flex:1; overflow-y:auto;"></div>
   </div>
 </div>
 
