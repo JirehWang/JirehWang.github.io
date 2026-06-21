@@ -907,13 +907,15 @@ function collectVisibleMatrix() {
   document.querySelectorAll('.record-row').forEach(rowDiv => {
     const row = [];
     currentTableHeaders.forEach((header, cIdx) => {
-      const input = rowDiv.querySelector(`[data-c="${cIdx}"]`);
-      if (!input) {
-        row.push("");
-      } else if (input.type === 'checkbox') {
-        row.push(input.checked ? "Y" : "N");
+      if (header === "套用講道") {
+        const checkbox = rowDiv.querySelector(`input.sermon-link-checkbox[data-c="${cIdx}"]`);
+        const sw = rowDiv.querySelector(`input.sermon-lang-switch[data-c="${cIdx}"]`);
+        const isChecked = checkbox && checkbox.checked;
+        const langVal = sw && sw.checked ? "台語/聯合" : "華語/聯合";
+        row.push(isChecked ? langVal : "N");
       } else {
-        row.push(input.value.trim());
+        const input = rowDiv.querySelector(`input.grid-input[data-c="${cIdx}"]`);
+        row.push(input ? input.value.trim() : "");
       }
     });
     matrix.push(row);
@@ -1205,8 +1207,8 @@ function initGridInteraction() {
               }
             }
             
-            // 日期變更後，觸發即時排序
-            sortRowsByDate();
+            // 日期變更後，不再即時排序，改為儲存時排序，避免編輯中的列跳走妨礙輸入
+
           } else {
             getNotifier().error("❌ 日期不符格式，請按照yyyy/mm/dd進行建立");
             target.value = "";
@@ -1611,6 +1613,9 @@ async function saveData() {
   // 防止重複提交
   if (getUIState().isLocked('saveData')) return;
   getUIState().lock('saveData');
+
+  // 儲存前先將畫面上的列按日期排序，以確保儲存到 Sheet 也是排序好的
+  sortRowsByDate();
 
   getNotifier().showLoading("💾 儲存中...");
 
