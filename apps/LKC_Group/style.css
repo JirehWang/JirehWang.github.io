@@ -247,6 +247,14 @@ input, select, textarea {
         box-sizing: border-box;
     }
     
+    .edit-list-container {
+        max-height: 35vh !important;
+    }
+    
+    #editAttendanceMemberList {
+        max-height: 25vh !important;
+    }
+    
     .edit-add-box {
         flex-direction: column;
         align-items: stretch;
