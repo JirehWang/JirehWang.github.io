@@ -217,13 +217,21 @@ setTimeout(() => {
 async function enterGroup(groupName) {
     currentVerifyingGroupName = groupName;
     
-    // 檢查 localStorage 快取
-    const cachedCode = localStorage.getItem(`group_code_${groupName}`);
-    if (cachedCode) {
-        showLoading(`正在進入【${groupName}】...`);
-        // 秒進：直接跳轉
-        window.location.href = `group.html?name=${encodeURIComponent(groupName)}&code=${encodeURIComponent(cachedCode)}`;
-        return;
+    // 檢查 localStorage 快取 (具有 30 分鐘時效性)
+    const cachedStr = localStorage.getItem(`group_code_${groupName}`);
+    if (cachedStr) {
+        try {
+            const cached = JSON.parse(cachedStr);
+            if (cached && cached.expiry && cached.expiry > Date.now()) {
+                showLoading(`正在進入【${groupName}】...`);
+                // 秒進：直接跳轉
+                window.location.href = `group.html?name=${encodeURIComponent(groupName)}&code=${encodeURIComponent(cached.code)}`;
+                return;
+            }
+        } catch (e) {
+            // 解析失敗（例如舊版本直接存字串），直接視為過期無效並清理
+        }
+        localStorage.removeItem(`group_code_${groupName}`);
     }
 
     // 無快取，開啟自訂彈窗
@@ -249,8 +257,12 @@ async function submitVerifyCode() {
         const res = await window.churchAPI('verifyGroup', { groupName: currentVerifyingGroupName, groupCode: code });
         
         if (res.success) {
-            // 寫入 localStorage 快取
-            localStorage.setItem(`group_code_${currentVerifyingGroupName}`, res.encryptedCode);
+            // 寫入 localStorage 快取 (設定 30 分鐘過期時間)
+            const cacheData = {
+                code: res.encryptedCode,
+                expiry: Date.now() + 30 * 60 * 1000 // 30 分鐘
+            };
+            localStorage.setItem(`group_code_${currentVerifyingGroupName}`, JSON.stringify(cacheData));
             
             toggleVerifyModal(false);
             showLoading("驗證成功，進入小組中...");
