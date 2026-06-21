@@ -68,6 +68,10 @@
       overflow-y: auto;
       backdrop-filter: blur(4px);
     }
+    body.modal-open {
+      overflow: hidden !important;
+      height: 100vh !important;
+    }
     .custom-modal-content {
       background: white;
       padding: 30px 20px;
@@ -256,6 +260,28 @@
       // 直接加載點名頁面，後續名單載入與防呆鎖定交給 attendance.js 自行並行處理
       loadPageContent('ATTENDANCE', 'attendance');
     }       // ← 關 if
+
+    // 自動在彈出視窗顯示時鎖定底層 body 捲動
+    var scrollLockObserver = new MutationObserver(function(mutations) {
+      var anyVisible = false;
+      var overlays = document.querySelectorAll('.custom-overlay, .custom-modal-backdrop, .modal');
+      overlays.forEach(function(el) {
+        if (window.getComputedStyle(el).display !== 'none') {
+          anyVisible = true;
+        }
+      });
+      if (anyVisible) {
+        document.body.classList.add('modal-open');
+      } else {
+        document.body.classList.remove('modal-open');
+      }
+    });
+    scrollLockObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['style']
+    });
   };        // ← 關 window.onload
 </script>
 </body>
