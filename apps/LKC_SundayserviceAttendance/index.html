@@ -338,12 +338,25 @@
     document.querySelectorAll('.page-section').forEach(sec => sec.style.display = 'none');
   }
 
+  function cleanUrlParams() {
+    if (window.history && window.history.replaceState) {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('cat') || url.searchParams.has('grp')) {
+        url.searchParams.delete('cat');
+        url.searchParams.delete('grp');
+        window.history.replaceState({}, document.title, url.pathname + url.search);
+        console.log("🧹已清除網址參數以防止重複導向");
+      }
+    }
+  }
+
   function showHome() {
     if (typeof stopScanning === "function") stopScanning();
     if (typeof stopAutoSync === "function") stopAutoSync();
     document.getElementById('main-nav').style.display = 'block';
     document.getElementById('content-area').style.display = 'none';
     autoJumpConfig.active = false;
+    cleanUrlParams();
   }
 
   async function loadAttendancePage(type) {
@@ -355,6 +368,7 @@
 
   async function loadPage(pageId) {
     prepareContentArea();
+    cleanUrlParams();
     const target = document.getElementById('page-' + pageId);
     if (!target) return;
     target.style.display = 'block';

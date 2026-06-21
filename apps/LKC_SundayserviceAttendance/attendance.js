@@ -11,7 +11,7 @@
   var lastActiveTime = Date.now(); 
   var isSleeping = false; 
   
-  let globalGroupConfig = {};
+  var globalGroupConfig = {};
 
   function updateBadgeUI(sleepMode) {
     var badge = document.getElementById('presentCountBadge');

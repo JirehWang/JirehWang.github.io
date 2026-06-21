@@ -1,8 +1,8 @@
-  let currentStatsData = null; 
-  let activeTab = '台語';
-  let currentMode = 'range'; 
-  let globalStatsGroupConfig = {};
-  let currentStatsFetchId = 0;
+  var currentStatsData = null; 
+  var activeTab = '台語';
+  var currentMode = 'range'; 
+  var globalStatsGroupConfig = {};
+  var currentStatsFetchId = 0;
 
   (function initStats() {
     const now = new Date();
@@ -18,11 +18,19 @@
   })();
 
   function loadStatsGroupConfig() {
-    google.script.run.withSuccessHandler(config => {
-      globalStatsGroupConfig = config;
-      renderStatsCategorySelect();
-      updateStatsGroupSelect();
-    }).getGroupConfig();
+    google.script.run
+      .withFailureHandler(err => {
+        console.error("Failed to load group config:", err);
+        const catSelect = document.getElementById('statsCategorySelect');
+        const grpSelect = document.getElementById('statsGroupSelect');
+        if (catSelect) catSelect.innerHTML = '<option value="" disabled>載入失敗，請重試</option>';
+        if (grpSelect) grpSelect.innerHTML = '<option value="" disabled>載入失敗，請重試</option>';
+      })
+      .withSuccessHandler(config => {
+        globalStatsGroupConfig = config;
+        renderStatsCategorySelect();
+        updateStatsGroupSelect();
+      }).getGroupConfig();
   }
 
   function renderStatsCategorySelect() {
@@ -95,6 +103,11 @@
     const catSelect = document.getElementById('statsCategorySelect');
     const grpSelect = document.getElementById('statsGroupSelect');
     if (!grpSelect || !grpSelect.value) return; 
+    
+    currentStatsData = null;
+    const trendRow = document.getElementById('trendAnalysisRow');
+    if (trendRow) trendRow.style.display = 'none';
+
     activeTab = grpSelect.value; 
     const currentCat = catSelect.value;
     const req = { 
@@ -315,7 +328,7 @@
 
   // ===== 以下為出席頻率變化分析新功能 =====
 
-  let trendRawData = null;
+  var trendRawData = null;
 
   function openTrendModal() {
     if (!currentStatsData) return alert("請先查詢");
@@ -327,7 +340,10 @@
     document.getElementById('trendModal').style.display = 'none';
   }
 
-  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeTrendModal(); });
+  if (!window.statsKeyDownHandlerRegistered) {
+    document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeTrendModal(); });
+    window.statsKeyDownHandlerRegistered = true;
+  }
 
   function runTrendAnalysis() {
     const catSelect = document.getElementById('statsCategorySelect');

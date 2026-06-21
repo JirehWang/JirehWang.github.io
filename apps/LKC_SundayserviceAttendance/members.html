@@ -151,9 +151,9 @@
 </div>
 
 <script>
-  let allMembersRawData = [];
-  let currentQrUrl = "";
-  let currentMemberName = "";
+  var allMembersRawData = [];
+  var currentQrUrl = "";
+  var currentMemberName = "";
 
   function refreshMemberTable() {
     const tbody = document.getElementById('memberTableBody');
@@ -271,7 +271,7 @@
 
   function closeQrModal() { document.getElementById('qrCodeModal').style.display = 'none'; }
 
-  let currentCardBase64 = "";
+  var currentCardBase64 = "";
 
   function togglePreviewMode(mode) {
     const img = document.getElementById('qrModal_Img');
