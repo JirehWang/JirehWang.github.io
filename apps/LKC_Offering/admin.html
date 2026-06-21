@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>林口教會 — 奉獻管理系統 (管理端)</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body id="adminManagePage">
+
+  <!-- ✝ 頂部導覽列 -->
+  <header class="app-header">
+    <div class="header-content">
+      <div class="brand">
+        <span class="cross-icon">✝</span>
+        <div>
+          <h1>台灣基督長老教會林口教會</h1>
+          <div class="brand-subtitle">奉獻管理系統 (管理端)</div>
+        </div>
+      </div>
+      <nav class="nav-tabs">
+        <a href="index.html" class="tab-link">會友查詢</a>
+        <a href="admin.html" class="tab-link active">財務登錄</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- 📦 主容器 -->
+  <main class="app-container">
+    
+    <!-- 🔑 管理權限與登錄設定 -->
+    <section class="card">
+      <h2 class="card-title">⚙️ 登錄安全設定</h2>
+      
+      <div class="form-group">
+        <label class="form-label" for="entryDate">登錄奉獻日期</label>
+        <input type="date" id="entryDate" class="form-input">
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label" for="adminToken">財務同工權限密碼</label>
+        <input type="password" id="adminToken" class="form-input" placeholder="請輸入管理憑證以啟用上傳" autocomplete="off">
+      </div>
+    </section>
+
+    <!-- 📸 AI 相片識別區 (預留未來模組) -->
+    <section class="card">
+      <h2 class="card-title">📸 AI 圖片判定登錄 <span class="placeholder-tag">開發中</span></h2>
+      <p class="form-label" style="margin-bottom:12px;">直接上傳轉帳明細、收據或紙本登記表照片，由 AI 自動辨識金額與代號。</p>
+      
+      <div class="upload-zone" id="aiUploadZone">
+        <div class="upload-icon">📷</div>
+        <p style="font-size: 14px; font-weight: 500;">拖曳收據相片至此，或點擊選擇相片檔案</p>
+        <input type="file" id="aiFileInput" style="display: none;" accept="image/*">
+        <img id="aiPreview" class="upload-preview" alt="收據預覽">
+      </div>
+    </section>
+
+    <!-- 📝 Excel 批次複製貼上區 -->
+    <section class="card">
+      <h2 class="card-title">📋 試算表資料批次匯入</h2>
+      <p class="form-label" style="margin-bottom:12px;">請從 Excel 複製「代號」、「奉獻項目（選填）」、「金額」、「備註（選填）」後貼在下方：</p>
+      
+      <div class="form-group">
+        <textarea id="excelPasteArea" class="form-input" rows="8" placeholder="範例：
+LKC001	月定奉獻	3000	十一奉獻
+LKC002	1000	主日學感恩 (智慧型判斷：若省略項目，自動默認月定奉獻)
+LKC003	特別奉獻	5000	建堂奉獻" style="font-family: monospace; font-size: 13px; resize: vertical;"></textarea>
+      </div>
+      
+      <button class="btn btn-primary" id="btnParse">⚡ 解析貼上資料</button>
+    </section>
+
+    <!-- 🔍 數據解析預覽區 (預設隱藏) -->
+    <section class="card" id="previewSection" style="display: none;">
+      <h2 class="card-title">🔍 上傳前數據核對</h2>
+      
+      <!-- 統計狀態 -->
+      <div id="previewStats" style="font-size:14px; font-weight:700; color:var(--primary); margin-bottom:16px;"></div>
+      
+      <!-- 預覽明細 -->
+      <div class="table-container">
+        <table class="report-table" id="previewTable">
+          <thead>
+            <tr>
+              <th>會友代號</th>
+              <th>奉獻項目</th>
+              <th>金額</th>
+              <th>備註</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- 動態插入 -->
+          </tbody>
+        </table>
+      </div>
+      
+      <button class="btn btn-primary" id="btnUpload" style="margin-top: 24px; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">☁️ 確認並批次上傳雲端</button>
+      
+      <!-- 上傳 Loading -->
+      <div class="spinner-wrapper" id="uploadSpinner" style="margin-top: 16px;">
+        <div class="spinner"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 底部宣告 -->
+  <footer class="app-footer">
+    <p>© 台灣基督長老教會林口教會 奉獻管理系統 v1.0 | 隱私與安全性已受防護</p>
+  </footer>
+
+  <!-- 串接中央安全路由與 API 封裝 -->
+  <script>
+    window._GAS_KEY = 'LKC_Offering';
+  </script>
+  <script src="../../config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>

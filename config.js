@@ -34,6 +34,9 @@
     // 🔀 Phase 5 & 6 整合測試版：行事曆與敬拜團併入主 GAS
     "LKC_MasterSchedule_TEST":          "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
     "LKC_worship_TEST":                 "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
+    // 🪙 奉獻管理系統（獨立 GAS 專案）
+    "LKC_Offering":                     "https://script.google.com/macros/s/AKfycbwOM66vKlyd27kBiZlLavBBoaNAWlSHtXW__wAOB-1NxzqGk_TKaW_ixqBO0s0RfxqMTA/exec",
+    "LKC_Offering_TEST":                "https://script.google.com/macros/s/AKfycbwOM66vKlyd27kBiZlLavBBoaNAWlSHtXW__wAOB-1NxzqGk_TKaW_ixqBO0s0RfxqMTA/exec",
   };
 
   // 📝 子系統 → 後端 action 自動前綴（避免不同系統 action 名稱衝突）

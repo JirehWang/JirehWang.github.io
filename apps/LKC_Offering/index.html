@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>林口教會 — 奉獻管理系統</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body id="memberQueryPage">
+
+  <!-- ✝ 頂部導覽列 -->
+  <header class="app-header">
+    <div class="header-content">
+      <div class="brand">
+        <span class="cross-icon">✝</span>
+        <div>
+          <h1>台灣基督長老教會林口教會</h1>
+          <div class="brand-subtitle">奉獻管理系統</div>
+        </div>
+      </div>
+      <nav class="nav-tabs">
+        <a href="index.html" class="tab-link active">會友查詢</a>
+        <a href="admin.html" class="tab-link">財務登錄</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- 📦 主容器 -->
+  <main class="app-container">
+    
+    <!-- 🔍 查詢卡片 -->
+    <section class="card">
+      <h2 class="card-title">🔐 奉獻明細查詢</h2>
+      
+      <div class="form-group">
+        <label class="form-label" for="memberCode">會友奉獻代號</label>
+        <div class="input-wrapper">
+          <input type="text" id="memberCode" class="form-input" placeholder="例如：LKC001" autocomplete="off">
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label" for="memberName">您的姓名</label>
+        <div class="input-wrapper">
+          <input type="text" id="memberName" class="form-input" placeholder="請輸入完整的中文姓名" autocomplete="off">
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label" for="queryYear">查詢年份</label>
+        <select id="queryYear" class="form-input"></select>
+      </div>
+      
+      <button class="btn btn-primary" id="btnSearch">開始查詢</button>
+      
+      <!-- 錯誤提示 -->
+      <div class="alert alert-danger" id="errorAlert"></div>
+      
+      <!-- 載入動畫 -->
+      <div class="spinner-wrapper" id="loadingSpinner">
+        <div class="spinner"></div>
+      </div>
+    </section>
+
+    <!-- 📊 查詢結果展示區 (預設隱藏) -->
+    <section class="card" id="resultSection" style="display: none;">
+      <span class="member-tag" id="memberTag">會友：王*明</span>
+      <h2 class="card-title">📋 查詢結果</h2>
+      
+      <!-- 統計資訊 -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">當年度累計奉獻金額</div>
+          <div class="stat-val" id="totalAmount">NT$ 0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">奉獻筆數</div>
+          <div class="stat-val" id="totalCount">0 筆</div>
+        </div>
+      </div>
+      
+      <!-- 明細表格 -->
+      <div class="table-container">
+        <table class="report-table" id="offeringTable">
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>奉獻項目</th>
+              <th>金額</th>
+              <th>備註</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- 動態插入 -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 底部宣告 -->
+  <footer class="app-footer">
+    <p>© 台灣基督長老教會林口教會 奉獻管理系統 v1.0 | 隱私與安全性已受防護</p>
+  </footer>
+
+  <!-- 串接中央安全路由與 API 封裝 -->
+  <script>
+    window._GAS_KEY = 'LKC_Offering';
+  </script>
+  <script src="../../config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>
