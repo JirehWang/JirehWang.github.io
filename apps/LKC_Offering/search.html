@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>林口教會 — 奉獻管理系統 (編號查詢)</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body id="memberSearchPage">
+
+  <!-- ✝ 頂部導覽列 -->
+  <header class="app-header">
+    <div class="header-content">
+      <div class="brand">
+        <span class="cross-icon">✝</span>
+        <div>
+          <h1>台灣基督長老教會林口教會</h1>
+          <div class="brand-subtitle">奉獻管理系統 (編號查詢)</div>
+        </div>
+      </div>
+      <nav class="nav-tabs">
+        <a href="index.html" class="tab-link">會友查詢</a>
+        <a href="search.html" class="tab-link active">編號查詢</a>
+        <a href="admin.html" class="tab-link">財務登錄</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- 📦 主容器 -->
+  <main class="app-container">
+    
+    <!-- 🔐 安全驗證 (預設顯示) -->
+    <section class="card" id="lockScreenSection">
+      <h2 class="card-title">🔐 安全驗證</h2>
+      <p class="form-label" style="margin-bottom: 12px; color: var(--text-muted);">此功能僅限同工使用，請輸入管理密碼以進行查詢。</p>
+      
+      <div class="form-group">
+        <label class="form-label" for="searchPassword">管理密碼</label>
+        <input type="password" id="searchPassword" class="form-input" placeholder="請輸入管理密碼" autocomplete="off">
+      </div>
+      
+      <button class="btn btn-primary" id="btnUnlock">解鎖系統</button>
+      
+      <div class="alert alert-danger" id="lockErrorAlert" style="display: none; margin-top: 16px;"></div>
+    </section>
+
+    <!-- 🔍 查詢面板 (驗證成功後顯示) -->
+    <section class="card" id="searchSection" style="display: none;">
+      <h2 class="card-title">🔍 人名-編號查詢</h2>
+      <p class="form-label" style="margin-bottom: 16px; color: var(--text-muted);">輸入會友姓名以模糊搜尋其對應的奉獻代號（例：輸入「王」會列出所有姓王的會友）。</p>
+      
+      <div class="form-group">
+        <label class="form-label" for="searchName">會友姓名</label>
+        <input type="text" id="searchName" class="form-input" placeholder="請輸入姓名關鍵字" autocomplete="off">
+      </div>
+      
+      <button class="btn btn-primary" id="btnSearchCode">開始查詢</button>
+      
+      <div class="alert alert-danger" id="searchErrorAlert" style="display: none; margin-top: 16px;"></div>
+    </section>
+
+    <!-- 📋 查詢結果區 (預設隱藏) -->
+    <section class="card" id="resultSection" style="display: none;">
+      <h2 class="card-title">📋 查詢結果 <span id="resultCount" class="placeholder-tag" style="background:var(--primary); font-size:12px; padding:2px 8px; border-radius:12px;">0 筆</span></h2>
+      
+      <div class="table-container">
+        <table class="report-table" id="resultTable">
+          <thead>
+            <tr>
+              <th>會友姓名</th>
+              <th>奉獻代號</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- 動態插入 -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 查詢 Loading -->
+    <div class="spinner-wrapper" id="searchSpinner" style="display: none; margin-top: 24px;">
+      <div class="spinner"></div>
+    </div>
+
+  </main>
+
+  <!-- 底部宣告 -->
+  <footer class="app-footer">
+    <p>© 台灣基督長老教會林口教會 奉獻管理系統 v1.0 | 隱私與安全性已受防護</p>
+  </footer>
+
+  <!-- 串接中央安全路由與 API 封裝 -->
+  <script>
+    window._GAS_KEY = 'LKC_Offering';
+  </script>
+  <script src="../../config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>

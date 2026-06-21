@@ -257,7 +257,7 @@ const AdminController = {
     }
     
     // 簡易前端驗證
-    if (token !== window.AUTH_TOKEN) {
+    if (token !== "LKC78213731") {
       alert('管理密碼不正確，拒絕上傳！');
       return;
     }
@@ -273,7 +273,7 @@ const AdminController = {
     if (spinner) spinner.style.display = 'flex';
 
     try {
-      const res = await OfferingAPI.adminAddOfferings(date, this.parsedItems);
+      const res = await OfferingAPI.adminAddOfferings(date, this.parsedItems, token);
       
       if (res && res.success) {
         alert(`✅ 登錄成功！共寫入 ${res.count} 筆奉獻明細。`);
@@ -341,6 +341,22 @@ const AdminController = {
       return;
     }
 
+    const adminTokenInput = document.getElementById('adminToken');
+    const token = (adminTokenInput ? adminTokenInput.value : '').trim();
+
+    if (!token) {
+      alert('請先在上面輸入財務同工權限密碼以進行 AI 辨識！');
+      const fileInput = document.getElementById('aiFileInput');
+      if (fileInput) fileInput.value = '';
+      return;
+    }
+    if (token !== "LKC78213731") {
+      alert('管理密碼不正確，拒絕進行 AI 辨識！');
+      const fileInput = document.getElementById('aiFileInput');
+      if (fileInput) fileInput.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = async (e) => {
       preview.src = e.target.result;
@@ -363,7 +379,7 @@ const AdminController = {
       if (tableBody) tableBody.innerHTML = '';
 
       try {
-        const res = await OfferingAPI.processReceiptImage(mimeType, base64Data);
+        const res = await OfferingAPI.processReceiptImage(mimeType, base64Data, token);
         
         if (res && res.success && Array.isArray(res.items)) {
           this.parsedItems = [];
@@ -424,7 +440,160 @@ const AdminController = {
 };
 
 // ==========================================
-// 3. 入口路由判斷
+// 3. 人名-編號查詢控制邏輯
+// ==========================================
+const SearchController = {
+  password: "",
+
+  init() {
+    // 檢查 sessionStorage 中是否已有解鎖密碼
+    const cachedPwd = sessionStorage.getItem('offering_search_pwd');
+    if (cachedPwd === "LKC78213731") {
+      this.password = cachedPwd;
+      this.showSearchPanel();
+    }
+
+    const btnUnlock = document.getElementById('btnUnlock');
+    if (btnUnlock) {
+      btnUnlock.addEventListener('click', () => this.handleUnlock());
+    }
+
+    const btnSearchCode = document.getElementById('btnSearchCode');
+    if (btnSearchCode) {
+      btnSearchCode.addEventListener('click', () => this.handleSearch());
+    }
+
+    // 支援 Enter 鍵
+    const searchPasswordInput = document.getElementById('searchPassword');
+    if (searchPasswordInput) {
+      searchPasswordInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') this.handleUnlock();
+      });
+    }
+
+    const searchNameInput = document.getElementById('searchName');
+    if (searchNameInput) {
+      searchNameInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') this.handleSearch();
+      });
+    }
+  },
+
+  handleUnlock() {
+    const pwdInput = document.getElementById('searchPassword');
+    const errorAlert = document.getElementById('lockErrorAlert');
+    const pwd = (pwdInput ? pwdInput.value : '').trim();
+
+    if (errorAlert) errorAlert.style.display = 'none';
+
+    if (!pwd) {
+      this.showLockError('請輸入管理密碼！');
+      return;
+    }
+
+    if (pwd !== "LKC78213731") {
+      this.showLockError('密碼錯誤，請重新輸入！');
+      return;
+    }
+
+    // 驗證成功
+    this.password = pwd;
+    sessionStorage.setItem('offering_search_pwd', pwd);
+    this.showSearchPanel();
+  },
+
+  showLockError(msg) {
+    const errorAlert = document.getElementById('lockErrorAlert');
+    if (errorAlert) {
+      errorAlert.textContent = '⚠️ ' + msg;
+      errorAlert.style.display = 'block';
+    }
+  },
+
+  showSearchPanel() {
+    const lockScreen = document.getElementById('lockScreenSection');
+    const searchPanel = document.getElementById('searchSection');
+    if (lockScreen) lockScreen.style.display = 'none';
+    if (searchPanel) searchPanel.style.display = 'block';
+    
+    // Focus search input
+    const searchNameInput = document.getElementById('searchName');
+    if (searchNameInput) searchNameInput.focus();
+  },
+
+  async handleSearch() {
+    const nameInput = document.getElementById('searchName');
+    const errorAlert = document.getElementById('searchErrorAlert');
+    const resultSection = document.getElementById('resultSection');
+    const spinner = document.getElementById('searchSpinner');
+    const tableBody = document.querySelector('#resultTable tbody');
+    const resultCount = document.getElementById('resultCount');
+
+    const name = (nameInput ? nameInput.value : '').trim();
+
+    if (errorAlert) errorAlert.style.display = 'none';
+    if (resultSection) resultSection.style.display = 'none';
+
+    if (!name) {
+      this.showSearchError('請輸入姓名關鍵字！');
+      return;
+    }
+
+    if (spinner) spinner.style.display = 'flex';
+
+    try {
+      const res = await OfferingAPI.searchMemberCode(name, this.password);
+      
+      if (res && res.success) {
+        this.renderResults(res.results);
+      } else {
+        this.showSearchError(res.error || '查詢失敗，請重試。');
+      }
+    } catch (err) {
+      this.showSearchError('系統發生錯誤，請聯絡同工。');
+    } finally {
+      if (spinner) spinner.style.display = 'none';
+    }
+  },
+
+  showSearchError(msg) {
+    const errorAlert = document.getElementById('searchErrorAlert');
+    if (errorAlert) {
+      errorAlert.textContent = '⚠️ ' + msg;
+      errorAlert.style.display = 'block';
+    }
+  },
+
+  renderResults(results) {
+    const tableBody = document.querySelector('#resultTable tbody');
+    const resultSection = document.getElementById('resultSection');
+    const resultCount = document.getElementById('resultCount');
+
+    if (!tableBody || !resultSection) return;
+
+    tableBody.innerHTML = '';
+    
+    if (!results || results.length === 0) {
+      tableBody.innerHTML = `<tr><td colspan="2" style="text-align:center; color:var(--text-muted);">無匹配的會友資料</td></tr>`;
+      if (resultCount) resultCount.textContent = '0 筆';
+    } else {
+      results.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="font-weight:700;">${r.name}</td>
+          <td><span class="badge badge-primary" style="font-family:monospace; font-size:14px; letter-spacing:0.5px;">${r.code}</span></td>
+        `;
+        tableBody.appendChild(tr);
+      });
+      if (resultCount) resultCount.textContent = `${results.length} 筆`;
+    }
+
+    resultSection.style.display = 'block';
+  }
+};
+
+// ==========================================
+// 4. 入口路由判斷
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
   const bodyId = document.body.id;
@@ -433,5 +602,7 @@ document.addEventListener('DOMContentLoaded', () => {
     MemberQueryController.init();
   } else if (bodyId === 'adminManagePage') {
     AdminController.init();
+  } else if (bodyId === 'memberSearchPage') {
+    SearchController.init();
   }
 });
