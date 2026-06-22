@@ -480,6 +480,11 @@
         calendar: {
             label: '教會行事曆資料',
             topics: ['cal_getTypes', 'cal_getFields', 'cal_getEvents', 'cal_getEvent']
+        },
+        newfamily: {
+            label: '新家人資料',
+            topics: ['getTrackingCases', 'getClosedCases'],
+            backendRefresh: 'newfamily_refreshCaches'
         }
     };
 
@@ -517,7 +522,11 @@
 
     async function refreshBackendCache(action) {
         if (!action) return null;
-        const response = await fetch('https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec', {
+        let url = 'https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec';
+        if (action === 'newfamily_refreshCaches') {
+            url = 'https://script.google.com/macros/s/AKfycbzU4f0XKtniINXQMbIK5QDPuT3ub2HeyiEYI60oUM3YHipdf-02uvuP3lp963dogxml/exec';
+        }
+        const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
@@ -667,6 +676,7 @@
             <button class="cache-action" type="button" data-cache-group="ministry">事工管理資料</button>
             <button class="cache-action" type="button" data-cache-group="worship">敬拜團資料</button>
             <button class="cache-action" type="button" data-cache-group="calendar">教會行事曆資料</button>
+            <button class="cache-action" type="button" data-cache-group="newfamily">新家人資料</button>
             <button id="cache-clear-all-data" class="cache-action danger" type="button">全部資料快取</button>
             <button id="cache-repair-frontend" class="cache-action utility" type="button">修復前端版本 / PWA</button>
         </div>
