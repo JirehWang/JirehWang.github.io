@@ -686,7 +686,7 @@ function parseDateOnly(value) {
 
 function checkSettleOverdue(item) {
   const status = getDisplaySettlementStatus(item);
-  if (status === '請安拜訪') return false;
+  if (status === '請安拜訪' || status === '停止聚會') return false;
 
   // "沒有抓到現行小組的資料" means "主日點名小組" is empty or '尚未落戶' or '未'
   const group = String(item['主日點名小組'] || '').trim();
