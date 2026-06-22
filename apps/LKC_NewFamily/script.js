@@ -90,6 +90,7 @@ const analysisYear = document.getElementById('analysisYear');
 const analysisStartDate = document.getElementById('analysisStartDate');
 const analysisEndDate = document.getElementById('analysisEndDate');
 const analysisStatusFilter = document.getElementById('analysisStatusFilter');
+const analysisOverdueFilter = document.getElementById('analysisOverdueFilter');
 const analysisModal = document.getElementById('analysisModal');
 const analysisSubtitle = document.getElementById('analysisSubtitle');
 const analysisModalContent = document.getElementById('analysisModalContent');
@@ -160,6 +161,7 @@ analysisYear.addEventListener('change', () => setAnalysisRange('year'));
 analysisStartDate.addEventListener('change', refreshAnalysisPreview);
 analysisEndDate.addEventListener('change', refreshAnalysisPreview);
 analysisStatusFilter.addEventListener('change', refreshAnalysisPreview);
+analysisOverdueFilter.addEventListener('change', refreshAnalysisPreview);
 document.querySelectorAll('[data-analysis-range]').forEach(button => {
   button.addEventListener('click', () => setAnalysisRange(button.dataset.analysisRange));
 });
@@ -1506,10 +1508,15 @@ async function getAnalysisDateRows() {
 }
 
 function filterAnalysisRowsByStatus(rows) {
+  let filtered = rows;
   const status = analysisStatusFilter.value;
-  return status
-    ? rows.filter(item => getDisplaySettlementStatus(item) === status)
-    : rows;
+  if (status) {
+    filtered = filtered.filter(item => getDisplaySettlementStatus(item) === status);
+  }
+  if (analysisOverdueFilter && analysisOverdueFilter.checked) {
+    filtered = filtered.filter(item => checkSettleOverdue(item));
+  }
+  return filtered;
 }
 
 function setAnalysisRange(rangeKey) {
@@ -1618,6 +1625,21 @@ function buildAnalysisDetailTable(rows) {
       cell.textContent = column === '落戶狀態'
         ? getDisplaySettlementStatus(item)
         : item[column] || '';
+      if (column === '新家人姓名' && checkSettleOverdue(item)) {
+        const warningTag = document.createElement('span');
+        warningTag.className = 'warning-tag';
+        warningTag.textContent = '尚未落戶完成';
+        warningTag.style.color = 'var(--danger)';
+        warningTag.style.background = '#fff5f5';
+        warningTag.style.border = '1px solid var(--danger)';
+        warningTag.style.borderRadius = '4px';
+        warningTag.style.padding = '2px 6px';
+        warningTag.style.fontSize = '11px';
+        warningTag.style.marginLeft = '6px';
+        warningTag.style.fontWeight = 'bold';
+        warningTag.style.display = 'inline-block';
+        cell.appendChild(warningTag);
+      }
       row.appendChild(cell);
     });
     const groupCell = document.createElement('td');
@@ -1776,21 +1798,6 @@ function buildCaseTable(rows, selectable, columns, isClosed = false) {
         cell.textContent = getDisplaySettlementStatus(item);
       } else if (column === '新家人姓名') {
         cell.textContent = item[column] || '';
-        if (isClosed && checkSettleOverdue(item)) {
-          const warningTag = document.createElement('span');
-          warningTag.className = 'warning-tag';
-          warningTag.textContent = '尚未落戶完成';
-          warningTag.style.color = 'var(--danger)';
-          warningTag.style.background = '#fff5f5';
-          warningTag.style.border = '1px solid var(--danger)';
-          warningTag.style.borderRadius = '4px';
-          warningTag.style.padding = '2px 6px';
-          warningTag.style.fontSize = '11px';
-          warningTag.style.marginLeft = '6px';
-          warningTag.style.fontWeight = 'bold';
-          warningTag.style.display = 'inline-block';
-          cell.appendChild(warningTag);
-        }
       } else {
         cell.textContent = item[column] || '';
       }
