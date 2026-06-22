@@ -13,7 +13,21 @@ const trackingColumns = [
   '點名系統代碼'
 ];
 
-const closedColumns = trackingColumns.filter(column => column !== '主日點名小組');
+const closedColumns = [
+  '新家人姓名',
+  '新家人性別',
+  '參加的聚會是',
+  '表單號',
+  '手機',
+  '關懷同工',
+  '邀約人',
+  '日期',
+  '結案日期',
+  '落戶狀態',
+  '備註',
+  '會友名單狀態',
+  '點名系統代碼'
+];
 
 const editFields = [
   { name: '新家人姓名', label: '新家人姓名', required: true },
@@ -29,6 +43,7 @@ const editFields = [
   { name: '市話', label: '市話' },
   { name: '手機', label: '手機' },
   { name: '日期', label: '日期', inputType: 'date' },
+  { name: '結案日期', label: '結案日期', inputType: 'date' },
   { name: '落戶狀態', label: '落戶狀態', type: 'settlement' },
   { name: '邀約人', label: '邀約人' },
   { name: '備註', label: '備註', type: 'textarea', full: true },
@@ -87,7 +102,7 @@ const sessionCancelBtn = document.getElementById('sessionCancelBtn');
 const sessionCloseBtn = document.getElementById('sessionCloseBtn');
 
 let meetingOptions = [];
-let settlementOptions = ['請安拜訪'];
+let settlementOptions = ['請安拜訪', '尚未落戶'];
 let editingCase = null;
 let trackingCases = [];
 let closedCasesBase = []; // Base loaded closed cases list
@@ -312,9 +327,9 @@ async function loadSettlementStatusOptions() {
     const groupNames = (result.groups || [])
       .map(group => String(group.name || '').trim())
       .filter(Boolean);
-    settlementOptions = Array.from(new Set([...groupNames, '請安拜訪']));
+    settlementOptions = Array.from(new Set([...groupNames, '請安拜訪', '尚未落戶']));
   } catch (error) {
-    settlementOptions = ['請安拜訪'];
+    settlementOptions = ['請安拜訪', '尚未落戶'];
     setNotice(formNotice, error.message || String(error), 'error');
   }
 }
@@ -659,6 +674,34 @@ function getFilteredClosedCases() {
     }
     return true;
   });
+}
+
+function parseDateOnly(value) {
+  if (!value) return null;
+  const text = String(value).trim();
+  const match = text.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+  if (!match) return null;
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])).getTime();
+}
+
+function checkSettleOverdue(item) {
+  const status = getDisplaySettlementStatus(item);
+  if (status === '請安拜訪') return false;
+
+  // "沒有抓到現行小組的資料" means "主日點名小組" is empty or '尚未落戶' or '未'
+  const group = String(item['主日點名小組'] || '').trim();
+  if (group && group !== '尚未落戶') return false;
+
+  const closedDateStr = item['結案日期'];
+  if (!closedDateStr) return false;
+  
+  const closedDateMs = parseDateOnly(closedDateStr);
+  if (!closedDateMs) return false;
+
+  const msIn28Days = 28 * 24 * 60 * 60 * 1000;
+  const overdueThreshold = closedDateMs + msIn28Days;
+  
+  return Date.now() > overdueThreshold;
 }
 
 function getFilterValue(item, column) {
@@ -1731,6 +1774,23 @@ function buildCaseTable(rows, selectable, columns, isClosed = false) {
         cell.appendChild(buildSundayGroupTag(item[column] || ''));
       } else if (column === '落戶狀態') {
         cell.textContent = getDisplaySettlementStatus(item);
+      } else if (column === '新家人姓名') {
+        cell.textContent = item[column] || '';
+        if (isClosed && checkSettleOverdue(item)) {
+          const warningTag = document.createElement('span');
+          warningTag.className = 'warning-tag';
+          warningTag.textContent = '尚未落戶完成';
+          warningTag.style.color = 'var(--danger)';
+          warningTag.style.background = '#fff5f5';
+          warningTag.style.border = '1px solid var(--danger)';
+          warningTag.style.borderRadius = '4px';
+          warningTag.style.padding = '2px 6px';
+          warningTag.style.fontSize = '11px';
+          warningTag.style.marginLeft = '6px';
+          warningTag.style.fontWeight = 'bold';
+          warningTag.style.display = 'inline-block';
+          cell.appendChild(warningTag);
+        }
       } else {
         cell.textContent = item[column] || '';
       }
@@ -1979,6 +2039,7 @@ async function exportClosedCases() {
       '關懷同工',
       '邀約人',
       '日期',
+      '結案日期',
       '落戶狀態',
       '備註',
       '會友名單狀態',
@@ -1997,6 +2058,7 @@ async function exportClosedCases() {
         item['關懷同工'] || '',
         item['邀約人'] || '',
         item['日期'] || '',
+        item['結案日期'] || '',
         getDisplaySettlementStatus(item) || '',
         item['備註'] || '',
         item['會友名單狀態'] || '',
