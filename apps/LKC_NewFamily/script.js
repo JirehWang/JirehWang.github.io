@@ -1618,6 +1618,7 @@ function buildCaseTable(rows, selectable, columns, isClosed = false) {
   // Action column is present for BOTH tracking and closed cases
   const thAction = document.createElement('th');
   thAction.className = 'action-cell';
+  thAction.textContent = isClosed ? '編輯' : '';
   headRow.appendChild(thAction);
 
   // Column headers
@@ -1665,31 +1666,41 @@ function buildCaseTable(rows, selectable, columns, isClosed = false) {
     const actionCell = document.createElement('td');
     actionCell.className = 'action-cell';
     
-    const dropdown = document.createElement('div');
-    dropdown.className = 'action-dropdown';
+    if (isClosed) {
+      // Render Edit button directly for closed cases
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'btn secondary edit-direct-btn';
+      editBtn.textContent = '編輯';
+      editBtn.addEventListener('click', () => {
+        openEditModal(item, true);
+      });
+      actionCell.appendChild(editBtn);
+    } else {
+      // Render Action dropdown for tracking cases
+      const dropdown = document.createElement('div');
+      dropdown.className = 'action-dropdown';
 
-    const toggleButton = document.createElement('button');
-    toggleButton.type = 'button';
-    toggleButton.className = 'btn secondary action-toggle-btn';
-    toggleButton.textContent = '操作';
-    dropdown.appendChild(toggleButton);
+      const toggleButton = document.createElement('button');
+      toggleButton.type = 'button';
+      toggleButton.className = 'btn secondary action-toggle-btn';
+      toggleButton.textContent = '操作';
+      dropdown.appendChild(toggleButton);
 
-    const menu = document.createElement('div');
-    menu.className = 'action-menu';
-    menu.hidden = true;
-
-    const editItem = document.createElement('button');
-    editItem.type = 'button';
-    editItem.className = 'menu-item';
-    editItem.textContent = '編輯';
-    editItem.addEventListener('click', () => {
+      const menu = document.createElement('div');
+      menu.className = 'action-menu';
       menu.hidden = true;
-      openEditModal(item, isClosed);
-    });
-    menu.appendChild(editItem);
 
-    // Only show delete button for tracking cases (not closed cases)
-    if (!isClosed) {
+      const editItem = document.createElement('button');
+      editItem.type = 'button';
+      editItem.className = 'menu-item';
+      editItem.textContent = '編輯';
+      editItem.addEventListener('click', () => {
+        menu.hidden = true;
+        openEditModal(item, isClosed);
+      });
+      menu.appendChild(editItem);
+
       const deleteItem = document.createElement('button');
       deleteItem.type = 'button';
       deleteItem.className = 'menu-item danger';
@@ -1699,19 +1710,20 @@ function buildCaseTable(rows, selectable, columns, isClosed = false) {
         deleteSingleCase(item);
       });
       menu.appendChild(deleteItem);
-    }
 
-    dropdown.appendChild(menu);
-    actionCell.appendChild(dropdown);
-    row.appendChild(actionCell);
+      dropdown.appendChild(menu);
+      actionCell.appendChild(dropdown);
 
-    toggleButton.addEventListener('click', event => {
-      event.stopPropagation();
-      document.querySelectorAll('.action-menu').forEach(m => {
-        if (m !== menu) m.hidden = true;
+      toggleButton.addEventListener('click', event => {
+        event.stopPropagation();
+        document.querySelectorAll('.action-menu').forEach(m => {
+          if (m !== menu) m.hidden = true;
+        });
+        menu.hidden = !menu.hidden;
       });
-      menu.hidden = !menu.hidden;
-    });
+    }
+    
+    row.appendChild(actionCell);
 
     columns.forEach(column => {
       const cell = document.createElement('td');
