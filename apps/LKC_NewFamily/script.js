@@ -1843,7 +1843,10 @@ function openEditModal(item, isClosed = false) {
     label.textContent = field.label;
     label.htmlFor = `edit-field-${index}`;
 
-    const control = createEditControl(field, item[field.name] || '');
+    const val = (item[field.name] !== undefined)
+      ? item[field.name]
+      : item[field.name.replace(/[.#$/\[\]\u0000-\u001f\u007f]/g, '_')];
+    const control = createEditControl(field, val || '');
     control.id = `edit-field-${index}`;
     control.name = field.name;
     if (field.required) control.required = true;

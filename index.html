@@ -556,7 +556,12 @@
             if (config.backendRefresh) {
                 await refreshBackendCache(config.backendRefresh);
             }
-            const count = await deleteFirebaseTopics(config.topics);
+            // 新家人系統的後端重建會直接將新資料寫入 Firebase (warm cache)
+            // 因此前端不需要再次刪除它，否則會把剛重建好的熱快取清空
+            let count = config.topics.length;
+            if (groupKey !== 'newfamily') {
+                count = await deleteFirebaseTopics(config.topics);
+            }
             showResultToast('✅ 已清除「' + config.label + '」' + count + ' 個資料快取');
         } catch (err) {
             console.warn('資料快取清除失敗:', err);
