@@ -1211,7 +1211,7 @@ async function exportCombinedWorkbook() {
         getDisplaySettlementStatus(item) || '',
         item['邀約人'] || '',
         item['日期'] || '',
-        item['日期'] || '',
+        item['結案日期'] || '',
         item['備註'] || ''
       ])
     ];
@@ -1602,18 +1602,18 @@ function buildAnalysisPivotTable(pivot, total) {
 function buildAnalysisDetailTable(rows) {
   const table = document.createElement('table');
   table.innerHTML = `
-    <thead><tr><th>姓名</th><th>日期</th><th>落戶狀態</th><th>點名系統代碼</th><th>現行小組</th></tr></thead>
+    <thead><tr><th>姓名</th><th>日期</th><th>結案日期</th><th>落戶狀態</th><th>點名系統代碼</th><th>現行小組</th></tr></thead>
     <tbody></tbody>
   `;
   const tbody = table.querySelector('tbody');
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="5">沒有符合範圍的明細</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6">沒有符合範圍的明細</td></tr>';
     return table;
   }
 
   rows.forEach(item => {
     const row = document.createElement('tr');
-    ['新家人姓名', '日期', '落戶狀態', '點名系統代碼'].forEach(column => {
+    ['新家人姓名', '日期', '結案日期', '落戶狀態', '點名系統代碼'].forEach(column => {
       const cell = document.createElement('td');
       cell.textContent = column === '落戶狀態'
         ? getDisplaySettlementStatus(item)
