@@ -850,19 +850,45 @@
         .replace(/[~～－—至]/g, '-')
         .replace(/\s+/g, ' ');
       
+      // 1. Whole chapter with colon (e.g. 37:全, 37:1-末, 37:1-最後, 37:1-end)
+      const regexChapColonAll = /^([零〇一二兩三四五六七八九十廿卅卌百]+|\d+)\s*[:\s]\s*(全|全章|全篇|1-末|1-最後|1-end)$/i;
+      let matchAll = normalized.match(regexChapColonAll);
+      if (matchAll) {
+        const chap = chineseToArabic(matchAll[1]);
+        if (isNaN(chap) || chap <= 0) return null;
+        return {
+          chap: chap,
+          sec: ""
+        };
+      }
+
+      // 2. Chapter and verse (e.g. 37:25-26)
       const regex1 = /^([零〇一二兩三四五六七八九十廿卅卌百]+|\d+)\s*[:\s]\s*([\d\-,\s]+)$/;
       const regex2 = /^([零〇一二兩三四五六七八九十廿卅卌百]+)\s*([\d\-,\s]+)$/;
       
       let match = normalized.match(regex1) || normalized.match(regex2);
-      if (!match) return null;
+      if (match) {
+        const chap = chineseToArabic(match[1]);
+        if (isNaN(chap) || chap <= 0) return null;
+        return {
+          chap: chap,
+          sec: match[2].replace(/\s+/g, '')
+        };
+      }
       
-      const chap = chineseToArabic(match[1]);
-      if (isNaN(chap) || chap <= 0) return null;
+      // 3. Chapter only (e.g. 37, 第37, 37章, 37篇, 37全, 37章全, 37全章)
+      const regexChapOnly = /^第?\s*([零〇一二兩三四五六七八九十廿卅卌百]+|\d+)\s*([章篇]|章全|全|全章|全篇)?$/;
+      let matchChap = normalized.match(regexChapOnly);
+      if (matchChap) {
+        const chap = chineseToArabic(matchChap[1]);
+        if (isNaN(chap) || chap <= 0) return null;
+        return {
+          chap: chap,
+          sec: ""
+        };
+      }
       
-      return {
-        chap: chap,
-        sec: match[2].replace(/\s+/g, '')
-      };
+      return null;
     }
 
     function parseScriptureInput(inputStr) {
@@ -935,7 +961,7 @@
       parsedQueries.forEach((q, idx) => {
         const btn = document.createElement('button');
         btn.className = `tab-btn ${idx === currentSegmentIndex ? 'active' : ''}`;
-        btn.innerHTML = `📖 ${q.bookName} ${q.chap}:${q.sec}`;
+        btn.innerHTML = `📖 ${q.bookName} ${q.chap}${q.sec ? ':' + q.sec : ' 章'}`;
         btn.addEventListener('click', () => {
           if (idx === currentSegmentIndex) return;
           
@@ -992,7 +1018,7 @@
       
       const queryObj = parsedQueries[currentSegmentIndex];
       const bookShort = queryObj.eng === 'Heb' ? '來' : queryObj.short;
-      const qstr = `${bookShort} ${queryObj.chap}:${queryObj.sec}`;
+      const qstr = `${bookShort} ${queryObj.chap}${queryObj.sec ? ':' + queryObj.sec : ''}`;
       
       // Use 'unv' natively if version is unv_god, and do client-side replacement
       const apiVersion = currentVersion === 'unv_god' ? 'unv' : currentVersion;
@@ -1032,7 +1058,7 @@
       if (!activeData) return;
 
       const activeVerName = document.querySelector(`.version-pill.active`).innerText;
-      readerTitle.innerText = `${queryObj.bookName} ${queryObj.chap}:${queryObj.sec}`;
+      readerTitle.innerText = `${queryObj.bookName} ${queryObj.chap}${queryObj.sec ? ':' + queryObj.sec : ' 章'}`;
       readerVersion.innerText = activeVerName;
 
       const versesHtml = activeData.map(verse => {
@@ -1062,7 +1088,7 @@
       const queryObj = parsedQueries[currentSegmentIndex];
       const activeVerName = document.querySelector(`.version-pill.active`).innerText;
       
-      let header = `📖 ${queryObj.bookName} ${queryObj.chap}:${queryObj.sec} (${activeVerName})\n`;
+      let header = `📖 ${queryObj.bookName} ${queryObj.chap}${queryObj.sec ? ':' + queryObj.sec : ' 章'} (${activeVerName})\n`;
       let content = activeData.map(verse => {
         let text = verse.bible_text;
         if (currentVersion === 'unv_god') {
