@@ -909,6 +909,18 @@
         if (match) {
           const matchedLength = match[0].length;
           const rest = trimmed.slice(matchedLength).trim();
+          
+          // Support single-chapter books without chapter number (e.g., 猶大書 -> 猶大書 1章)
+          if ((rest === "" || /^(全|全書|整卷|全卷)$/.test(rest)) && cand.book.chapters === 1) {
+            return {
+              eng: cand.book.eng,
+              short: cand.book.short,
+              chap: 1,
+              sec: "",
+              bookName: cand.book.full
+            };
+          }
+          
           const parsedCV = parseChapterAndVerse(rest);
           if (parsedCV) {
             return {
