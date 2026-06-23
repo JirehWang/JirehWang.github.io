@@ -2615,8 +2615,13 @@ async function showAggregatedReport(type) {
           return { ...obj, '話語分享(講員)': combined };
         });
 
-        // 依日期升冪排序，統一用本地日期解析，避免 yyyy-mm-dd 被瀏覽器當 UTC。
+        // 先依「分頁名稱（組）」排序，相同組別再依「日期」升冪排序，統一用本地日期解析
         objs.sort((a, b) => {
+          const groupA = String(a['分頁名稱'] || '');
+          const groupB = String(b['分頁名稱'] || '');
+          if (groupA !== groupB) {
+            return groupA.localeCompare(groupB, 'zh-Hant');
+          }
           const da = _ms_parseLocalDate(a['日期']);
           const db = _ms_parseLocalDate(b['日期']);
           if (!da && !db) return 0;
@@ -2630,9 +2635,35 @@ async function showAggregatedReport(type) {
         matrix = merged;
       }
     } else {
-      // 各項服事總表 = others 排除團契後，依日期合併（同欄不同值用換行串接 + 來源標記）
+      // 各項服事總表 = others 排除團契後，依「分頁名稱（組）」及「日期」排列，不再做跨組的全域日期合併
       const withoutFellowship = _ms_filterMatrix(othRaw, obj => obj['模板類型'] !== '團契聚會表模板');
-      matrix = _ms_collapseByDate(withoutFellowship);
+      if (withoutFellowship.length > 1) {
+        const objs = _ms_matrixToObjects(withoutFellowship);
+        
+        // 依「分頁名稱（組）」排序，相同組別再依「日期」升冪排序
+        objs.sort((a, b) => {
+          const groupA = String(a['分頁名稱'] || '');
+          const groupB = String(b['分頁名稱'] || '');
+          if (groupA !== groupB) {
+            return groupA.localeCompare(groupB, 'zh-Hant');
+          }
+          const da = _ms_parseLocalDate(a['日期']);
+          const db = _ms_parseLocalDate(b['日期']);
+          if (!da && !db) return 0;
+          if (!da) return 1;
+          if (!db) return -1;
+          return da.getTime() - db.getTime();
+        });
+
+        // 欄位順序：日期優先，後接分頁名稱，再接其他服事欄位（排除其餘 meta 欄位）
+        const excludeHeaders = ['模板類型', '聚會名稱', '聚會類別', '日期', '分頁名稱'];
+        const otherHeaders = withoutFellowship[0].filter(h => !excludeHeaders.includes(h));
+        const finalHeaders = ['日期', '分頁名稱', ...otherHeaders];
+        
+        matrix = _ms_objectsToMatrix(objs, finalHeaders, { strict: true });
+      } else {
+        matrix = withoutFellowship;
+      }
     }
 
     if (!matrix || matrix.length <= 1) {
@@ -2667,13 +2698,61 @@ async function showAggregatedReport(type) {
 //  📥 下載彙整報表 Excel
 // ============================================================
 function downloadAggregatedExcel(matrix, fileName) {
-  const ws = XLSX.utils.aoa_to_sheet(matrix);
+  if (!matrix || matrix.length === 0) return;
+
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "彙整總表");
+  const headers = matrix[0];
+  const groupColIdx = headers.indexOf("分頁名稱");
+
+  if (groupColIdx >= 0 && matrix.length > 1) {
+    // 依「分頁名稱」將資料列分組
+    const grouped = {};
+    for (let i = 1; i < matrix.length; i++) {
+      const row = matrix[i];
+      const groupName = row[groupColIdx] || "未分類";
+      if (!grouped[groupName]) {
+        grouped[groupName] = [];
+      }
+      grouped[groupName].push(row);
+    }
+
+    const usedNames = new Set();
+    // 每個組別建立一個分頁 (Sheet)
+    Object.keys(grouped).forEach(groupName => {
+      let sheetName = sanitizeSheetName(groupName);
+      let baseName = sheetName;
+      let counter = 1;
+      // 確保分頁名稱在 Excel 中不重複（不區分大小寫）
+      while (usedNames.has(sheetName.toLowerCase())) {
+        sheetName = `${baseName}_${counter}`;
+        counter++;
+      }
+      usedNames.add(sheetName.toLowerCase());
+
+      const sheetData = [headers, ...grouped[groupName]];
+      const ws = XLSX.utils.aoa_to_sheet(sheetData);
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    });
+  } else {
+    // 若無分頁名稱欄位，則使用單一彙整分頁
+    const ws = XLSX.utils.aoa_to_sheet(matrix);
+    XLSX.utils.book_append_sheet(wb, ws, "彙整總表");
+  }
 
   const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   XLSX.writeFile(wb, `${fileName}_${today}.xlsx`);
   getNotifier().success("✅ Excel 已下載");
+}
+
+function sanitizeSheetName(name) {
+  if (!name) return "未分類";
+  // 移除 Excel 不支援的特殊字元 \ / ? * : [ ]
+  let cleanName = name.replace(/[\\\/?*:[\]]/g, "").trim();
+  // 限制長度為 31 個字元
+  if (cleanName.length > 31) {
+    cleanName = cleanName.slice(0, 31);
+  }
+  return cleanName || "未分類";
 }
 
 
