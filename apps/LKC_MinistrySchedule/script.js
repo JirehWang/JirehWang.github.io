@@ -3141,7 +3141,7 @@ function updateRowSermonState(rowDiv, linkType, dateStr) {
           const idx = fieldIndices[f];
           if (idx !== -1 && inputsMap[idx]) {
             let val = "";
-            if (f === "主題") val = sermon.title || "";
+            if (f === "主題") val = (sermon.title || "").trim() || "主日講道信息";
             else if (f === "經文") val = sermon.scripture || "";
             inputsMap[idx].value = val;
             inputsMap[idx].title = val;
@@ -3152,12 +3152,14 @@ function updateRowSermonState(rowDiv, linkType, dateStr) {
         return;
       }
     }
-    // 未設定日期或查無講道，則清空欄位值
+    // 未設定日期或查無講道，則主題填入「主日講道信息」，其餘清空
     fields.forEach(f => {
       const idx = fieldIndices[f];
       if (idx !== -1 && inputsMap[idx]) {
-        inputsMap[idx].value = "";
-        inputsMap[idx].title = "";
+        let val = "";
+        if (f === "主題") val = "主日講道信息";
+        inputsMap[idx].value = val;
+        inputsMap[idx].title = val;
       }
     });
   } else {
