@@ -221,6 +221,24 @@
                 next7Days.setDate(today.getDate() + 6);
                 next7Days.setHours(23, 59, 59, 999);
 
+                // 🌟 4. 同步載入這段期間（前後各14天）的講道資訊來進行動態連動
+                const sermonStart = new Date(today);
+                sermonStart.setDate(sermonStart.getDate() - 14);
+                const sermonEnd = new Date(today);
+                sermonEnd.setDate(sermonEnd.getDate() + 14);
+                
+                let sermonList = [];
+                try {
+                    sermonList = await fetchSermonData(formatDate(sermonStart), formatDate(sermonEnd));
+                } catch (se) {
+                    console.warn("無法取得主日講道行事曆，將僅使用 Sheets 本身儲存的資料:", se);
+                }
+
+                // 🌟 5. 針對每筆小組聚會，若設定了「套用講道」且主題/經文為空白或為「待定」，在前端動態連動最新講道資訊
+                allRawData.forEach(event => {
+                    resolveSermonForEvent(event, sermonList);
+                });
+
                 dateRangeText.innerHTML = `願你們平安，在小組團契裡常存愛的陪伴❤️❤️❤️<br>📅 小組團契聚會預告：${formatDate(today)} ~ ${formatDate(next7Days)}`;
 
                 // 過濾與排序
@@ -279,6 +297,141 @@
             } catch (err) {
                 console.error(err);
                 container.innerHTML = `<div class="no-data text-danger">⚠️ 連線失敗：${err.message}</div>`;
+            }
+        }
+
+        async function fetchSermonData(startDateStr, endDateStr) {
+            try {
+                // 🌟 因為 _GAS_KEY 為 'LKC_MinistrySchedule_TEST'，前端 config.js 會自動在 action 加上 'ministry_' 前綴。
+                // 為了呼叫行事曆專用的 'cal_getEvents'，我們直接 fetch(window.GAS_URL, ...) 發送 POST 請求，繞過前綴處理。
+                const requestBody = {
+                    action: "cal_getEvents",
+                    token: window.AUTH_TOKEN,
+                    data: { startDate: startDateStr, endDate: endDateStr }
+                };
+                const resp = await fetch(window.GAS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(requestBody)
+                });
+                const res = await resp.json();
+                if (!res || !res.success) return [];
+                
+                const dateMap = {};
+                const events = res.data || [];
+                events.forEach(ev => {
+                    if (!ev.date) return;
+                    const dateOnly = ev.date.split(' ')[0]; // "2026-06-21"
+                    if (!dateMap[dateOnly]) {
+                        dateMap[dateOnly] = {
+                            date: dateOnly,
+                            sermons: []
+                        };
+                    }
+                    
+                    let title = "";
+                    let scripture = "";
+                    let speaker = "";
+                    if (ev.values && Array.isArray(ev.values)) {
+                        const titleVal = ev.values.find(v => v.fieldName === "講題" || v.fieldName === "主題");
+                        const scriptureVal = ev.values.find(v => v.fieldName === "經文");
+                        const speakerVal = ev.values.find(v => v.fieldName === "講員");
+                        if (titleVal) title = titleVal.value || "";
+                        if (scriptureVal) scripture = scriptureVal.value || "";
+                        if (speakerVal) speaker = speakerVal.value || "";
+                    }
+                    if (!title) {
+                        title = ev.title ? ev.title.replace(/（.*）|\(.*\)|\s*牧師.*/, '') : "";
+                    }
+                    
+                    dateMap[dateOnly].sermons.push({
+                        title: title.trim(),
+                        scripture: scripture.trim(),
+                        type: ev.typeName || "",
+                        speaker: speaker.trim()
+                    });
+                });
+                
+                return Object.values(dateMap);
+            } catch (e) {
+                console.error("[SermonLink] Failed to fetch sermon data:", e);
+                return [];
+            }
+        }
+
+        function getSundayStrForDate(dateObj) {
+            const d = new Date(dateObj.getTime());
+            const dayOfWeek = d.getDay(); // 0-6 (0 代表星期日)
+            const offset = dayOfWeek === 0 ? 7 : dayOfWeek;
+            d.setDate(d.getDate() - offset);
+            return formatDate(d);
+        }
+
+        function resolveSermonForEvent(event, sermonList) {
+            const linkType = event["套用講道"];
+            if (!linkType || linkType === "N" || linkType === "") {
+                return;
+            }
+            
+            // 判斷是否需要自動補齊（當前主題或經文為空、待定，或是預設標題）
+            const needsResolve = !event["主題"] || 
+                                 event["主題"] === "待定" || 
+                                 event["主題"] === "主日講道信息" ||
+                                 !event["經文"] ||
+                                 event["經文"] === "待定" ||
+                                 event["經文"] === "";
+            
+            if (!needsResolve) {
+                return;
+            }
+            
+            const itemDate = parseLocalDate(event["日期"]);
+            if (!itemDate) return;
+            
+            const sundayStr = getSundayStrForDate(itemDate);
+            const sundayEvents = sermonList.filter(ev => ev.date === sundayStr);
+            if (sundayEvents.length === 0) {
+                if (!event["主題"] || event["主題"] === "待定") {
+                    event["主題"] = "主日講道信息";
+                }
+                return;
+            }
+            
+            const sermons = [];
+            sundayEvents.forEach(ev => {
+                if (ev.sermons && ev.sermons.length > 0) {
+                    sermons.push(...ev.sermons);
+                }
+            });
+            
+            if (sermons.length === 0) {
+                if (!event["主題"] || event["主題"] === "待定") {
+                    event["主題"] = "主日講道信息";
+                }
+                return;
+            }
+            
+            const sermonType = linkType === "Y" ? "華語/聯合" : linkType;
+            const targetTypes = sermonType.split('/');
+            let match = null;
+            for (const t of targetTypes) {
+                const trimmed = t.trim();
+                if (!trimmed) continue;
+                match = sermons.find(s => s.type && s.type.indexOf(trimmed) !== -1);
+                if (match) break;
+            }
+            
+            if (match) {
+                if (!event["主題"] || event["主題"] === "待定" || event["主題"] === "主日講道信息") {
+                    event["主題"] = match.title || "主日講道信息";
+                }
+                if (!event["經文"] || event["經文"] === "待定" || event["經文"] === "") {
+                    event["經文"] = match.scripture || "";
+                }
+            } else {
+                if (!event["主題"] || event["主題"] === "待定") {
+                    event["主題"] = "主日講道信息";
+                }
             }
         }
 
