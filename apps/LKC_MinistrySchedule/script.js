@@ -2602,21 +2602,50 @@ async function showAggregatedReport(type) {
       const fellowshipFromOthers = _ms_filterMatrix(othRaw, obj => obj['模板類型'] === '團契聚會表模板');
       const merged = _ms_mergeMatrices(smRaw, fellowshipFromOthers);
 
-      if (merged.length > 1) {
-        // 使用者指定的欄位白名單（其他欄位全部丟掉）
-        // 「話語分享(講員)」是把小組的「話語分享」與團契的「講員」合併成同一欄
-        const finalHeaders = ['日期', '分頁名稱', '破冰', '敬拜', '主題', '經文', '地點', '話語分享(講員)', '司會'];
+      if (smRaw && smRaw.length > 1) {
+        // 動態收集僅限「小組聚會表模板」的實際欄位 (排除 meta 系統欄位)
+        const excludeHeaders = ['模板類型', '聚會名稱', '聚會類別', '講道連動', '套用講道', '日期', '分頁名稱'];
+        const rawSmHeaders = smRaw[0] || [];
 
-        const objs = _ms_matrixToObjects(merged).map(obj => {
-          const speak = (obj['話語分享'] == null ? '' : String(obj['話語分享'])).trim();
-          const speaker = (obj['講員'] == null ? '' : String(obj['講員'])).trim();
-          // 同列通常只會其中一個有值（小組 vs 團契），兩個都有時用 / 串接
-          const combined = speak && speaker && speak !== speaker ? `${speak} / ${speaker}` : (speak || speaker);
-          return { ...obj, '話語分享(講員)': combined };
+        // 判斷小組是否含有「話語分享」欄位
+        const hasWordSharing = rawSmHeaders.includes('話語分享');
+
+        const otherHeaders = rawSmHeaders.filter(h => {
+          if (excludeHeaders.includes(h)) return false;
+          if (h === '話語分享') return false;
+          return true;
+        });
+
+        // 組合標題順序：日期 -> 分頁名稱 -> 其他小組欄位 -> (話語分享(講員))
+        const finalHeaders = ['日期', '分頁名稱', ...otherHeaders];
+        if (hasWordSharing) {
+          finalHeaders.push('話語分享(講員)');
+        }
+
+        const mergedObjs = [];
+
+        // 1. 處理小組資料
+        _ms_matrixToObjects(smRaw).forEach(obj => {
+          const newObj = { ...obj };
+          if (hasWordSharing) {
+            newObj['話語分享(講員)'] = (obj['話語分享'] == null ? '' : String(obj['話語分享'])).trim();
+          }
+          mergedObjs.push(newObj);
+        });
+
+        // 2. 處理團契資料 (只保留與小組相容的欄位，並將「講員」或「話語分享」對應到「話語分享(講員)」)
+        _ms_matrixToObjects(fellowshipFromOthers).forEach(obj => {
+          const newObj = { ...obj };
+          if (hasWordSharing) {
+            const speak = (obj['話語分享'] == null ? '' : String(obj['話語分享'])).trim();
+            const speaker = (obj['講員'] == null ? '' : String(obj['講員'])).trim();
+            newObj['話語分享(講員)'] = speak || speaker;
+          }
+          mergedObjs.push(newObj);
         });
 
         // 先依「分頁名稱（組）」排序，相同組別再依「日期」升冪排序，統一用本地日期解析
-        objs.sort((a, b) => {
+        mergedObjs.sort((a, b) => {
           const groupA = String(a['分頁名稱'] || '');
           const groupB = String(b['分頁名稱'] || '');
           if (groupA !== groupB) {
@@ -2630,9 +2659,11 @@ async function showAggregatedReport(type) {
           return da.getTime() - db.getTime();
         });
 
-        matrix = _ms_objectsToMatrix(objs, finalHeaders, { strict: true });
+        // strict: true 將只會保留 finalHeaders 有列出的欄位，團契自訂的特定欄位（如司琴、音控等）會被自動濾除
+        matrix = _ms_objectsToMatrix(mergedObjs, finalHeaders, { strict: true });
       } else {
-        matrix = merged;
+        // 若無小組資料，則 fallback 回一般的合併矩陣
+        matrix = _ms_mergeMatrices(smRaw, fellowshipFromOthers);
       }
     } else {
       // 各項服事總表 = others 排除團契後，依「分頁名稱（組）」及「日期」排列，不再做跨組的全域日期合併
