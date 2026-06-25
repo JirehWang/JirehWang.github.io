@@ -2604,7 +2604,8 @@ async function showAggregatedReport(type) {
         const excludeHeaders = ['套用講道', '模板類型'];
         const finalHeaders = smRaw[0].filter(h => !excludeHeaders.includes(h));
 
-        const objs = _ms_matrixToObjects(smRaw);
+        // 僅撈取模板類型為「小組聚會表模板」的群組
+        const objs = _ms_matrixToObjects(smRaw).filter(obj => obj['模板類型'] === '小組聚會表模板');
 
         // 先依「分頁名稱（組）」排序，相同組別再依「日期」升冪排序，統一用本地日期解析
         objs.sort((a, b) => {
