@@ -41,9 +41,65 @@
   document.addEventListener('click', wakeUp, { passive: true });
   document.addEventListener('keydown', wakeUp, { passive: true });
 
+  // 格式化：YYYY-MM-DD -> YYYY/M/D
+  function formatDateToSlash(dateVal) {
+    if (!dateVal) return "";
+    const parts = dateVal.split('-');
+    if (parts.length !== 3) return dateVal;
+    const year = parts[0];
+    const month = parseInt(parts[1], 10);
+    const day = parseInt(parts[2], 10);
+    return `${year}/${month}/${day}`;
+  }
+
+  // 格式化：Date對象 -> YYYY-MM-DD
+  function formatDateToDash(dateObj) {
+    const yyyy = dateObj.getFullYear();
+    const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const dd = String(dateObj.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  // 解鎖日期編輯確認
+  window.unlockDateEdit = function() {
+    if (typeof autoJumpConfig !== 'undefined' && autoJumpConfig.active) {
+      alert("⚠️ 透過場次 QR Code 進入，不可修改日期！");
+      return;
+    }
+    if (confirm("確定要修改點名日期嗎？\n(這將會載入您所選擇日期的點名狀態，以避免誤觸)")) {
+      const dateInput = document.getElementById('attendanceDateInput');
+      if (dateInput) {
+        dateInput.disabled = false;
+        dateInput.focus();
+      }
+    }
+  }
+
+  // 檢查是否由 QR Code 進入並自動隱藏修改按鈕
+  function checkDateLockStatus() {
+    if (typeof autoJumpConfig !== 'undefined' && autoJumpConfig.active) {
+      const unlockBtn = document.getElementById('unlockDateBtn');
+      if (unlockBtn) {
+        unlockBtn.style.display = 'none';
+      }
+      const dateInput = document.getElementById('attendanceDateInput');
+      if (dateInput) {
+        dateInput.disabled = true;
+      }
+    }
+  }
+
   var today = new Date();
-  var dateDisplay = document.getElementById('todayDateDisplay');
-  if (dateDisplay) dateDisplay.innerText = "📅 " + today.getFullYear() + "/" + (today.getMonth()+1) + "/" + today.getDate();
+  var dateInput = document.getElementById('attendanceDateInput');
+  if (dateInput) {
+    dateInput.value = formatDateToDash(today);
+    dateInput.addEventListener('change', function() {
+      this.disabled = true; // 修改後立即重新鎖定
+      if (currentAttType) {
+        switchType(currentAttType); // 重新載入對應日期的名單
+      }
+    });
+  }
 
   function loadGroupConfig(targetCategory = null, targetGroup = null) {
     google.script.run.withSuccessHandler(config => {
@@ -51,6 +107,7 @@
       renderCategorySelect(targetCategory);
       updateGroupSelect(targetGroup);
       startAutoSync();
+      checkDateLockStatus();
     }).getGroupConfig();
   }
 
@@ -106,6 +163,10 @@
     var listBody = document.getElementById('attendanceListBody');
     if (listBody) listBody.innerHTML = '<div class="full-width-msg"><div class="spinner-border text-primary mb-3"></div><div class="h6">讀取 [' + type + '] 名單中...</div></div>';
     var requestedType = type;
+    
+    var dateInput = document.getElementById('attendanceDateInput');
+    var selectedDateStr = dateInput ? formatDateToSlash(dateInput.value) : "";
+
     google.script.run
       .withSuccessHandler(function(result) {
         if (requestedType !== currentAttType) return;
@@ -120,7 +181,7 @@
         alert("讀取名單失敗：" + err.message);
         attIsRendering = false;
       })
-      .getSmartAttendanceList(requestedType, attUserId); 
+      .getSmartAttendanceList(requestedType, attUserId, selectedDateStr); 
   }
 
   function openGroupAddModal() {
@@ -275,13 +336,15 @@
   function silentRefreshList() {
     if (attIsRendering) return;
     attIsRendering = true;
+    var dateInput = document.getElementById('attendanceDateInput');
+    var selectedDateStr = dateInput ? formatDateToSlash(dateInput.value) : "";
     google.script.run.withSuccessHandler(function(result) {
         var list = Array.isArray(result) ? result : (result.activeList || []);
         var nfMale = result.nfMale || 0;
         var nfFemale = result.nfFemale || 0;
         renderAttendanceList(list, nfMale, nfFemale);
         attIsRendering = false;
-    }).getSmartAttendanceList(currentAttType, attUserId);
+    }).getSmartAttendanceList(currentAttType, attUserId, selectedDateStr);
   }
 
   function confirmRevoke(uid, displayName) {
@@ -293,6 +356,8 @@ function executeRevoke(uid, displayName) {
     var btn = document.getElementById('submitBtn');
     var originalText = "確認送出";
     if (btn) { btn.disabled = true; btn.innerHTML = '正在撤銷...'; }
+    var dateInput = document.getElementById('attendanceDateInput');
+    var selectedDateStr = dateInput ? formatDateToSlash(dateInput.value) : "";
     google.script.run.withSuccessHandler(function(msg) {
         if (msg === "OK") {
             var container = document.getElementById('attendanceListBody');
@@ -326,12 +391,14 @@ function executeRevoke(uid, displayName) {
             alert(msg);
         }
         if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
-    }).revokeAttendance(uid, currentAttType, attUserId);
+    }).revokeAttendance(uid, currentAttType, attUserId, selectedDateStr);
 }
 
   function fetchRemoteStatus() {
     var searchInput = document.getElementById('attSearchInput');
     if (attIsRendering || (searchInput && searchInput.value)) return;
+    var dateInput = document.getElementById('attendanceDateInput');
+    var selectedDateStr = dateInput ? formatDateToSlash(dateInput.value) : "";
     google.script.run.withSuccessHandler(function(data) {
         if (!data || attIsRendering) return;
         var activeList = Array.isArray(data) ? data : (data.activeList || []);
@@ -389,7 +456,7 @@ function executeRevoke(uid, displayName) {
         var submittedCards = container.querySelectorAll('.att-item.submitted').length;
         var presentEl = document.getElementById('presentCount');
         if (presentEl) presentEl.innerText = submittedCards + Number(nfMale) + Number(nfFemale);
-    }).getQuickSyncData(currentAttType, attUserId);
+    }).getQuickSyncData(currentAttType, attUserId, selectedDateStr);
   }
   
   function startAutoSync() { 
@@ -433,8 +500,8 @@ function executeRevoke(uid, displayName) {
     var originalText = "確認送出";
     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 處理中...'; }
     attIsRendering = true; 
-    var dateDisplay = document.getElementById('todayDateDisplay');
-    var dateText = dateDisplay ? dateDisplay.innerText.replace('📅 ','') : '';
+    var dateInput = document.getElementById('attendanceDateInput');
+    var dateText = dateInput ? formatDateToSlash(dateInput.value) : '';
     google.script.run.withSuccessHandler(function(msg) {
         alert(msg); 
         if (btn) { btn.disabled = false; btn.innerHTML = originalText; }

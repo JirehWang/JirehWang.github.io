@@ -181,7 +181,11 @@
     <div id="presentCountBadge" class="badge p-2.5 small shadow-sm d-flex align-items-center flex-grow-1 justify-content-center border-0" style="background-color: var(--color-green); border-radius: 20px; font-weight: 600;">
         ✅ 已出席：<span id="presentCount" class="mx-1">0</span> 人
     </div>
-    <div id="todayDateDisplay" class="badge bg-white text-dark border-0 p-2.5 small shadow-sm d-flex align-items-center flex-grow-1 justify-content-center" style="border-radius: 20px; font-weight: 500;"></div>
+    <div class="d-flex align-items-center gap-1 flex-grow-1 justify-content-center badge bg-white text-dark border-0 p-1 small shadow-sm" style="border-radius: 20px;">
+      <span>📅</span>
+      <input type="date" id="attendanceDateInput" class="form-control form-control-sm p-0 border-0 fw-bold text-dark bg-transparent text-center" style="width: 105px; cursor: pointer; font-size: 0.875rem;" disabled>
+      <button id="unlockDateBtn" class="btn btn-xs btn-outline-secondary border-0 p-0 px-1" style="font-size: 0.75rem; line-height: 1;" onclick="unlockDateEdit()" title="修改日期">✏️</button>
+    </div>
   </div>
 
   <div id="groupSelectRow" class="row g-2 mb-3 bg-white p-3 rounded-4 shadow-sm border-0" style="border-radius: var(--radius-lg);">
