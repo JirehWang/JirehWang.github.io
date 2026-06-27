@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台語有聲聖經 - 林口教會</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Style Sheet -->
+    <link rel="stylesheet" href="style.css">
+    <!-- Central FHL Bible Parser Service -->
+    <script src="../LKC_ppt_generator/bible-service.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo-area">
+                <span class="logo-icon">🔊</span>
+                <div>
+                    <h1>台語有聲聖經</h1>
+                    <p>LKC Taiwanese Audio Bible</p>
+                </div>
+            </div>
+            <a href="../../index.html" class="btn-back">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                返回管理首頁
+            </a>
+        </header>
+
+        <!-- Main Layout -->
+        <main class="app-main">
+            <!-- Left Side: Control Panel & Playlist/Chapters -->
+            <section class="left-column">
+                <!-- Scripture Query Card -->
+                <div class="panel-card">
+                    <h2 class="panel-title"><span class="title-num">1</span> 選擇經文段落</h2>
+                    
+                    <div class="form-group">
+                        <label for="bible-ver-select">聖經漢字譯本</label>
+                        <select id="bible-ver-select" class="form-select">
+                            <option value="tghg" selected>台語：巴克禮台漢本 (tghg)</option>
+                            <option value="ttvhl2021">台語：現代台語2021漢字版 (ttvhl2021)</option>
+                            <option value="unv">華語：和合本神版 (unv)</option>
+                            <option value="unv_god">華語：和合本上帝版 (unv_god)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="query-input">經文範圍</label>
+                        <div class="query-input-wrap">
+                            <input type="text" id="query-input" placeholder="例如: 詩篇 23 或 弗 5:1-4" class="form-input" value="詩篇 23">
+                            <button id="btn-query" class="btn-primary">查詢</button>
+                        </div>
+                        <span class="input-helper">支援格式：以弗所書 5:1-4、弗5:1-4、Eph 5:1-4 等</span>
+                    </div>
+                </div>
+
+                <!-- Audio Controller Card -->
+                <div class="panel-card">
+                    <h2 class="panel-title"><span class="title-num">2</span> 語音播放設定</h2>
+                    
+                    <div class="form-group">
+                        <label for="audio-ver-select">語音朗讀譯本</label>
+                        <select id="audio-ver-select" class="form-select">
+                            <option value="1" selected>巴克禮台語有聲聖經</option>
+                            <option value="5">台語新約 (長老教會授權版)</option>
+                            <option value="0">華語：和合本有聲聖經</option>
+                        </select>
+                    </div>
+
+                    <!-- Speed & Autoplay options -->
+                    <div class="audio-options">
+                        <div class="form-group">
+                            <label for="speed-range">播放語速: <span id="speed-val">1.0</span>x</label>
+                            <input type="range" id="speed-range" min="0.5" max="2.0" value="1.0" step="0.1" class="form-range">
+                        </div>
+                        
+                        <div class="form-group row-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="auto-next" checked>
+                                <span class="checkbox-custom"></span>
+                                自動播放下一章
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chapter Navigation / Playlist Card -->
+                <div class="panel-card playlist-card" id="playlist-card" style="display: none;">
+                    <h2 class="panel-title"><span class="title-num">3</span> 播放章節列表</h2>
+                    <div class="playlist-container" id="playlist-container">
+                        <!-- JavaScript will populate chapter playlist items here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Side: Scripture Text Display & Audio Player -->
+            <section class="right-column">
+                <!-- Player Bar (Sticky Top of Content) -->
+                <div class="player-card">
+                    <div class="player-info">
+                        <h3 id="current-chapter-title">尚未載入章節</h3>
+                        <p id="audio-source-name">無音訊來源</p>
+                    </div>
+                    
+                    <div class="player-controls">
+                        <!-- Standard Audio element -->
+                        <audio id="bible-audio" controls preload="auto"></audio>
+                    </div>
+                </div>
+
+                <!-- Scripture Content Card -->
+                <div class="scripture-container-card">
+                    <div class="scripture-header">
+                        <h2 id="scripture-title-display">讀經板</h2>
+                        <span id="scripture-info-display" class="scripture-badge">請輸入經文並點擊查詢</span>
+                    </div>
+                    <div class="scripture-content-body" id="scripture-body">
+                        <div class="placeholder-msg">
+                            <span class="placeholder-icon">📖</span>
+                            <p>請在左側輸入想要閱讀與聆聽的聖經段落，然後點選「查詢」。</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast-message" class="toast"></div>
+
+    <!-- Application Script -->
+    <script src="script.js"></script>
+</body>
+</html>

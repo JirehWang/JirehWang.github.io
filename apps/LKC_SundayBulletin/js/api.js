@@ -480,15 +480,22 @@ const ChurchAPI = {
     };
   },
 
-  // ==========================================
-  // FHL 信望愛聖經 API 查詢 (用作輔助判斷與經文比對)
-  // ==========================================
   async queryBible(book, chap, sec = '', version = 'unv') {
     try {
-      const url = `${CONFIG.GAS_SYNC_URL}?action=queryBible&book=${encodeURIComponent(book)}&chap=${chap}&sec=${sec}&version=${version}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
+      const parseInput = `${book} ${chap}${sec ? ':' + sec : ''}`;
+      const queries = FhlBibleService.parseQuery(parseInput);
+      if (queries.length === 0) {
+        throw new Error(`無法識別書卷名稱: ${book}`);
+      }
+      const queryObj = queries[0];
+      const res = await FhlBibleService.fetchScripture(queryObj, version);
+      if (res && res.record) {
+        res.record = res.record.map(v => ({
+          ...v,
+          bible_text: v.bible_text.replace(/<\/?[a-zA-Z0-9]+[^>]*>/g, '')
+        }));
+      }
+      return res;
     } catch (err) {
       console.error('[ChurchAPI queryBible]', err);
       return { success: false, error: err.message };
