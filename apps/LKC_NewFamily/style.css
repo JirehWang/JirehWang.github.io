@@ -725,9 +725,8 @@ table.resizable-table {
 
 table.resizable-table th,
 table.resizable-table td {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-all;
+  white-space: normal;
 }
 
 /* Settings button styling */

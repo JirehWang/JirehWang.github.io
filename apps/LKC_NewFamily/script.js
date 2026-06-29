@@ -63,24 +63,40 @@ function getSavedColumnWidth(column) {
 }
 
 // Load visible columns from cookie or default to all
-let visibleColumns = [];
-const visibleCookie = getCookie('visible_columns');
-if (visibleCookie) {
-  try {
-    visibleColumns = JSON.parse(visibleCookie);
-  } catch(e) {
-    visibleColumns = [...ALL_COLUMNS];
-  }
+let visibleColumnsTracking = [];
+const visibleCookieTracking = getCookie('visible_columns_tracking');
+if (visibleCookieTracking) {
+  try { visibleColumnsTracking = JSON.parse(visibleCookieTracking); } catch(e) { visibleColumnsTracking = ALL_COLUMNS.filter(col => col !== '結案日期'); }
 } else {
-  visibleColumns = [...ALL_COLUMNS];
+  visibleColumnsTracking = ['姓名', '性別', '聚會別', '表單號', '手機', '關懷同工', '邀約人', '首次來訪日', '落戶狀態', '備註', '會友狀態', '點名編號'];
+}
+
+let visibleColumnsClosed = [];
+const visibleCookieClosed = getCookie('visible_columns_closed');
+if (visibleCookieClosed) {
+  try { visibleColumnsClosed = JSON.parse(visibleCookieClosed); } catch(e) { visibleColumnsClosed = [...ALL_COLUMNS]; }
+} else {
+  visibleColumnsClosed = ['姓名', '性別', '聚會別', '表單號', '手機', '關懷同工', '邀約人', '首次來訪日', '結案日期', '落戶狀態', '備註', '會友狀態', '點名編號'];
+}
+
+let visibleColumnsAnalysis = [];
+const visibleCookieAnalysis = getCookie('visible_columns_analysis');
+if (visibleCookieAnalysis) {
+  try { visibleColumnsAnalysis = JSON.parse(visibleCookieAnalysis); } catch(e) { visibleColumnsAnalysis = [...ALL_COLUMNS]; }
+} else {
+  visibleColumnsAnalysis = ['姓名', '首次來訪日', '結案日期', '落戶狀態', '點名編號', '現行小組'];
 }
 
 function getTrackingColumns() {
-  return ALL_COLUMNS.filter(col => visibleColumns.includes(col) && col !== '結案日期');
+  return ALL_COLUMNS.filter(col => visibleColumnsTracking.includes(col) && col !== '結案日期');
 }
 
 function getClosedColumns() {
-  return ALL_COLUMNS.filter(col => visibleColumns.includes(col));
+  return ALL_COLUMNS.filter(col => visibleColumnsClosed.includes(col));
+}
+
+function getAnalysisColumns() {
+  return ALL_COLUMNS.filter(col => visibleColumnsAnalysis.includes(col));
 }
 
 const editFields = [
@@ -185,6 +201,7 @@ analysisYear.value = new Date().getFullYear();
 loadMeetingOptions();
 loadSettlementStatusOptions();
 setAnalysisRange('year');
+columnsSettingsBtn.style.display = 'none';
 
 document.querySelectorAll('.tab').forEach(button => {
   button.addEventListener('click', () => switchTab(button.dataset.tab));
@@ -417,6 +434,8 @@ function switchTab(tabName) {
   document.getElementById('trackingPanel').hidden = tabName !== 'tracking';
   document.getElementById('closedPanel').hidden = tabName !== 'closed';
   document.getElementById('analysisPanel').hidden = tabName !== 'analysis';
+
+  columnsSettingsBtn.style.display = (tabName === 'form') ? 'none' : 'inline-flex';
 
   if (tabName === 'tracking') loadTrackingCases();
   if (tabName === 'closed') loadClosedCases();
@@ -1670,7 +1689,7 @@ function buildAnalysisPivotTable(pivot, total) {
 }
 
 function buildAnalysisDetailTable(rows) {
-  return buildCaseTable(rows, false, getClosedColumns(), false, false);
+  return buildCaseTable(rows, false, getAnalysisColumns(), false, false);
 }
 
 function filterCases(rows, filters) {
@@ -2333,10 +2352,37 @@ columnsSettingsModal.addEventListener('click', event => {
   if (event.target === columnsSettingsModal) closeColumnsSettingsModal();
 });
 
+function getActiveTab() {
+  if (!document.getElementById('trackingPanel').hidden) return 'tracking';
+  if (!document.getElementById('closedPanel').hidden) return 'closed';
+  if (!document.getElementById('analysisPanel').hidden) return 'analysis';
+  return 'form';
+}
+
 function openColumnsSettingsModal() {
+  const activeTab = getActiveTab();
+  if (activeTab === 'form') return;
+
   settingsColumnsList.innerHTML = '';
   
-  ALL_COLUMNS.forEach(column => {
+  const titleMap = {
+    'tracking': '追蹤中 - 欄位顯示設定',
+    'closed': '已結案 - 欄位顯示設定',
+    'analysis': '落戶分析 - 欄位顯示設定'
+  };
+  document.getElementById('settingsTitle').textContent = titleMap[activeTab];
+
+  const applicableColumns = ALL_COLUMNS.filter(col => {
+    if (activeTab === 'tracking' && col === '結案日期') return false;
+    return true;
+  });
+
+  let activeVisible = [];
+  if (activeTab === 'tracking') activeVisible = visibleColumnsTracking;
+  else if (activeTab === 'closed') activeVisible = visibleColumnsClosed;
+  else if (activeTab === 'analysis') activeVisible = visibleColumnsAnalysis;
+
+  applicableColumns.forEach(column => {
     const label = document.createElement('label');
     label.style.display = 'flex';
     label.style.alignItems = 'center';
@@ -2347,7 +2393,7 @@ function openColumnsSettingsModal() {
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.value = column;
-    checkbox.checked = visibleColumns.includes(column);
+    checkbox.checked = activeVisible.includes(column);
     checkbox.addEventListener('change', updateSelectAllSettingsCheckboxState);
     
     const span = document.createElement('span');
@@ -2381,6 +2427,9 @@ function updateSelectAllSettingsCheckboxState() {
 }
 
 function saveColumnsSettings() {
+  const activeTab = getActiveTab();
+  if (activeTab === 'form') return;
+
   const checkedCols = Array.from(settingsColumnsList.querySelectorAll('input[type="checkbox"]:checked'))
     .map(cb => cb.value);
     
@@ -2389,12 +2438,19 @@ function saveColumnsSettings() {
     return;
   }
   
-  visibleColumns = checkedCols;
-  setCookie('visible_columns', JSON.stringify(visibleColumns), 365);
-  closeColumnsSettingsModal();
+  if (activeTab === 'tracking') {
+    visibleColumnsTracking = checkedCols;
+    setCookie('visible_columns_tracking', JSON.stringify(visibleColumnsTracking), 365);
+    loadTrackingCases();
+  } else if (activeTab === 'closed') {
+    visibleColumnsClosed = checkedCols;
+    setCookie('visible_columns_closed', JSON.stringify(visibleColumnsClosed), 365);
+    loadClosedCases();
+  } else if (activeTab === 'analysis') {
+    visibleColumnsAnalysis = checkedCols;
+    setCookie('visible_columns_analysis', JSON.stringify(visibleColumnsAnalysis), 365);
+    refreshAnalysisPreview();
+  }
   
-  // Re-render current panels
-  loadTrackingCases();
-  loadClosedCases();
-  refreshAnalysisPreview();
+  closeColumnsSettingsModal();
 }
