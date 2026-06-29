@@ -75,6 +75,12 @@ textarea {
   border-radius: 6px;
   cursor: pointer;
   white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tab:hover {
+  color: var(--text);
+  background: rgba(39, 107, 90, 0.05);
 }
 
 .tab.active {
@@ -82,6 +88,11 @@ textarea {
   color: var(--primary);
   box-shadow: 0 2px 8px rgba(20, 42, 36, 0.08);
   font-weight: 700;
+}
+
+.tab.active:hover {
+  background: var(--surface);
+  color: var(--primary);
 }
 
 .panel {
@@ -177,6 +188,7 @@ textarea {
   color: var(--text);
   background: #fff;
   outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 textarea {
@@ -210,6 +222,12 @@ textarea:focus {
   padding: 0 16px;
   cursor: pointer;
   font-weight: 700;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(39, 107, 90, 0.12);
 }
 
 .btn.primary {
@@ -219,6 +237,7 @@ textarea:focus {
 
 .btn.primary:hover {
   background: var(--primary-strong);
+  box-shadow: 0 4px 12px rgba(39, 107, 90, 0.2);
 }
 
 .btn.secondary {
@@ -227,14 +246,26 @@ textarea:focus {
   border-color: var(--line);
 }
 
+.btn.secondary:hover {
+  background: #fcfdfd;
+  border-color: var(--primary);
+}
+
 .btn.danger {
   background: var(--danger);
   color: white;
 }
 
+.btn.danger:hover {
+  background: #8b3232;
+  box-shadow: 0 4px 12px rgba(164, 63, 63, 0.2);
+}
+
 .btn:disabled {
   opacity: 0.62;
   cursor: wait;
+  transform: none;
+  box-shadow: none;
 }
 
 .icon-btn {
@@ -278,11 +309,42 @@ textarea:focus {
   border-radius: 8px;
 }
 
+/* Custom scrollbars */
+.table-wrap::-webkit-scrollbar,
+.settings-options-wrap::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.table-wrap::-webkit-scrollbar-track,
+.settings-options-wrap::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+.table-wrap::-webkit-scrollbar-thumb,
+.settings-options-wrap::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 4px;
+}
+
+.table-wrap::-webkit-scrollbar-thumb:hover,
+.settings-options-wrap::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
 table {
   width: 100%;
   min-width: 980px;
   border-collapse: collapse;
   background: #fff;
+}
+
+tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+tbody tr:hover {
+  background-color: #f8fbfa;
 }
 
 th,
