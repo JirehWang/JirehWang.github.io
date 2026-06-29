@@ -1,279 +1,869 @@
-:root { 
-    --primary-color: #4CAF50; 
-    --admin-color: #2196F3; 
-    --create-color: #FF9800; 
+:root {
+    --bg-top: #faf6ed;
+    --bg-bottom: #f3ecdd;
+    --surface: rgba(255, 252, 247, 0.9);
+    --surface-strong: rgba(255, 253, 249, 0.97);
+    --surface-alt: rgba(125, 79, 28, 0.035);
+    --border-soft: rgba(108, 76, 31, 0.09);
+    --border-strong: rgba(108, 76, 31, 0.16);
+    --text-main: #443629;
+    --text-soft: #75624b;
+    --text-faint: #9a8a78;
+    --shadow-soft: 0 10px 24px rgba(82, 56, 22, 0.06);
+    --shadow-card: 0 14px 28px rgba(85, 57, 17, 0.08);
+    --wheat: #e2bf5a;
+    --wheat-deep: #c79925;
+    --soil: #6f5a43;
+    --leaf: #788164;
+    --olive: #929b82;
+    --berry: #987b86;
+    --sky: #919ba3;
+    --cream: #fffaf0;
+    --white: #ffffff;
+    --primary-color: #7b856b;
+    --admin-color: #8a765d;
+    --create-color: #ab8b5e;
+    --header-grad: linear-gradient(180deg, rgba(255, 252, 247, 0.97), rgba(245, 238, 225, 0.92));
+    --panel-grad: linear-gradient(180deg, rgba(255, 252, 247, 0.97), rgba(246, 240, 228, 0.92));
 }
 
-/* =========================================
-   1. 全域基礎樣式 & 共用元件
-========================================= */
-body { 
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
-    padding: 20px; 
-    max-width: 900px; /* 統一使用適合閱讀的寬度 */
-    margin: auto; 
-    background-color: #f5f7f9; 
-    line-height: 1.6;
+* {
+    box-sizing: border-box;
+}
+
+html {
+    min-height: 100%;
+    background: linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+}
+
+body {
+    font-family: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", sans-serif;
+    padding: 28px 22px 44px;
+    max-width: 1180px;
+    margin: 0 auto;
+    color: var(--text-main);
+    line-height: 1.65;
+    background: transparent;
+    position: relative;
+}
+
+.page-shell {
+    position: relative;
+    z-index: 1;
+}
+
+.shell-home-content {
+    padding-top: 6px !important;
 }
 
 .header {
     width: 100%;
-    padding: 20px 0;
-    box-sizing: border-box;
-    border-bottom: 2px solid #ddd;
+    padding: 24px 26px;
+    border: 1px solid var(--border-soft);
+    border-radius: 20px;
     display: flex;
     flex-direction: column;
-    gap: 0;
-    margin: 0 auto;
+    gap: 16px;
+    margin: 0 auto 18px;
+    background: var(--header-grad);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
 }
 
-.header > div:first-child {
+.header h1,
+.header h2 {
+    margin: 0;
+    color: var(--soil) !important;
+    letter-spacing: 0.03em;
+    text-shadow: none;
+}
+
+.header h1 {
+    font-size: clamp(1.9rem, 4vw, 2.9rem);
+    font-weight: 900;
+}
+
+.header h2 {
+    font-size: clamp(1.55rem, 3vw, 2.2rem);
+    font-weight: 800;
+}
+
+.header a {
+    color: var(--text-soft) !important;
+    font-weight: 700;
+}
+
+.header p {
+    color: var(--text-soft);
+}
+
+#loading-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
     width: 100%;
+    height: 100%;
+    background: rgba(250, 246, 235, 0.78);
+    z-index: 9999;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(4px);
 }
 
-.header > div:last-child {
+.spinner {
+    width: 54px;
+    height: 54px;
+    border: 5px solid rgba(122, 82, 36, 0.12);
+    border-top: 5px solid var(--wheat-deep);
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-msg {
+    margin-top: 16px;
+    color: var(--soil);
+    font-weight: 800;
+    font-size: 16px;
+}
+
+table {
     width: 100%;
-    align-items: stretch;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--surface-strong);
+    margin-top: 20px;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(135, 102, 49, 0.05);
 }
 
-/* --- Loading 遮罩 --- */
-#loading-overlay { 
-    display: none; position: fixed; 
-    top: 0; left: 0; width: 100%; height: 100%; 
-    background: rgba(255, 255, 255, 0.85); 
-    z-index: 9999; flex-direction: column; 
-    justify-content: center; align-items: center; 
-    backdrop-filter: blur(3px); 
-}
-.spinner { 
-    width: 50px; height: 50px; 
-    border: 5px solid #f3f3f3; border-top: 5px solid #3498db; 
-    border-radius: 50%; animation: spin 1s linear infinite; 
-}
-@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-.loading-msg { margin-top: 15px; color: #333; font-weight: bold; font-size: 16px; }
-
-/* --- 基礎表格 --- */
-table { 
-    width: 100%; border-collapse: collapse; 
-    background: white; margin-top: 20px; 
-    border-radius: 8px; overflow: hidden; 
-}
-th, td { border: 1px solid #eee; padding: 12px; text-align: center; word-break: break-all; }
-th { background: var(--primary-color); color: white; position: sticky; top: 0; z-index: 1; }
-tr:nth-child(even) { background: #fafafa; }
-
-/* --- 基礎按鈕與輸入框 --- */
-.btn { 
-    padding: 10px 20px; cursor: pointer; border: none; 
-    border-radius: 4px; font-weight: bold; transition: 0.3s; 
-    color: white; margin-top: 10px;
-}
-input, select, textarea { 
-    padding: 10px; border: 1px solid #ddd; 
-    border-radius: 6px; font-size: 14px; box-sizing: border-box;
+th,
+td {
+    border-bottom: 1px solid rgba(117, 87, 40, 0.08);
+    padding: 14px 12px;
+    text-align: center;
+    word-break: break-word;
 }
 
-/* --- 彈窗 (Modal) 共用 --- */
+th {
+    background: #857562;
+    color: #fff8ec;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    letter-spacing: 0.04em;
+    font-weight: 800;
+}
+
+tr:nth-child(even) {
+    background: rgba(122, 82, 36, 0.024);
+}
+
+tr:hover td {
+    background: rgba(212, 167, 59, 0.045);
+}
+
+.btn,
+.submit-btn,
+.btn-add,
+.btn-remove,
+.stats-link,
+.schedule-link-btn,
+.edit-record-btn {
+    border: none;
+    cursor: pointer;
+    transition: transform 0.22s ease, box-shadow 0.22s ease, filter 0.22s ease, background 0.22s ease;
+}
+
+.btn,
+.submit-btn {
+    padding: 12px 20px;
+    border-radius: 999px;
+    font-weight: 800;
+    color: #fffaf1;
+    margin-top: 10px;
+    box-shadow: 0 6px 14px rgba(122, 82, 36, 0.08);
+    background: #a69276 !important;
+}
+
+.btn:hover,
+.submit-btn:hover,
+.btn-add:hover,
+.btn-remove:hover,
+.stats-link:hover,
+.schedule-link-btn:hover,
+.edit-record-btn:hover {
+    transform: translateY(-1px);
+    filter: saturate(1.01);
+}
+
+input,
+select,
+textarea {
+    padding: 11px 12px;
+    border: 1px solid rgba(128, 95, 45, 0.18);
+    border-radius: 12px;
+    font-size: 14px;
+    box-sizing: border-box;
+    background: rgba(255, 252, 246, 0.94);
+    color: var(--text-main);
+    box-shadow: inset 0 1px 2px rgba(122, 82, 36, 0.025);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: rgba(170, 129, 59, 0.42);
+    box-shadow: 0 0 0 3px rgba(212, 167, 59, 0.1);
+}
+
 body.modal-open {
     overflow: hidden !important;
     height: 100vh !important;
 }
-.modal { 
-    display: none; position: fixed; top: 0; left: 0; 
-    width: 100%; height: 100%; background: rgba(0,0,0,0.6); 
-    z-index: 1000; backdrop-filter: blur(4px); 
-    overflow-y: auto; 
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(58, 36, 16, 0.36);
+    z-index: 1000;
+    backdrop-filter: blur(6px);
+    overflow-y: auto;
 }
-.modal-content { 
-    background: white; width: 90%; max-width: 450px; 
-    margin: 40px auto; padding: 30px; border-radius: 16px; 
-    position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+
+.modal-content {
+    background: linear-gradient(180deg, rgba(255, 251, 244, 0.98), rgba(245, 238, 220, 0.94));
+    width: 90%;
+    max-width: 470px;
+    margin: 40px auto;
+    padding: 30px;
+    border-radius: 22px;
+    position: relative;
+    box-shadow: 0 18px 44px rgba(67, 44, 15, 0.18);
     box-sizing: border-box;
     max-height: 85vh;
     display: flex;
     flex-direction: column;
-}
-.modal-content h3 { margin-top: 0; color: #333; }
-.close-btn { position: absolute; top: 15px; right: 15px; font-size: 24px; cursor: pointer; color: #999; }
-
-/* =========================================
-   2. 首頁專屬樣式 (index.html)
-========================================= */
-.stats-link { 
-    background: var(--admin-color); color: white; 
-    text-decoration: none; padding: 10px 20px; 
-    border-radius: 50px; font-weight: bold; transition: 0.3s; 
-}
-.stats-link:hover { opacity: 0.8; transform: translateY(-2px); }
-
-#group-list-container { 
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; 
-}
-.tag-btn { 
-    padding: 20px 10px; border: none; border-radius: 12px; 
-    font-size: 16px; font-weight: 600; cursor: pointer; 
-    transition: all 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
-    background: white; color: #333; text-align: center; 
-}
-.tag-btn:hover { transform: scale(1.05); box-shadow: 0 6px 12px rgba(0,0,0,0.15); }
-.group-tag { border-top: 5px solid var(--primary-color); }
-.create-tag { border: 2px dashed var(--create-color); color: var(--create-color); background: #fffbf2; }
-.submit-btn { 
-    width: 100%; padding: 12px; background: var(--create-color); 
-    color: white; border: none; border-radius: 8px; 
-    font-size: 16px; cursor: pointer; margin-top: 10px; 
+    border: 1px solid rgba(140, 102, 46, 0.16);
 }
 
-/* =========================================
-   3. 點名頁專屬樣式 (group.html)
-========================================= */
-.member-item { 
-    display: flex; align-items: center; padding: 12px 10px; 
-    border-bottom: 1px dashed #ccc; background: white; 
-}
-.member-item input[type="checkbox"] { transform: scale(1.5); margin-right: 15px; }
-
-/* 點名頁專用按鈕群 */
-.btn-save { background-color: #2196F3; width: 100%; font-size: 18px; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(33,150,243,0.3); }
-.btn-save:hover { background-color: #1976D2; }
-.btn-init { background-color: #f44336; }
-.btn-edit { background-color: #607D8B; font-size: 14px; margin-bottom: 10px; }
-
-/* 新朋友區塊 */
-.new-friend { 
-    margin-top: 20px; padding: 15px; background: #fff3e0; 
-    border-radius: 8px; border: 1px solid #ffe0b2; margin-bottom: 15px; 
+.modal-content h3 {
+    margin-top: 0;
+    color: var(--soil);
 }
 
-/* 編輯名單清單 */
-.edit-add-box { display: flex; gap: 8px; margin-bottom: 15px; align-items: center; }
-.edit-add-box input[type="text"] { flex: 2; min-width: 100px; }
-.edit-role-select { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; background: white; min-width: 80px; }
-.btn-add { background: #FF9800; color: white; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; white-space: nowrap; margin-top: 0;}
-.edit-list-container { 
-    flex: 1; 
-    overflow-y: auto; 
-    border: 1px solid #eee; 
-    border-radius: 6px; 
-    padding: 5px; 
-    background: #fafafa; 
-    min-height: 120px; 
+.close-btn {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    font-size: 24px;
+    cursor: pointer;
+    color: rgba(111, 82, 47, 0.7);
 }
-.edit-member-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; background: white; margin-bottom: 5px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-.btn-remove { background: #ffebee; color: #c62828; border: none; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; font-weight: bold; transition: 0.2s; margin-top: 0;}
 
-/* 身分標籤 (核心/一般/小羊/陪伴) */
-.role-badge { padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-right: 10px; display: inline-block; width: 55px; text-align: center; }
-.role-core { background: #ffebee; color: #c62828; }    
-.role-general { background: #e3f2fd; color: #1565c0; } 
-.role-sheep { background: #e8f5e9; color: #2e7d32; }   
-.role-companion { background: #f3e5f5; color: #6a1b9a; } /* 💡 新增：陪伴同工 (紫色系) */
-.role-default { background: #f5f5f5; color: #757575; }
-
-/* 歷史進度表 */
-.progress-section { margin-top: 40px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-.progress-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #4CAF50; padding-bottom: 10px; margin-bottom: 10px; }
-.progress-header h3 { margin: 0; color: #333; font-size: 16px; }
-.table-wrapper { overflow: auto; border-radius: 6px; border: 1px solid #eee; }
-.schedule-link-btn { color: #1976D2; cursor: pointer; font-size: 13px; font-weight: bold; margin-top: 5px; display: inline-block; padding: 5px 10px; background: #e3f2fd; border-radius: 6px; border: 1px solid #bbdefb; transition: 0.2s; }
-.schedule-link-btn:hover { background: #bbdefb; }
-.edit-record-btn { margin-left:5px; padding:3px 6px; font-size:12px; cursor:pointer; background:#FFC107; border:none; border-radius:4px; font-weight:bold; color: #333; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-
-/* =========================================
-   4. 統計中心專屬樣式 (stats.html)
-========================================= */
-.filter-box { 
-    background: white; padding: 25px; 
-    border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
-    margin-bottom: 20px; 
+.stats-link {
+    color: #fffaf0 !important;
+    text-decoration: none;
+    padding: 11px 18px;
+    border-radius: 999px;
+    font-weight: 800;
+    box-shadow: 0 5px 12px rgba(104, 74, 31, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
 }
-.input-row { 
-    display: flex; gap: 15px; align-items: center; 
-    flex-wrap: wrap; margin-bottom: 15px; 
+
+.header .stats-link.tab-btn:nth-child(1) {
+    background: #a69276 !important;
 }
-.status-badge { 
-    padding: 6px 12px; border-radius: 20px; 
-    font-size: 14px; font-weight: bold; background: #eee; transition: 0.3s;
+
+.header .stats-link.tab-btn:nth-child(2) {
+    background: #8a927f !important;
 }
-.status-ok { background: #e8f5e9; color: #2e7d32; }
-.status-err { background: #ffebee; color: #c62828; }
-.status-wait { background: #fff3e0; color: #ef6c00; }
 
-.btn-query { background: #4CAF50; color: white; margin-top: 0;}
-.btn-query:hover { background: #45a049; }
-.btn-export { background: #2196F3; color: white; margin-top: 0;}
-/* --- 統計中心：進度條與高級視覺化樣式 --- */
-.stats-dashboard { border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-.stats-dashboard table { margin-top: 0; border-radius: 0; box-shadow: none; }
-.stats-dashboard th { background: #37474f; font-weight: 600; letter-spacing: 1px; padding: 15px; }
-.stats-dashboard td { vertical-align: middle; padding: 15px 10px; }
-.stats-dashboard tr:hover { background-color: #f1f8e9; transition: 0.2s; }
+.header .stats-link.tab-btn:nth-child(3) {
+    background: #928472 !important;
+}
 
-/* 進度條容器 */
-.prog-container { width: 100%; background: #e0e0e0; border-radius: 8px; height: 14px; margin-top: 5px; overflow: hidden; }
-.prog-bar { height: 100%; border-radius: 8px; transition: width 0.8s ease-in-out; }
+.header .stats-link.tab-btn:nth-child(4) {
+    background: #9b8d79 !important;
+}
 
-/* 三種聚會專屬顏色 */
-.color-cell { background-color: #4CAF50; }   /* 小組：綠色 */
-.color-sunday { background-color: #2196F3; } /* 主日：藍色 */
-.color-school { background-color: #FF9800; } /* 主日學：橘色 */
+#group-list-container,
+#regular-group-list,
+#happy-group-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 14px;
+}
 
-/* 數據文字排版 */
-.stat-box { display: flex; flex-direction: column; align-items: flex-start; margin: 0 5px; }
-.stat-labels { width: 100%; display: flex; justify-content: space-between; font-size: 12px; color: #555; font-weight: bold; }
+.tag-btn {
+    position: relative;
+    min-height: 116px;
+    padding: 18px 14px;
+    border: 1px solid rgba(119, 85, 31, 0.12);
+    border-radius: 18px;
+    font-size: 17px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+    box-shadow: 0 8px 18px rgba(85, 57, 17, 0.06);
+    background: rgba(255, 252, 247, 0.95);
+    color: var(--text-main);
+    text-align: center;
+    overflow: hidden;
+}
 
-/* =========================================
-   5. 幸福小組頁籤與徽章樣式
-   ========================================= */
+.tag-btn::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 18% 22%, rgba(255, 255, 255, 0.28) 0 1px, transparent 1.6px),
+        radial-gradient(circle at 76% 28%, rgba(226, 191, 90, 0.18) 0 1px, transparent 1.8px),
+        radial-gradient(circle at 62% 72%, rgba(255, 255, 255, 0.18) 0 1px, transparent 1.7px),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.12), transparent 34%);
+    background-size: 140px 140px, 170px 170px, 160px 160px, auto;
+    pointer-events: none;
+    opacity: 0.55;
+}
+
+.tag-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 22px rgba(85, 57, 17, 0.08);
+}
+
+.group-tag {
+    border-top: 6px solid var(--wheat);
+    box-shadow: inset 0 3px 0 rgba(255, 243, 199, 0.75);
+}
+
+.create-tag {
+    border: 2px dashed rgba(199, 153, 37, 0.62) !important;
+    color: var(--wheat-deep) !important;
+    background: rgba(250, 245, 235, 0.96) !important;
+    box-shadow: inset 0 2px 0 rgba(255, 244, 205, 0.7);
+}
+
+.create-tag::after {
+    content: "+";
+    display: block;
+    margin-top: 10px;
+    font-size: 24px;
+    font-weight: 900;
+    color: rgba(199, 153, 37, 0.82);
+}
+
+.happy-tag {
+    border-top: 5px solid var(--berry) !important;
+    background: rgba(250, 246, 246, 0.96);
+}
+
+.group-tag::after,
+.create-tag::after {
+    text-shadow: 0 0 8px rgba(255, 227, 132, 0.28);
+}
+
+.member-item {
+    display: flex;
+    align-items: center;
+    padding: 14px 12px;
+    border-bottom: 1px dashed rgba(119, 85, 31, 0.18);
+    background: rgba(255, 251, 243, 0.96);
+}
+
+.member-item input[type="checkbox"] {
+    transform: scale(1.45);
+    margin-right: 15px;
+    accent-color: var(--wheat-deep);
+}
+
+.btn-save {
+    background: #9f8a68 !important;
+    width: 100%;
+    font-size: 18px;
+    margin-bottom: 30px;
+}
+
+.btn-init {
+    background: #a47b61 !important;
+}
+
+.btn-edit {
+    background: #8e7d69 !important;
+    font-size: 14px;
+    margin-bottom: 10px;
+}
+
+.new-friend {
+    margin-top: 20px;
+    padding: 18px;
+    background: rgba(250, 244, 231, 0.94);
+    border-radius: 18px;
+    border: 1px solid rgba(212, 167, 59, 0.28);
+    margin-bottom: 15px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+.edit-add-box {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+    align-items: center;
+}
+
+.edit-add-box input[type="text"] {
+    flex: 2;
+    min-width: 100px;
+}
+
+.edit-role-select {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid rgba(119, 85, 31, 0.16);
+    border-radius: 12px;
+    font-size: 13px;
+    background: rgba(255, 251, 243, 0.98);
+    min-width: 80px;
+}
+
+.btn-add {
+    background: #b0956e;
+    color: white;
+    padding: 10px 15px;
+    border-radius: 12px;
+    font-weight: 800;
+    white-space: nowrap;
+    margin-top: 0;
+    box-shadow: 0 5px 10px rgba(167, 115, 24, 0.08);
+}
+
+.edit-list-container {
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid rgba(117, 87, 40, 0.1);
+    border-radius: 14px;
+    padding: 7px;
+    background: rgba(255, 250, 240, 0.82);
+    min-height: 120px;
+}
+
+.edit-member-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid rgba(119, 85, 31, 0.08);
+    background: rgba(255, 253, 248, 0.98);
+    margin-bottom: 7px;
+    border-radius: 12px;
+    box-shadow: 0 5px 10px rgba(100, 69, 22, 0.04);
+}
+
+.btn-remove {
+    background: rgba(159, 79, 99, 0.12);
+    color: #8f3049;
+    border-radius: 12px;
+    padding: 8px 13px;
+    font-size: 13px;
+    font-weight: 800;
+    margin-top: 0;
+}
+
+.role-badge {
+    padding: 5px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 800;
+    margin-right: 10px;
+    display: inline-block;
+    min-width: 56px;
+    text-align: center;
+    border: 1px solid transparent;
+}
+
+.role-core {
+    background: rgba(159, 79, 99, 0.14);
+    color: #8d3552;
+    border-color: rgba(159, 79, 99, 0.18);
+}
+
+.role-general {
+    background: rgba(116, 140, 158, 0.14);
+    color: #536f7d;
+    border-color: rgba(116, 140, 158, 0.18);
+}
+
+.role-sheep {
+    background: rgba(121, 140, 67, 0.14);
+    color: #587132;
+    border-color: rgba(121, 140, 67, 0.18);
+}
+
+.role-companion {
+    background: rgba(121, 92, 54, 0.14);
+    color: #75552f;
+    border-color: rgba(121, 92, 54, 0.18);
+}
+
+.role-default {
+    background: rgba(117, 117, 117, 0.12);
+    color: #686868;
+}
+
+.role-best {
+    background: rgba(212, 167, 59, 0.12);
+    color: #9a6f21;
+    border-color: rgba(212, 167, 59, 0.24);
+}
+
+.progress-section {
+    margin-top: 40px;
+    background: rgba(255, 252, 247, 0.95);
+    padding: 18px;
+    border-radius: 20px;
+    box-shadow: var(--shadow-soft);
+    border: 1px solid rgba(117, 87, 40, 0.1);
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid rgba(108, 138, 63, 0.32);
+    padding-bottom: 12px;
+    margin-bottom: 10px;
+}
+
+.progress-header h3 {
+    margin: 0;
+    color: var(--soil);
+    font-size: 16px;
+}
+
+.table-wrapper {
+    overflow: auto;
+    border-radius: 16px;
+    border: 1px solid rgba(117, 87, 40, 0.08);
+}
+
+.schedule-link-btn {
+    color: #fdf8ef;
+    font-size: 13px;
+    font-weight: 800;
+    display: inline-block;
+    padding: 8px 12px;
+    background: #8b957d;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.edit-record-btn {
+    margin-left: 5px;
+    padding: 5px 9px;
+    font-size: 12px;
+    background: #c8b394;
+    border-radius: 999px;
+    font-weight: 800;
+    color: #4e3413;
+    box-shadow: 0 6px 12px rgba(179, 131, 51, 0.1);
+}
+
+.filter-box {
+    background: var(--panel-grad);
+    padding: 22px;
+    border-radius: 20px;
+    box-shadow: var(--shadow-card);
+    margin-bottom: 22px;
+    border: 1px solid rgba(117, 87, 40, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.input-row {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+}
+
+.status-badge {
+    padding: 7px 13px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 800;
+    background: rgba(122, 82, 36, 0.08);
+    color: var(--text-soft);
+    transition: 0.3s;
+    border: 1px solid rgba(122, 82, 36, 0.08);
+}
+
+.status-ok {
+    background: rgba(121, 140, 67, 0.1);
+    color: #4f652b;
+}
+
+.status-err {
+    background: rgba(159, 79, 99, 0.1);
+    color: #8f3049;
+}
+
+.status-wait {
+    background: rgba(212, 167, 59, 0.1);
+    color: #9a6f21;
+}
+
+.btn-query {
+    background: #8a927f;
+    color: white;
+    margin-top: 0;
+}
+
+.btn-export {
+    background: #9c8a73;
+    color: white;
+    margin-top: 0;
+}
+
+.stats-dashboard {
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+    border: 1px solid rgba(117, 87, 40, 0.1);
+}
+
+.stats-dashboard table {
+    margin-top: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.stats-dashboard th {
+    background: #857562;
+    font-weight: 800;
+    letter-spacing: 1px;
+    padding: 15px;
+}
+
+.stats-dashboard td {
+    vertical-align: middle;
+    padding: 15px 10px;
+}
+
+.stats-dashboard tr:hover {
+    background-color: rgba(212, 167, 59, 0.08);
+    transition: 0.2s;
+}
+
+.prog-container {
+    width: 100%;
+    background: rgba(122, 82, 36, 0.1);
+    border-radius: 999px;
+    height: 14px;
+    margin-top: 5px;
+    overflow: hidden;
+}
+
+.prog-bar {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.8s ease-in-out;
+}
+
+.color-cell { background-color: #7e9b47; }
+.color-sunday { background-color: #8b6d34; }
+.color-school { background-color: #cf9632; }
+
+.stat-box {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin: 0 5px;
+}
+
+.stat-labels {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-soft);
+    font-weight: 800;
+}
+
 .tabs-container {
     margin-bottom: 20px;
 }
-.tab-select-btn {
-    color: #666;
-    border-bottom: 3px solid transparent;
-    transition: all 0.3s;
-}
-.tab-select-btn:hover {
-    color: #333;
-    background-color: #eee;
-}
-.tab-select-btn.active {
-    color: var(--primary-color);
-    border-bottom: 3px solid var(--primary-color);
-    background-color: #e8f5e9;
-}
-.happy-tag {
-    border-top: 5px solid #E91E63 !important; /* 粉紅色標註幸福小組 */
-}
-.role-best {
-    background: #fff3e0;
-    color: #ef6c00;
-} /* 💡 新增：BEST/慕道友 身分標籤 (橘色系) */
 
-/* =========================================
-   6. 響應式排版優化 (Responsive Adjustments)
-   ========================================= */
-@media (max-width: 480px) {
+.tab-select-btn {
+    color: var(--text-faint);
+    border-bottom: 3px solid transparent;
+    transition: all 0.26s;
+}
+
+.tab-select-btn:hover {
+    color: var(--text-main);
+    background-color: rgba(212, 167, 59, 0.08) !important;
+}
+
+.tab-select-btn.active {
+    color: var(--soil);
+    border-bottom: 3px solid var(--wheat-deep);
+    background-color: rgba(212, 167, 59, 0.12) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.page-home .tabs-container,
+.page-manage .tabs-container {
+    border-bottom-color: rgba(133, 98, 42, 0.18) !important;
+}
+
+.page-home #regular-groups-section,
+.page-home #happy-groups-section {
+    background: rgba(255, 252, 247, 0.58);
+    border: 1px solid rgba(117, 87, 40, 0.08);
+    border-radius: 18px;
+    padding: 18px;
+    box-shadow: none;
+}
+
+.page-home .header {
+    padding-bottom: 24px;
+}
+
+.page-manage #cluster-management-panel {
+    border: 1px dashed rgba(181, 138, 70, 0.34) !important;
+    background: rgba(250, 246, 237, 0.96) !important;
+    border-radius: 20px;
+}
+
+.page-stats .filter-box {
+    padding-bottom: 18px;
+}
+
+.page-group #memberList,
+.page-group #editAttendanceMemberList {
+    border-radius: 20px !important;
+    border: 1px solid rgba(117, 87, 40, 0.1) !important;
+    background: rgba(255, 252, 246, 0.92);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+.page-group #attendance-panel > div:first-child {
+    background: rgba(255, 251, 241, 0.74);
+    padding: 14px 16px;
+    border-radius: 18px;
+    border: 1px solid rgba(117, 87, 40, 0.08);
+}
+
+.page-group #happyGroupBadge {
+    border-radius: 999px !important;
+    padding: 5px 10px !important;
+    background: rgba(212, 167, 59, 0.18) !important;
+    color: #9a6f21 !important;
+}
+
+@media (max-width: 960px) {
+    body {
+        padding: 18px 14px 30px;
+    }
+
+    .header {
+        padding: 24px 20px;
+        border-radius: 18px;
+    }
+
+    .filter-box,
+    .modal-content,
+    .page-home #regular-groups-section,
+    .page-home #happy-groups-section {
+        border-radius: 18px;
+    }
+}
+
+@media (max-width: 640px) {
+    body {
+        padding: 14px 12px 26px;
+    }
+
+    .header {
+        padding: 22px 16px;
+        gap: 14px;
+    }
+
+    .header h1 {
+        font-size: 1.7rem;
+    }
+
+    .header h2 {
+        font-size: 1.35rem;
+    }
+
+    .header > div:last-child,
+    .input-row,
+    .progress-header {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+
+    .stats-link,
+    .btn,
+    .submit-btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    #group-list-container,
+    #regular-group-list,
+    #happy-group-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .tag-btn {
+        min-height: 118px;
+        padding: 16px 10px;
+        font-size: 15px;
+    }
+
+    .filter-box {
+        padding: 18px;
+    }
+
     .modal-content {
-        padding: 20px 15px;
+        padding: 20px 16px;
         margin: 20px auto;
         width: 95%;
         box-sizing: border-box;
         max-height: 90vh;
     }
-    
+
     .edit-add-box {
         flex-direction: column;
         align-items: stretch;
         gap: 10px;
     }
-    
+
     .edit-add-box input[type="text"],
     .edit-add-box select,
     .edit-add-box .btn-add {
         width: 100% !important;
         box-sizing: border-box;
+    }
+
+    .edit-member-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
     }
 
     .edit-member-item > div {
@@ -292,5 +882,19 @@ body.modal-open {
         flex: 1 1 80px !important;
         width: auto !important;
         margin-top: 0;
+    }
+}
+
+@media (max-width: 480px) {
+    #group-list-container,
+    #regular-group-list,
+    #happy-group-list {
+        grid-template-columns: 1fr;
+    }
+
+    table,
+    .stats-dashboard,
+    .progress-section {
+        border-radius: 18px;
     }
 }

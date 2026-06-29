@@ -5,16 +5,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>小組點名系統 - 主首頁</title>
-    <link rel="stylesheet" href="style.css?v=20260621_3">
+    <link rel="stylesheet" href="style.css?v=20260629_wheat_1">
     <link rel="manifest" href="../../manifest.json">
 </head>
-<body>
+<body class="page-home">
     <div id="loading-overlay">
         <div class="spinner"></div>
         <div class="loading-msg" id="overlay-text">載入中...</div>
     </div>
     
-    <div style="width: 100%; max-width: 100%; margin: 0 auto; padding: 0 20px; box-sizing: border-box;">
+    <div class="page-shell shell-wide" style="width: 100%; max-width: 100%; margin: 0 auto; padding: 0 20px; box-sizing: border-box;">
         <div class="header">
             <div style="width: 100%; display: flex; justify-content: flex-start; align-items: center; margin-bottom: 15px;">
                 <h1 style="margin: 0;">⛪ 小組點名系統</h1>
@@ -27,7 +27,7 @@
         </div>
     </div>
     
-    <div style="width: 100%; max-width: 100%; margin: 0 auto; padding: 0 20px; box-sizing: border-box;">
+    <div class="page-shell shell-wide shell-home-content" style="width: 100%; max-width: 100%; margin: 0 auto; padding: 0 20px; box-sizing: border-box;">
         <!-- Tab 頁籤切換 -->
         <div class="tabs-container" style="display: flex; gap: 10px; margin-top: 20px; border-bottom: 2px solid #ddd; padding-bottom: 8px;">
             <button id="tab-regular" class="tab-select-btn active" onclick="switchTab('regular')" style="padding: 10px 20px; border: none; background: none; font-size: 16px; font-weight: bold; cursor: pointer; border-radius: 8px 8px 0 0;">⛪ 一般常設小組</button>
