@@ -1,32 +1,30 @@
-# DESIGN.md - LKC New Family UI System Specification (Evergreen & Champagne Gold Theme)
+# DESIGN.md - LKC New Family UI System Specification (Fresh Sprout & Silver Theme)
 
 ## Design Summary
-This design system defines the visual guidelines for the Linkou Church New Family Management System (林口教會新家人管理系統). It blends **Deep Evergreen** and **Metallic Champagne Gold** gradients to create a highly refined, professional, and sacred editorial atmosphere.
+This design system defines the visual guidelines for the Linkou Church New Family Management System (林口教會新家人管理系統). It features a **Fresh Sprout Green** and **Brushed Silver** palette with organic sprout details (`🌱`), conveying spiritual growth, lightness, and clean readability.
 
 ## Brand Voice
-- **Refined & Sacred**: Deep evergreen represents spiritual depth and trust, while metallic champagne gold represents excellence, sunlit hope, and quality.
-- **Precision Layout**: Sharp card structures, minimal border lines, and clean sans-serif typography.
+- **Light & Vibrant**: Clean sprout greens (`#43a047`) and light sunlit stone backdrops (`#fafcf8`) project vitality and freshness.
+- **Organic Growth**: Sprout emojis (`🌱`) indicate active pathways and system modules.
+- **Metallic Grace**: Fine silver gradients (`--metallic-silver`) and brushed green gradients (`--metallic-sprout`) add texture without weight.
 
 ## Color Tokens
-- **Background (`--bg`)**: `#fafaf9` (warm stone off-white)
+- **Background (`--bg`)**: `#fafcf8` (light grass/sprout off-white)
 - **Surface (`--surface`)**: `#ffffff`
-- **Surface Muted (`--surface-2`)**: `#f3f4f2` (stone-grey secondary)
-- **Text Primary (`--text`)**: `#14221b` (evergreen charcoal text)
-- **Text Muted (`--muted`)**: `#526056` (sage-grey secondary text)
-- **Line/Border (`--line`)**: `#e1e3de` (light border lines)
-- **Primary Accent (`--primary`)**: `#1f483c` (deep forest jade green)
-- **Primary Strong (`--primary-strong`)**: `#133027`
-- **Gold Start (`--gold-start`)**: `#e2c792` (champagne gold metallic)
-- **Gold End (`--gold-end`)**: `#c5a059`
-- **Danger (`--danger`)**: `#a63e3e`
+- **Surface Muted (`--surface-2`)**: `#edf5ea` (light sprout green wash)
+- **Text Primary (`--text`)**: `#182c1a` (deep forest charcoal text)
+- **Text Muted (`--muted`)**: `#586c5c` (sage-grey secondary text)
+- **Line/Border (`--line`)**: `#dcead5` (soft sprout lines)
+- **Primary Accent (`--primary`)**: `#43a047` (fresh sprout green)
+- **Primary Strong (`--primary-strong`)**: `#2e7d32`
+- **Danger (`--danger`)**: `#d32f2f`
 
 ## Gradients & Metallic Textures
-- **Gold Accent Gradient (`--metallic-gold`)**: `linear-gradient(135deg, var(--gold-start), var(--gold-end))`
-- **Silver Button Gradient (`--metallic-silver`)**: `linear-gradient(135deg, #f9fafb, #f3f4f6, #e5e7eb)`
-- **Dark Emerald Gradient (`--metallic-dark`)**: `linear-gradient(135deg, #2b5c4e, #1a3d33)`
+- **Sprout Accent Gradient (`--metallic-sprout`)**: `linear-gradient(135deg, #66bb6a, #43a047)`
+- **Brushed Silver Gradient (`--metallic-silver`)**: `linear-gradient(135deg, #fbfcfb, #f5f7f4, #e2e8e0)`
 
 ## Components and CTA
-- **Active Navigation Tab**: Clean white button with a metallic champagne gold underline indicator (`--metallic-gold`).
-- **Primary Action Button**: Styled with the Dark Emerald Gradient, text shadows, and inset highlights for a brushed metallic jade appearance.
-- **Secondary Action Button**: Styled with a Brushed Silver Gradient (`--metallic-silver`) and a fine outer border.
-- **Warning Badges**: Warning statuses are styled with a subtle metallic bronze-gold gradient.
+- **Active Navigation Tab**: Clean white button featuring a springy pop-in sprout emoji (`🌱`).
+- **Primary Action Button**: Styled with the Brushed Sprout Gradient, white text, and inset highlights for a tactile leaf finish.
+- **Secondary Action Button**: Styled with a Brushed Silver Gradient (`--metallic-silver`) and a light herbal outline.
+- **Warning Badges**: "尚未落戶" statuses are styled with a soft green wash (`#f1f8e9` bg, `#33691e` text) and a sprout suffix.

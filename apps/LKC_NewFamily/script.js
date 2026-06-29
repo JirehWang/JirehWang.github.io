@@ -1866,16 +1866,7 @@ function buildCaseTable(rows, selectable, columns, isClosed = false, showAction 
         if (checkSettleOverdue(item)) {
           const warningTag = document.createElement('span');
           warningTag.className = 'warning-tag';
-          warningTag.textContent = '尚未落戶完成';
-          warningTag.style.color = '#8f6c25';
-          warningTag.style.background = 'linear-gradient(135deg, #fefbf0, #f8efd4)';
-          warningTag.style.border = '1px solid #e5c890';
-          warningTag.style.borderRadius = '4px';
-          warningTag.style.padding = '2px 6px';
-          warningTag.style.fontSize = '11px';
-          warningTag.style.marginLeft = '6px';
-          warningTag.style.fontWeight = 'bold';
-          warningTag.style.display = 'inline-block';
+          warningTag.textContent = '尚未落戶完成 🌱';
           cell.appendChild(warningTag);
         }
       } else {
