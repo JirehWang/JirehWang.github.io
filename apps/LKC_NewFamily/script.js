@@ -1,54 +1,54 @@
 const trackingColumns = [
-  '新家人姓名',
-  '新家人性別',
-  '參加的聚會是',
+  '姓名',
+  '性別',
+  '聚會別',
   '表單號',
   '手機',
   '關懷同工',
   '邀約人',
-  '日期',
+  '首次來訪日',
   '落戶狀態',
   '備註',
-  '會友名單狀態',
-  '點名系統代碼'
+  '會友狀態',
+  '點名編號'
 ];
 
 const closedColumns = [
-  '新家人姓名',
-  '新家人性別',
-  '參加的聚會是',
+  '姓名',
+  '性別',
+  '聚會別',
   '表單號',
   '手機',
   '關懷同工',
   '邀約人',
-  '日期',
+  '首次來訪日',
   '結案日期',
   '落戶狀態',
   '備註',
-  '會友名單狀態',
-  '點名系統代碼'
+  '會友狀態',
+  '點名編號'
 ];
 
 const editFields = [
-  { name: '新家人姓名', label: '新家人姓名', required: true },
-  { name: '參加的聚會是', label: '參加的聚會是', type: 'meeting', required: true },
-  { name: '新家人性別', label: '新家人性別', type: 'select', options: ['男', '女'] },
-  { name: '新家人工作', label: '新家人工作' },
-  { name: '年齡 -', label: '年齡 -' },
-  { name: '有參加過基督教的崇拜嗎 ?', label: '有參加過基督教的崇拜嗎 ?', type: 'select', options: ['有', '沒有', '不確定'] },
-  { name: '今天為什麼來到林口教會的呢 ?\n(朋友介紹請於其他填入朋友的姓名)', label: '今天為什麼來到林口教會的呢 ?', type: 'textarea', full: true },
+  { name: '姓名', label: '姓名', required: true },
+  { name: '聚會別', label: '聚會別', type: 'meeting', required: true },
+  { name: '性別', label: '性別', type: 'select', options: ['男', '女'] },
+  { name: '職業', label: '職業' },
+  { name: '年齡', label: '年齡' },
+  { name: '是否曾接觸教會', label: '是否曾接觸教會', type: 'select', options: ['有', '沒有', '不確定'] },
+  { name: '來訪原因', label: '來訪原因', type: 'textarea', full: true },
   { name: '表單號', label: '表單號' },
   { name: '關懷同工', label: '關懷同工' },
   { name: '地址', label: '地址', full: true },
   { name: '市話', label: '市話' },
   { name: '手機', label: '手機' },
-  { name: '日期', label: '日期', inputType: 'date' },
+  { name: '首次來訪日', label: '首次來訪日', inputType: 'date' },
   { name: '結案日期', label: '結案日期', inputType: 'date' },
   { name: '落戶狀態', label: '落戶狀態', type: 'settlement' },
   { name: '邀約人', label: '邀約人' },
   { name: '備註', label: '備註', type: 'textarea', full: true },
-  { name: '會友名單狀態', label: '會友名單狀態', type: 'select', options: ['已加入', '已存在'] },
-  { name: '點名系統代碼', label: '點名系統代碼' }
+  { name: '會友狀態', label: '會友狀態', type: 'select', options: ['已加入', '已存在'] },
+  { name: '點名編號', label: '點名編號' }
 ];
 
 const form = document.getElementById('newFamilyForm');
@@ -411,7 +411,7 @@ async function addSelectedMembers(sessionName) {
   }
 
   const selectedNames = selectedCases
-    .map(item => item['新家人姓名'])
+    .map(item => item['姓名'])
     .filter(Boolean);
   if (!selectedNames.length) {
     setNotice(trackingNotice, '勾選資料沒有可加入的姓名', 'error');
@@ -426,7 +426,7 @@ async function addSelectedMembers(sessionName) {
     const results = [];
 
     for (const item of selectedCases) {
-      const name = String(item['新家人姓名'] || '').trim();
+      const name = String(item['姓名'] || '').trim();
       if (!name) {
         results.push({ ok: false, name: '未填姓名', message: '略過未填姓名資料' });
         continue;
@@ -585,8 +585,8 @@ async function enrichRowsWithSundayMemberData(rows) {
   try {
     const directory = await getMemberDirectory();
     return rows.map(item => {
-      const memberCode = String(item['點名系統代碼'] || '').trim();
-      const name = String(item['新家人姓名'] || '').trim();
+      const memberCode = String(item['點名編號'] || '').trim();
+      const name = String(item['姓名'] || '').trim();
       const member = directory.byCode.get(memberCode) || directory.byName.get(name);
       if (!member) return item;
       return {
@@ -812,7 +812,7 @@ function openSessionModal() {
     setNotice(trackingNotice, '請先勾選要加入會友名單的資料', 'error');
     return;
   }
-  const selectedNames = selectedCases.map(item => item['新家人姓名']).filter(Boolean);
+  const selectedNames = selectedCases.map(item => item['姓名']).filter(Boolean);
   if (!selectedNames.length) {
     setNotice(trackingNotice, '勾選資料沒有可加入的姓名', 'error');
     return;
@@ -1112,7 +1112,7 @@ async function exportCombinedWorkbook() {
         const notInvitedCases = matchingCases.filter(item => !item['邀約人'] || !String(item['邀約人']).trim());
 
         function countService(cases, type) {
-          const count = cases.filter(item => getServiceType(item['參加的聚會是']) === type).length;
+          const count = cases.filter(item => getServiceType(item['聚會別']) === type).length;
           return count > 0 ? count : null;
         }
 
@@ -1201,18 +1201,18 @@ async function exportCombinedWorkbook() {
     matrix[attendanceRowIdx][pctCol] = '-';
 
     // Sheet 2: Detail table
-    const detailHeaders = ['新家人姓名', '參加的聚會是', '表單號', '關懷同工', '關懷狀態', '落戶狀態', '邀約人', '立案日', '結案日', '家長備註欄'];
+    const detailHeaders = ['姓名', '聚會別', '表單號', '關懷同工', '關懷狀態', '落戶狀態', '邀約人', '立案日', '結案日', '家長備註欄'];
     const detailRows = [
       detailHeaders,
       ...rows.map(item => [
-        item['新家人姓名'] || '',
-        item['參加的聚會是'] || '',
+        item['姓名'] || '',
+        item['聚會別'] || '',
         item['表單號'] ? Number(item['表單號']) : '',
         item['關懷同工'] || '',
         '結案',
         getDisplaySettlementStatus(item) || '',
         item['邀約人'] || '',
-        item['日期'] || '',
+        item['首次來訪日'] || '',
         item['結案日期'] || '',
         item['備註'] || ''
       ])
@@ -1609,7 +1609,7 @@ function buildAnalysisPivotTable(pivot, total) {
 function buildAnalysisDetailTable(rows) {
   const table = document.createElement('table');
   table.innerHTML = `
-    <thead><tr><th>姓名</th><th>日期</th><th>結案日期</th><th>落戶狀態</th><th>點名系統代碼</th><th>現行小組</th></tr></thead>
+    <thead><tr><th>姓名</th><th>首次來訪日</th><th>結案日期</th><th>落戶狀態</th><th>點名編號</th><th>現行小組</th></tr></thead>
     <tbody></tbody>
   `;
   const tbody = table.querySelector('tbody');
@@ -1620,12 +1620,12 @@ function buildAnalysisDetailTable(rows) {
 
   rows.forEach(item => {
     const row = document.createElement('tr');
-    ['新家人姓名', '日期', '結案日期', '落戶狀態', '點名系統代碼'].forEach(column => {
+    ['姓名', '首次來訪日', '結案日期', '落戶狀態', '點名編號'].forEach(column => {
       const cell = document.createElement('td');
       cell.textContent = column === '落戶狀態'
         ? getDisplaySettlementStatus(item)
         : item[column] || '';
-      if (column === '新家人姓名' && checkSettleOverdue(item)) {
+      if (column === '姓名' && checkSettleOverdue(item)) {
         const warningTag = document.createElement('span');
         warningTag.className = 'warning-tag';
         warningTag.textContent = '尚未落戶完成';
@@ -1656,8 +1656,8 @@ function filterCases(rows, filters) {
   const endDate = String(filters.endDate || '').trim();
 
   return rows.filter(item => {
-    const caseName = String(item['新家人姓名'] || '').toLowerCase();
-    const caseDate = String(item['日期'] || '').trim();
+    const caseName = String(item['姓名'] || '').toLowerCase();
+    const caseDate = String(item['首次來訪日'] || '').trim();
 
     if (name && !caseName.includes(name)) return false;
     if (startDate && (!caseDate || caseDate < startDate)) return false;
@@ -1723,7 +1723,7 @@ function buildCaseTable(rows, selectable, columns, isClosed = false) {
     if (selectable) {
       const checkboxCell = document.createElement('td');
       checkboxCell.className = 'check-cell';
-      checkboxCell.innerHTML = `<input type="checkbox" value="${item.rowNumber}" aria-label="勾選 ${escapeHtml(item['新家人姓名'] || '此筆資料')} 結案">`;
+      checkboxCell.innerHTML = `<input type="checkbox" value="${item.rowNumber}" aria-label="勾選 ${escapeHtml(item['姓名'] || '此筆資料')} 結案">`;
       row.appendChild(checkboxCell);
     }
 
@@ -1796,7 +1796,7 @@ function buildCaseTable(rows, selectable, columns, isClosed = false) {
         cell.appendChild(buildSundayGroupTag(item[column] || ''));
       } else if (column === '落戶狀態') {
         cell.textContent = getDisplaySettlementStatus(item);
-      } else if (column === '新家人姓名') {
+      } else if (column === '姓名') {
         cell.textContent = item[column] || '';
       } else {
         cell.textContent = item[column] || '';
@@ -1836,8 +1836,8 @@ function shortenGroupName(groupName) {
 function openEditModal(item, isClosed = false) {
   editingCase = { ...item, isClosed };
   document.getElementById('editTitle').textContent = isClosed ? '編輯已結案資料' : '編輯追蹤中資料';
-  editSubtitle.textContent = item['新家人姓名']
-    ? `${item['新家人姓名']}，表單號 ${item['表單號'] || '未填'}`
+  editSubtitle.textContent = item['姓名']
+    ? `${item['姓名']}，表單號 ${item['表單號'] || '未填'}`
     : `表單號 ${item['表單號'] || '未填'}`;
   setNotice(editNotice, '');
   editFieldContainer.textContent = '';
@@ -1991,7 +1991,7 @@ async function closeSelectedCases() {
 }
 
 async function deleteSingleCase(item) {
-  const name = item['新家人姓名'] || '此筆資料';
+  const name = item['姓名'] || '此筆資料';
   if (!confirm(`確認要永久刪除新朋友「${name}」的追蹤資料嗎？此操作將無法復原。`)) {
     return;
   }
@@ -2041,38 +2041,38 @@ async function exportClosedCases() {
     }
 
     const headers = [
-      '新家人姓名',
-      '新家人性別',
-      '參加的聚會是',
+      '姓名',
+      '性別',
+      '聚會別',
       '表單號',
       '手機',
       '關懷同工',
       '邀約人',
-      '日期',
+      '首次來訪日',
       '結案日期',
       '落戶狀態',
       '備註',
-      '會友名單狀態',
-      '點名系統代碼',
+      '會友狀態',
+      '點名編號',
       '現行小組'
     ];
 
     const dataRows = [
       headers,
       ...filteredRows.map(item => [
-        item['新家人姓名'] || '',
-        item['新家人性別'] || '',
-        item['參加的聚會是'] || '',
+        item['姓名'] || '',
+        item['性別'] || '',
+        item['聚會別'] || '',
         item['表單號'] ? Number(item['表單號']) : '',
         item['手機'] || '',
         item['關懷同工'] || '',
         item['邀約人'] || '',
-        item['日期'] || '',
+        item['首次來訪日'] || '',
         item['結案日期'] || '',
         getDisplaySettlementStatus(item) || '',
         item['備註'] || '',
-        item['會友名單狀態'] || '',
-        item['點名系統代碼'] || '',
+        item['會友狀態'] || '',
+        item['點名編號'] || '',
         item['主日點名小組'] || ''
       ])
     ];
