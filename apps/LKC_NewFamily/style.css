@@ -729,39 +729,23 @@ table.resizable-table td {
   white-space: normal;
 }
 
-/* Settings button styling */
-.btn-settings {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  color: var(--text);
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  margin-left: auto;
+/* Settings checklist styling - 2 Column Grid Layout */
+.settings-columns-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px 12px;
 }
 
-.btn-settings:hover {
-  background: #f1f5f3;
-  border-color: #ccd7d2;
-}
-
-/* Settings checklist styling */
 .settings-columns-list label {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border-radius: 6px;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
   cursor: pointer;
   transition: background 0.15s ease;
   user-select: none;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text);
 }
 
@@ -770,20 +754,8 @@ table.resizable-table td {
 }
 
 .settings-columns-list input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   margin: 0;
   flex-shrink: 0;
-}
-
-@media (max-width: 720px) {
-  .tabs {
-    flex-wrap: wrap;
-  }
-  .btn-settings {
-    margin-left: 0;
-    width: 100%;
-    justify-content: center;
-    margin-top: 4px;
-  }
 }

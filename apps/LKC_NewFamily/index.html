@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>新家人管理系統</title>
-  <link rel="stylesheet" href="style.css?v=20260629-v2">
+  <link rel="stylesheet" href="style.css?v=20260629-v3">
 </head>
 <body>
   <main class="app">
@@ -19,7 +19,6 @@
         <button class="tab" type="button" data-tab="tracking">追蹤中</button>
         <button class="tab" type="button" data-tab="closed">已結案</button>
         <button class="tab" type="button" data-tab="analysis">落戶分析</button>
-        <button id="columnsSettingsBtn" class="btn-settings" type="button" title="欄位顯示設定">⚙️ 欄位設定</button>
       </nav>
     </header>
 
@@ -133,6 +132,7 @@
           <button id="trackingSearchBtn" class="btn primary" type="button">查詢</button>
           <button id="addMembersBtn" class="btn secondary" type="button">加入會友名單</button>
           <button id="closeBtn" class="btn danger" type="button">確認結案</button>
+          <button id="trackingSettingsBtn" class="btn secondary" type="button">⚙️ 欄位設定</button>
         </div>
       </div>
       <div class="filter-grid">
@@ -162,6 +162,7 @@
         <div class="actions compact">
           <button id="closedSearchBtn" class="btn primary" type="button">查詢</button>
           <button id="closedExportBtn" class="btn secondary" type="button">匯出 Excel</button>
+          <button id="closedSettingsBtn" class="btn secondary" type="button">⚙️ 欄位設定</button>
         </div>
       </div>
 
@@ -193,6 +194,7 @@
         <div class="actions compact">
           <button id="analysisExportDetailBtn" class="btn secondary" type="button">匯出明細 XLSX</button>
           <button id="analysisOpenBtn" class="btn primary" type="button">查看落戶分析</button>
+          <button id="analysisSettingsBtn" class="btn secondary" type="button">⚙️ 欄位設定</button>
         </div>
       </div>
 
@@ -335,7 +337,7 @@
           <span><strong>(全選)</strong></span>
         </label>
         <hr style="margin: 8px 0; border: 0; border-top: 1px solid #eee;">
-        <div id="settingsColumnsList" style="display: flex; flex-direction: column; gap: 6px;">
+        <div id="settingsColumnsList" class="settings-columns-list">
           <!-- 會動態生成 20 個欄位的勾選項 -->
         </div>
       </div>
@@ -347,8 +349,8 @@
   </div>
 
   <script>window._GAS_KEY = 'LKC_NewFamily';</script>
-  <script src="../../config.js?v=20260629-v2"></script>
-  <script src="api-config.js?v=20260629-v2"></script>
-  <script src="script.js?v=20260629-v2"></script>
+  <script src="../../config.js?v=20260629-v3"></script>
+  <script src="api-config.js?v=20260629-v3"></script>
+  <script src="script.js?v=20260629-v3"></script>
 </body>
 </html>

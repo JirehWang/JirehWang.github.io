@@ -173,7 +173,9 @@ const sessionCancelBtn = document.getElementById('sessionCancelBtn');
 const sessionCloseBtn = document.getElementById('sessionCloseBtn');
 
 // Column settings elements
-const columnsSettingsBtn = document.getElementById('columnsSettingsBtn');
+const trackingSettingsBtn = document.getElementById('trackingSettingsBtn');
+const closedSettingsBtn = document.getElementById('closedSettingsBtn');
+const analysisSettingsBtn = document.getElementById('analysisSettingsBtn');
 const columnsSettingsModal = document.getElementById('columnsSettingsModal');
 const settingsCloseBtn = document.getElementById('settingsCloseBtn');
 const settingsCancelBtn = document.getElementById('settingsCancelBtn');
@@ -201,7 +203,7 @@ analysisYear.value = new Date().getFullYear();
 loadMeetingOptions();
 loadSettlementStatusOptions();
 setAnalysisRange('year');
-columnsSettingsBtn.style.display = 'none';
+
 
 document.querySelectorAll('.tab').forEach(button => {
   button.addEventListener('click', () => switchTab(button.dataset.tab));
@@ -434,8 +436,6 @@ function switchTab(tabName) {
   document.getElementById('trackingPanel').hidden = tabName !== 'tracking';
   document.getElementById('closedPanel').hidden = tabName !== 'closed';
   document.getElementById('analysisPanel').hidden = tabName !== 'analysis';
-
-  columnsSettingsBtn.style.display = (tabName === 'form') ? 'none' : 'inline-flex';
 
   if (tabName === 'tracking') loadTrackingCases();
   if (tabName === 'closed') loadClosedCases();
@@ -2343,7 +2343,9 @@ popoverCancelBtn.addEventListener('click', closeHeaderFilterPopover);
 // ============================================================
 // ⚙️ 欄位顯示設定與事件綁定
 // ============================================================
-columnsSettingsBtn.addEventListener('click', openColumnsSettingsModal);
+trackingSettingsBtn.addEventListener('click', openColumnsSettingsModal);
+closedSettingsBtn.addEventListener('click', openColumnsSettingsModal);
+analysisSettingsBtn.addEventListener('click', openColumnsSettingsModal);
 settingsCloseBtn.addEventListener('click', closeColumnsSettingsModal);
 settingsCancelBtn.addEventListener('click', closeColumnsSettingsModal);
 settingsSaveBtn.addEventListener('click', saveColumnsSettings);
