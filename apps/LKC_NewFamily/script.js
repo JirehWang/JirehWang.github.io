@@ -989,7 +989,7 @@ async function exportCombinedWorkbook() {
       startYear = parseInt(analysisStartDate.value.split('-')[0], 10);
     } else if (rows.length > 0) {
       const years = rows.map(item => {
-        const yq = getYearQuarter(item['日期']);
+        const yq = getYearQuarter(item['首次來訪日']);
         return yq ? yq.year : null;
       }).filter(Boolean);
       if (years.length > 0) startYear = Math.min(...years);
@@ -998,7 +998,7 @@ async function exportCombinedWorkbook() {
       endYear = parseInt(analysisEndDate.value.split('-')[0], 10);
     } else if (rows.length > 0) {
       const years = rows.map(item => {
-        const yq = getYearQuarter(item['日期']);
+        const yq = getYearQuarter(item['首次來訪日']);
         return yq ? yq.year : null;
       }).filter(Boolean);
       if (years.length > 0) endYear = Math.max(...years);
@@ -1007,12 +1007,12 @@ async function exportCombinedWorkbook() {
     const columnGroups = [];
     for (let y = startYear; y <= endYear; y++) {
       const yrRows = rows.filter(item => {
-        const yq = getYearQuarter(item['日期']);
+        const yq = getYearQuarter(item['首次來訪日']);
         return yq && yq.year === y;
       });
       const quartersMap = new Map();
       yrRows.forEach(item => {
-        const yq = getYearQuarter(item['日期']);
+        const yq = getYearQuarter(item['首次來訪日']);
         if (yq) quartersMap.set(yq.quarter, yq);
       });
       const sortedQuarters = Array.from(quartersMap.keys()).sort();
@@ -1042,14 +1042,14 @@ async function exportCombinedWorkbook() {
     summaryYears.forEach((year, yIdx) => {
       const colIdx = 1 + yIdx * 2;
       const yrRows = rows.filter(item => {
-        const yq = getYearQuarter(item['日期']);
+        const yq = getYearQuarter(item['首次來訪日']);
         return yq && yq.year === year;
       });
 
       const totalCount = yrRows.length;
       let dateRangeStr = '';
       if (yrRows.length > 0) {
-        const dates = yrRows.map(item => item['日期']).filter(Boolean).sort();
+        const dates = yrRows.map(item => item['首次來訪日']).filter(Boolean).sort();
         if (dates.length > 0) {
           const formatDate = (dStr) => {
             const parts = dStr.split('-');
@@ -1175,7 +1175,7 @@ async function exportCombinedWorkbook() {
         const startCol = 9 + 3 * groupIdx;
         const matchingCases = rows.filter(item => {
           if (mapGroup(item['落戶狀態']) !== g) return false;
-          const yq = getYearQuarter(item['日期']);
+          const yq = getYearQuarter(item['首次來訪日']);
           if (!yq || yq.year !== group.year) return false;
           const isYearSummary = group.quarter.includes('-');
           if (!isYearSummary && yq.quarter !== group.quarter) return false;
