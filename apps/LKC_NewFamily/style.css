@@ -901,3 +901,31 @@ input[type="checkbox"] {
   height: 15px;
   margin: 0;
 }
+
+/* Cute Loading Sprout sway animation */
+@keyframes sway {
+  0% { transform: rotate(-8deg); }
+  100% { transform: rotate(8deg); }
+}
+
+.loading-sprout {
+  display: inline-block;
+  animation: sway 1s ease-in-out infinite alternate;
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+/* Cute Name Hover Easter Egg */
+.name-cell-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+}
+
+.name-cell-wrapper:hover::after {
+  content: '🌱';
+  font-size: 12px;
+  display: inline-block;
+  animation: sway 0.8s ease-in-out infinite alternate;
+}

@@ -444,8 +444,7 @@ function switchTab(tabName) {
 
 async function loadTrackingCases() {
   setNotice(trackingNotice, '');
-  trackingContent.className = 'empty';
-  trackingContent.textContent = '載入中...';
+  setEmptyState(trackingContent, '正在悉心翻土中...', 'loading');
   trackingSearchBtn.disabled = true;
   addMembersBtn.disabled = true;
   closeBtn.disabled = true;
@@ -459,8 +458,7 @@ async function loadTrackingCases() {
     const result = await callCachedListApi('getTrackingCases');
     renderTrackingCases(filterCases(result.data || [], filters));
   } catch (error) {
-    trackingContent.className = 'empty';
-    trackingContent.textContent = '讀取失敗';
+    setEmptyState(trackingContent, '資料灌溉失敗，請稍後再試！', 'error');
     setNotice(trackingNotice, error.message || String(error), 'error');
   } finally {
     trackingSearchBtn.disabled = false;
@@ -474,8 +472,7 @@ function renderTrackingCases(rows) {
   caseCount.textContent = `共 ${rows.length} 筆`;
 
   if (!rows.length) {
-    trackingContent.className = 'empty';
-    trackingContent.textContent = '目前沒有追蹤中的資料';
+    setEmptyState(trackingContent, '目前沒有追蹤中的家人資料 🌱');
     return;
   }
 
@@ -687,8 +684,7 @@ async function enrichRowsWithSundayMemberData(rows) {
 
 async function loadClosedCases() {
   setNotice(closedNotice, '');
-  closedContent.className = 'empty';
-  closedContent.textContent = '載入中...';
+  setEmptyState(closedContent, '正在檢索落戶名冊...', 'loading');
   closedSearchBtn.disabled = true;
   activeClosedFilters = {}; // Reset active header filters on new search
 
@@ -702,8 +698,7 @@ async function loadClosedCases() {
     const rows = await enrichRowsWithSundayMemberData(filterCases(result.data || [], filters));
     renderClosedCases(rows);
   } catch (error) {
-    closedContent.className = 'empty';
-    closedContent.textContent = '讀取失敗';
+    setEmptyState(closedContent, '讀取失敗，請重新整理頁面！', 'error');
     setNotice(closedNotice, error.message || String(error), 'error');
   } finally {
     closedSearchBtn.disabled = false;
@@ -722,8 +717,7 @@ function renderFilteredClosedCases() {
   closedCount.textContent = `共 ${filtered.length} 筆${isFiltered ? ' (已篩選)' : ''}`;
 
   if (!filtered.length) {
-    closedContent.className = 'empty';
-    closedContent.textContent = '沒有符合篩選條件的已結案資料';
+    setEmptyState(closedContent, '沒有符合篩選條件的已結案家人 🌱');
     return;
   }
 
@@ -816,8 +810,7 @@ function highlightActiveFilters() {
 
 async function refreshAnalysisPreview() {
   setNotice(analysisNotice, '');
-  analysisPreview.className = 'empty';
-  analysisPreview.textContent = '載入分析資料中...';
+  setEmptyState(analysisPreview, '正在統計與灌溉落戶樹苗...', 'loading');
   analysisOpenBtn.disabled = true;
   analysisExportDetailBtn.disabled = true;
 
@@ -830,7 +823,7 @@ async function refreshAnalysisPreview() {
     analysisCount.textContent = `共 ${rows.length} 筆`;
 
     if (!rows.length) {
-      analysisPreview.textContent = '這個範圍沒有已結案的新朋友資料';
+      setEmptyState(analysisPreview, '這個期間沒有符合落戶資料的新朋友 🌱');
       return;
     }
 
@@ -840,7 +833,7 @@ async function refreshAnalysisPreview() {
   } catch (error) {
     currentAnalysisRows = [];
     currentAnalysisPivot = [];
-    analysisPreview.textContent = '分析資料讀取失敗';
+    setEmptyState(analysisPreview, '分析資料讀取失敗，請重新整理！', 'error');
     setNotice(analysisNotice, error.message || String(error), 'error');
   } finally {
     analysisOpenBtn.disabled = false;
@@ -1862,7 +1855,10 @@ function buildCaseTable(rows, selectable, columns, isClosed = false, showAction 
       } else if (column === '落戶狀態') {
         cell.textContent = getDisplaySettlementStatus(item);
       } else if (column === '姓名') {
-        cell.textContent = item[column] || '';
+        const wrapper = document.createElement('span');
+        wrapper.className = 'name-cell-wrapper';
+        wrapper.textContent = item[column] || '';
+        cell.appendChild(wrapper);
         if (checkSettleOverdue(item)) {
           const warningTag = document.createElement('span');
           warningTag.className = 'warning-tag';
@@ -2120,8 +2116,44 @@ function getSelectedTrackingCases() {
 }
 
 function setNotice(element, message, type) {
-  element.textContent = message;
+  let displayMessage = message;
+  if (message) {
+    if (type === 'success') {
+      displayMessage = `🌱 ${message}`;
+    } else if (type === 'error') {
+      displayMessage = `⚠️ ${message}`;
+    } else if (message.includes('中...')) {
+      displayMessage = `⚙️ ${message}`;
+    }
+  }
+  element.textContent = displayMessage;
   element.className = `notice ${type || ''}`.trim();
+}
+
+function setEmptyState(element, message, type = 'empty') {
+  element.className = 'empty';
+  if (type === 'loading') {
+    element.innerHTML = `
+      <div style="text-align: center; padding: 24px;">
+        <div class="loading-sprout">🌱</div>
+        <div style="font-weight: 500; color: var(--muted); font-size: 13px;">${message}</div>
+      </div>
+    `;
+  } else if (type === 'error') {
+    element.innerHTML = `
+      <div style="text-align: center; padding: 24px;">
+        <div style="font-size: 24px; margin-bottom: 8px;">⚠️</div>
+        <div style="font-weight: 500; color: var(--danger); font-size: 13px;">${message}</div>
+      </div>
+    `;
+  } else {
+    element.innerHTML = `
+      <div style="text-align: center; padding: 24px;">
+        <div style="font-size: 24px; margin-bottom: 8px;">🌱</div>
+        <div style="font-weight: 500; color: var(--muted); font-size: 13px;">${message}</div>
+      </div>
+    `;
+  }
 }
 
 function escapeHtml(value) {
