@@ -19,6 +19,7 @@
         <button class="tab" type="button" data-tab="tracking">追蹤中</button>
         <button class="tab" type="button" data-tab="closed">已結案</button>
         <button class="tab" type="button" data-tab="analysis">落戶分析</button>
+        <button id="columnsSettingsBtn" class="btn-settings" type="button" title="欄位顯示設定">⚙️ 欄位設定</button>
       </nav>
     </header>
 
@@ -316,6 +317,33 @@
       <button type="button" id="popoverCancelBtn" class="btn secondary">取消</button>
       <button type="button" id="popoverConfirmBtn" class="btn primary">確定</button>
     </div>
+  </div>
+
+  <!-- Column settings settingsModal -->
+  <div id="columnsSettingsModal" class="modal-backdrop" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" style="max-width: 450px;">
+      <div class="modal-header">
+        <div>
+          <h2 id="settingsTitle">欄位顯示設定</h2>
+          <p>請勾選要在表格中顯示的欄位，順序將依預設排列。</p>
+        </div>
+        <button id="settingsCloseBtn" class="icon-btn" type="button" aria-label="關閉欄位設定">&times;</button>
+      </div>
+      <div class="settings-options-wrap" style="padding: 10px 20px; max-height: 350px; overflow-y: auto;">
+        <label class="settings-option-all" style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 0;">
+          <input type="checkbox" id="settingsSelectAll" checked>
+          <span><strong>(全選)</strong></span>
+        </label>
+        <hr style="margin: 8px 0; border: 0; border-top: 1px solid #eee;">
+        <div id="settingsColumnsList" style="display: flex; flex-direction: column; gap: 6px;">
+          <!-- 會動態生成 20 個欄位的勾選項 -->
+        </div>
+      </div>
+      <div class="actions" style="margin-top: 20px;">
+        <button id="settingsCancelBtn" class="btn secondary" type="button">取消</button>
+        <button id="settingsSaveBtn" class="btn primary" type="button">套用並儲存</button>
+      </div>
+    </section>
   </div>
 
   <script>window._GAS_KEY = 'LKC_NewFamily';</script>

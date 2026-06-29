@@ -1,33 +1,87 @@
-const trackingColumns = [
+const ALL_COLUMNS = [
   '姓名',
   '性別',
   '聚會別',
+  '職業',
+  '年齡',
+  '是否曾接觸教會',
+  '來訪原因',
   '表單號',
-  '手機',
   '關懷同工',
-  '邀約人',
-  '首次來訪日',
-  '落戶狀態',
-  '備註',
-  '會友狀態',
-  '點名編號'
-];
-
-const closedColumns = [
-  '姓名',
-  '性別',
-  '聚會別',
-  '表單號',
+  '地址',
+  '市話',
   '手機',
-  '關懷同工',
-  '邀約人',
   '首次來訪日',
   '結案日期',
   '落戶狀態',
+  '邀約人',
   '備註',
   '會友狀態',
-  '點名編號'
+  '點名編號',
+  '現行小組'
 ];
+
+// Cookie helpers
+function setCookie(name, value, days) {
+  const date = new Date();
+  date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+  const expires = "; expires=" + date.toUTCString();
+  document.cookie = name + "=" + encodeURIComponent(value || "") + expires + "; path=/";
+}
+
+function getCookie(name) {
+  const nameEQ = name + "=";
+  const ca = document.cookie.split(';');
+  for (let i = 0; i < ca.length; i++) {
+    let c = ca[i];
+    while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+    if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length, c.length));
+  }
+  return null;
+}
+
+// Column widths persistence helpers
+function saveColumnWidth(column, width) {
+  let widths = {};
+  const cookieVal = getCookie('column_widths');
+  if (cookieVal) {
+    try { widths = JSON.parse(cookieVal); } catch(e) {}
+  }
+  widths[column] = width;
+  setCookie('column_widths', JSON.stringify(widths), 365);
+}
+
+function getSavedColumnWidth(column) {
+  const cookieVal = getCookie('column_widths');
+  if (cookieVal) {
+    try {
+      const widths = JSON.parse(cookieVal);
+      return widths[column];
+    } catch(e) {}
+  }
+  return null;
+}
+
+// Load visible columns from cookie or default to all
+let visibleColumns = [];
+const visibleCookie = getCookie('visible_columns');
+if (visibleCookie) {
+  try {
+    visibleColumns = JSON.parse(visibleCookie);
+  } catch(e) {
+    visibleColumns = [...ALL_COLUMNS];
+  }
+} else {
+  visibleColumns = [...ALL_COLUMNS];
+}
+
+function getTrackingColumns() {
+  return ALL_COLUMNS.filter(col => visibleColumns.includes(col) && col !== '結案日期');
+}
+
+function getClosedColumns() {
+  return ALL_COLUMNS.filter(col => visibleColumns.includes(col));
+}
 
 const editFields = [
   { name: '姓名', label: '姓名', required: true },
@@ -35,7 +89,7 @@ const editFields = [
   { name: '性別', label: '性別', type: 'select', options: ['男', '女'] },
   { name: '職業', label: '職業' },
   { name: '年齡', label: '年齡' },
-  { name: '是否曾接觸教會', label: '是否曾接觸教會', type: 'select', options: ['有', '沒有', '不確定'] },
+  { name: '是否曾接觸教會', label: '是否曾接觸教會', type: 'select', options: ['原有名單', '有', '沒有', '不確定'] },
   { name: '來訪原因', label: '來訪原因', type: 'textarea', full: true },
   { name: '表單號', label: '表單號' },
   { name: '關懷同工', label: '關懷同工' },
@@ -101,6 +155,15 @@ const sessionSelect = document.getElementById('sessionSelect');
 const sessionConfirmBtn = document.getElementById('sessionConfirmBtn');
 const sessionCancelBtn = document.getElementById('sessionCancelBtn');
 const sessionCloseBtn = document.getElementById('sessionCloseBtn');
+
+// Column settings elements
+const columnsSettingsBtn = document.getElementById('columnsSettingsBtn');
+const columnsSettingsModal = document.getElementById('columnsSettingsModal');
+const settingsCloseBtn = document.getElementById('settingsCloseBtn');
+const settingsCancelBtn = document.getElementById('settingsCancelBtn');
+const settingsSaveBtn = document.getElementById('settingsSaveBtn');
+const settingsSelectAll = document.getElementById('settingsSelectAll');
+const settingsColumnsList = document.getElementById('settingsColumnsList');
 
 let meetingOptions = [];
 let settlementOptions = ['請安拜訪', '尚未落戶'];
@@ -399,7 +462,7 @@ function renderTrackingCases(rows) {
 
   trackingContent.className = 'table-wrap';
   trackingContent.textContent = '';
-  trackingContent.appendChild(buildCaseTable(rows, true, trackingColumns));
+  trackingContent.appendChild(buildCaseTable(rows, true, getTrackingColumns()));
 }
 
 async function addSelectedMembers(sessionName) {
@@ -591,7 +654,7 @@ async function enrichRowsWithSundayMemberData(rows) {
       if (!member) return item;
       return {
         ...item,
-        '主日點名小組': member.sundayGroup || item['主日點名小組'] || '',
+        '現行小組': member.sundayGroup || item['現行小組'] || '',
         displaySettlementStatus: member.isExcluded
           ? stoppedAttendanceStatus
           : normalizeSettlementStatus(item['落戶狀態'])
@@ -648,7 +711,7 @@ function renderFilteredClosedCases() {
   closedContent.className = 'table-wrap';
   closedContent.textContent = '';
   // Note the last argument is true to indicate isClosed = true
-  closedContent.appendChild(buildCaseTable(filtered, false, closedColumns, true));
+  closedContent.appendChild(buildCaseTable(filtered, false, getClosedColumns(), true));
   
   highlightActiveFilters();
 }
@@ -690,8 +753,8 @@ function checkSettleOverdue(item) {
   const status = getDisplaySettlementStatus(item);
   if (status === '請安拜訪' || status === '停止聚會') return false;
 
-  // "沒有抓到現行小組的資料" means "主日點名小組" is empty or '尚未落戶' or '未'
-  const group = String(item['主日點名小組'] || '').trim();
+  // "沒有抓到現行小組的資料" means "現行小組" is empty or '尚未落戶' or '未'
+  const group = String(item['現行小組'] || '').trim();
   if (group && group !== '尚未落戶') return false;
 
   const closedDateStr = item['結案日期'];
@@ -710,8 +773,8 @@ function getFilterValue(item, column) {
   if (column === '落戶狀態') {
     return getDisplaySettlementStatus(item);
   }
-  if (column === '主日點名小組') {
-    return item['主日點名小組'] || '';
+  if (column === '現行小組') {
+    return item['現行小組'] || '';
   }
   return String(item[column] || '').trim();
 }
@@ -1607,47 +1670,7 @@ function buildAnalysisPivotTable(pivot, total) {
 }
 
 function buildAnalysisDetailTable(rows) {
-  const table = document.createElement('table');
-  table.innerHTML = `
-    <thead><tr><th>姓名</th><th>首次來訪日</th><th>結案日期</th><th>落戶狀態</th><th>點名編號</th><th>現行小組</th></tr></thead>
-    <tbody></tbody>
-  `;
-  const tbody = table.querySelector('tbody');
-  if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="6">沒有符合範圍的明細</td></tr>';
-    return table;
-  }
-
-  rows.forEach(item => {
-    const row = document.createElement('tr');
-    ['姓名', '首次來訪日', '結案日期', '落戶狀態', '點名編號'].forEach(column => {
-      const cell = document.createElement('td');
-      cell.textContent = column === '落戶狀態'
-        ? getDisplaySettlementStatus(item)
-        : item[column] || '';
-      if (column === '姓名' && checkSettleOverdue(item)) {
-        const warningTag = document.createElement('span');
-        warningTag.className = 'warning-tag';
-        warningTag.textContent = '尚未落戶完成';
-        warningTag.style.color = 'var(--danger)';
-        warningTag.style.background = '#fff5f5';
-        warningTag.style.border = '1px solid var(--danger)';
-        warningTag.style.borderRadius = '4px';
-        warningTag.style.padding = '2px 6px';
-        warningTag.style.fontSize = '11px';
-        warningTag.style.marginLeft = '6px';
-        warningTag.style.fontWeight = 'bold';
-        warningTag.style.display = 'inline-block';
-        cell.appendChild(warningTag);
-      }
-      row.appendChild(cell);
-    });
-    const groupCell = document.createElement('td');
-    groupCell.appendChild(buildSundayGroupTag(item['主日點名小組'] || ''));
-    row.appendChild(groupCell);
-    tbody.appendChild(row);
-  });
-  return table;
+  return buildCaseTable(rows, false, getClosedColumns(), false, false);
 }
 
 function filterCases(rows, filters) {
@@ -1666,8 +1689,9 @@ function filterCases(rows, filters) {
   });
 }
 
-function buildCaseTable(rows, selectable, columns, isClosed = false) {
+function buildCaseTable(rows, selectable, columns, isClosed = false, showAction = true) {
   const table = document.createElement('table');
+  table.className = 'resizable-table';
   const thead = document.createElement('thead');
   const tbody = document.createElement('tbody');
   const headRow = document.createElement('tr');
@@ -1677,14 +1701,20 @@ function buildCaseTable(rows, selectable, columns, isClosed = false) {
     const thCheck = document.createElement('th');
     thCheck.className = 'check-cell';
     thCheck.textContent = '結案';
+    thCheck.style.width = '60px';
+    thCheck.style.minWidth = '60px';
     headRow.appendChild(thCheck);
   }
 
-  // Action column is present for BOTH tracking and closed cases
-  const thAction = document.createElement('th');
-  thAction.className = 'action-cell';
-  thAction.textContent = isClosed ? '編輯' : '';
-  headRow.appendChild(thAction);
+  // Action column
+  if (showAction) {
+    const thAction = document.createElement('th');
+    thAction.className = 'action-cell';
+    thAction.textContent = isClosed ? '編輯' : '';
+    thAction.style.width = isClosed ? '80px' : '90px';
+    thAction.style.minWidth = isClosed ? '80px' : '90px';
+    headRow.appendChild(thAction);
+  }
 
   // Column headers
   columns.forEach(column => {
@@ -1711,6 +1741,21 @@ function buildCaseTable(rows, selectable, columns, isClosed = false) {
       th.appendChild(filterBtn);
     }
     
+    // Add resizer handle
+    const resizer = document.createElement('div');
+    resizer.className = 'resizer';
+    th.appendChild(resizer);
+    
+    // Set saved width or default
+    const savedWidth = getSavedColumnWidth(column);
+    if (savedWidth) {
+      th.style.width = savedWidth + 'px';
+      th.style.minWidth = savedWidth + 'px';
+    } else {
+      th.style.width = '120px';
+      th.style.minWidth = '100px';
+    }
+    
     headRow.appendChild(th);
   });
   
@@ -1728,76 +1773,92 @@ function buildCaseTable(rows, selectable, columns, isClosed = false) {
     }
 
     // Action cell
-    const actionCell = document.createElement('td');
-    actionCell.className = 'action-cell';
-    
-    if (isClosed) {
-      // Render Edit button directly for closed cases
-      const editBtn = document.createElement('button');
-      editBtn.type = 'button';
-      editBtn.className = 'btn secondary edit-direct-btn';
-      editBtn.textContent = '編輯';
-      editBtn.addEventListener('click', () => {
-        openEditModal(item, true);
-      });
-      actionCell.appendChild(editBtn);
-    } else {
-      // Render Action dropdown for tracking cases
-      const dropdown = document.createElement('div');
-      dropdown.className = 'action-dropdown';
-
-      const toggleButton = document.createElement('button');
-      toggleButton.type = 'button';
-      toggleButton.className = 'btn secondary action-toggle-btn';
-      toggleButton.textContent = '操作';
-      dropdown.appendChild(toggleButton);
-
-      const menu = document.createElement('div');
-      menu.className = 'action-menu';
-      menu.hidden = true;
-
-      const editItem = document.createElement('button');
-      editItem.type = 'button';
-      editItem.className = 'menu-item';
-      editItem.textContent = '編輯';
-      editItem.addEventListener('click', () => {
-        menu.hidden = true;
-        openEditModal(item, isClosed);
-      });
-      menu.appendChild(editItem);
-
-      const deleteItem = document.createElement('button');
-      deleteItem.type = 'button';
-      deleteItem.className = 'menu-item danger';
-      deleteItem.textContent = '刪除';
-      deleteItem.addEventListener('click', () => {
-        menu.hidden = true;
-        deleteSingleCase(item);
-      });
-      menu.appendChild(deleteItem);
-
-      dropdown.appendChild(menu);
-      actionCell.appendChild(dropdown);
-
-      toggleButton.addEventListener('click', event => {
-        event.stopPropagation();
-        document.querySelectorAll('.action-menu').forEach(m => {
-          if (m !== menu) m.hidden = true;
+    if (showAction) {
+      const actionCell = document.createElement('td');
+      actionCell.className = 'action-cell';
+      
+      if (isClosed) {
+        // Render Edit button directly for closed cases
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'btn secondary edit-direct-btn';
+        editBtn.textContent = '編輯';
+        editBtn.addEventListener('click', () => {
+          openEditModal(item, true);
         });
-        menu.hidden = !menu.hidden;
-      });
+        actionCell.appendChild(editBtn);
+      } else {
+        // Render Action dropdown for tracking cases
+        const dropdown = document.createElement('div');
+        dropdown.className = 'action-dropdown';
+
+        const toggleButton = document.createElement('button');
+        toggleButton.type = 'button';
+        toggleButton.className = 'btn secondary action-toggle-btn';
+        toggleButton.textContent = '操作';
+        dropdown.appendChild(toggleButton);
+
+        const menu = document.createElement('div');
+        menu.className = 'action-menu';
+        menu.hidden = true;
+
+        const editItem = document.createElement('button');
+        editItem.type = 'button';
+        editItem.className = 'menu-item';
+        editItem.textContent = '編輯';
+        editItem.addEventListener('click', () => {
+          menu.hidden = true;
+          openEditModal(item, isClosed);
+        });
+        menu.appendChild(editItem);
+
+        const deleteItem = document.createElement('button');
+        deleteItem.type = 'button';
+        deleteItem.className = 'menu-item danger';
+        deleteItem.textContent = '刪除';
+        deleteItem.addEventListener('click', () => {
+          menu.hidden = true;
+          deleteSingleCase(item);
+        });
+        menu.appendChild(deleteItem);
+
+        dropdown.appendChild(menu);
+        actionCell.appendChild(dropdown);
+
+        toggleButton.addEventListener('click', event => {
+          event.stopPropagation();
+          document.querySelectorAll('.action-menu').forEach(m => {
+            if (m !== menu) m.hidden = true;
+          });
+          menu.hidden = !menu.hidden;
+        });
+      }
+      row.appendChild(actionCell);
     }
     
-    row.appendChild(actionCell);
-
     columns.forEach(column => {
       const cell = document.createElement('td');
-      if (column === '主日點名小組') {
+      if (column === '現行小組') {
         cell.appendChild(buildSundayGroupTag(item[column] || ''));
       } else if (column === '落戶狀態') {
         cell.textContent = getDisplaySettlementStatus(item);
       } else if (column === '姓名') {
         cell.textContent = item[column] || '';
+        if (checkSettleOverdue(item)) {
+          const warningTag = document.createElement('span');
+          warningTag.className = 'warning-tag';
+          warningTag.textContent = '尚未落戶完成';
+          warningTag.style.color = 'var(--danger)';
+          warningTag.style.background = '#fff5f5';
+          warningTag.style.border = '1px solid var(--danger)';
+          warningTag.style.borderRadius = '4px';
+          warningTag.style.padding = '2px 6px';
+          warningTag.style.fontSize = '11px';
+          warningTag.style.marginLeft = '6px';
+          warningTag.style.fontWeight = 'bold';
+          warningTag.style.display = 'inline-block';
+          cell.appendChild(warningTag);
+        }
       } else {
         cell.textContent = item[column] || '';
       }
@@ -1805,6 +1866,41 @@ function buildCaseTable(rows, selectable, columns, isClosed = false) {
     });
 
     tbody.appendChild(row);
+  });
+
+  // Event delegation for columns resizing
+  table.addEventListener('mousedown', e => {
+    if (e.target.classList.contains('resizer')) {
+      e.preventDefault();
+      const resizer = e.target;
+      const th = resizer.parentElement;
+      const column = th.dataset.column;
+      const startX = e.pageX;
+      const startWidth = th.offsetWidth;
+      
+      document.body.style.cursor = 'col-resize';
+      resizer.classList.add('resizing');
+      
+      const onMouseMove = ev => {
+        const newWidth = startWidth + (ev.pageX - startX);
+        if (newWidth > 50) {
+          th.style.width = newWidth + 'px';
+          th.style.minWidth = newWidth + 'px';
+        }
+      };
+      
+      const onMouseUp = () => {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        document.body.style.cursor = '';
+        resizer.classList.remove('resizing');
+        
+        saveColumnWidth(column, th.offsetWidth);
+      };
+      
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    }
   });
 
   table.appendChild(thead);
@@ -1818,14 +1914,14 @@ function buildSundayGroupTag(value) {
   tag.type = 'button';
   tag.className = groupName ? 'group-tag' : 'group-tag empty-tag';
   tag.textContent = groupName ? shortenGroupName(groupName) : '未';
-  tag.title = groupName || '主日點名尚無小組';
-  tag.setAttribute('aria-label', groupName ? `主日點名小組：${groupName}` : '主日點名尚無小組');
+  tag.title = groupName || '尚無現行小組';
+  tag.setAttribute('aria-label', groupName ? `現行小組：${groupName}` : '尚無現行小組');
   tag.addEventListener('click', () => tag.classList.toggle('expanded'));
   return tag;
 }
 
 function getColumnLabel(column) {
-  return column === '主日點名小組' ? '現行小組' : column;
+  return column;
 }
 
 function shortenGroupName(groupName) {
@@ -2073,7 +2169,7 @@ async function exportClosedCases() {
         item['備註'] || '',
         item['會友狀態'] || '',
         item['點名編號'] || '',
-        item['主日點名小組'] || ''
+        item['現行小組'] || ''
       ])
     ];
 
@@ -2224,3 +2320,81 @@ popoverConfirmBtn.addEventListener('click', () => {
 });
 
 popoverCancelBtn.addEventListener('click', closeHeaderFilterPopover);
+
+// ============================================================
+// ⚙️ 欄位顯示設定與事件綁定
+// ============================================================
+columnsSettingsBtn.addEventListener('click', openColumnsSettingsModal);
+settingsCloseBtn.addEventListener('click', closeColumnsSettingsModal);
+settingsCancelBtn.addEventListener('click', closeColumnsSettingsModal);
+settingsSaveBtn.addEventListener('click', saveColumnsSettings);
+settingsSelectAll.addEventListener('change', toggleAllSettingsCheckboxes);
+columnsSettingsModal.addEventListener('click', event => {
+  if (event.target === columnsSettingsModal) closeColumnsSettingsModal();
+});
+
+function openColumnsSettingsModal() {
+  settingsColumnsList.innerHTML = '';
+  
+  ALL_COLUMNS.forEach(column => {
+    const label = document.createElement('label');
+    label.style.display = 'flex';
+    label.style.alignItems = 'center';
+    label.style.gap = '8px';
+    label.style.cursor = 'pointer';
+    label.style.padding = '4px 0';
+    
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = column;
+    checkbox.checked = visibleColumns.includes(column);
+    checkbox.addEventListener('change', updateSelectAllSettingsCheckboxState);
+    
+    const span = document.createElement('span');
+    span.textContent = column;
+    
+    label.appendChild(checkbox);
+    label.appendChild(span);
+    settingsColumnsList.appendChild(label);
+  });
+  
+  updateSelectAllSettingsCheckboxState();
+  columnsSettingsModal.hidden = false;
+}
+
+function closeColumnsSettingsModal() {
+  columnsSettingsModal.hidden = true;
+}
+
+function toggleAllSettingsCheckboxes() {
+  const checked = settingsSelectAll.checked;
+  settingsColumnsList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    cb.checked = checked;
+  });
+}
+
+function updateSelectAllSettingsCheckboxState() {
+  const checkboxes = Array.from(settingsColumnsList.querySelectorAll('input[type="checkbox"]'));
+  const checkedCount = checkboxes.filter(cb => cb.checked).length;
+  settingsSelectAll.checked = checkedCount === checkboxes.length;
+  settingsSelectAll.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+}
+
+function saveColumnsSettings() {
+  const checkedCols = Array.from(settingsColumnsList.querySelectorAll('input[type="checkbox"]:checked'))
+    .map(cb => cb.value);
+    
+  if (checkedCols.length === 0) {
+    alert('請至少勾選顯示一個欄位！');
+    return;
+  }
+  
+  visibleColumns = checkedCols;
+  setCookie('visible_columns', JSON.stringify(visibleColumns), 365);
+  closeColumnsSettingsModal();
+  
+  // Re-render current panels
+  loadTrackingCases();
+  loadClosedCases();
+  refreshAnalysisPreview();
+}

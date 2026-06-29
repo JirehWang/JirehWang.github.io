@@ -688,3 +688,103 @@ tr:last-child td {
   padding: 0 12px;
   font-size: 12px;
 }
+
+/* ============================================================
+   ⚙️ 欄位調整與顯示設定樣式
+   ============================================================ */
+
+/* Column resizer styles */
+th {
+  position: relative;
+}
+
+.resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  cursor: col-resize;
+  user-select: none;
+  height: 100%;
+  z-index: 10;
+  transition: background-color 0.15s ease;
+}
+
+.resizer:hover,
+.resizer.resizing {
+  background-color: var(--primary);
+  opacity: 0.7;
+}
+
+/* Resizable table style */
+table.resizable-table {
+  table-layout: fixed;
+  width: max-content;
+  min-width: 100%;
+}
+
+table.resizable-table th,
+table.resizable-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Settings button styling */
+.btn-settings {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: auto;
+}
+
+.btn-settings:hover {
+  background: #f1f5f3;
+  border-color: #ccd7d2;
+}
+
+/* Settings checklist styling */
+.settings-columns-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  user-select: none;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.settings-columns-list label:hover {
+  background: var(--surface-2);
+}
+
+.settings-columns-list input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+@media (max-width: 720px) {
+  .tabs {
+    flex-wrap: wrap;
+  }
+  .btn-settings {
+    margin-left: 0;
+    width: 100%;
+    justify-content: center;
+    margin-top: 4px;
+  }
+}
