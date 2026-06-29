@@ -181,19 +181,24 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  min-height: 44px;
+  min-height: 42px;
   width: fit-content;
-  padding: 9px 11px;
+  padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--surface-2);
   cursor: pointer;
+  font-weight: normal;
+  transition: all 0.2s ease;
+}
+
+.checkbox-label:hover {
+  background: rgba(67, 160, 71, 0.08);
 }
 
 .checkbox-label input {
-  width: 18px;
-  min-height: 18px;
-  height: 18px;
+  width: 15px;
+  height: 15px;
   margin: 0;
 }
 
@@ -864,4 +869,35 @@ table.resizable-table td {
   font-size: 11px;
   margin-left: 6px;
   font-weight: bold;
+}
+
+/* Custom Global Checkbox Styling */
+input[type="checkbox"] {
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.settings-option-all {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+  user-select: none;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface-2);
+  font-weight: bold;
+}
+
+.settings-option-all:hover {
+  background: rgba(67, 160, 71, 0.08);
+}
+
+.settings-option-all input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  margin: 0;
 }

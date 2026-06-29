@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>新家人管理系統</title>
-  <link rel="stylesheet" href="style.css?v=20260629-v4">
+  <link rel="stylesheet" href="style.css?v=20260629-v5">
 </head>
 <body>
   <main class="app">
@@ -211,6 +211,10 @@
           <button class="btn secondary" type="button" data-analysis-range="q2">Q2</button>
           <button class="btn secondary" type="button" data-analysis-range="q3">Q3</button>
           <button class="btn secondary" type="button" data-analysis-range="q4">Q4</button>
+          <label class="checkbox-label" for="analysisOverdueFilter" style="margin-left: auto; margin-bottom: 0;">
+            <input id="analysisOverdueFilter" type="checkbox">
+            <span>只顯示 尚未落戶完成</span>
+          </label>
         </div>
       </div>
 
@@ -228,12 +232,6 @@
           <select id="analysisStatusFilter">
             <option value="">全部</option>
           </select>
-        </div>
-        <div class="field" style="display: flex; align-items: flex-end;">
-          <label class="checkbox-label" for="analysisOverdueFilter">
-            <input id="analysisOverdueFilter" type="checkbox">
-            <span>只顯示 尚未落戶完成</span>
-          </label>
         </div>
       </div>
 
@@ -332,9 +330,9 @@
         <button id="settingsCloseBtn" class="icon-btn" type="button" aria-label="關閉欄位設定">&times;</button>
       </div>
       <div class="settings-options-wrap" style="padding: 10px 20px; max-height: 350px; overflow-y: auto;">
-        <label class="settings-option-all" style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 0;">
+        <label class="settings-option-all" for="settingsSelectAll">
           <input type="checkbox" id="settingsSelectAll" checked>
-          <span><strong>(全選)</strong></span>
+          <span>(全選)</span>
         </label>
         <hr style="margin: 8px 0; border: 0; border-top: 1px solid #eee;">
         <div id="settingsColumnsList" class="settings-columns-list">
@@ -349,8 +347,8 @@
   </div>
 
   <script>window._GAS_KEY = 'LKC_NewFamily';</script>
-  <script src="../../config.js?v=20260629-v4"></script>
-  <script src="api-config.js?v=20260629-v4"></script>
-  <script src="script.js?v=20260629-v4"></script>
+  <script src="../../config.js?v=20260629-v5"></script>
+  <script src="api-config.js?v=20260629-v5"></script>
+  <script src="script.js?v=20260629-v5"></script>
 </body>
 </html>
