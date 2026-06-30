@@ -9,8 +9,7 @@
 //  🛠️ 自動檢查與初始化 — 在 小組清單 補上 district 與 cluster 欄位
 // ============================================================
 function initHierarchySheets() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var groupsSheet = ss.getSheetByName('小組清單');
+  var groupsSheet = getGroupSheet('小組清單');
   if (!groupsSheet) {
     Logger.log('❌ 找不到 小組清單 工作表');
     return;
@@ -78,8 +77,10 @@ function handleHierarchyAction(action, data) {
     Logger.log('⚠️ 自動初始化 Hierarchy 欄位失敗: ' + e.message);
   }
 
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var groupsSheet = ss.getSheetByName('小組清單');
+  var groupsSheet = getGroupSheet('小組清單');
+  if (!groupsSheet) {
+    return { success: false, message: '找不到 小組清單 工作表' };
+  }
 
   switch (action) {
     case 'getDistrictsAndClusters':
@@ -284,8 +285,7 @@ function _handleUpdateClusterGroups(data, groupsSheet) {
 function enrichAdminGroupsListWithHierarchy(result, authCode) {
   if (!result || !result.success) return result;
 
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var groupsSheet = ss.getSheetByName('小組清單');
+  var groupsSheet = getGroupSheet('小組清單');
   var groups = groupsSheet ? _getSheetRows(groupsSheet) : [];
 
   var districtSet = {};
@@ -351,8 +351,8 @@ function enrichAdminGroupsListWithHierarchy(result, authCode) {
 function writeGroupHierarchyFields(groupUuid, districtName, clusterName) {
   if (districtName === undefined && clusterName === undefined) return;
 
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var groupsSheet = ss.getSheetByName('小組清單');
+  var groupsSheet = getGroupSheet('小組清單');
+  if (!groupsSheet) return;
   var groupRows = _getSheetRows(groupsSheet);
   var idx = _findRowByUuid(groupRows, groupUuid);
   if (idx === -1) return;
@@ -371,8 +371,8 @@ function writeGroupHierarchyFields(groupUuid, districtName, clusterName) {
 //  🔧 assignNewGroupToCluster
 // ============================================================
 function assignNewGroupToCluster(newGroupUuid, targetClusterName, newClusterName) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var groupsSheet = ss.getSheetByName('小組清單');
+  var groupsSheet = getGroupSheet('小組清單');
+  if (!groupsSheet) return;
 
   var clusterCol = _getColIndex(groupsSheet, 'cluster');
   var distCol = _getColIndex(groupsSheet, 'district');
