@@ -3,6 +3,9 @@ let currentEditingGroup = null; // 改為儲存完整的 group 物件（包含 u
 let verifiedAdminCode = ""; // 儲存已驗證的管理員代碼
 let activeTab = 'regular'; // 'regular' or 'happy'
 let globalIsAdmin = false; // 儲存最高管理員權限狀態
+let cachedDistricts = [];
+let cachedClusters = [];
+let myClusterName = ""; // 小組長自己所屬的小組群名稱
 
 // showLoading / hideLoading / ensureAPIReady 由 config.js 提供。
 
@@ -62,8 +65,13 @@ async function loadGroups() {
         if (res.success) {
             adminGroupsList = res.groups;
             globalIsAdmin = res.isAdmin; // ✅ 儲存權限狀態
+            cachedDistricts = res.districts || [];
+            cachedClusters = res.clusters || [];
+            myClusterName = res.clusterName || ""; // 小組長自己所屬的小組群名稱
+
             updatePermissionBadge(res.isAdmin); // ✅ 更新權限徽章
             renderTable(res.isAdmin); // ✅ 傳入權限等級
+            initClusterManagementPanel(res.isAdmin); // ✅ 初始化小組長專屬管理區
         } else {
             userNotification.error("載入失敗：" + res.message);
         }
@@ -100,12 +108,15 @@ function updatePermissionBadge(isAdmin) {
 function renderTable(isAdmin) {
     const tbody = document.querySelector('#groupsTable tbody');
     const dateColumn = document.getElementById('dateColumn');
+    const adminCols = document.querySelectorAll('.admin-only-col');
     
     // ✅ 根據權限動態調整欄位顯示
     if (isAdmin) {
         dateColumn.style.display = ''; // 顯示日期欄
+        adminCols.forEach(col => col.style.display = '');
     } else {
         dateColumn.style.display = 'none'; // 隱藏日期欄
+        adminCols.forEach(col => col.style.display = 'none');
     }
     
     const filteredGroups = adminGroupsList.filter(g => {
@@ -117,7 +128,7 @@ function renderTable(isAdmin) {
     });
     
     if (filteredGroups.length === 0) {
-        const colspan = isAdmin ? '5' : '4';
+        const colspan = isAdmin ? '7' : '4';
         tbody.innerHTML = `<tr><td colspan="${colspan}" style="color: #999;">目前沒有小組資料</td></tr>`;
         return;
     }
@@ -141,6 +152,8 @@ function renderTable(isAdmin) {
         
         // ✅ 根據權限決定顯示的欄位
         const dateCell = isAdmin ? `<td style="color: #666; font-size: 14px;">${dateDisplay}</td>` : '';
+        const districtCell = isAdmin ? `<td style="color: #555; font-size: 14px;">${g.districtName || '-'}</td>` : '';
+        const clusterCell = isAdmin ? `<td style="color: #555; font-size: 14px;">${g.clusterName || '-'}</td>` : '';
         
         // 幸福小組標示
         const groupTypeBadge = g.type === '幸福小組'
@@ -162,6 +175,8 @@ function renderTable(isAdmin) {
                 <td style="font-weight: bold; font-size: 16px;">${g.name}${groupTypeBadge}</td>
                 <td><span style="background: #eee; padding: 4px 10px; border-radius: 12px; font-family: monospace;">${g.code}</span></td>
                 <td>${statusBadge}</td>
+                ${districtCell}
+                ${clusterCell}
                 ${dateCell}
                 <td>
                     <button class="btn" style="background: #2196F3; padding: 6px 12px; font-size: 13px;" onclick="openEditModal(${originalIndex})">✏️ 編輯</button>${concludeBtn}${deleteBtn}
@@ -203,6 +218,36 @@ function openEditModal(index) {
         statusSelect.value = group.status || '顯示';
         statusSelect.disabled = false;
     }
+
+    // 處理牧區與小組群下拉選單 (最高管理權限專屬)
+    const editRows = document.querySelectorAll('.admin-only-edit-row');
+    if (globalIsAdmin) {
+        editRows.forEach(row => row.style.display = 'block');
+
+        // 填充牧區
+        const distSelect = document.getElementById('editDistrict');
+        distSelect.innerHTML = '<option value="">-- 無歸屬 --</option>';
+        cachedDistricts.forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d.name;
+            opt.innerText = d.name;
+            distSelect.appendChild(opt);
+        });
+        distSelect.value = group.districtName || '';
+
+        // 填充小組群
+        const clustSelect = document.getElementById('editCluster');
+        clustSelect.innerHTML = '<option value="">-- 無歸屬 --</option>';
+        cachedClusters.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.name;
+            opt.innerText = c.name;
+            clustSelect.appendChild(opt);
+        });
+        clustSelect.value = group.clusterName || '';
+    } else {
+        editRows.forEach(row => row.style.display = 'none');
+    }
     
     document.getElementById('edit-group-modal').style.display = 'block';
 }
@@ -216,6 +261,8 @@ async function saveGroupEdit() {
     const newName = document.getElementById('editNewName').value.trim();
     const newCode = document.getElementById('editNewCode').value.trim();
     const newStatus = document.getElementById('editNewStatus').value;
+    const editDistrictVal = globalIsAdmin ? document.getElementById('editDistrict').value : (currentEditingGroup.districtName || '');
+    const editClusterVal = globalIsAdmin ? document.getElementById('editCluster').value : (currentEditingGroup.clusterName || '');
 
     if (!newName) return userNotification.warning("名稱不可為空！");
     if (newCode.length < 4) return userNotification.warning("代碼至少需要 4 碼！");
@@ -223,7 +270,9 @@ async function saveGroupEdit() {
     const hasChanges =
         newName !== currentEditingGroup.name ||
         newCode !== currentEditingGroup.code ||
-        newStatus !== currentEditingGroup.status;
+        newStatus !== currentEditingGroup.status ||
+        editDistrictVal !== (currentEditingGroup.districtName || '') ||
+        editClusterVal !== (currentEditingGroup.clusterName || '');
 
     if (!hasChanges) return userNotification.warning("⚠️ 您沒有做任何修改！");
 
@@ -240,7 +289,9 @@ async function saveGroupEdit() {
             oldName: currentEditingGroup.name,
             newName: newName, 
             newCode: newCode,
-            newStatus: newStatus
+            newStatus: newStatus,
+            districtUuid: editDistrictVal,
+            clusterUuid: editClusterVal
         });
 
         if (res.success) {
@@ -303,3 +354,123 @@ async function deleteGroup(groupName) {
         hideLoading();
     }
 }
+
+// ============================================================
+//  👥 小組長管理自己小組群的面板邏輯 (分區小組群)
+// ============================================================
+
+function initClusterManagementPanel(isAdmin) {
+    const panel = document.getElementById('cluster-management-panel');
+    if (!panel) return;
+
+    if (isAdmin || !myClusterName) {
+        panel.style.display = 'none';
+        return;
+    }
+
+    panel.style.display = 'block';
+    panel.querySelector('h3').innerText = `👥 【${myClusterName}】小組群成員管理`;
+    renderMyClusterGroups();
+}
+
+function renderMyClusterGroups() {
+    const listDiv = document.getElementById('myClusterGroupsList');
+    const select = document.getElementById('unassignedGroupsSelect');
+    if (!listDiv || !select) return;
+
+    // 篩選屬於當前小組群的小組
+    const myGroups = adminGroupsList.filter(g => g.clusterName === myClusterName);
+    
+    // 渲染當前成員
+    if (myGroups.length === 0) {
+        listDiv.innerHTML = '<span style="color:#999; font-size:13px;">目前群內無其他小組</span>';
+    } else {
+        listDiv.innerHTML = myGroups.map(g => {
+            const isSelf = g.code === verifiedAdminCode;
+            const removeBtn = isSelf 
+                ? `<span style="color:#888; font-size:11px; margin-left:5px;">(您的小組)</span>`
+                : `<button class="btn" style="background:#f44336; padding:2px 8px; font-size:12px; margin-left:8px; height:auto; width:auto;" onclick="removeGroupFromMyCluster('${g.uuid}')">移除</button>`;
+            
+            return `
+                <div style="background:#fff; border:1px solid #ddd; padding:6px 12px; border-radius:6px; display:inline-flex; align-items:center; font-size:14px; font-weight:bold; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    ⛪ ${g.name}${removeBtn}
+                </div>
+            `;
+        }).join('');
+    }
+
+    // 填充無歸屬小組下拉選單
+    const unassigned = adminGroupsList.filter(g => !g.clusterName && g.type !== '幸福小組');
+    select.innerHTML = '<option value="">-- 請選擇小組 --</option>';
+    unassigned.forEach(g => {
+        const opt = document.createElement('option');
+        opt.value = g.uuid;
+        opt.innerText = g.name;
+        select.appendChild(opt);
+    });
+}
+
+// 移除小組
+async function removeGroupFromMyCluster(groupUuid) {
+    if (!confirm('確定要將該小組移出您的小組群嗎？')) return;
+
+    const myGroups = adminGroupsList.filter(g => g.clusterName === myClusterName);
+    const targetUuids = myGroups
+        .map(g => g.uuid)
+        .filter(uuid => uuid !== groupUuid);
+
+    showLoading('正在移出小組...');
+    try {
+        const res = await callAPI('updateClusterGroups', {
+            clusterUuid: myClusterName,
+            groupUuids: targetUuids,
+            authCode: verifiedAdminCode
+        });
+        if (res.success) {
+            userNotification.success('✅ 已成功將小組移出群組！');
+            await loadGroups();
+        } else {
+            userNotification.warning(res.message || '操作失敗');
+        }
+    } catch (e) {
+        userNotification.error('連線異常，操作失敗');
+    } finally {
+        hideLoading();
+    }
+}
+
+// 加入小組
+async function addSetupGroupToMyCluster() {
+    const select = document.getElementById('unassignedGroupsSelect');
+    const groupUuid = select.value;
+    if (!groupUuid) return userNotification.warning('請先選擇一個小組');
+
+    const myGroups = adminGroupsList.filter(g => g.clusterName === myClusterName);
+    const targetUuids = myGroups.map(g => g.uuid);
+    if (!targetUuids.includes(groupUuid)) {
+        targetUuids.push(groupUuid);
+    }
+
+    showLoading('正在拉入小組...');
+    try {
+        const res = await callAPI('updateClusterGroups', {
+            clusterUuid: myClusterName,
+            groupUuids: targetUuids,
+            authCode: verifiedAdminCode
+        });
+        if (res.success) {
+            userNotification.success('✅ 已成功將小組拉入群組！');
+            await loadGroups();
+        } else {
+            userNotification.warning(res.message || '操作失敗');
+        }
+    } catch (e) {
+        userNotification.error('連線異常，操作失敗');
+    } finally {
+        hideLoading();
+    }
+}
+
+// 暴露全域
+window.addSetupGroupToMyCluster = addSetupGroupToMyCluster;
+window.removeGroupFromMyCluster = removeGroupFromMyCluster;

@@ -1,30 +1,30 @@
 :root {
-    --bg-top: #faf6ed;
-    --bg-bottom: #f3ecdd;
-    --surface: rgba(255, 252, 247, 0.9);
-    --surface-strong: rgba(255, 253, 249, 0.97);
-    --surface-alt: rgba(125, 79, 28, 0.035);
-    --border-soft: rgba(108, 76, 31, 0.09);
-    --border-strong: rgba(108, 76, 31, 0.16);
-    --text-main: #443629;
-    --text-soft: #75624b;
-    --text-faint: #9a8a78;
-    --shadow-soft: 0 10px 24px rgba(82, 56, 22, 0.06);
-    --shadow-card: 0 14px 28px rgba(85, 57, 17, 0.08);
-    --wheat: #e2bf5a;
-    --wheat-deep: #c79925;
-    --soil: #6f5a43;
-    --leaf: #788164;
+    --bg-top: #f8fafc;          /* 恢復原本清爽的極簡石板灰 */
+    --bg-bottom: #e2e8f0;
+    --surface: rgba(255, 255, 255, 0.95);
+    --surface-strong: rgba(255, 255, 255, 0.98);
+    --surface-alt: rgba(44, 36, 30, 0.02);
+    --border-soft: rgba(92, 77, 62, 0.08);
+    --border-strong: rgba(92, 77, 62, 0.16);
+    --text-main: #2C241E;       /* 極深炭褐，高對比度且護眼，相較純黑更柔和 */
+    --text-soft: #5C4D3E;       /* 中炭褐 */
+    --text-faint: #8C7C6E;      /* 淡炭褐 */
+    --shadow-soft: 0 10px 24px rgba(44, 36, 30, 0.04);
+    --shadow-card: 0 14px 28px rgba(44, 36, 30, 0.06);
+    --wheat: #e2bf5a;          /* 恢復原本溫暖的麥金黃色 */
+    --wheat-deep: #c79925;      /* 恢復原本深金黃 */
+    --soil: #4A3B32;            /* 溫暖泥土深褐 */
+    --leaf: #7b856b;            /* 恢復原本麥葉森林綠 */
     --olive: #929b82;
-    --berry: #987b86;
-    --sky: #919ba3;
-    --cream: #fffaf0;
+    --berry: #987b86;          /* 恢復原本幸福小組的紫梅色 */
+    --sky: #3b82f6;
+    --cream: #f8fafc;
     --white: #ffffff;
     --primary-color: #7b856b;
     --admin-color: #8a765d;
-    --create-color: #ab8b5e;
-    --header-grad: linear-gradient(180deg, rgba(255, 252, 247, 0.97), rgba(245, 238, 225, 0.92));
-    --panel-grad: linear-gradient(180deg, rgba(255, 252, 247, 0.97), rgba(246, 240, 228, 0.92));
+    --create-color: #ab8b5e;    /* 恢復原本創建按鈕的麥穗乾草灰金 */
+    --header-grad: linear-gradient(180deg, #ffffff, #f8fafc);
+    --panel-grad: linear-gradient(180deg, #ffffff, #f8fafc);
 }
 
 * {
@@ -104,7 +104,7 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(250, 246, 235, 0.78);
+    background: rgba(250, 246, 240, 0.85);
     z-index: 9999;
     flex-direction: column;
     justify-content: center;
@@ -113,22 +113,29 @@ body {
 }
 
 .spinner {
-    width: 54px;
-    height: 54px;
-    border: 5px solid rgba(122, 82, 36, 0.12);
-    border-top: 5px solid var(--wheat-deep);
-    border-radius: 50%;
-    animation: spin 0.9s linear infinite;
+    width: 60px;
+    height: 60px;
+    border: none !important;
+    border-radius: 0 !important;
+    font-size: 52px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: wheatPulse 1.6s ease-in-out infinite;
 }
 
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+.spinner::after {
+    content: "🌾";
+}
+
+@keyframes wheatPulse {
+    0%, 100% { transform: scale(0.9) rotate(-5deg); opacity: 0.8; }
+    50% { transform: scale(1.1) rotate(5deg); opacity: 1; }
 }
 
 .loading-msg {
     margin-top: 16px;
-    color: var(--soil);
+    color: var(--text-soft);
     font-weight: 800;
     font-size: 16px;
 }
@@ -283,42 +290,88 @@ body.modal-open {
     border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
-.header .stats-link.tab-btn:nth-child(1) {
-    background: #a69276 !important;
+.header > div:last-child > .stats-link.tab-btn {
+    border-radius: 8px;
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+    padding: 0 16px;
+    white-space: nowrap;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    transition: all 0.22s ease;
+    border: none;
+    cursor: pointer;
 }
 
-.header .stats-link.tab-btn:nth-child(2) {
-    background: #8a927f !important;
+.header > div:last-child > .stats-link.tab-btn:nth-child(2) {
+    background: repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 2px, transparent 2px, transparent 4px), linear-gradient(135deg, #dfc08a, #c69f68) !important;
 }
 
-.header .stats-link.tab-btn:nth-child(3) {
-    background: #928472 !important;
+.header > div:last-child > .stats-link.tab-btn:nth-child(3) {
+    background: repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 2px, transparent 2px, transparent 4px), linear-gradient(135deg, #b5c49a, #8fa370) !important;
 }
 
-.header .stats-link.tab-btn:nth-child(4) {
-    background: #9b8d79 !important;
+.header > div:last-child > .stats-link.tab-btn:nth-child(4) {
+    background: repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 2px, transparent 2px, transparent 4px), linear-gradient(135deg, #c7a78e, #9f7d63) !important;
+}
+
+.header > div:last-child > .stats-link.tab-btn:nth-child(5) {
+    background: repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 2px, transparent 2px, transparent 4px), linear-gradient(135deg, #a4c2cc, #7c9ca6) !important;
+}
+
+#setupSubButtons .stats-link.tab-btn {
+    border-radius: 8px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: bold;
+    padding: 0 12px;
+    white-space: nowrap;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    transition: all 0.22s ease;
+    border: none;
+    cursor: pointer;
+    color: #ffffff !important;
+}
+
+#setupSubButtons .stats-link.tab-btn:nth-child(1) {
+    background: repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 2px, transparent 2px, transparent 4px), linear-gradient(135deg, #a1887f, #8d6e63) !important;
+}
+
+#setupSubButtons .stats-link.tab-btn:nth-child(2) {
+    background: repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 2px, transparent 2px, transparent 4px), linear-gradient(135deg, #7d5a50, #5d4037) !important;
+}
+
+.header .stats-link.tab-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
 }
 
 #group-list-container,
 #regular-group-list,
 #happy-group-list {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: 14px;
 }
 
 .tag-btn {
     position: relative;
-    min-height: 116px;
-    padding: 18px 14px;
+    min-height: 80px;
+    padding: 12px 8px;
     border: 1px solid rgba(119, 85, 31, 0.12);
-    border-radius: 18px;
-    font-size: 17px;
+    border-radius: 14px;
+    font-size: 15px;
     font-weight: 800;
     cursor: pointer;
     transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
     box-shadow: 0 8px 18px rgba(85, 57, 17, 0.06);
-    background: rgba(255, 252, 247, 0.95);
+    background: var(--white);
     color: var(--text-main);
     text-align: center;
     overflow: hidden;
@@ -328,14 +381,8 @@ body.modal-open {
     content: "";
     position: absolute;
     inset: 0;
-    background:
-        radial-gradient(circle at 18% 22%, rgba(255, 255, 255, 0.28) 0 1px, transparent 1.6px),
-        radial-gradient(circle at 76% 28%, rgba(226, 191, 90, 0.18) 0 1px, transparent 1.8px),
-        radial-gradient(circle at 62% 72%, rgba(255, 255, 255, 0.18) 0 1px, transparent 1.7px),
-        linear-gradient(135deg, rgba(255, 255, 255, 0.12), transparent 34%);
-    background-size: 140px 140px, 170px 170px, 160px 160px, auto;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), transparent 50%);
     pointer-events: none;
-    opacity: 0.55;
 }
 
 .tag-btn:hover {
@@ -345,33 +392,34 @@ body.modal-open {
 
 .group-tag {
     border-top: 6px solid var(--wheat);
-    box-shadow: inset 0 3px 0 rgba(255, 243, 199, 0.75);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
 }
 
 .create-tag {
-    border: 2px dashed rgba(199, 153, 37, 0.62) !important;
-    color: var(--wheat-deep) !important;
-    background: rgba(250, 245, 235, 0.96) !important;
-    box-shadow: inset 0 2px 0 rgba(255, 244, 205, 0.7);
+    border: 2px dashed var(--create-color) !important;
+    color: var(--create-color) !important;
+    background: var(--white) !important;
+    box-shadow: none;
 }
 
 .create-tag::after {
     content: "+";
     display: block;
-    margin-top: 10px;
-    font-size: 24px;
+    margin-top: 2px;
+    font-size: 16px;
     font-weight: 900;
-    color: rgba(199, 153, 37, 0.82);
+    color: var(--create-color);
 }
 
 .happy-tag {
     border-top: 5px solid var(--berry) !important;
-    background: rgba(250, 246, 246, 0.96);
+    background: var(--white) !important;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
 }
 
 .group-tag::after,
 .create-tag::after {
-    text-shadow: 0 0 8px rgba(255, 227, 132, 0.28);
+    text-shadow: none;
 }
 
 .member-item {
@@ -730,11 +778,11 @@ body.modal-open {
 
 .page-home #regular-groups-section,
 .page-home #happy-groups-section {
-    background: rgba(255, 252, 247, 0.58);
-    border: 1px solid rgba(117, 87, 40, 0.08);
-    border-radius: 18px;
-    padding: 18px;
-    box-shadow: none;
+    background: var(--header-grad);
+    border: 1px solid var(--border-soft);
+    border-radius: 20px;
+    padding: 24px 26px;
+    box-shadow: var(--shadow-card);
 }
 
 .page-home .header {
@@ -830,9 +878,9 @@ body.modal-open {
     }
 
     .tag-btn {
-        min-height: 118px;
-        padding: 16px 10px;
-        font-size: 15px;
+        min-height: 80px;
+        padding: 10px 6px;
+        font-size: 14px;
     }
 
     .filter-box {
@@ -889,7 +937,7 @@ body.modal-open {
     #group-list-container,
     #regular-group-list,
     #happy-group-list {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     table,

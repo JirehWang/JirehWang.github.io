@@ -50,11 +50,13 @@
                 <table id="groupsTable" style="margin-top: 0; border-radius: 0;">
                     <thead>
                         <tr>
-                            <th style="width: 25%;">小組名稱</th>
-                            <th style="width: 20%;">專屬代碼</th>
-                            <th style="width: 15%;">狀態</th>
-                            <th style="width: 20%;" id="dateColumn">建立日期</th>
-                            <th style="width: 20%;">操作</th>
+                            <th style="width: 20%;">小組名稱</th>
+                            <th style="width: 15%;">專屬代碼</th>
+                            <th style="width: 10%;">狀態</th>
+                            <th style="width: 15%;" class="admin-only-col">所屬牧區</th>
+                            <th style="width: 15%;" class="admin-only-col">所屬小組群</th>
+                            <th style="width: 15%;" id="dateColumn">建立日期</th>
+                            <th style="width: 10%;">操作</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -63,6 +65,29 @@
                         </tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- 小組長專用：分區小組群管理面板 -->
+        <div id="cluster-management-panel" class="filter-box" style="display: none; margin-top: 20px; background: #fffde7; border: 1px solid #fff59d; text-align: left;">
+            <h3 style="margin-top: 0; color: #f57f17; border-bottom: 2px solid #fff59d; padding-bottom: 8px;">👥 我管理的小組群成員</h3>
+            <p style="color: #666; font-size: 13px;">您可以新增無歸屬的小組至您的小組群，或從群中移除小組（被移除的小組將自動清空其小組群與所屬牧區歸屬）。</p>
+            
+            <!-- 目前成員名單 -->
+            <div style="margin-bottom: 15px;">
+                <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #555;">目前旗下小組：</h4>
+                <div id="myClusterGroupsList" style="display: flex; flex-wrap: wrap; gap: 10px;">
+                    <span style="color:#999; font-size:13px;">載入中...</span>
+                </div>
+            </div>
+
+            <!-- 新增小組入口 -->
+            <div style="border-top: 1px dashed #e0e0e0; padding-top: 15px; display: flex; align-items: center; gap: 10px;">
+                <label style="font-weight: bold; font-size: 13px; color: #555;">拉入無歸屬小組：</label>
+                <select id="unassignedGroupsSelect" style="padding: 8px; border: 1px solid #ccc; border-radius: 6px; background: white; font-size: 13px;">
+                    <option value="">-- 請選擇小組 --</option>
+                </select>
+                <button class="btn" style="background: #f57f17; padding: 6px 12px; font-size: 13px; color: white;" onclick="addSetupGroupToMyCluster()">➕ 加入我管理的小組群</button>
             </div>
         </div>
     </div>
@@ -97,6 +122,20 @@
                 <select id="editNewStatus" style="width: 100%; margin-top: 5px; padding: 10px; font-size: 14px;">
                     <option value="顯示">✅ 顯示 (在首頁小組清單中顯示)</option>
                     <option value="隱藏">🚫 隱藏 (在首頁小組清單中隱藏)</option>
+                </select>
+            </div>
+
+            <div style="margin-top: 15px;" class="admin-only-edit-row">
+                <label style="font-weight: bold; color: #555;">歸屬牧區：</label>
+                <select id="editDistrict" style="width: 100%; margin-top: 5px; padding: 10px; font-size: 14px; background: white;">
+                    <option value="">-- 無歸屬 --</option>
+                </select>
+            </div>
+            
+            <div style="margin-top: 15px;" class="admin-only-edit-row">
+                <label style="font-weight: bold; color: #555;">歸屬小組群：</label>
+                <select id="editCluster" style="width: 100%; margin-top: 5px; padding: 10px; font-size: 14px; background: white;">
+                    <option value="">-- 無歸屬 --</option>
                 </select>
             </div>
             

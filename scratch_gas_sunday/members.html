@@ -1,0 +1,382 @@
+/*members.html */
+<style>
+  /* 表格容器與固定表頭 */
+  .member-table-container {
+    height: calc(100vh - 200px); 
+    overflow: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    background: white;
+  }
+  .member-table-container thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: #212529 !important;
+    color: white;
+    box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
+  }
+  .member-table-container thead th:first-child { position: sticky; left: 0; z-index: 11; }
+  .member-table-container tbody td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    background-color: #f8f9fa; 
+    border-right: 1px solid #dee2e6; 
+    box-shadow: 2px 0 4px -2px rgba(0,0,0,0.1); 
+  }
+</style>
+
+<div class="members-main-wrapper p-2">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="input-group input-group-sm shadow-sm" style="width: 250px;">
+      <span class="input-group-text bg-white border-end-0 text-muted">🔍</span>
+      <input type="text" id="memberSearchInput" class="form-control border-start-0 border-end-0" placeholder="輸入姓名即時查找..." oninput="filterMembers()">
+      <button id="memberClearBtn" class="btn bg-white border-start-0 text-muted" type="button" onclick="clearMemberSearch()" style="display: none;">✕</button>
+    </div>
+    <button class="btn btn-primary btn-sm shadow-sm px-3" onclick="openMemberModal()">＋ 新增會友</button>
+  </div>
+
+  <div class="member-table-container shadow-sm">
+    <table class="table table-hover align-middle mb-0" style="min-width: 880px;"> 
+      <thead class="table-dark">
+        <tr>
+          <th style="width: 110px;">姓名</th>
+          <th style="width: 100px;">會友代碼</th>
+          <th style="width: 70px;">性別</th>
+          <th style="width: 110px;">建立日期</th>
+          <th>備註</th>
+          <th style="width: 90px;">狀態</th>
+          <th style="width: 120px;">操作</th>
+        </tr>
+      </thead>
+      <tbody id="memberTableBody">
+        <tr><td colspan="7" class="text-center p-5">資料載入中...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="memberListModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; overflow-y: auto;">
+  <div class="custom-modal-content" style="background: white; margin: 5% auto; padding: 25px; width: 90%; max-width: 500px; border-radius: 15px;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 id="memModalHeader" class="fw-bold mb-0 text-dark">新增會友資料</h5>
+      <button type="button" class="btn-close" onclick="closeMemberModal()"></button>
+    </div>
+    <hr>
+    <input type="hidden" id="editOldName_Mem">
+    <div class="row g-3">
+      <div class="col-12">
+        <label class="form-label fw-bold small text-muted">系統編號</label>
+        <div class="input-group">
+          <input type="text" id="editModal_Uid" class="form-control bg-light" readonly placeholder="讀取中/無編號">
+          <button type="button" class="btn btn-outline-primary fw-bold" id="btnShowQrCode" onclick="openQrModal()">📷 顯示 QR / 卡片</button>
+        </div>
+      </div>
+      <div class="col-md-8">
+        <label class="form-label fw-bold small text-muted">姓名</label>
+        <input type="text" id="editName_Mem" class="form-control form-control-lg" placeholder="請輸入姓名">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-bold small text-muted">性別</label>
+        <select id="editGender_Mem" class="form-select form-select-lg">
+          <option value="男">男 👦</option>
+          <option value="女">女 👧</option>
+        </select>
+      </div>
+      <div class="col-12">
+        <label class="form-label fw-bold small text-muted">備註</label>
+        <textarea id="editNote_Mem" class="form-control" rows="3" placeholder="其他聯絡資訊或註記..."></textarea>
+      </div>
+      <div class="col-12">
+        <div class="form-check form-switch mt-2">
+          <input class="form-check-input" type="checkbox" id="editIsExcluded_Mem">
+          <label class="form-check-label fw-bold" for="editIsExcluded_Mem">不列入主日出席率統計</label>
+        </div>
+      </div>
+    </div>
+    <div class="text-end mt-4">
+      <button class="btn btn-light px-4 me-2" onclick="closeMemberModal()">取消</button>
+      <button id="saveMemBtn" class="btn btn-primary px-4 fw-bold" onclick="processMemberSave()">確認儲存</button>
+    </div>
+  </div>
+</div>
+
+<div id="qrCodeModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000; overflow-y: auto;">
+  <div class="custom-modal-content" style="background: white; margin: 5% auto; padding: 25px; width: 90%; max-width: 600px; border-radius: 15px;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0 text-dark" id="qrModalTitle">專屬 QR Code / 卡片預覽</h5>
+      <button type="button" class="btn-close" onclick="closeQrModal()"></button>
+    </div>
+    <hr>
+    <div class="text-center mb-3">
+      <div class="btn-group shadow-sm" role="group">
+        <input type="radio" class="btn-check" name="previewType" id="typeQr" autocomplete="off" checked onclick="togglePreviewMode('qr')">
+        <label class="btn btn-outline-primary" for="typeQr">純 QR Code</label>
+        <input type="radio" class="btn-check" name="previewType" id="typeCard" autocomplete="off" onclick="togglePreviewMode('card')">
+        <label class="btn btn-outline-primary" for="typeCard">🖼️ 預覽實體卡片</label>
+      </div>
+    </div>
+    <div class="p-4 bg-light border rounded mb-3 d-flex justify-content-center align-items-center flex-column" style="min-height: 280px;">
+      <img id="qrModal_Img" src="" alt="預覽圖" style="max-width: 100%; max-height: 280px; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+      <span id="qrModal_EmptyText" class="text-muted">此會友尚無資料</span>
+      <div id="previewLoading" style="display: none;" class="text-center">
+        <div class="spinner-border text-primary mb-2" role="status"></div>
+        <div class="small text-muted">雲端繪製中，請稍候...</div>
+      </div>
+    </div>
+    <div class="text-end mt-4">
+      <button class="btn btn-light px-3 me-2" onclick="closeQrModal()">返回</button>
+      <button id="btnDownloadQr" class="btn btn-success px-3 fw-bold me-2" onclick="downloadQrCode()">📥 下載 QR</button>
+      <button id="btnDownloadCard" class="btn btn-warning px-3 fw-bold text-dark me-2" style="display:none;" onclick="downloadCardJpg()">📥 下載卡片圖檔 (JPG)</button>
+      <button id="btnCreateCard" class="btn btn-info px-3 fw-bold text-white" onclick="createCardAction()">📇 儲存卡片至雲端</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let allMembersRawData = [];
+  let currentQrUrl = "";
+  let currentMemberName = "";
+
+  function refreshMemberTable() {
+    const tbody = document.getElementById('memberTableBody');
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center p-5"><div class="spinner-border text-primary"></div><br>資料載入中...</td></tr>';
+    google.script.run.withSuccessHandler(function(data) {
+      allMembersRawData = data || [];
+      renderTable(allMembersRawData);
+    }).getAllMembers();
+  }
+
+  function filterMembers() {
+    const keyword = document.getElementById('memberSearchInput').value.trim().toLowerCase();
+    document.getElementById('memberClearBtn').style.display = keyword ? 'block' : 'none';
+    if (!keyword) { renderTable(allMembersRawData); return; }
+    const filtered = allMembersRawData.filter(row => {
+      const name = (row[0] || "").toString().toLowerCase();
+      const code = (row[7] || "").toString().toLowerCase();
+      return name.includes(keyword) || code.includes(keyword);
+    });
+    renderTable(filtered);
+  }
+
+  function clearMemberSearch() {
+    document.getElementById('memberSearchInput').value = '';
+    filterMembers();
+  }
+
+  function renderTable(data) {
+    const tbody = document.getElementById('memberTableBody');
+    if (!data || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center p-5 text-muted">查無資料</td></tr>';
+      return;
+    }
+    let html = '';
+    data.forEach(row => {
+      if (!row[0]) return;
+      const isExcluded = (row[4] === true || row[4] === "TRUE");
+      let dateStr = row[2] || '';
+      const rowJson = JSON.stringify(row).replace(/'/g, "&#39;");
+      html += `<tr>
+        <td class="text-dark"><strong>${row[0]}</strong></td>
+        <td><code class="text-secondary">${row[7] || ''}</code></td>
+        <td>${row[1] || ''}</td>
+        <td><small class="text-muted">${dateStr}</small></td> 
+        <td title="${row[3] || ''}"><div class="text-truncate" style="max-width:150px;">${row[3] || ''}</div></td>
+        <td>${isExcluded ? '<span class="badge bg-warning text-dark">不統計</span>' : '<span class="badge bg-success bg-opacity-10 text-success border border-success">正常</span>'}</td>
+        <td>
+          <div class="btn-group">
+            <button class="btn btn-sm btn-outline-primary" onclick='openMemberModal(${rowJson})'>編輯</button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteMemberAction('${row[0]}')">刪除</button>
+          </div>
+        </td>
+      </tr>`;
+    });
+    tbody.innerHTML = html;
+  }
+
+  function calculateNextUid(data) {
+    if (!data || data.length === 0) return "M00001";
+    let maxNum = 0;
+    let prefix = "M";
+    data.forEach(row => {
+      let uid = String(row[7] || "").trim();
+      if (uid) {
+        let match = uid.match(/^(.*?)(\d+)$/);
+        if (match) {
+          let num = parseInt(match[2], 10);
+          if (num > maxNum) { maxNum = num; prefix = match[1]; }
+        }
+      }
+    });
+    return prefix + (maxNum + 1).toString().padStart(5, '0');
+  }
+
+  function openMemberModal(row = null) {
+    document.getElementById('memberListModal').style.display = 'block';
+    const btnShowQr = document.getElementById('btnShowQrCode');
+    if (row) {
+      document.getElementById('memModalHeader').innerText = "編輯會友資料";
+      document.getElementById('editOldName_Mem').value = row[0]; 
+      document.getElementById('editName_Mem').value = row[0];
+      document.getElementById('editGender_Mem').value = row[1];
+      document.getElementById('editNote_Mem').value = row[3];
+      document.getElementById('editIsExcluded_Mem').checked = (row[4] === true || row[4] === "TRUE");
+      let uid = String(row[7] || "").trim();
+      document.getElementById('editModal_Uid').value = uid || "無編號";
+      currentMemberName = row[0];
+      currentQrUrl = uid ? "https://quickchart.io/qr?size=250x250&text=" + encodeURIComponent(uid) : "";
+      btnShowQr.disabled = !uid;
+    } else {
+      document.getElementById('memModalHeader').innerText = "新增會友資料";
+      document.getElementById('editOldName_Mem').value = ""; 
+      document.getElementById('editName_Mem').value = "";
+      document.getElementById('editGender_Mem').value = "男";
+      document.getElementById('editNote_Mem').value = "";
+      document.getElementById('editIsExcluded_Mem').checked = false;
+      let nextUid = calculateNextUid(allMembersRawData);
+      document.getElementById('editModal_Uid').value = nextUid;
+      currentMemberName = "新會友";
+      currentQrUrl = "https://quickchart.io/qr?size=250x250&text=" + encodeURIComponent(nextUid);
+      btnShowQr.disabled = false;
+    }
+  }
+
+  function closeMemberModal() { document.getElementById('memberListModal').style.display = 'none'; }
+
+  function openQrModal() {
+    const nameInput = document.getElementById('editName_Mem').value.trim();
+    currentMemberName = nameInput || currentMemberName;
+    document.getElementById('qrModalTitle').innerText = currentMemberName + " 的專屬資料";
+    document.getElementById('typeQr').checked = true;
+    togglePreviewMode('qr');
+    document.getElementById('qrCodeModal').style.display = 'block';
+  }
+
+  function closeQrModal() { document.getElementById('qrCodeModal').style.display = 'none'; }
+
+  let currentCardBase64 = "";
+
+  function togglePreviewMode(mode) {
+    const img = document.getElementById('qrModal_Img');
+    const emptyText = document.getElementById('qrModal_EmptyText');
+    const loading = document.getElementById('previewLoading');
+    
+    const btnDownloadQr = document.getElementById('btnDownloadQr'); 
+    const btnDownloadCard = document.getElementById('btnDownloadCard'); 
+
+    img.style.display = 'none';
+    emptyText.style.display = 'none';
+    loading.style.display = 'none';
+
+    if (mode === 'qr') {
+      if (btnDownloadCard) btnDownloadCard.style.display = 'none'; 
+      if (currentQrUrl !== "") {
+        img.src = currentQrUrl;
+        img.style.display = 'block';
+        if (btnDownloadQr) btnDownloadQr.style.display = 'inline-block';
+      } else {
+        emptyText.innerText = "此會友尚無 QR Code";
+        emptyText.style.display = 'block';
+        if (btnDownloadQr) btnDownloadQr.style.display = 'none';
+      }
+    } else if (mode === 'card') {
+      if (btnDownloadQr) btnDownloadQr.style.display = 'none'; 
+      if (btnDownloadCard) btnDownloadCard.style.display = 'none'; 
+
+      const uidInput = document.getElementById('editModal_Uid').value.trim();
+      if (!uidInput || uidInput === "無編號") {
+        emptyText.innerText = "缺少系統編號，無法預覽";
+        emptyText.style.display = 'block';
+        return;
+      }
+
+      loading.style.display = 'block';
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          loading.style.display = 'none';
+          if (res.success) {
+            currentCardBase64 = res.base64; 
+            img.src = res.base64;
+            img.style.display = 'block';
+            if (btnDownloadCard) btnDownloadCard.style.display = 'inline-block'; 
+          } else {
+            emptyText.innerText = "❌ 預覽失敗：" + res.msg;
+            emptyText.style.display = 'block';
+          }
+        })
+        .withFailureHandler(function(err) {
+          loading.style.display = 'none';
+          emptyText.innerText = "❌ 伺服器錯誤";
+          emptyText.style.display = 'block';
+        })
+        .previewMemberCard({ name: currentMemberName, uid: uidInput });
+    }
+  }
+
+  function downloadCardJpg() {
+    if (!currentCardBase64) return;
+    
+    const a = document.createElement('a');
+    a.href = currentCardBase64;
+    a.download = currentMemberName + "_專屬名卡.jpg"; 
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  function downloadQrCode() {
+    if (!currentQrUrl) return;
+    const btn = document.getElementById('btnDownloadQr');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = "📥 抓取中..."; btn.disabled = true;
+    fetch(currentQrUrl).then(r => r.blob()).then(blob => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = currentMemberName + "_QRCode.png";
+      document.body.appendChild(a); a.click();
+      window.URL.revokeObjectURL(url); document.body.removeChild(a);
+      btn.innerHTML = originalText; btn.disabled = false;
+    });
+  }
+
+  function processMemberSave() {
+    const oldName = document.getElementById('editOldName_Mem').value;
+    const newData = {
+      uid: document.getElementById('editModal_Uid').value,
+      name: document.getElementById('editName_Mem').value.trim(),
+      gender: document.getElementById('editGender_Mem').value,
+      note: document.getElementById('editNote_Mem').value.trim(),
+      isExcluded: document.getElementById('editIsExcluded_Mem').checked
+    };
+    if (!newData.name) return alert("請輸入姓名");
+    const btn = document.getElementById('saveMemBtn');
+    btn.disabled = true; btn.innerText = "處理中...";
+    google.script.run.withSuccessHandler(function(msg) {
+      alert(msg); btn.disabled = false; btn.innerText = "確認儲存";
+      if (msg.includes("成功")) { closeMemberModal(); refreshMemberTable(); }
+    }).updateMember(oldName, newData);
+  }
+
+  function deleteMemberAction(name) {
+    if (confirm("⚠️ 確定刪除 [" + name + "] ?")) {
+      google.script.run.withSuccessHandler(function(msg) { alert(msg); refreshMemberTable(); }).deleteMember(name);
+    }
+  }
+
+  function createCardAction() {
+    const uidInput = document.getElementById('editModal_Uid').value.trim();
+    if (!uidInput || uidInput === "無編號") return alert("編號錯誤");
+    const btn = document.getElementById('btnCreateCard');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = "製作中..."; btn.disabled = true;
+    google.script.run.withSuccessHandler(function(res) {
+      btn.innerHTML = originalText; btn.disabled = false;
+      if (res.success && confirm("✅ 成功！是否開啟查看？")) window.open(res.fileUrl, '_blank');
+      else if (!res.success) alert("❌ 失敗：" + res.msg);
+    }).generateMemberCard({ name: currentMemberName, uid: uidInput });
+  }
+
+  window.onload = refreshMemberTable;
+</script>

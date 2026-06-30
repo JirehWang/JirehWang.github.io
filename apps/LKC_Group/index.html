@@ -20,9 +20,70 @@
                 <h1 style="margin: 0;">⛪ 小組點名系統</h1>
             </div>
             <div style="width: 100%; display: flex; justify-content: flex-end; align-items: stretch; gap: 12px;">
-                <button class="stats-link tab-btn" onclick="openWeeklyReport()" style="background-color:#4CAF50; border:none; cursor:pointer; width:clamp(60px, 12vw, 100px); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:clamp(13px, 2vw, 17px); line-height:1.2; white-space:normal; word-break:break-word; padding:6px; color:#fff; font-weight:bold;">📅 本週聚會人數</button>
-                <button class="stats-link tab-btn" onclick="window.location.href='manage.html'" style="background-color:#607D8B; border:none; cursor:pointer; width:clamp(60px, 12vw, 100px); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:clamp(13px, 2vw, 17px); line-height:1.2; white-space:normal; word-break:break-word; padding:6px; color:#fff; font-weight:bold;">⚙️ 後台管理</button>
-                <button class="stats-link tab-btn" onclick="window.location.href='stats.html'" style="background-color:#2196F3; border:none; cursor:pointer; width:clamp(60px, 12vw, 100px); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:clamp(13px, 2vw, 17px); line-height:1.2; white-space:normal; word-break:break-word; padding:6px; color:#fff; font-weight:bold;">📊 統計中心</button>
+                <!-- 往左展開的子按鈕容器 -->
+                <div id="setupSubButtons" style="display: flex; gap: 8px; opacity: 0; max-width: 0; overflow: hidden; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); align-items: center; margin-right: 0;">
+                    <button class="stats-link tab-btn" onclick="toggleAccordion('district')">🏰 建立牧區</button>
+                    <button class="stats-link tab-btn" onclick="toggleAccordion('cluster')">👥 建立小組群</button>
+                </div>
+                <button class="stats-link tab-btn" onclick="toggleSetupCollapse()">🏗️ 群組建立</button>
+                <button class="stats-link tab-btn" onclick="openWeeklyReport()">📅 本週人數</button>
+                <button class="stats-link tab-btn" onclick="window.location.href='manage.html'">⚙️ 後台管理</button>
+                <button class="stats-link tab-btn" onclick="window.location.href='stats.html'">📊 統計中心</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="setupCollapseArea" class="page-shell shell-wide" style="display: none; width: 100%; max-width: 100%; margin: 15px auto 0 auto; padding: 15px 20px; box-sizing: border-box; background: #ffffff; border: 1px solid rgba(15, 23, 42, 0.1); border-radius: 12px; text-align: left; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);">
+        <h3 style="margin-top: 0; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 18px;">
+            <span>🏗️ 系統群組與分類建立</span>
+            <button onclick="toggleSetupCollapse(false)" style="background: none; border: none; font-size: 16px; cursor: pointer; color: #999;">收合 ✕</button>
+        </h3>
+        
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+            <!-- 1. 新增牧區 (管理員專屬) -->
+            <div id="panel-setup-district" class="setup-accordion-item" style="display: none; border: 1px solid #e0e0e0; border-radius: 8px; background: white; overflow: hidden;">
+                <div style="width: 100%; text-align: left; padding: 12px 15px; background: #efebe9; font-size: 15px; font-weight: bold; color: #4e342e; border-bottom: 1px solid #e0e0e0;">
+                    <span>🏰 新增牧區 (僅限最高權限)</span>
+                </div>
+                <div id="form-setup-district" class="accordion-content" style="padding: 15px;">
+                    <div style="margin-bottom: 12px;">
+                        <label style="display: block; font-weight: bold; margin-bottom: 6px; font-size: 14px;">牧區名稱：</label>
+                        <input type="text" id="newDistrictName" placeholder="請輸入牧區名稱，例如：社青牧區" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <label style="display: block; font-weight: bold; margin-bottom: 6px; font-size: 14px;">拉入哪些小組群 (可多選)：</label>
+                        <div id="setupDistrictClustersList" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 6px; background: #fafafa;">
+                            <!-- 動態載入小組群 checkbox -->
+                        </div>
+                    </div>
+                    <button onclick="submitDistrictSetup()" class="submit-btn" style="background-color: #8d6e63; margin-top: 5px;">確認建立牧區</button>
+                </div>
+            </div>
+
+            <!-- 2. 新增小組群 (管理員/小組長) -->
+            <div id="panel-setup-cluster" class="setup-accordion-item" style="display: none; border: 1px solid #e0e0e0; border-radius: 8px; background: white; overflow: hidden;">
+                <div style="width: 100%; text-align: left; padding: 12px 15px; background: #efebe9; font-size: 15px; font-weight: bold; color: #4e342e; border-bottom: 1px solid #e0e0e0;">
+                    <span>👥 新增小組群</span>
+                </div>
+                <div id="form-setup-cluster" class="accordion-content" style="padding: 15px;">
+                    <div style="margin-bottom: 12px;">
+                        <label style="display: block; font-weight: bold; margin-bottom: 6px; font-size: 14px;">小組群名稱：</label>
+                        <input type="text" id="newClusterNameInput" placeholder="請輸入小組群名稱，例如：迦南群" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
+                    </div>
+                    <div style="margin-bottom: 12px;" class="admin-only-block">
+                        <label style="display: block; font-weight: bold; margin-bottom: 6px; font-size: 14px;">歸屬哪一個牧區 (非最高權限建立時自動留空)：</label>
+                        <select id="newClusterDistrict" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; background: white;">
+                            <option value="">-- 請選擇牧區 (選填) --</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <label style="display: block; font-weight: bold; margin-bottom: 6px; font-size: 14px;">拉入哪些小組 (可多選，只能選取目前無小組群歸屬的小組)：</label>
+                        <div id="setupClusterGroupsList" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 6px; background: #fafafa;">
+                            <!-- 動態載入無歸屬小組 checkbox -->
+                        </div>
+                    </div>
+                    <button onclick="submitClusterSetup()" class="submit-btn" style="background-color: #8d6e63; margin-top: 5px;">確認建立小組群</button>
+                </div>
             </div>
         </div>
     </div>
@@ -117,6 +178,18 @@
             <input type="password" id="verifyGroupCode" placeholder="請輸入小組編號 (密碼)">
             <div id="verifyError" style="color: #c62828; font-size: 13px; font-weight: bold; margin-bottom: 12px; display: none;">❌ 編號錯誤！請重新輸入。</div>
             <button class="submit-btn" id="verifySubmitBtn" onclick="submitVerifyCode()">進入小組</button>
+        </div>
+    </div>
+
+    <!-- 🏗️ 群組建立驗證 Modal -->
+    <div id="setupAuthModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="toggleSetupAuthModal(false)">&times;</span>
+            <h3>🛡️ 驗證群組建立權限</h3>
+            <p style="font-size: 13px; color: #666; margin-bottom: 12px;">請輸入最高權限密碼或小組代碼進行驗證</p>
+            <input type="password" id="setupAuthCode" placeholder="請輸入代碼" style="width: 100%; margin-bottom: 12px; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
+            <div id="setupAuthError" style="color: #c62828; font-size: 13px; font-weight: bold; margin-bottom: 12px; display: none;">❌ 代碼錯誤，請重新輸入。</div>
+            <button class="submit-btn" id="setupAuthSubmitBtn" onclick="submitSetupAuthCode()">驗證身分</button>
         </div>
     </div>
 

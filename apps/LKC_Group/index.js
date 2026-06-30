@@ -591,3 +591,430 @@ async function loadSelectedArchiveContent() {
         userNotification.error("連線異常，讀取檔案失敗");
     }
 }
+
+// ============================================================
+//  🏗️ 群組與分類建立邏輯 (收合式 UI 版)
+// ============================================================
+
+let setupCachedData = null; // 儲存 districts, clusters, groups 關係
+let setupAuthInfo = null;   // 儲存 { code, isAdmin, groupName }
+let pendingSetupType = null; // 儲存待處理的建立類型 ('district', 'cluster', 'group')
+
+// 1. 開啟/關閉群組建立折疊區 (展開/收合往左展開的三個小按鈕)
+function toggleSetupCollapse(show) {
+    const subContainer = document.getElementById('setupSubButtons');
+    const area = document.getElementById('setupCollapseArea');
+    if (!subContainer) return;
+
+    const isExpanded = subContainer.style.opacity === '1';
+
+    if (show === false || isExpanded) {
+        // 收合子按鈕列
+        subContainer.style.opacity = '0';
+        subContainer.style.maxWidth = '0';
+        subContainer.style.marginRight = '0';
+        // 隱藏下方的表單區域與子面版
+        if (area) area.style.display = 'none';
+        const panelD = document.getElementById('panel-setup-district');
+        const panelC = document.getElementById('panel-setup-cluster');
+        const panelG = document.getElementById('panel-setup-group');
+        if (panelD) panelD.style.display = 'none';
+        if (panelC) panelC.style.display = 'none';
+        if (panelG) panelG.style.display = 'none';
+    } else {
+        // 展開子按鈕列
+        subContainer.style.opacity = '1';
+        subContainer.style.maxWidth = '500px'; // 確保足夠寬度
+        subContainer.style.marginRight = '8px';
+    }
+}
+
+function toggleSetupAuthModal(show) {
+    const modal = document.getElementById('setupAuthModal');
+    if (!modal) return;
+    modal.style.display = show ? 'block' : 'none';
+    if (show) {
+        document.getElementById('setupAuthCode').value = '';
+        document.getElementById('setupAuthError').style.display = 'none';
+        setTimeout(() => {
+            document.getElementById('setupAuthCode').focus();
+        }, 300);
+    }
+}
+
+// 註冊 Enter 鍵送出
+setTimeout(() => {
+    const input = document.getElementById('setupAuthCode');
+    if (input) {
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') submitSetupAuthCode();
+        });
+    }
+}, 500);
+
+// 2. 身分驗證提交 (與後台登入一致，呼叫 findGroupByCode)
+async function submitSetupAuthCode() {
+    const code = document.getElementById('setupAuthCode').value.trim();
+    if (!code) return userNotification.warning('請輸入代碼');
+
+    const errorEl = document.getElementById('setupAuthError');
+    const submitBtn = document.getElementById('setupAuthSubmitBtn');
+    const codeInput = document.getElementById('setupAuthCode');
+
+    errorEl.style.display = 'none';
+    submitBtn.disabled = true;
+    submitBtn.innerText = '⏳ 驗證中...';
+    codeInput.disabled = true;
+
+    try {
+        // 呼叫與後台驗證一致的 API
+        const res = await window.churchAPI('findGroupByCode', { groupCode: code });
+        
+        if (res.success) {
+            // 驗證成功，檢查當前點擊的 pendingSetupType 所需權限
+            if ((pendingSetupType === 'district' || pendingSetupType === 'group') && !res.isAdmin) {
+                errorEl.innerText = `❌ 驗證失敗：權限不足或代碼錯誤`;
+                errorEl.style.display = 'block';
+                codeInput.disabled = false;
+                submitBtn.disabled = false;
+                submitBtn.innerText = '驗證身分';
+                return;
+            }
+
+            // 通過權限，儲存快取
+            setupAuthInfo = {
+                code: code,
+                isAdmin: res.isAdmin,
+                groupName: res.groupName || null
+            };
+            sessionStorage.setItem('setup_auth', JSON.stringify(setupAuthInfo));
+
+            toggleSetupAuthModal(false);
+            
+            // 載入資料並展開 pendingSetupType
+            const targetType = pendingSetupType;
+            pendingSetupType = null;
+
+            await loadSetupHierarchyData();
+            
+            if (targetType) {
+                const area = document.getElementById('setupCollapseArea');
+                const targetPanel = document.getElementById(`panel-setup-${targetType}`);
+                if (area && targetPanel) {
+                    const panelD = document.getElementById('panel-setup-district');
+                    const panelC = document.getElementById('panel-setup-cluster');
+                    const panelG = document.getElementById('panel-setup-group');
+                    if (panelD) panelD.style.display = 'none';
+                    if (panelC) panelC.style.display = 'none';
+                    if (panelG) panelG.style.display = 'none';
+
+                    targetPanel.style.display = 'block';
+                    area.style.display = 'block';
+                }
+            }
+        } else {
+            errorEl.innerText = `❌ 驗證失敗：權限不足或代碼錯誤`;
+            errorEl.style.display = 'block';
+        }
+    } catch (e) {
+        errorEl.innerText = '❌ 驗證時發生網路錯誤，請重試。';
+        errorEl.style.display = 'block';
+    } finally {
+        codeInput.disabled = false;
+        submitBtn.disabled = false;
+        submitBtn.innerText = '驗證身分';
+    }
+}
+
+// 3. 載入資料並渲染收合面板
+async function loadSetupHierarchyData() {
+    showLoading("正在獲取最新分區與小組資料...");
+    try {
+        const res = await window.churchAPI('getDistrictsAndClusters', { authCode: setupAuthInfo.code });
+        if (res.success) {
+            setupCachedData = res;
+            initGroupSetupUI();
+        } else {
+            userNotification.error("載入分區資料失敗：" + res.message);
+        }
+    } catch (e) {
+        userNotification.error("連線異常，載入分區資料失敗");
+    } finally {
+        hideLoading();
+    }
+}
+
+// 根據權限初始化 UI 與選項
+function initGroupSetupUI() {
+    const isAdmin = setupAuthInfo.isAdmin;
+
+    // 隱藏非管理員不該看到的內部區塊（例如小組群底下的歸屬牧區選擇）
+    document.querySelectorAll('.admin-only-block').forEach(el => {
+        el.style.display = isAdmin ? 'block' : 'none';
+    });
+
+    // === (A) 填充分區 checkbox 列表 (新增牧區用) ===
+    const districtClusterDiv = document.getElementById('setupDistrictClustersList');
+    districtClusterDiv.innerHTML = '';
+    setupCachedData.clusters.forEach(c => {
+        const distLabel = c.districtName ? ` <span style="color:#888; font-size:11px;">(目前歸屬: ${c.districtName})</span>` : '';
+        districtClusterDiv.innerHTML += `
+            <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px; cursor: pointer; font-size: 14px;">
+                <input type="checkbox" name="setupDistrictClusters" value="${c.name}">
+                ${c.name}${distLabel}
+            </label>
+        `;
+    });
+    if (setupCachedData.clusters.length === 0) {
+        districtClusterDiv.innerHTML = '<span style="color:#999; font-size:13px;">目前無任何小組群可供選取</span>';
+    }
+
+    // === (B) 填充牧區下拉選單與小組清單 (新增小組群用) ===
+    const clusterDistrictSelect = document.getElementById('newClusterDistrict');
+    clusterDistrictSelect.innerHTML = '<option value="">-- 請選擇牧區 (選填) --</option>';
+    setupCachedData.districts.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.name;
+        opt.innerText = d.name;
+        clusterDistrictSelect.appendChild(opt);
+    });
+
+    const clusterGroupDiv = document.getElementById('setupClusterGroupsList');
+    clusterGroupDiv.innerHTML = '';
+
+    // 小組長只能拉入「無小組群歸屬」的小組；小組長自己所屬的小組預設勾選且 disabled
+    // 最高權限可以看到所有「無小組群歸屬」的小組
+    setupCachedData.groups.forEach(g => {
+        const isSelfGroup = !isAdmin && g.name === setupAuthInfo.groupName;
+        const hasCluster = !!g.clusterUuid; // 已有小組群
+
+        if (isSelfGroup) {
+            clusterGroupDiv.innerHTML += `
+                <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px; cursor: pointer; font-size: 14px; font-weight: bold; color: #E65100;">
+                    <input type="checkbox" name="setupClusterGroups" value="${g.uuid}" checked disabled>
+                    ${g.name} <span style="color:#FF9800; font-size:11px;">(自己的小組)</span>
+                </label>
+            `;
+        } else if (!hasCluster) {
+            clusterGroupDiv.innerHTML += `
+                <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px; cursor: pointer; font-size: 14px;">
+                    <input type="checkbox" name="setupClusterGroups" value="${g.uuid}">
+                    ${g.name}
+                </label>
+            `;
+        }
+    });
+
+    // === (C) 填充小組群下拉選單 (新增小組用) ===
+    const groupClusterSelect = document.getElementById('newSetupGroupClusterSelect');
+    groupClusterSelect.innerHTML = '<option value="">-- 不歸屬 --</option>';
+    setupCachedData.clusters.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.name;
+        opt.innerText = c.name;
+        groupClusterSelect.appendChild(opt);
+    });
+
+    // 重設輸入框
+    document.getElementById('newDistrictName').value = '';
+    document.getElementById('newClusterNameInput').value = '';
+    document.getElementById('newSetupGroupName').value = '';
+    document.getElementById('newSetupGroupCode').value = '';
+    document.getElementById('newSetupGroupClusterName').value = '';
+    document.querySelector('input[name="newSetupGroupClusterOpt"][value="existing"]').checked = true;
+    toggleSetupGroupClusterOpt();
+}
+
+// 4. 手風琴摺疊展開控制 (每次點擊均進行身分及權限檢查)
+async function toggleAccordion(type) {
+    // 檢查是否驗證過
+    const cachedAuth = sessionStorage.getItem('setup_auth');
+    if (!cachedAuth) {
+        pendingSetupType = type;
+        toggleSetupAuthModal(true);
+        return;
+    }
+
+    try {
+        setupAuthInfo = JSON.parse(cachedAuth);
+    } catch (e) {
+        sessionStorage.removeItem('setup_auth');
+        pendingSetupType = type;
+        toggleSetupAuthModal(true);
+        return;
+    }
+
+    // 檢查權限是否足夠
+    const isAdmin = setupAuthInfo.isAdmin;
+    if ((type === 'district' || type === 'group') && !isAdmin) {
+        userNotification.error("❌ 驗證失敗：權限不足或代碼錯誤");
+        return;
+    }
+
+    const area = document.getElementById('setupCollapseArea');
+    const targetPanel = document.getElementById(`panel-setup-${type}`);
+    if (!area || !targetPanel) return;
+
+    // 判斷當前面板是否已經顯示
+    const isVisible = area.style.display === 'block' && targetPanel.style.display === 'block';
+
+    if (isVisible) {
+        // 如果已經顯示，再次點選則關閉整個折疊區
+        area.style.display = 'none';
+        targetPanel.style.display = 'none';
+    } else {
+        // 載入資料
+        if (!setupCachedData) {
+            await loadSetupHierarchyData();
+        }
+        
+        // 隱藏其他面板，僅顯示目標面板
+        const panelD = document.getElementById('panel-setup-district');
+        const panelC = document.getElementById('panel-setup-cluster');
+        const panelG = document.getElementById('panel-setup-group');
+        if (panelD) panelD.style.display = 'none';
+        if (panelC) panelC.style.display = 'none';
+        if (panelG) panelG.style.display = 'none';
+
+        targetPanel.style.display = 'block';
+        area.style.display = 'block';
+    }
+}
+
+function toggleSetupGroupClusterOpt() {
+    const opt = document.querySelector('input[name="newSetupGroupClusterOpt"]:checked').value;
+    const selectRow = document.getElementById('setup-group-cluster-select-row');
+    const nameRow = document.getElementById('setup-group-cluster-name-row');
+    if (opt === 'existing') {
+        selectRow.style.display = 'block';
+        nameRow.style.display = 'none';
+    } else {
+        selectRow.style.display = 'none';
+        nameRow.style.display = 'block';
+    }
+}
+
+// 5. 提交操作 API
+
+// 🏰 新增牧區
+async function submitDistrictSetup() {
+    const name = document.getElementById('newDistrictName').value.trim();
+    if (!name) return userNotification.warning('請輸入牧區名稱');
+
+    const checkedBoxes = document.querySelectorAll('input[name="setupDistrictClusters"]:checked');
+    const clusterUuids = Array.from(checkedBoxes).map(cb => cb.value); // 傳遞名稱列表
+
+    showLoading('正在雲端建立牧區...');
+    try {
+        const res = await window.churchAPI('createDistrict', {
+            name: name,
+            clusterUuids: clusterUuids,
+            authCode: setupAuthInfo.code
+        });
+        if (res.success) {
+            userNotification.success('✅ 牧區建立成功！');
+            toggleSetupCollapse(false);
+            fetchGroups();
+        } else {
+            userNotification.warning(res.message || '建立失敗');
+        }
+    } catch (e) {
+        userNotification.error('連線異常，建立牧區失敗');
+    } finally {
+        hideLoading();
+    }
+}
+
+// 👥 新增小組群
+async function submitClusterSetup() {
+    const name = document.getElementById('newClusterNameInput').value.trim();
+    if (!name) return userNotification.warning('請輸入小組群名稱');
+
+    const districtUuid = setupAuthInfo.isAdmin ? document.getElementById('newClusterDistrict').value : '';
+
+    const checkedBoxes = document.querySelectorAll('input[name="setupClusterGroups"]:checked');
+    const groupUuids = Array.from(checkedBoxes).map(cb => cb.value);
+
+    // 小組長建立時，把自己的小組加進去
+    if (!setupAuthInfo.isAdmin) {
+        const selfGroupObj = setupCachedData.groups.find(g => g.name === setupAuthInfo.groupName);
+        if (selfGroupObj && !groupUuids.includes(selfGroupObj.uuid)) {
+            groupUuids.push(selfGroupObj.uuid);
+        }
+    }
+
+    showLoading('正在雲端建立小組群...');
+    try {
+        const res = await window.churchAPI('createGroupCluster', {
+            name: name,
+            districtUuid: districtUuid, // 牧區名稱
+            groupUuids: groupUuids,
+            authCode: setupAuthInfo.code
+        });
+        if (res.success) {
+            userNotification.success('✅ 小組群建立成功！');
+            toggleSetupCollapse(false);
+            fetchGroups();
+        } else {
+            userNotification.warning(res.message || '建立失敗');
+        }
+    } catch (e) {
+        userNotification.error('連線異常，建立小組群失敗');
+    } finally {
+        hideLoading();
+    }
+}
+
+// ⛪ 新增小組
+async function submitGroupSetup() {
+    const name = document.getElementById('newSetupGroupName').value.trim();
+    const code = document.getElementById('newSetupGroupCode').value.trim();
+    if (!name || !code) return userNotification.warning('請填寫完整資訊');
+    if (code.length < 4) return userNotification.warning('代碼至少需要 4 碼');
+
+    const type = document.querySelector('input[name="newSetupGroupType"]:checked').value;
+    const clusterOpt = document.querySelector('input[name="newSetupGroupClusterOpt"]:checked').value;
+
+    let targetClusterUuid = '';
+    let newClusterName = '';
+
+    if (clusterOpt === 'existing') {
+        targetClusterUuid = document.getElementById('newSetupGroupClusterSelect').value; // 小組群名稱
+    } else {
+        newClusterName = document.getElementById('newSetupGroupClusterName').value.trim();
+        if (!newClusterName) return userNotification.warning('請輸入新小組群名稱');
+    }
+
+    showLoading('正在雲端建立小組並設定歸屬...');
+    try {
+        const res = await window.churchAPI('createGroup', {
+            groupName: name,
+            groupCode: code,
+            groupType: type,
+            targetClusterUuid: targetClusterUuid,
+            newClusterName: newClusterName,
+            authCode: setupAuthInfo.code
+        });
+        if (res.success) {
+            userNotification.success('✅ 小組建立並歸屬成功！');
+            toggleSetupCollapse(false);
+            fetchGroups();
+        } else {
+            userNotification.warning(res.message || '建立失敗');
+        }
+    } catch (e) {
+        userNotification.error('連線異常，建立小組失敗');
+    } finally {
+        hideLoading();
+    }
+}
+
+// 暴露全域
+window.toggleSetupCollapse = toggleSetupCollapse;
+window.toggleSetupAuthModal = toggleSetupAuthModal;
+window.submitSetupAuthCode = submitSetupAuthCode;
+window.toggleAccordion = toggleAccordion;
+window.toggleSetupGroupClusterOpt = toggleSetupGroupClusterOpt;
+window.submitDistrictSetup = submitDistrictSetup;
+window.submitClusterSetup = submitClusterSetup;
+window.submitGroupSetup = submitGroupSetup;
