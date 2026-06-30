@@ -42,9 +42,21 @@ function _getSheetRows(sheet) {
   var lastCol = sheet.getLastColumn();
   var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
   var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var fieldAliases = {
+    '名稱': 'name',
+    '狀態': 'status',
+    '代碼': 'code',
+    '建立日期': 'date',
+    'UUID': 'uuid',
+    '類型': 'type',
+    '關聯常設小組': 'associatedGroup'
+  };
   return data.map(function(row) {
     var obj = {};
-    headers.forEach(function(h, idx) { obj[h] = row[idx]; });
+    headers.forEach(function(h, idx) {
+      obj[h] = row[idx];
+      if (fieldAliases[h]) obj[fieldAliases[h]] = row[idx];
+    });
     return obj;
   });
 }
