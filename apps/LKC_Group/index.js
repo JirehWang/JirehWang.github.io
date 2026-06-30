@@ -743,7 +743,9 @@ async function loadSetupHierarchyData() {
         }
     } catch (e) {
         setupCachedData = null;
-        userNotification.error("連線異常，載入分區資料失敗");
+        console.error('[loadSetupHierarchyData] failed:', e);
+        const detail = e && (e.message || e.type || e.name) ? `：${e.message || e.type || e.name}` : '';
+        userNotification.error("連線異常，載入分區資料失敗" + detail);
         return false;
     } finally {
         hideLoading();
