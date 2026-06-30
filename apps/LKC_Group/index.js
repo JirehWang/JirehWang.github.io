@@ -695,7 +695,8 @@ async function submitSetupAuthCode() {
             const targetType = pendingSetupType;
             pendingSetupType = null;
 
-            await loadSetupHierarchyData();
+            const loaded = await loadSetupHierarchyData();
+            if (!loaded) return;
             
             if (targetType) {
                 const area = document.getElementById('setupCollapseArea');
@@ -734,11 +735,16 @@ async function loadSetupHierarchyData() {
         if (res.success) {
             setupCachedData = res;
             initGroupSetupUI();
+            return true;
         } else {
+            setupCachedData = null;
             userNotification.error("載入分區資料失敗：" + res.message);
+            return false;
         }
     } catch (e) {
+        setupCachedData = null;
         userNotification.error("連線異常，載入分區資料失敗");
+        return false;
     } finally {
         hideLoading();
     }
@@ -865,7 +871,8 @@ async function toggleAccordion(type) {
     } else {
         // 載入資料
         if (!setupCachedData) {
-            await loadSetupHierarchyData();
+            const loaded = await loadSetupHierarchyData();
+            if (!loaded || !setupCachedData) return;
         }
         
         // 隱藏其他面板，僅顯示目標面板
@@ -898,6 +905,16 @@ function toggleSetupGroupClusterOpt() {
 
 // 🏰 新增牧區
 async function submitDistrictSetup() {
+    if (!setupAuthInfo || !setupAuthInfo.code) {
+        userNotification.warning('請先完成權限驗證');
+        toggleSetupAuthModal(true);
+        return;
+    }
+    if (!setupCachedData) {
+        const loaded = await loadSetupHierarchyData();
+        if (!loaded || !setupCachedData) return;
+    }
+
     const name = document.getElementById('newDistrictName').value.trim();
     if (!name) return userNotification.warning('請輸入牧區名稱');
 
@@ -927,6 +944,16 @@ async function submitDistrictSetup() {
 
 // 👥 新增小組群
 async function submitClusterSetup() {
+    if (!setupAuthInfo || !setupAuthInfo.code) {
+        userNotification.warning('請先完成權限驗證');
+        toggleSetupAuthModal(true);
+        return;
+    }
+    if (!setupCachedData) {
+        const loaded = await loadSetupHierarchyData();
+        if (!loaded || !setupCachedData) return;
+    }
+
     const name = document.getElementById('newClusterNameInput').value.trim();
     if (!name) return userNotification.warning('請輸入小組群名稱');
 
@@ -936,7 +963,7 @@ async function submitClusterSetup() {
     const groupUuids = Array.from(checkedBoxes).map(cb => cb.value);
 
     // 小組長建立時，把自己的小組加進去
-    if (!setupAuthInfo.isAdmin) {
+    if (!setupAuthInfo.isAdmin && Array.isArray(setupCachedData.groups)) {
         const selfGroupObj = setupCachedData.groups.find(g => g.name === setupAuthInfo.groupName);
         if (selfGroupObj && !groupUuids.includes(selfGroupObj.uuid)) {
             groupUuids.push(selfGroupObj.uuid);
@@ -967,6 +994,16 @@ async function submitClusterSetup() {
 
 // ⛪ 新增小組
 async function submitGroupSetup() {
+    if (!setupAuthInfo || !setupAuthInfo.code) {
+        userNotification.warning('請先完成權限驗證');
+        toggleSetupAuthModal(true);
+        return;
+    }
+    if (!setupCachedData) {
+        const loaded = await loadSetupHierarchyData();
+        if (!loaded || !setupCachedData) return;
+    }
+
     const name = document.getElementById('newSetupGroupName').value.trim();
     const code = document.getElementById('newSetupGroupCode').value.trim();
     if (!name || !code) return userNotification.warning('請填寫完整資訊');
