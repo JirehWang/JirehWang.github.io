@@ -64,6 +64,8 @@ function _readGroupsFromSheet() {
   const headers = sheet.getRange(1, 1, 1, Math.max(7, lastCol)).getValues()[0];
   const distIdx = headers.indexOf('district');
   const clustIdx = headers.indexOf('cluster');
+  const distUuidIdx = headers.indexOf('district_uuid');
+  const clustUuidIdx = headers.indexOf('cluster_uuid');
   return data
     .filter(row => row[0] && row[1] !== '隱藏')
     .map(row => ({
@@ -74,6 +76,8 @@ function _readGroupsFromSheet() {
       uuid: String(row[4] || '').trim(),
       type: String(row[5] || '一般小組').trim(),
       associatedGroup: String(row[6] || '').trim(),
+      districtUuid: distUuidIdx !== -1 ? String(row[distUuidIdx] || '').trim() : '',
+      clusterUuid: clustUuidIdx !== -1 ? String(row[clustUuidIdx] || '').trim() : '',
       district: distIdx !== -1 ? String(row[distIdx] || '').trim() : '',
       cluster: clustIdx !== -1 ? String(row[clustIdx] || '').trim() : ''
     }));

@@ -1,13 +1,17 @@
 /**
  * ============================================================
- *  🏰 牧區與小組群分類管理 — GAS 後端擴充 (簡化單表版)
- *  檔案名稱：Hierarchy.js
+ *  Hierarchy.gs — 牧區 / 小組群正式資料模型
  * ============================================================
  */
 
-// ============================================================
-//  🛠️ 自動檢查與初始化 — 在 小組清單 補上 district 與 cluster 欄位
-// ============================================================
+var _HIERARCHY_SHEETS = {
+  DISTRICTS: 'Districts',
+  CLUSTERS: 'GroupClusters'
+};
+
+var _DISTRICT_HEADERS = ['uuid', 'name', 'status', 'created_at', 'updated_at'];
+var _CLUSTER_HEADERS = ['uuid', 'name', 'district_uuid', 'status', 'created_at', 'updated_at'];
+
 function initHierarchySheets() {
   var groupsSheet = getGroupSheet('小組清單');
   if (!groupsSheet) {
@@ -15,25 +19,56 @@ function initHierarchySheets() {
     return;
   }
 
-  var headers = groupsSheet.getRange(1, 1, 1, groupsSheet.getLastColumn()).getValues()[0];
-  var hasDistrict = headers.indexOf('district') !== -1;
-  var hasCluster  = headers.indexOf('cluster') !== -1;
+  if (typeof _ensureGroupListSchema === 'function') {
+    _ensureGroupListSchema(groupsSheet);
+  }
 
-  if (!hasDistrict) {
-    var nextCol = groupsSheet.getLastColumn() + 1;
-    groupsSheet.getRange(1, nextCol).setValue('district').setFontWeight('bold');
-    Logger.log('✅ 小組清單 新增 district 欄位');
-  }
-  if (!hasCluster) {
-    var nextCol = groupsSheet.getLastColumn() + 1;
-    groupsSheet.getRange(1, nextCol).setValue('cluster').setFontWeight('bold');
-    Logger.log('✅ 小組清單 新增 cluster 欄位');
-  }
+  _ensureGroupColumn(groupsSheet, 'district');
+  _ensureGroupColumn(groupsSheet, 'cluster');
+  _ensureGroupColumn(groupsSheet, 'district_uuid');
+  _ensureGroupColumn(groupsSheet, 'cluster_uuid');
+
+  var ss = getGroupSS();
+  var districtsSheet = _ensureEntitySheet(ss, _HIERARCHY_SHEETS.DISTRICTS, _DISTRICT_HEADERS);
+  var clustersSheet = _ensureEntitySheet(ss, _HIERARCHY_SHEETS.CLUSTERS, _CLUSTER_HEADERS);
+
+  _syncHierarchyRecords(groupsSheet, districtsSheet, clustersSheet);
 }
 
-// ============================================================
-//  📦 共用工具函數
-// ============================================================
+function _trim(value) {
+  return String(value || '').trim();
+}
+
+function _nowIsoString() {
+  return new Date().toISOString();
+}
+
+function _ensureGroupColumn(sheet, colName) {
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  if (headers.indexOf(colName) !== -1) return;
+  var nextCol = sheet.getLastColumn() + 1;
+  sheet.getRange(1, nextCol).setValue(colName).setFontWeight('bold');
+}
+
+function _ensureEntitySheet(ss, sheetName, headers) {
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) sheet = ss.insertSheet(sheetName);
+  _ensureHeaders(sheet, headers);
+  return sheet;
+}
+
+function _ensureHeaders(sheet, headers) {
+  var width = headers.length;
+  var current = [];
+  if (sheet.getLastColumn() > 0) {
+    current = sheet.getRange(1, 1, 1, Math.min(sheet.getLastColumn(), width)).getValues()[0];
+  }
+  for (var i = 0; i < headers.length; i++) {
+    if (_trim(current[i]) !== headers[i]) {
+      sheet.getRange(1, i + 1).setValue(headers[i]).setFontWeight('bold');
+    }
+  }
+}
 
 function _getSheetRows(sheet) {
   if (!sheet) return [];
@@ -51,8 +86,8 @@ function _getSheetRows(sheet) {
     '類型': 'type',
     '關聯常設小組': 'associatedGroup'
   };
-  return data.map(function(row) {
-    var obj = {};
+  return data.map(function(row, rowIndex) {
+    var obj = { _rowIndex: rowIndex + 2 };
     headers.forEach(function(h, idx) {
       obj[h] = row[idx];
       if (fieldAliases[h]) obj[fieldAliases[h]] = row[idx];
@@ -72,21 +107,255 @@ function _getColIndex(sheet, colName) {
 }
 
 function _findRowByUuid(rows, uuid) {
+  var target = _trim(uuid);
   for (var i = 0; i < rows.length; i++) {
-    if (rows[i].uuid === uuid) return i;
+    if (_trim(rows[i].uuid) === target) return i;
   }
   return -1;
 }
 
-// ============================================================
-//  🎯 主路由入口：handleHierarchyAction
-// ============================================================
+function _readEntityRows(sheet) {
+  return _getSheetRows(sheet).map(function(row) {
+    return {
+      _rowIndex: row._rowIndex,
+      uuid: _trim(row.uuid),
+      name: _trim(row.name),
+      district_uuid: _trim(row.district_uuid),
+      status: _trim(row.status) || 'active',
+      created_at: row.created_at || '',
+      updated_at: row.updated_at || ''
+    };
+  });
+}
+
+function _indexEntityRows(rows) {
+  var byUuid = {};
+  var byName = {};
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    if (row.uuid) byUuid[row.uuid] = row;
+    if (row.name) byName[row.name] = row;
+  }
+  return { byUuid: byUuid, byName: byName };
+}
+
+function _appendEntityRow(sheet, headers, payload) {
+  var row = headers.map(function(header) {
+    return payload[header] !== undefined ? payload[header] : '';
+  });
+  sheet.appendRow(row);
+  var inserted = {
+    _rowIndex: sheet.getLastRow()
+  };
+  headers.forEach(function(header) {
+    inserted[header] = payload[header] !== undefined ? payload[header] : '';
+  });
+  return inserted;
+}
+
+function _updateEntityField(sheet, row, fieldName, value) {
+  var col = _getColIndex(sheet, fieldName);
+  if (col <= 0) return;
+  var nextValue = value !== undefined && value !== null ? value : '';
+  if (String(row[fieldName] || '') === String(nextValue || '')) return;
+  sheet.getRange(row._rowIndex, col).setValue(nextValue);
+  row[fieldName] = nextValue;
+}
+
+function _ensureDistrictRecord(districtsSheet, districtRows, districtIndex, districtUuid, districtName) {
+  var cleanUuid = _trim(districtUuid);
+  var cleanName = _trim(districtName);
+  var row = null;
+
+  if (cleanUuid && districtIndex.byUuid[cleanUuid]) {
+    row = districtIndex.byUuid[cleanUuid];
+  } else if (cleanName && districtIndex.byName[cleanName]) {
+    row = districtIndex.byName[cleanName];
+  }
+
+  if (!row) {
+    row = _appendEntityRow(districtsSheet, _DISTRICT_HEADERS, {
+      uuid: cleanUuid || Utilities.getUuid(),
+      name: cleanName || cleanUuid,
+      status: 'active',
+      created_at: _nowIsoString(),
+      updated_at: _nowIsoString()
+    });
+    districtRows.push(row);
+    districtIndex.byUuid[row.uuid] = row;
+    districtIndex.byName[row.name] = row;
+    return row;
+  }
+
+  if (cleanName && row.name !== cleanName) {
+    if (row.name) delete districtIndex.byName[row.name];
+    _updateEntityField(districtsSheet, row, 'name', cleanName);
+    districtIndex.byName[cleanName] = row;
+  }
+  _updateEntityField(districtsSheet, row, 'status', row.status || 'active');
+  _updateEntityField(districtsSheet, row, 'updated_at', _nowIsoString());
+  return row;
+}
+
+function _ensureClusterRecord(clustersSheet, clusterRows, clusterIndex, clusterUuid, clusterName, districtUuid) {
+  var cleanUuid = _trim(clusterUuid);
+  var cleanName = _trim(clusterName);
+  var cleanDistrictUuid = _trim(districtUuid);
+  var row = null;
+
+  if (cleanUuid && clusterIndex.byUuid[cleanUuid]) {
+    row = clusterIndex.byUuid[cleanUuid];
+  } else if (cleanName && clusterIndex.byName[cleanName]) {
+    row = clusterIndex.byName[cleanName];
+  }
+
+  if (!row) {
+    row = _appendEntityRow(clustersSheet, _CLUSTER_HEADERS, {
+      uuid: cleanUuid || Utilities.getUuid(),
+      name: cleanName || cleanUuid,
+      district_uuid: cleanDistrictUuid,
+      status: 'active',
+      created_at: _nowIsoString(),
+      updated_at: _nowIsoString()
+    });
+    clusterRows.push(row);
+    clusterIndex.byUuid[row.uuid] = row;
+    clusterIndex.byName[row.name] = row;
+    return row;
+  }
+
+  if (cleanName && row.name !== cleanName) {
+    if (row.name) delete clusterIndex.byName[row.name];
+    _updateEntityField(clustersSheet, row, 'name', cleanName);
+    clusterIndex.byName[cleanName] = row;
+  }
+  if (cleanDistrictUuid !== row.district_uuid) {
+    _updateEntityField(clustersSheet, row, 'district_uuid', cleanDistrictUuid);
+  }
+  _updateEntityField(clustersSheet, row, 'status', row.status || 'active');
+  _updateEntityField(clustersSheet, row, 'updated_at', _nowIsoString());
+  return row;
+}
+
+function _getHierarchyRefs() {
+  var ss = getGroupSS();
+  var groupsSheet = getGroupSheet('小組清單');
+  var districtsSheet = _ensureEntitySheet(ss, _HIERARCHY_SHEETS.DISTRICTS, _DISTRICT_HEADERS);
+  var clustersSheet = _ensureEntitySheet(ss, _HIERARCHY_SHEETS.CLUSTERS, _CLUSTER_HEADERS);
+
+  var districtRows = _readEntityRows(districtsSheet);
+  var clusterRows = _readEntityRows(clustersSheet);
+  var districtIndex = _indexEntityRows(districtRows);
+  var clusterIndex = _indexEntityRows(clusterRows);
+
+  return {
+    groupsSheet: groupsSheet,
+    districtsSheet: districtsSheet,
+    clustersSheet: clustersSheet,
+    districtRows: districtRows,
+    clusterRows: clusterRows,
+    districtByUuid: districtIndex.byUuid,
+    districtByName: districtIndex.byName,
+    clusterByUuid: clusterIndex.byUuid,
+    clusterByName: clusterIndex.byName
+  };
+}
+
+function _resolveDistrictRef(refs, value) {
+  var cleanValue = _trim(value);
+  if (!cleanValue) return null;
+  return refs.districtByUuid[cleanValue] || refs.districtByName[cleanValue] || null;
+}
+
+function _resolveClusterRef(refs, value) {
+  var cleanValue = _trim(value);
+  if (!cleanValue) return null;
+  return refs.clusterByUuid[cleanValue] || refs.clusterByName[cleanValue] || null;
+}
+
+function _syncHierarchyRecords(groupsSheet, districtsSheet, clustersSheet) {
+  var groupRows = _getSheetRows(groupsSheet);
+  var refs = _getHierarchyRefs();
+
+  var distUuidCol = _getColIndex(groupsSheet, 'district_uuid');
+  var clusterUuidCol = _getColIndex(groupsSheet, 'cluster_uuid');
+  var distNameCol = _getColIndex(groupsSheet, 'district');
+  var clusterNameCol = _getColIndex(groupsSheet, 'cluster');
+
+  for (var i = 0; i < groupRows.length; i++) {
+    var group = groupRows[i];
+    var districtName = _trim(group.district);
+    var districtUuid = _trim(group.district_uuid);
+    var clusterName = _trim(group.cluster);
+    var clusterUuid = _trim(group.cluster_uuid);
+
+    var district = _resolveDistrictRef(refs, districtUuid || districtName);
+    if (!district && (districtUuid || districtName)) {
+      district = _ensureDistrictRecord(
+        districtsSheet,
+        refs.districtRows,
+        { byUuid: refs.districtByUuid, byName: refs.districtByName },
+        districtUuid,
+        districtName
+      );
+    }
+
+    if (district) {
+      districtUuid = district.uuid;
+      districtName = district.name;
+    } else {
+      districtUuid = '';
+      districtName = '';
+    }
+
+    var cluster = _resolveClusterRef(refs, clusterUuid || clusterName);
+    if (!cluster && (clusterUuid || clusterName)) {
+      cluster = _ensureClusterRecord(
+        clustersSheet,
+        refs.clusterRows,
+        { byUuid: refs.clusterByUuid, byName: refs.clusterByName },
+        clusterUuid,
+        clusterName,
+        districtUuid
+      );
+    }
+
+    if (cluster) {
+      clusterUuid = cluster.uuid;
+      clusterName = cluster.name;
+      if (districtUuid && cluster.district_uuid !== districtUuid) {
+        _updateEntityField(clustersSheet, cluster, 'district_uuid', districtUuid);
+      }
+      if (!districtUuid && cluster.district_uuid) {
+        district = refs.districtByUuid[cluster.district_uuid] || null;
+        districtUuid = district ? district.uuid : cluster.district_uuid;
+        districtName = district ? district.name : districtName;
+      }
+    } else {
+      clusterUuid = '';
+      clusterName = '';
+    }
+
+    if (distUuidCol > 0 && _trim(group.district_uuid) !== districtUuid) {
+      groupsSheet.getRange(group._rowIndex, distUuidCol).setValue(districtUuid);
+    }
+    if (clusterUuidCol > 0 && _trim(group.cluster_uuid) !== clusterUuid) {
+      groupsSheet.getRange(group._rowIndex, clusterUuidCol).setValue(clusterUuid);
+    }
+    if (distNameCol > 0 && _trim(group.district) !== districtName) {
+      groupsSheet.getRange(group._rowIndex, distNameCol).setValue(districtName);
+    }
+    if (clusterNameCol > 0 && _trim(group.cluster) !== clusterName) {
+      groupsSheet.getRange(group._rowIndex, clusterNameCol).setValue(clusterName);
+    }
+  }
+}
+
 function handleHierarchyAction(action, data) {
-  // 自動檢查並初始化
   try {
     initHierarchySheets();
   } catch (e) {
-    Logger.log('⚠️ 自動初始化 Hierarchy 欄位失敗: ' + e.message);
+    Logger.log('⚠️ 初始化 hierarchy 失敗: ' + e.message);
   }
 
   var groupsSheet = getGroupSheet('小組清單');
@@ -108,63 +377,53 @@ function handleHierarchyAction(action, data) {
   }
 }
 
-// ============================================================
-//  1️⃣ getDistrictsAndClusters — 動態去重取得最新牧區與小組群列表
-// ============================================================
 function _handleGetDistrictsAndClusters(data, groupsSheet) {
+  var refs = _getHierarchyRefs();
   var groups = _getSheetRows(groupsSheet);
-  
-  var districtSet = {};
-  var clusterSet = {};
-  
-  groups.forEach(function(g) {
-    var dist = String(g.district || '').trim();
-    var clust = String(g.cluster || '').trim();
-    
-    if (dist) {
-      districtSet[dist] = true;
-    }
-    if (clust) {
-      clusterSet[clust] = dist; // 記錄小組群所屬的牧區
-    }
-  });
-  
-  var districts = Object.keys(districtSet).map(function(name) {
-    return { uuid: name, name: name };
-  });
-  
-  var clusters = Object.keys(clusterSet).map(function(name) {
+
+  var districts = refs.districtRows
+    .filter(function(row) { return row.uuid && row.name; })
+    .map(function(row) {
+      return { uuid: row.uuid, name: row.name };
+    });
+
+  var clusters = refs.clusterRows
+    .filter(function(row) { return row.uuid && row.name; })
+    .map(function(row) {
+      var district = refs.districtByUuid[row.district_uuid] || null;
+      return {
+        uuid: row.uuid,
+        name: row.name,
+        districtUuid: row.district_uuid || '',
+        districtName: district ? district.name : ''
+      };
+    });
+
+  var formattedGroups = groups.map(function(group) {
+    var district = _resolveDistrictRef(refs, group.district_uuid || group.district);
+    var cluster = _resolveClusterRef(refs, group.cluster_uuid || group.cluster);
     return {
-      uuid: name,
-      name: name,
-      districtUuid: clusterSet[name],
-      districtName: clusterSet[name]
-    };
-  });
-  
-  var formattedGroups = groups.map(function(g) {
-    return {
-      uuid: g.uuid,
-      name: g.name,
-      code: g.code,
-      type: g.type || '',
-      status: g.status || '顯示',
-      districtUuid: g.district || '',
-      districtName: g.district || '',
-      clusterUuid: g.cluster || '',
-      clusterName: g.cluster || ''
+      uuid: _trim(group.uuid),
+      name: _trim(group.name),
+      code: _trim(group.code),
+      type: _trim(group.type),
+      status: _trim(group.status) || '顯示',
+      districtUuid: district ? district.uuid : '',
+      districtName: district ? district.name : '',
+      clusterUuid: cluster ? cluster.uuid : '',
+      clusterName: cluster ? cluster.name : ''
     };
   });
 
-  var ADMIN_CODE = _getAdminCode();
-  var authCode = data.authCode;
-  var isAdmin = (authCode === ADMIN_CODE);
+  var adminCode = _getAdminCode();
+  var authCode = _trim(data.authCode);
+  var isAdmin = authCode === adminCode;
   var matchedGroup = null;
 
   if (!isAdmin && authCode) {
-    for (var i = 0; i < groups.length; i++) {
-      if (groups[i].code === authCode) {
-        matchedGroup = groups[i];
+    for (var i = 0; i < formattedGroups.length; i++) {
+      if (formattedGroups[i].code === authCode) {
+        matchedGroup = formattedGroups[i];
         break;
       }
     }
@@ -174,246 +433,333 @@ function _handleGetDistrictsAndClusters(data, groupsSheet) {
     success: true,
     isAdmin: isAdmin,
     groupName: matchedGroup ? matchedGroup.name : null,
-    clusterUuid: matchedGroup ? (matchedGroup.cluster || null) : null,
-    clusterName: matchedGroup ? (matchedGroup.cluster || null) : null,
+    clusterUuid: matchedGroup ? matchedGroup.clusterUuid : null,
+    clusterName: matchedGroup ? matchedGroup.clusterName : null,
     districts: districts,
     clusters: clusters,
     groups: formattedGroups
   };
 }
 
-// ============================================================
-//  2️⃣ createDistrict — 建立新牧區 (管理員專屬)
-// ============================================================
 function _handleCreateDistrict(data, groupsSheet) {
-  var ADMIN_CODE = _getAdminCode();
-  if (data.authCode !== ADMIN_CODE) return { success: false, message: '無此操作權限！' };
+  var adminCode = _getAdminCode();
+  if (_trim(data.authCode) !== adminCode) {
+    return { success: false, message: '無此操作權限！' };
+  }
 
-  var name = (data.name || '').trim();
+  var name = _trim(data.name);
   if (!name) return { success: false, message: '牧區名稱不可為空' };
 
-  var clusterNames = data.clusterUuids || []; // 前端選取的小組群名稱列表
-
-  if (clusterNames.length > 0) {
-    var groupRows = _getSheetRows(groupsSheet);
-    var distCol = _getColIndex(groupsSheet, 'district');
-    for (var i = 0; i < groupRows.length; i++) {
-      if (clusterNames.indexOf(groupRows[i].cluster) !== -1) {
-        groupsSheet.getRange(i + 2, distCol).setValue(name);
-      }
-    }
-  }
-  return { success: true, message: '牧區建立成功！' };
-}
-
-// ============================================================
-//  3️⃣ createGroupCluster — 建立新小組群 (管理員/小組長)
-// ============================================================
-function _handleCreateGroupCluster(data, groupsSheet) {
-  var authCode = data.authCode;
-  if (!authCode) return { success: false, message: '缺少驗證代碼' };
-
-  // 驗證權限 (管理員或小組長皆可)
-  var ADMIN_CODE = _getAdminCode();
-  var isAdmin = (authCode === ADMIN_CODE);
-  if (!isAdmin) {
-    var groups = _getSheetRows(groupsSheet);
-    var found = false;
-    for (var k = 0; k < groups.length; k++) {
-      if (groups[k].code === authCode) { found = true; break; }
-    }
-    if (!found) return { success: false, message: '驗證代碼錯誤！' };
-  }
-
-  var name = (data.name || '').trim();
-  if (!name) return { success: false, message: '小組群名稱不可為空' };
-
-  var districtName = data.districtUuid || ''; // 歸屬的牧區名稱
-  var groupUuids = data.groupUuids || [];
-
-  if (groupUuids.length > 0) {
-    var groupRows = _getSheetRows(groupsSheet);
-    var clusterCol = _getColIndex(groupsSheet, 'cluster');
-    var distCol = _getColIndex(groupsSheet, 'district');
-
-    for (var i = 0; i < groupRows.length; i++) {
-      if (groupUuids.indexOf(groupRows[i].uuid) !== -1) {
-        groupsSheet.getRange(i + 2, clusterCol).setValue(name);
-        if (districtName) {
-          groupsSheet.getRange(i + 2, distCol).setValue(districtName);
-        }
-      }
-    }
-  }
-  return { success: true, message: '小組群建立成功！' };
-}
-
-// ============================================================
-//  4️⃣ updateClusterGroups — 更新小組群旗下小組 (移出/加入)
-// ============================================================
-function _handleUpdateClusterGroups(data, groupsSheet) {
-  var authCode = data.authCode;
-  if (!authCode) return { success: false, message: '缺少驗證代碼' };
-
-  var clusterName = data.clusterUuid; // 目標小組群名稱
-  var targetGroupUuids = data.groupUuids || [];
-  if (!clusterName) return { success: false, message: '缺少小組群名稱' };
+  var refs = _getHierarchyRefs();
+  var district = _ensureDistrictRecord(
+    refs.districtsSheet,
+    refs.districtRows,
+    { byUuid: refs.districtByUuid, byName: refs.districtByName },
+    '',
+    name
+  );
 
   var groupRows = _getSheetRows(groupsSheet);
-  var clusterCol = _getColIndex(groupsSheet, 'cluster');
-  var distCol = _getColIndex(groupsSheet, 'district');
+  var clusterUuids = data.clusterUuids || [];
+  var distUuidCol = _getColIndex(groupsSheet, 'district_uuid');
+  var distNameCol = _getColIndex(groupsSheet, 'district');
 
-  // 找到目標小組群原本擁有的牧區
-  var parentDistrictName = '';
-  for (var i = 0; i < groupRows.length; i++) {
-    if (groupRows[i].cluster === clusterName && groupRows[i].district) {
-      parentDistrictName = groupRows[i].district;
-      break;
+  for (var i = 0; i < clusterUuids.length; i++) {
+    var cluster = _resolveClusterRef(refs, clusterUuids[i]);
+    if (!cluster) continue;
+    _updateEntityField(refs.clustersSheet, cluster, 'district_uuid', district.uuid);
+    _updateEntityField(refs.clustersSheet, cluster, 'updated_at', _nowIsoString());
+
+    for (var j = 0; j < groupRows.length; j++) {
+      var group = groupRows[j];
+      if (_trim(group.cluster_uuid) === cluster.uuid || _trim(group.cluster) === cluster.name) {
+        if (distUuidCol > 0) groupsSheet.getRange(group._rowIndex, distUuidCol).setValue(district.uuid);
+        if (distNameCol > 0) groupsSheet.getRange(group._rowIndex, distNameCol).setValue(district.name);
+      }
     }
   }
 
-  for (var j = 0; j < groupRows.length; j++) {
-    var g = groupRows[j];
-    var isCurrentlyIn = (g.cluster === clusterName);
-    var shouldBeIn = (targetGroupUuids.indexOf(g.uuid) !== -1);
+  return { success: true, message: '牧區建立成功！', districtUuid: district.uuid };
+}
+
+function _handleCreateGroupCluster(data, groupsSheet) {
+  var authCode = _trim(data.authCode);
+  if (!authCode) return { success: false, message: '缺少驗證代碼' };
+
+  var refs = _getHierarchyRefs();
+  var groups = _getSheetRows(groupsSheet);
+  var adminCode = _getAdminCode();
+  var isAdmin = authCode === adminCode;
+  var selfGroup = null;
+
+  if (!isAdmin) {
+    for (var i = 0; i < groups.length; i++) {
+      if (_trim(groups[i].code) === authCode) {
+        selfGroup = groups[i];
+        break;
+      }
+    }
+    if (!selfGroup) return { success: false, message: '驗證代碼錯誤！' };
+  }
+
+  var name = _trim(data.name);
+  if (!name) return { success: false, message: '小組群名稱不可為空' };
+
+  var districtUuid = _trim(data.districtUuid);
+  if (!districtUuid && selfGroup) {
+    districtUuid = _trim(selfGroup.district_uuid);
+  }
+
+  var district = _resolveDistrictRef(refs, districtUuid);
+  var cluster = _ensureClusterRecord(
+    refs.clustersSheet,
+    refs.clusterRows,
+    { byUuid: refs.clusterByUuid, byName: refs.clusterByName },
+    '',
+    name,
+    district ? district.uuid : ''
+  );
+
+  if (!district && cluster.district_uuid) {
+    district = refs.districtByUuid[cluster.district_uuid] || null;
+  }
+
+  var groupUuids = data.groupUuids || [];
+  if (selfGroup && groupUuids.indexOf(_trim(selfGroup.uuid)) === -1) {
+    groupUuids.push(_trim(selfGroup.uuid));
+  }
+
+  var clusterUuidCol = _getColIndex(groupsSheet, 'cluster_uuid');
+  var clusterNameCol = _getColIndex(groupsSheet, 'cluster');
+  var distUuidCol = _getColIndex(groupsSheet, 'district_uuid');
+  var distNameCol = _getColIndex(groupsSheet, 'district');
+
+  for (var j = 0; j < groups.length; j++) {
+    var group = groups[j];
+    if (groupUuids.indexOf(_trim(group.uuid)) === -1) continue;
+    if (clusterUuidCol > 0) groupsSheet.getRange(group._rowIndex, clusterUuidCol).setValue(cluster.uuid);
+    if (clusterNameCol > 0) groupsSheet.getRange(group._rowIndex, clusterNameCol).setValue(cluster.name);
+    if (district) {
+      if (distUuidCol > 0) groupsSheet.getRange(group._rowIndex, distUuidCol).setValue(district.uuid);
+      if (distNameCol > 0) groupsSheet.getRange(group._rowIndex, distNameCol).setValue(district.name);
+    }
+  }
+
+  return { success: true, message: '小組群建立成功！', clusterUuid: cluster.uuid };
+}
+
+function _handleUpdateClusterGroups(data, groupsSheet) {
+  var authCode = _trim(data.authCode);
+  if (!authCode) return { success: false, message: '缺少驗證代碼' };
+
+  var refs = _getHierarchyRefs();
+  var groups = _getSheetRows(groupsSheet);
+  var adminCode = _getAdminCode();
+  var isAdmin = authCode === adminCode;
+  var cluster = _resolveClusterRef(refs, data.clusterUuid);
+  if (!cluster) return { success: false, message: '缺少有效的小組群' };
+
+  if (!isAdmin) {
+    var authGroup = null;
+    for (var i = 0; i < groups.length; i++) {
+      if (_trim(groups[i].code) === authCode) {
+        authGroup = groups[i];
+        break;
+      }
+    }
+    if (!authGroup) return { success: false, message: '驗證代碼錯誤！' };
+    if (_trim(authGroup.cluster_uuid) !== cluster.uuid) {
+      return { success: false, message: '您只能管理自己所屬的小組群' };
+    }
+  }
+
+  var district = refs.districtByUuid[cluster.district_uuid] || null;
+  var targetGroupUuids = data.groupUuids || [];
+  var clusterUuidCol = _getColIndex(groupsSheet, 'cluster_uuid');
+  var clusterNameCol = _getColIndex(groupsSheet, 'cluster');
+  var distUuidCol = _getColIndex(groupsSheet, 'district_uuid');
+  var distNameCol = _getColIndex(groupsSheet, 'district');
+
+  for (var j = 0; j < groups.length; j++) {
+    var group = groups[j];
+    var currentClusterUuid = _trim(group.cluster_uuid);
+    var currentClusterName = _trim(group.cluster);
+    var isCurrentlyIn = currentClusterUuid === cluster.uuid || currentClusterName === cluster.name;
+    var shouldBeIn = targetGroupUuids.indexOf(_trim(group.uuid)) !== -1;
 
     if (isCurrentlyIn && !shouldBeIn) {
-      // ❌ 移出群組：清空 cluster 與 district
-      groupsSheet.getRange(j + 2, clusterCol).setValue('');
-      groupsSheet.getRange(j + 2, distCol).setValue('');
-    } else if (!isCurrentlyIn && shouldBeIn) {
-      // ➕ 拉入群組：設定 cluster，district 自動繼承
-      groupsSheet.getRange(j + 2, clusterCol).setValue(clusterName);
-      groupsSheet.getRange(j + 2, distCol).setValue(parentDistrictName);
+      if (clusterUuidCol > 0) groupsSheet.getRange(group._rowIndex, clusterUuidCol).setValue('');
+      if (clusterNameCol > 0) groupsSheet.getRange(group._rowIndex, clusterNameCol).setValue('');
+      if (distUuidCol > 0) groupsSheet.getRange(group._rowIndex, distUuidCol).setValue('');
+      if (distNameCol > 0) groupsSheet.getRange(group._rowIndex, distNameCol).setValue('');
+    } else if (shouldBeIn) {
+      if (clusterUuidCol > 0) groupsSheet.getRange(group._rowIndex, clusterUuidCol).setValue(cluster.uuid);
+      if (clusterNameCol > 0) groupsSheet.getRange(group._rowIndex, clusterNameCol).setValue(cluster.name);
+      if (distUuidCol > 0) groupsSheet.getRange(group._rowIndex, distUuidCol).setValue(district ? district.uuid : '');
+      if (distNameCol > 0) groupsSheet.getRange(group._rowIndex, distNameCol).setValue(district ? district.name : '');
     }
   }
 
   return { success: true, message: '小組群成員更新成功！' };
 }
 
-// ============================================================
-//  🔧 enrichAdminGroupsListWithHierarchy
-// ============================================================
 function enrichAdminGroupsListWithHierarchy(result, authCode) {
   if (!result || !result.success) return result;
 
-  var groupsSheet = getGroupSheet('小組清單');
-  var groups = groupsSheet ? _getSheetRows(groupsSheet) : [];
-
-  var districtSet = {};
-  var clusterSet = {};
-
-  groups.forEach(function(g) {
-    var dist = String(g.district || '').trim();
-    var clust = String(g.cluster || '').trim();
-    if (dist) districtSet[dist] = true;
-    if (clust) clusterSet[clust] = dist;
-  });
-
-  var districts = Object.keys(districtSet).map(function(name) {
-    return { uuid: name, name: name };
-  });
-
-  var clusters = Object.keys(clusterSet).map(function(name) {
-    return {
-      uuid: name,
-      name: name,
-      districtUuid: clusterSet[name],
-      districtName: clusterSet[name]
-    };
-  });
-
-  // 為每個 group 補上歸屬名稱與屬性
+  initHierarchySheets();
+  var refs = _getHierarchyRefs();
+  var groups = _getSheetRows(getGroupSheet('小組清單'));
   var groupMap = {};
-  groups.forEach(function(g) {
-    groupMap[g.uuid] = { district: g.district || '', cluster: g.cluster || '' };
-  });
+
+  for (var i = 0; i < groups.length; i++) {
+    var group = groups[i];
+    var district = _resolveDistrictRef(refs, group.district_uuid || group.district);
+    var cluster = _resolveClusterRef(refs, group.cluster_uuid || group.cluster);
+    groupMap[_trim(group.uuid)] = {
+      districtUuid: district ? district.uuid : '',
+      districtName: district ? district.name : '',
+      clusterUuid: cluster ? cluster.uuid : '',
+      clusterName: cluster ? cluster.name : ''
+    };
+  }
 
   if (result.groups && Array.isArray(result.groups)) {
-    result.groups = result.groups.map(function(g) {
-      var hierarchy = groupMap[g.uuid] || {};
-      g.districtUuid = hierarchy.district || '';
-      g.districtName = hierarchy.district || '';
-      g.clusterUuid = hierarchy.cluster || '';
-      g.clusterName = hierarchy.cluster || '';
-      return g;
+    result.groups = result.groups.map(function(item) {
+      var hierarchy = groupMap[_trim(item.uuid)] || {};
+      item.districtUuid = hierarchy.districtUuid || '';
+      item.districtName = hierarchy.districtName || '';
+      item.clusterUuid = hierarchy.clusterUuid || '';
+      item.clusterName = hierarchy.clusterName || '';
+      return item;
     });
   }
 
-  result.districts = districts;
-  result.clusters = clusters;
+  result.districts = refs.districtRows
+    .filter(function(row) { return row.uuid && row.name; })
+    .map(function(row) { return { uuid: row.uuid, name: row.name }; });
 
-  // 如果呼叫者不是管理員，補上該小組長所屬的小組群資訊
-  var ADMIN_CODE = _getAdminCode();
-  if (authCode && authCode !== ADMIN_CODE) {
-    var matchedGroup = groups.find(function(g) { return g.code === authCode; });
-    if (matchedGroup) {
-      result.groupName = matchedGroup.name;
-      result.clusterUuid = matchedGroup.cluster || '';
-      result.clusterName = matchedGroup.cluster || '';
+  result.clusters = refs.clusterRows
+    .filter(function(row) { return row.uuid && row.name; })
+    .map(function(row) {
+      var district = refs.districtByUuid[row.district_uuid] || null;
+      return {
+        uuid: row.uuid,
+        name: row.name,
+        districtUuid: row.district_uuid || '',
+        districtName: district ? district.name : ''
+      };
+    });
+
+  if (_trim(authCode) && _trim(authCode) !== _getAdminCode()) {
+    for (var j = 0; j < groups.length; j++) {
+      if (_trim(groups[j].code) === _trim(authCode)) {
+        var matched = groupMap[_trim(groups[j].uuid)] || {};
+        result.groupName = _trim(groups[j].name);
+        result.clusterUuid = matched.clusterUuid || '';
+        result.clusterName = matched.clusterName || '';
+        break;
+      }
     }
   }
 
   return result;
 }
 
-// ============================================================
-//  🔧 writeGroupHierarchyFields
-// ============================================================
-function writeGroupHierarchyFields(groupUuid, districtName, clusterName) {
-  if (districtName === undefined && clusterName === undefined) return;
+function writeGroupHierarchyFields(groupUuid, districtRef, clusterRef) {
+  if (districtRef === undefined && clusterRef === undefined) return;
 
-  var groupsSheet = getGroupSheet('小組清單');
+  initHierarchySheets();
+  var refs = _getHierarchyRefs();
+  var groupsSheet = refs.groupsSheet;
   if (!groupsSheet) return;
+
   var groupRows = _getSheetRows(groupsSheet);
   var idx = _findRowByUuid(groupRows, groupUuid);
   if (idx === -1) return;
 
-  if (districtName !== undefined) {
-    var distCol = _getColIndex(groupsSheet, 'district');
-    if (distCol > 0) groupsSheet.getRange(idx + 2, distCol).setValue(districtName || '');
+  var row = groupRows[idx];
+  var district = _resolveDistrictRef(refs, districtRef);
+  var cluster = _resolveClusterRef(refs, clusterRef);
+
+  if (cluster && !district && cluster.district_uuid) {
+    district = refs.districtByUuid[cluster.district_uuid] || null;
   }
-  if (clusterName !== undefined) {
-    var clusterCol = _getColIndex(groupsSheet, 'cluster');
-    if (clusterCol > 0) groupsSheet.getRange(idx + 2, clusterCol).setValue(clusterName || '');
-  }
+
+  var distUuidCol = _getColIndex(groupsSheet, 'district_uuid');
+  var clusterUuidCol = _getColIndex(groupsSheet, 'cluster_uuid');
+  var distNameCol = _getColIndex(groupsSheet, 'district');
+  var clusterNameCol = _getColIndex(groupsSheet, 'cluster');
+
+  if (distUuidCol > 0) groupsSheet.getRange(row._rowIndex, distUuidCol).setValue(district ? district.uuid : '');
+  if (clusterUuidCol > 0) groupsSheet.getRange(row._rowIndex, clusterUuidCol).setValue(cluster ? cluster.uuid : '');
+  if (distNameCol > 0) groupsSheet.getRange(row._rowIndex, distNameCol).setValue(district ? district.name : '');
+  if (clusterNameCol > 0) groupsSheet.getRange(row._rowIndex, clusterNameCol).setValue(cluster ? cluster.name : '');
 }
 
-// ============================================================
-//  🔧 assignNewGroupToCluster
-// ============================================================
-function assignNewGroupToCluster(newGroupUuid, targetClusterName, newClusterName) {
-  var groupsSheet = getGroupSheet('小組清單');
-  if (!groupsSheet) return;
+function assignNewGroupToCluster(newGroupUuid, targetClusterRef, newClusterName, authCode) {
+  initHierarchySheets();
+  var refs = _getHierarchyRefs();
+  var cluster = _resolveClusterRef(refs, targetClusterRef);
 
-  var clusterCol = _getColIndex(groupsSheet, 'cluster');
-  var distCol = _getColIndex(groupsSheet, 'district');
-  var groupRows = _getSheetRows(groupsSheet);
-  var groupIdx = _findRowByUuid(groupRows, newGroupUuid);
-  if (groupIdx === -1) return;
-
-  var finalCluster = targetClusterName || newClusterName || '';
-  if (finalCluster) {
-    groupsSheet.getRange(groupIdx + 2, clusterCol).setValue(finalCluster);
-
-    if (targetClusterName) {
-      var parentDistrictName = '';
-      for (var i = 0; i < groupRows.length; i++) {
-        if (groupRows[i].cluster === targetClusterName && groupRows[i].district) {
-          parentDistrictName = groupRows[i].district;
+  if (!cluster && _trim(newClusterName)) {
+    var auth = _trim(authCode);
+    var adminCode = _getAdminCode();
+    var groups = _getSheetRows(refs.groupsSheet);
+    var selfGroup = null;
+    if (auth && auth !== adminCode) {
+      for (var i = 0; i < groups.length; i++) {
+        if (_trim(groups[i].code) === auth) {
+          selfGroup = groups[i];
           break;
         }
       }
-      if (parentDistrictName) {
-        groupsSheet.getRange(groupIdx + 2, distCol).setValue(parentDistrictName);
-      }
     }
+
+    var districtUuid = selfGroup ? _trim(selfGroup.district_uuid) : '';
+    cluster = _ensureClusterRecord(
+      refs.clustersSheet,
+      refs.clusterRows,
+      { byUuid: refs.clusterByUuid, byName: refs.clusterByName },
+      '',
+      _trim(newClusterName),
+      districtUuid
+    );
   }
+
+  writeGroupHierarchyFields(
+    newGroupUuid,
+    cluster && cluster.district_uuid ? cluster.district_uuid : '',
+    cluster ? cluster.uuid : ''
+  );
 }
 
-// ============================================================
-//  🔐 管理員代碼讀取
-// ============================================================
+function handleCreateGroupWithHierarchy(data) {
+  var groupName = _trim(data.groupName);
+  var groupCode = _trim(data.groupCode);
+  var groupType = _trim(data.groupType) || '一般小組';
+  var associatedGroup = _trim(data.associatedGroup);
+  var targetClusterRef = _trim(data.targetClusterUuid);
+  var newClusterName = _trim(data.newClusterName);
+  var authCode = _trim(data.authCode);
+
+  if (!groupName || !groupCode) {
+    return { success: false, message: '請填寫完整的小組名稱與代碼' };
+  }
+
+  if (newClusterName && !authCode) {
+    return { success: false, message: '建立新小組群前請先完成權限驗證' };
+  }
+
+  var createRes = createGroup(groupName, groupCode, groupType, associatedGroup);
+  if (!createRes || !createRes.success) return createRes;
+
+  if (targetClusterRef || newClusterName) {
+    assignNewGroupToCluster(createRes.groupUuid, targetClusterRef, newClusterName, authCode);
+  }
+
+  return createRes;
+}
+
 function _getAdminCode() {
   if (typeof ADMIN_CODE !== 'undefined') {
     return ADMIN_CODE;

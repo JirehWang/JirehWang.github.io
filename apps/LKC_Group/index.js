@@ -766,7 +766,7 @@ function initGroupSetupUI() {
         const distLabel = c.districtName ? ` <span style="color:#888; font-size:11px;">(目前歸屬: ${c.districtName})</span>` : '';
         districtClusterDiv.innerHTML += `
             <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px; cursor: pointer; font-size: 14px;">
-                <input type="checkbox" name="setupDistrictClusters" value="${c.name}">
+                <input type="checkbox" name="setupDistrictClusters" value="${c.uuid}">
                 ${c.name}${distLabel}
             </label>
         `;
@@ -780,7 +780,7 @@ function initGroupSetupUI() {
     clusterDistrictSelect.innerHTML = '<option value="">-- 請選擇牧區 (選填) --</option>';
     setupCachedData.districts.forEach(d => {
         const opt = document.createElement('option');
-        opt.value = d.name;
+        opt.value = d.uuid;
         opt.innerText = d.name;
         clusterDistrictSelect.appendChild(opt);
     });
@@ -816,7 +816,7 @@ function initGroupSetupUI() {
     groupClusterSelect.innerHTML = '<option value="">-- 不歸屬 --</option>';
     setupCachedData.clusters.forEach(c => {
         const opt = document.createElement('option');
-        opt.value = c.name;
+        opt.value = c.uuid;
         opt.innerText = c.name;
         groupClusterSelect.appendChild(opt);
     });
@@ -919,7 +919,7 @@ async function submitDistrictSetup() {
     if (!name) return userNotification.warning('請輸入牧區名稱');
 
     const checkedBoxes = document.querySelectorAll('input[name="setupDistrictClusters"]:checked');
-    const clusterUuids = Array.from(checkedBoxes).map(cb => cb.value); // 傳遞名稱列表
+    const clusterUuids = Array.from(checkedBoxes).map(cb => cb.value);
 
     showLoading('正在雲端建立牧區...');
     try {
@@ -1016,7 +1016,7 @@ async function submitGroupSetup() {
     let newClusterName = '';
 
     if (clusterOpt === 'existing') {
-        targetClusterUuid = document.getElementById('newSetupGroupClusterSelect').value; // 小組群名稱
+        targetClusterUuid = document.getElementById('newSetupGroupClusterSelect').value;
     } else {
         newClusterName = document.getElementById('newSetupGroupClusterName').value.trim();
         if (!newClusterName) return userNotification.warning('請輸入新小組群名稱');

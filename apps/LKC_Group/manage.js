@@ -6,6 +6,7 @@ let globalIsAdmin = false; // 儲存最高管理員權限狀態
 let cachedDistricts = [];
 let cachedClusters = [];
 let myClusterName = ""; // 小組長自己所屬的小組群名稱
+let myClusterUuid = ""; // 小組長自己所屬的小組群 UUID
 
 // showLoading / hideLoading / ensureAPIReady 由 config.js 提供。
 
@@ -68,6 +69,7 @@ async function loadGroups() {
             cachedDistricts = res.districts || [];
             cachedClusters = res.clusters || [];
             myClusterName = res.clusterName || ""; // 小組長自己所屬的小組群名稱
+            myClusterUuid = res.clusterUuid || ""; // 小組長自己所屬的小組群 UUID
 
             updatePermissionBadge(res.isAdmin); // ✅ 更新權限徽章
             renderTable(res.isAdmin); // ✅ 傳入權限等級
@@ -229,22 +231,22 @@ function openEditModal(index) {
         distSelect.innerHTML = '<option value="">-- 無歸屬 --</option>';
         cachedDistricts.forEach(d => {
             const opt = document.createElement('option');
-            opt.value = d.name;
+            opt.value = d.uuid;
             opt.innerText = d.name;
             distSelect.appendChild(opt);
         });
-        distSelect.value = group.districtName || '';
+        distSelect.value = group.districtUuid || '';
 
         // 填充小組群
         const clustSelect = document.getElementById('editCluster');
         clustSelect.innerHTML = '<option value="">-- 無歸屬 --</option>';
         cachedClusters.forEach(c => {
             const opt = document.createElement('option');
-            opt.value = c.name;
+            opt.value = c.uuid;
             opt.innerText = c.name;
             clustSelect.appendChild(opt);
         });
-        clustSelect.value = group.clusterName || '';
+        clustSelect.value = group.clusterUuid || '';
     } else {
         editRows.forEach(row => row.style.display = 'none');
     }
@@ -363,7 +365,7 @@ function initClusterManagementPanel(isAdmin) {
     const panel = document.getElementById('cluster-management-panel');
     if (!panel) return;
 
-    if (isAdmin || !myClusterName) {
+    if (isAdmin || !myClusterUuid) {
         panel.style.display = 'none';
         return;
     }
@@ -379,7 +381,7 @@ function renderMyClusterGroups() {
     if (!listDiv || !select) return;
 
     // 篩選屬於當前小組群的小組
-    const myGroups = adminGroupsList.filter(g => g.clusterName === myClusterName);
+    const myGroups = adminGroupsList.filter(g => g.clusterUuid === myClusterUuid);
     
     // 渲染當前成員
     if (myGroups.length === 0) {
@@ -400,7 +402,7 @@ function renderMyClusterGroups() {
     }
 
     // 填充無歸屬小組下拉選單
-    const unassigned = adminGroupsList.filter(g => !g.clusterName && g.type !== '幸福小組');
+    const unassigned = adminGroupsList.filter(g => !g.clusterUuid && g.type !== '幸福小組');
     select.innerHTML = '<option value="">-- 請選擇小組 --</option>';
     unassigned.forEach(g => {
         const opt = document.createElement('option');
@@ -414,7 +416,7 @@ function renderMyClusterGroups() {
 async function removeGroupFromMyCluster(groupUuid) {
     if (!confirm('確定要將該小組移出您的小組群嗎？')) return;
 
-    const myGroups = adminGroupsList.filter(g => g.clusterName === myClusterName);
+    const myGroups = adminGroupsList.filter(g => g.clusterUuid === myClusterUuid);
     const targetUuids = myGroups
         .map(g => g.uuid)
         .filter(uuid => uuid !== groupUuid);
@@ -422,7 +424,7 @@ async function removeGroupFromMyCluster(groupUuid) {
     showLoading('正在移出小組...');
     try {
         const res = await callAPI('updateClusterGroups', {
-            clusterUuid: myClusterName,
+            clusterUuid: myClusterUuid,
             groupUuids: targetUuids,
             authCode: verifiedAdminCode
         });
@@ -445,7 +447,7 @@ async function addSetupGroupToMyCluster() {
     const groupUuid = select.value;
     if (!groupUuid) return userNotification.warning('請先選擇一個小組');
 
-    const myGroups = adminGroupsList.filter(g => g.clusterName === myClusterName);
+    const myGroups = adminGroupsList.filter(g => g.clusterUuid === myClusterUuid);
     const targetUuids = myGroups.map(g => g.uuid);
     if (!targetUuids.includes(groupUuid)) {
         targetUuids.push(groupUuid);
@@ -454,7 +456,7 @@ async function addSetupGroupToMyCluster() {
     showLoading('正在拉入小組...');
     try {
         const res = await callAPI('updateClusterGroups', {
-            clusterUuid: myClusterName,
+            clusterUuid: myClusterUuid,
             groupUuids: targetUuids,
             authCode: verifiedAdminCode
         });
