@@ -43,6 +43,10 @@ function _nowIsoString() {
   return new Date().toISOString();
 }
 
+function _looksLikeUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(_trim(value));
+}
+
 function _ensureGroupColumn(sheet, colName) {
   var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   if (headers.indexOf(colName) !== -1) return;
@@ -187,6 +191,11 @@ function _ensureDistrictRecord(districtsSheet, districtRows, districtIndex, dist
     return row;
   }
 
+  if (!_looksLikeUuid(row.uuid)) {
+    if (row.uuid && districtIndex.byUuid[row.uuid] === row) delete districtIndex.byUuid[row.uuid];
+    _updateEntityField(districtsSheet, row, 'uuid', Utilities.getUuid());
+    districtIndex.byUuid[row.uuid] = row;
+  }
   if (cleanName && row.name !== cleanName) {
     if (row.name) delete districtIndex.byName[row.name];
     _updateEntityField(districtsSheet, row, 'name', cleanName);
@@ -224,6 +233,11 @@ function _ensureClusterRecord(clustersSheet, clusterRows, clusterIndex, clusterU
     return row;
   }
 
+  if (!_looksLikeUuid(row.uuid)) {
+    if (row.uuid && clusterIndex.byUuid[row.uuid] === row) delete clusterIndex.byUuid[row.uuid];
+    _updateEntityField(clustersSheet, row, 'uuid', Utilities.getUuid());
+    clusterIndex.byUuid[row.uuid] = row;
+  }
   if (cleanName && row.name !== cleanName) {
     if (row.name) delete clusterIndex.byName[row.name];
     _updateEntityField(clustersSheet, row, 'name', cleanName);
