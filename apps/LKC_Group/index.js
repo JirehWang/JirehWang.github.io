@@ -763,6 +763,7 @@ function initGroupSetupUI() {
 
     // === (A) 填充分區 checkbox 列表 (新增牧區用) ===
     const districtClusterDiv = document.getElementById('setupDistrictClustersList');
+    if (!districtClusterDiv) return;
     districtClusterDiv.innerHTML = '';
     setupCachedData.clusters.forEach(c => {
         const distLabel = c.districtName ? ` <span style="color:#888; font-size:11px;">(目前歸屬: ${c.districtName})</span>` : '';
@@ -779,6 +780,7 @@ function initGroupSetupUI() {
 
     // === (B) 填充牧區下拉選單與小組清單 (新增小組群用) ===
     const clusterDistrictSelect = document.getElementById('newClusterDistrict');
+    if (!clusterDistrictSelect) return;
     clusterDistrictSelect.innerHTML = '<option value="">-- 請選擇牧區 (選填) --</option>';
     setupCachedData.districts.forEach(d => {
         const opt = document.createElement('option');
@@ -815,6 +817,11 @@ function initGroupSetupUI() {
 
     // === (C) 填充小組群下拉選單 (新增小組用) ===
     const groupClusterSelect = document.getElementById('newSetupGroupClusterSelect');
+    if (!groupClusterSelect) {
+        document.getElementById('newDistrictName').value = '';
+        document.getElementById('newClusterNameInput').value = '';
+        return;
+    }
     groupClusterSelect.innerHTML = '<option value="">-- 不歸屬 --</option>';
     setupCachedData.clusters.forEach(c => {
         const opt = document.createElement('option');
@@ -891,9 +898,12 @@ async function toggleAccordion(type) {
 }
 
 function toggleSetupGroupClusterOpt() {
-    const opt = document.querySelector('input[name="newSetupGroupClusterOpt"]:checked').value;
+    const checkedOpt = document.querySelector('input[name="newSetupGroupClusterOpt"]:checked');
     const selectRow = document.getElementById('setup-group-cluster-select-row');
     const nameRow = document.getElementById('setup-group-cluster-name-row');
+    if (!checkedOpt || !selectRow || !nameRow) return;
+
+    const opt = checkedOpt.value;
     if (opt === 'existing') {
         selectRow.style.display = 'block';
         nameRow.style.display = 'none';
