@@ -980,3 +980,21 @@ input[type="checkbox"] {
   white-space: nowrap;
   animation: sway 0.8s ease-in-out infinite alternate;
 }
+
+/* Global Top Loading Bar */
+.loading-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--primary) 0%, #81c784 50%, var(--primary-strong) 100%);
+  width: 100%;
+  z-index: 9999;
+  animation: loading-bar-anim 1.5s linear infinite;
+  background-size: 200% 100%;
+}
+
+@keyframes loading-bar-anim {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

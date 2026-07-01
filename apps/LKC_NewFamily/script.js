@@ -290,13 +290,36 @@ sessionConfirmBtn.addEventListener('click', () => {
 });
 editCaseForm.addEventListener('submit', saveTrackingCase);
 
-async function callApi(action, data = {}) {
-  await window.ensureAPIReady();
-  const result = await window.churchAPI(action, data);
-  if (!result.success) {
-    throw new Error(result.message || '操作失敗');
+let activeRequestsCount = 0;
+
+function showGlobalLoading() {
+  activeRequestsCount++;
+  const loadingBar = document.getElementById('loadingBar');
+  if (loadingBar) {
+    loadingBar.hidden = false;
   }
-  return result;
+}
+
+function hideGlobalLoading() {
+  activeRequestsCount = Math.max(0, activeRequestsCount - 1);
+  const loadingBar = document.getElementById('loadingBar');
+  if (loadingBar && activeRequestsCount === 0) {
+    loadingBar.hidden = true;
+  }
+}
+
+async function callApi(action, data = {}) {
+  showGlobalLoading();
+  try {
+    await window.ensureAPIReady();
+    const result = await window.churchAPI(action, data);
+    if (!result.success) {
+      throw new Error(result.message || '操作失敗');
+    }
+    return result;
+  } finally {
+    hideGlobalLoading();
+  }
 }
 
 async function callCachedListApi(action, data = {}) {
@@ -333,17 +356,22 @@ async function callSundayAttendanceApi(action, data = {}) {
     throw new Error('尚未設定主日出席 API URL');
   }
 
-  const response = await fetch(apiUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action, token, data })
-  });
+  showGlobalLoading();
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action, token, data })
+    });
 
-  const result = await response.json();
-  if (result.status === 'error' || result.error) {
-    throw new Error(result.message || result.error || '聚會清單讀取失敗');
+    const result = await response.json();
+    if (result.status === 'error' || result.error) {
+      throw new Error(result.message || result.error || '聚會清單讀取失敗');
+    }
+    return result.data || result;
+  } finally {
+    hideGlobalLoading();
   }
-  return result.data || result;
 }
 
 async function callSundayAttendancePayloadApi(action, payload) {
@@ -353,17 +381,22 @@ async function callSundayAttendancePayloadApi(action, payload) {
     throw new Error('尚未設定主日出席 API URL');
   }
 
-  const response = await fetch(apiUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action, payload })
-  });
+  showGlobalLoading();
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action, payload })
+    });
 
-  const result = await response.json();
-  if (result.error) {
-    throw new Error(result.error);
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error);
+    }
+    return result.data;
+  } finally {
+    hideGlobalLoading();
   }
-  return result.data;
 }
 
 async function callGroupAttendanceApi(action, data = {}) {
@@ -374,17 +407,22 @@ async function callGroupAttendanceApi(action, data = {}) {
     throw new Error('尚未設定小組點名 API URL');
   }
 
-  const response = await fetch(apiUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action, token, data })
-  });
+  showGlobalLoading();
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action, token, data })
+    });
 
-  const result = await response.json();
-  if (!result.success) {
-    throw new Error(result.message || '小組清單讀取失敗');
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error(result.message || '小組清單讀取失敗');
+    }
+    return result;
+  } finally {
+    hideGlobalLoading();
   }
-  return result;
 }
 
 async function loadMeetingOptions() {
@@ -522,17 +560,21 @@ async function addSelectedMembers(sessionName) {
 
   addMembersBtn.disabled = true;
   closeBtn.disabled = true;
-  setNotice(trackingNotice, '加入會友名單中...');
+  setNotice(trackingNotice, `準備加入會友名單 (0/${selectedCases.length})...`);
 
   try {
     const results = [];
+    let currentIndex = 0;
+    const totalCases = selectedCases.length;
 
     for (const item of selectedCases) {
       const name = String(item['姓名'] || '').trim();
+      currentIndex++;
       if (!name) {
         results.push({ ok: false, name: '未填姓名', message: '略過未填姓名資料' });
         continue;
       }
+      setNotice(trackingNotice, `正在加入會友名單 (${currentIndex}/${totalCases})：${name}...`);
 
       const message = String(await callSundayAttendancePayloadApi('addMember', {
         name,
@@ -2547,7 +2589,6 @@ function initNameCombobox() {
     const val = nameInput.value.trim().toLowerCase();
     if (!val) {
       hideDropdown();
-      setSelectedMember(null);
       return;
     }
 
@@ -2562,16 +2603,11 @@ function initNameCombobox() {
 
       if (matches.length === 0) {
         hideDropdown();
-        const exactMatch = directory.byName.get(nameInput.value.trim());
-        setSelectedMember(exactMatch || null);
         return;
       }
 
       dropdown.innerHTML = '';
       dropdown.hidden = false;
-
-      const exactMatch = directory.byName.get(nameInput.value.trim());
-      setSelectedMember(exactMatch || null);
 
       matches.forEach((member, index) => {
         const item = document.createElement('div');
@@ -2602,6 +2638,7 @@ function initNameCombobox() {
 
   nameInput.addEventListener('input', () => {
     activeIndex = -1;
+    setSelectedMember(null); // Clear selection when user manually edits input text
     updateDropdown();
   });
 
@@ -2644,10 +2681,6 @@ function initNameCombobox() {
   document.addEventListener('click', (e) => {
     if (!nameInput.contains(e.target) && !dropdown.contains(e.target)) {
       hideDropdown();
-      getMemberDirectory().then(directory => {
-        const exactMatch = directory.byName.get(nameInput.value.trim());
-        setSelectedMember(exactMatch || null);
-      }).catch(() => {});
     }
   });
 }
