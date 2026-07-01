@@ -238,7 +238,7 @@ form.addEventListener('submit', async event => {
     form.reset();
     selectedMemberRecord = null;
     const badge = document.getElementById('memberBadge');
-    if (badge) badge.hidden = true;
+    if (badge) badge.style.display = 'none';
     dateField.valueAsDate = new Date();
   } catch (error) {
     setNotice(formNotice, error.message || String(error), 'error');
@@ -2579,9 +2579,9 @@ function initNameCombobox() {
   function setSelectedMember(member) {
     selectedMemberRecord = member;
     if (member) {
-      badge.hidden = false;
+      badge.style.display = 'inline-block';
     } else {
-      badge.hidden = true;
+      badge.style.display = 'none';
     }
   }
 
