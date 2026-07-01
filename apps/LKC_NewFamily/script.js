@@ -191,6 +191,7 @@ let closedCasesBase = []; // Base loaded closed cases list
 let activeClosedFilters = {}; // Maps column -> { search: string, selected: Set }
 let firebaseCacheModulePromise = null;
 let memberDirectoryPromise = null;
+let selectedMemberRecord = null;
 let currentAnalysisRows = [];
 let currentAnalysisPivot = [];
 
@@ -202,6 +203,8 @@ dateField.valueAsDate = new Date();
 analysisYear.value = new Date().getFullYear();
 loadMeetingOptions();
 loadSettlementStatusOptions();
+getMemberDirectory().catch(err => console.warn('Pre-fetch member directory failed:', err));
+initNameCombobox();
 setAnalysisRange('year');
 
 
@@ -220,9 +223,22 @@ form.addEventListener('submit', async event => {
   submitBtn.disabled = true;
 
   try {
-    const result = await callApi('submitNewFamily', Object.fromEntries(new FormData(form).entries()));
+    const payload = Object.fromEntries(new FormData(form).entries());
+    if (selectedMemberRecord) {
+      payload['點名編號'] = selectedMemberRecord.memberCode;
+      payload['會友狀態'] = '已加入';
+      if (selectedMemberRecord.sundayGroup) {
+        payload['現行小組'] = selectedMemberRecord.sundayGroup;
+      }
+    } else {
+      payload['會友狀態'] = '未加入';
+    }
+    const result = await callApi('submitNewFamily', payload);
     setNotice(formNotice, `${result.message}，表單號：${result.formNumber}`, 'success');
     form.reset();
+    selectedMemberRecord = null;
+    const badge = document.getElementById('memberBadge');
+    if (badge) badge.hidden = true;
     dateField.valueAsDate = new Date();
   } catch (error) {
     setNotice(formNotice, error.message || String(error), 'error');
@@ -483,6 +499,13 @@ function renderTrackingCases(rows) {
 
 async function addSelectedMembers(sessionName) {
   const selectedCases = getSelectedTrackingCases();
+
+  const alreadyJoined = selectedCases.filter(item => String(item['會友狀態'] || '').trim() === '已加入');
+  if (alreadyJoined.length > 0) {
+    const names = alreadyJoined.map(item => item['姓名']).join('、');
+    setNotice(trackingNotice, `勾選名單中「${names}」已是會友，加入程序已終止。`, 'error');
+    return;
+  }
 
   if (!selectedCases.length) {
     setNotice(trackingNotice, '請先勾選要加入會友名單的資料', 'error');
@@ -935,22 +958,25 @@ async function exportCombinedWorkbook() {
       '恩典團契',
       '尚未落戶'
     ];
-    let groups = (settlementOptions || [])
-      .filter(g => g !== '請安拜訪')
+    let clustersList = [];
+    try {
+      const hierarchyResult = await callGroupAttendanceApi('getDistrictsAndClusters');
+      if (hierarchyResult && Array.isArray(hierarchyResult.clusters)) {
+        clustersList = hierarchyResult.clusters.map(c => String(c.name || '').trim()).filter(Boolean);
+      }
+    } catch (e) {
+      console.warn('[export] failed to fetch GroupClusters', e);
+    }
+
+    let groups = (clustersList.length ? clustersList : defaultGroups.filter(g => g !== '尚未落戶'))
       .map(g => {
         const name = g.trim();
         if (name === '松年' || name === '松年團契') return '松年團契';
         if (name === '恩典' || name === '恩典團契') return '恩典團契';
         return name;
       });
-    groups = Array.from(new Set(groups)).filter(Boolean);
-    if (!groups.length || (groups.length === 1 && groups[0] === '尚未落戶')) {
-      groups = [...defaultGroups];
-    } else {
-      if (!groups.includes('尚未落戶')) {
-        groups.push('尚未落戶');
-      }
-    }
+    groups = Array.from(new Set(groups)).filter(g => g !== '請安拜訪' && g !== '尚未落戶');
+    groups.push('尚未落戶');
 
     function mapGroup(status) {
       const s = String(status || '').trim();
@@ -2490,4 +2516,138 @@ function saveColumnsSettings() {
   }
   
   closeColumnsSettingsModal();
+}
+
+function initNameCombobox() {
+  const nameInput = document.getElementById('name');
+  const dropdown = document.getElementById('memberDropdown');
+  const badge = document.getElementById('memberBadge');
+  
+  if (!nameInput || !dropdown || !badge) return;
+  
+  let activeIndex = -1;
+  let matches = [];
+
+  function hideDropdown() {
+    dropdown.hidden = true;
+    dropdown.innerHTML = '';
+    activeIndex = -1;
+  }
+
+  function setSelectedMember(member) {
+    selectedMemberRecord = member;
+    if (member) {
+      badge.hidden = false;
+    } else {
+      badge.hidden = true;
+    }
+  }
+
+  async function updateDropdown() {
+    const val = nameInput.value.trim().toLowerCase();
+    if (!val) {
+      hideDropdown();
+      setSelectedMember(null);
+      return;
+    }
+
+    try {
+      const directory = await getMemberDirectory();
+      const allMembers = Array.from(directory.byName.values());
+
+      matches = allMembers.filter(m => 
+        m.name.toLowerCase().includes(val) || 
+        m.memberCode.toLowerCase().includes(val)
+      ).slice(0, 10);
+
+      if (matches.length === 0) {
+        hideDropdown();
+        const exactMatch = directory.byName.get(nameInput.value.trim());
+        setSelectedMember(exactMatch || null);
+        return;
+      }
+
+      dropdown.innerHTML = '';
+      dropdown.hidden = false;
+
+      const exactMatch = directory.byName.get(nameInput.value.trim());
+      setSelectedMember(exactMatch || null);
+
+      matches.forEach((member, index) => {
+        const item = document.createElement('div');
+        item.className = 'combobox-item';
+        if (index === activeIndex) item.classList.add('active');
+
+        item.innerHTML = `
+          <span>${escapeHtml(member.name)}</span>
+          <span class="item-meta">${escapeHtml(member.memberCode)} ${member.sundayGroup ? '(' + escapeHtml(member.sundayGroup) + ')' : ''}</span>
+        `;
+
+        item.addEventListener('click', () => {
+          selectMember(member);
+        });
+
+        dropdown.appendChild(item);
+      });
+    } catch (e) {
+      console.error('[combobox] failed to load members', e);
+    }
+  }
+
+  function selectMember(member) {
+    nameInput.value = member.name;
+    setSelectedMember(member);
+    hideDropdown();
+  }
+
+  nameInput.addEventListener('input', () => {
+    activeIndex = -1;
+    updateDropdown();
+  });
+
+  nameInput.addEventListener('focus', () => {
+    updateDropdown();
+  });
+
+  nameInput.addEventListener('keydown', (e) => {
+    if (dropdown.hidden) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      activeIndex = (activeIndex + 1) % matches.length;
+      highlightItem();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      activeIndex = (activeIndex - 1 + matches.length) % matches.length;
+      highlightItem();
+    } else if (e.key === 'Enter') {
+      if (activeIndex >= 0 && activeIndex < matches.length) {
+        e.preventDefault();
+        selectMember(matches[activeIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      hideDropdown();
+    }
+  });
+
+  function highlightItem() {
+    Array.from(dropdown.children).forEach((item, index) => {
+      if (index === activeIndex) {
+        item.classList.add('active');
+        item.scrollIntoView({ block: 'nearest' });
+      } else {
+        item.classList.remove('active');
+      }
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!nameInput.contains(e.target) && !dropdown.contains(e.target)) {
+      hideDropdown();
+      getMemberDirectory().then(directory => {
+        const exactMatch = directory.byName.get(nameInput.value.trim());
+        setSelectedMember(exactMatch || null);
+      }).catch(() => {});
+    }
+  });
 }

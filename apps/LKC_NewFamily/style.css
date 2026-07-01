@@ -929,3 +929,54 @@ input[type="checkbox"] {
   display: inline-block;
   animation: sway 0.8s ease-in-out infinite alternate;
 }
+
+/* Custom Combobox dropdown and member badge styles */
+.combobox-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  margin-top: 4px;
+}
+
+.combobox-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+  transition: background 0.15s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.combobox-item:hover,
+.combobox-item.active {
+  background: rgba(67, 160, 71, 0.08);
+  color: var(--primary-strong);
+}
+
+.combobox-item .item-meta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.badge-member {
+  display: inline-block;
+  background: rgba(67, 160, 71, 0.1);
+  color: #2e7d32;
+  border: 1px solid rgba(67, 160, 71, 0.2);
+  font-size: 12px;
+  font-weight: bold;
+  padding: 4px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  animation: sway 0.8s ease-in-out infinite alternate;
+}

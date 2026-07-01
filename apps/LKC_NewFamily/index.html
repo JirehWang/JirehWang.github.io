@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>新家人管理系統</title>
-  <link rel="stylesheet" href="style.css?v=20260629-v6">
+  <link rel="stylesheet" href="style.css?v=20260701-v1">
 </head>
 <body>
   <main class="app">
@@ -27,7 +27,13 @@
         <div class="form-grid">
           <div class="field">
             <label for="name">姓名</label>
-            <input id="name" name="姓名" autocomplete="name" required>
+            <div class="combobox-container" style="display: flex; align-items: center; gap: 8px; position: relative; width: 100%;">
+              <div class="combobox-wrapper" style="position: relative; flex: 1;">
+                <input id="name" name="姓名" autocomplete="off" required style="width: 100%;">
+                <div id="memberDropdown" class="combobox-dropdown" hidden></div>
+              </div>
+              <span id="memberBadge" class="badge-member" hidden>已為會友</span>
+            </div>
           </div>
 
           <div class="field">
@@ -347,8 +353,8 @@
   </div>
 
   <script>window._GAS_KEY = 'LKC_NewFamily';</script>
-  <script src="../../config.js?v=20260629-v6"></script>
-  <script src="api-config.js?v=20260629-v6"></script>
-  <script src="script.js?v=20260629-v6"></script>
+  <script src="../../config.js?v=20260701-v1"></script>
+  <script src="api-config.js?v=20260701-v1"></script>
+  <script src="script.js?v=20260701-v1"></script>
 </body>
 </html>
