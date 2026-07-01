@@ -195,6 +195,24 @@ let selectedMemberRecord = null;
 let currentAnalysisRows = [];
 let currentAnalysisPivot = [];
 
+let activeRequestsCount = 0;
+
+function showGlobalLoading() {
+  activeRequestsCount++;
+  const loadingBar = document.getElementById('loadingBar');
+  if (loadingBar) {
+    loadingBar.hidden = false;
+  }
+}
+
+function hideGlobalLoading() {
+  activeRequestsCount = Math.max(0, activeRequestsCount - 1);
+  const loadingBar = document.getElementById('loadingBar');
+  if (loadingBar && activeRequestsCount === 0) {
+    loadingBar.hidden = true;
+  }
+}
+
 const newFamilyCacheTtl = 19800;
 const newFamilyListActions = new Set(['getTrackingCases', 'getClosedCases']);
 const stoppedAttendanceStatus = '停止聚會';
@@ -290,23 +308,7 @@ sessionConfirmBtn.addEventListener('click', () => {
 });
 editCaseForm.addEventListener('submit', saveTrackingCase);
 
-let activeRequestsCount = 0;
 
-function showGlobalLoading() {
-  activeRequestsCount++;
-  const loadingBar = document.getElementById('loadingBar');
-  if (loadingBar) {
-    loadingBar.hidden = false;
-  }
-}
-
-function hideGlobalLoading() {
-  activeRequestsCount = Math.max(0, activeRequestsCount - 1);
-  const loadingBar = document.getElementById('loadingBar');
-  if (loadingBar && activeRequestsCount === 0) {
-    loadingBar.hidden = true;
-  }
-}
 
 async function callApi(action, data = {}) {
   showGlobalLoading();
