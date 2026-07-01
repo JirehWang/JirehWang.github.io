@@ -463,14 +463,23 @@ function flattenMeetingOptions(groupConfig) {
 
 async function loadSettlementStatusOptions() {
   try {
-    const result = await callGroupAttendanceApi('getGroups');
-    const groupNames = (result.groups || [])
-      .map(group => String(group.name || '').trim())
+    const result = await callGroupAttendanceApi('getDistrictsAndClusters');
+    const groupNames = (result.clusters || [])
+      .map(cluster => String(cluster.name || '').trim())
       .filter(Boolean);
     settlementOptions = Array.from(new Set([...groupNames, '請安拜訪', '尚未落戶']));
   } catch (error) {
-    settlementOptions = ['請安拜訪', '尚未落戶'];
-    setNotice(formNotice, error.message || String(error), 'error');
+    console.warn('[new-family] failed to load group clusters, fallback to groups list', error);
+    try {
+      const fallbackResult = await callGroupAttendanceApi('getGroups');
+      const groupNames = (fallbackResult.groups || [])
+        .map(group => String(group.name || '').trim())
+        .filter(Boolean);
+      settlementOptions = Array.from(new Set([...groupNames, '請安拜訪', '尚未落戶']));
+    } catch (fallbackError) {
+      settlementOptions = ['請安拜訪', '尚未落戶'];
+      setNotice(formNotice, fallbackError.message || String(fallbackError), 'error');
+    }
   }
 }
 
