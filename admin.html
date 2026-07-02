@@ -408,6 +408,11 @@
         <div class="title">新家人管理系統</div>
     </a>
 
+    <a class="card" href="apps/LKC_MemberStatus/" target="_blank">
+        <div class="icon-wrap">🧭</div>
+        <div class="title">會友狀態監控系統</div>
+    </a>
+
 </div>
 
 <footer>
@@ -490,6 +495,11 @@
             label: '新家人資料',
             topics: ['getTrackingCases', 'getClosedCases'],
             backendRefresh: 'newfamily_refreshCaches'
+        },
+        memberstatus: {
+            label: '會友狀態監控資料',
+            topics: ['memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex', 'memberStatus_getDiscipleshipStatus'],
+            backendRefresh: 'memberStatus_refreshCaches'
         }
     };
 
