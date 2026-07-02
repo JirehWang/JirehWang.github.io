@@ -24,6 +24,8 @@
     "LKC_WhosCar":                      "https://script.google.com/macros/s/AKfycbxOkoaNquIx_V8n_7eS_5ULmoqxPVly_Bezx9_QsmWSzNOcojrCI9Oa6UNd5hOD2euS/exec",
     "LKC_SundayserviceAttendance":      "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
     "LKC_SundayserviceAttendance_TEST": "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
+    "LKC_MemberStatus":                 "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
+    "LKC_MemberStatus_TEST":            "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
     "LKC_ChildrenAttendance":           "https://script.google.com/macros/s/AKfycbxxXU0AuFpIsDvkBXw0JVibi_jC-1H2-XL5GUR_wH1tndbKnEH9qfTIj1QTKLHmpnjStA/exec",
     "LKC_ChildrenAttendance_TEST":      "https://script.google.com/macros/s/AKfycbxxXU0AuFpIsDvkBXw0JVibi_jC-1H2-XL5GUR_wH1tndbKnEH9qfTIj1QTKLHmpnjStA/exec",
     // 🔀 方案 B 整合：小組系統共用主日 GAS
@@ -43,6 +45,8 @@
   const _ACTION_PREFIX = {
     "LKC_MinistrySchedule_TEST": "ministry_",
     "LKC_worship_TEST":          "worship_",
+    "LKC_MemberStatus":          "memberStatus_",
+    "LKC_MemberStatus_TEST":     "memberStatus_",
     "LKC_ChildrenAttendance":    "children_",
     "LKC_ChildrenAttendance_TEST": "children_",
   };
@@ -160,6 +164,12 @@
     'ministry_getPageConfig':       _SIX_HOURS,
     'ministry_getGroupMembers':     _SIX_HOURS,
 
+    // 會友狀態監控
+    'memberStatus_getMembers':              300,
+    'memberStatus_getProfile':              300,
+    'memberStatus_getServiceIndex':         300,
+    'memberStatus_getDiscipleshipStatus':   300,
+
     // 敬拜團 (無前綴版本，供舊獨立專案相容)
     'getSchedule':                  _SIX_HOURS,  // 公佈欄總表 + 服事表安排（季度）
     'getScheduleByDateRange':       _SIX_HOURS,  // 服事表安排（區間）
@@ -194,33 +204,33 @@
   // 使用 cacheDeleteAll 清整個 topic（包含所有 subkey），所以不分 data 變體
   const _INVALIDATE_ON_WRITE = {
     // ── 會友名單異動 ──
-    'addMember':              ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig', 'getSmartAttendanceList'],
-    'updateMember':           ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig', 'getSmartAttendanceList'],
-    'deleteMember':           ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig', 'getSmartAttendanceList'],
+    'addMember':              ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig', 'getSmartAttendanceList', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
+    'updateMember':           ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig', 'getSmartAttendanceList', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
+    'deleteMember':           ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig', 'getSmartAttendanceList', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
 
     // ── 小組異動 ──
     'createGroup':            ['getGroups', 'getAdminGroupsList'],
     'updateGroupInfo':        ['getGroups', 'getAdminGroupsList'],
-    'updateMemberList':       ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'ministry_getPageConfig', 'ministry_getGroupMembers', 'checkGroupStatus'],
-    'ministry_updateGroupMemberRoles': ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'ministry_getPageConfig', 'ministry_getGroupMembers', 'checkGroupStatus'],
+    'updateMemberList':       ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'ministry_getPageConfig', 'ministry_getGroupMembers', 'checkGroupStatus', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
+    'ministry_updateGroupMemberRoles': ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'ministry_getPageConfig', 'ministry_getGroupMembers', 'checkGroupStatus', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
     'initGroup':              ['checkGroupStatus', 'getGroups', 'getAllGroupMembers'],
 
     // ── 主日點名異動 ──
     'createAttendanceGroup':  ['getGroupConfig'],
-    'saveAttendance':         ['getWeeklyReport', 'getAttendanceStats', 'getAttendanceTrend', 'getStats', 'getAllGroupsStats', 'getSmartAttendanceList', 'getCategoryChartData'],
-    'revokeAttendance':       ['getWeeklyReport', 'getAttendanceStats', 'getAttendanceTrend', 'getStats', 'getAllGroupsStats', 'getSmartAttendanceList', 'getCategoryChartData'],
+    'saveAttendance':         ['getWeeklyReport', 'getAttendanceStats', 'getAttendanceTrend', 'getStats', 'getAllGroupsStats', 'getSmartAttendanceList', 'getCategoryChartData', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
+    'revokeAttendance':       ['getWeeklyReport', 'getAttendanceStats', 'getAttendanceTrend', 'getStats', 'getAllGroupsStats', 'getSmartAttendanceList', 'getCategoryChartData', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
 
     // ── 小組點名異動 ──
-    'submitAttendance':       ['getWeeklyReport', 'getStats', 'getAllGroupsStats', 'checkGroupStatus', 'getCategoryChartData'],
-    'updateAttendanceRecord': ['getWeeklyReport', 'getStats', 'getAllGroupsStats', 'checkGroupStatus', 'getCategoryChartData'],
-    'deleteAttendanceRecord': ['getWeeklyReport', 'getStats', 'getAllGroupsStats', 'checkGroupStatus', 'getCategoryChartData'],
+    'submitAttendance':       ['getWeeklyReport', 'getStats', 'getAllGroupsStats', 'checkGroupStatus', 'getCategoryChartData', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
+    'updateAttendanceRecord': ['getWeeklyReport', 'getStats', 'getAllGroupsStats', 'checkGroupStatus', 'getCategoryChartData', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
+    'deleteAttendanceRecord': ['getWeeklyReport', 'getStats', 'getAllGroupsStats', 'checkGroupStatus', 'getCategoryChartData', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
 
     // ── 事工異動 ──
     'ministry_createGroup':       ['ministry_getGroups', 'ministry_getAggregatedReport'],
     'ministry_toggleGroupStatus': ['ministry_getGroups'],
-    'ministry_saveSheetData':     ['ministry_getAggregatedReport', 'ministry_getPageConfig'],
+    'ministry_saveSheetData':     ['ministry_getAggregatedReport', 'ministry_getPageConfig', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
     'ministry_saveGroupPrompt':   ['ministry_getPageConfig'],
-    'ministry_saveGroupMembers':  ['ministry_getPageConfig'],
+    'ministry_saveGroupMembers':  ['ministry_getPageConfig', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
     'ministry_saveSermonSettings': ['ministry_getPageConfig'],
     'ministry_forceRefreshEvents': ['ministry_getPageConfig'],
 
@@ -235,13 +245,16 @@
     'clearCalendarLinkCache':  ['getSchedule', 'getScheduleByDateRange'],
 
     // ── 敬拜團異動 (worship_ 前綴版本) ──
-    'worship_saveSchedule':           ['worship_getSchedule', 'worship_getScheduleByDateRange'],
+    'worship_saveSchedule':           ['worship_getSchedule', 'worship_getScheduleByDateRange', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
     'worship_savePositions':          ['worship_getPositions'],
-    'worship_saveTeamMembers':        ['worship_getTeamMembers'],
+    'worship_saveTeamMembers':        ['worship_getTeamMembers', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
     'worship_saveSongs':              ['worship_getSongs', 'worship_getSchedule', 'worship_getScheduleByDateRange'],
     'worship_setDefaultSermonSubType': ['worship_getSchedule', 'worship_getScheduleByDateRange'],
     'worship_setDateOverride':         ['worship_getSchedule', 'worship_getScheduleByDateRange'],
-    'worship_clearCalendarLinkCache':  ['worship_getSchedule', 'worship_getScheduleByDateRange'],
+    'worship_clearCalendarLinkCache':  ['worship_getSchedule', 'worship_getScheduleByDateRange', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
+
+    // ── 會友狀態監控 ──
+    'memberStatus_refreshCaches': ['memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex', 'memberStatus_getDiscipleshipStatus'],
 
     // ── 教會行事曆異動 ──
     // 類型 / 排除欄位改變 → 影響事項本身的子類型/欄位顯示 + 敬拜團公佈欄

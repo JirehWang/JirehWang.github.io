@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta name="robots" content="noindex, nofollow">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>會友狀態監控</title>
+  <link rel="stylesheet" href="style.css?v=20260702_1">
+  <link rel="manifest" href="../../manifest.json">
+  <script>window._GAS_KEY = 'LKC_MemberStatus';</script>
+  <script src="../../config.js?v=20260702_member_status"></script>
+</head>
+<body>
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="spinner"></div>
+    <div id="loadingText">載入會友狀態...</div>
+  </div>
+
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Member Status Monitor</p>
+        <h1>會友狀態監控</h1>
+      </div>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="refreshBtn" title="重新整理" aria-label="重新整理">↻</button>
+      </div>
+    </header>
+
+    <section class="metric-grid" aria-label="狀態摘要">
+      <div class="metric">
+        <span>會友</span>
+        <strong id="metricMembers">0</strong>
+      </div>
+      <div class="metric">
+        <span>小組/團契</span>
+        <strong id="metricGroups">0</strong>
+      </div>
+      <div class="metric">
+        <span>教會事工</span>
+        <strong id="metricMinistries">0</strong>
+      </div>
+      <div class="metric alert">
+        <span>未配對</span>
+        <strong id="metricUnresolved">0</strong>
+      </div>
+    </section>
+
+    <section class="participation-panel" aria-label="事工參與分布">
+      <div class="panel-heading">
+        <h2>事工參與分布</h2>
+        <span id="visibleCount" class="muted">0 人</span>
+      </div>
+      <div id="participationMap" class="participation-map"></div>
+    </section>
+
+    <section class="workspace">
+      <aside class="sidebar">
+        <div class="filters">
+          <label class="field">
+            <span>搜尋</span>
+            <input id="searchInput" type="search" placeholder="姓名或 UID">
+          </label>
+          <label class="field">
+            <span>小組/團契</span>
+            <select id="groupFilter">
+              <option value="">全部</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>事工</span>
+            <select id="ministryFilter">
+              <option value="">全部</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>主日禮拜出席</span>
+            <select id="sundayFilter">
+              <option value="">全部</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>主日學出席</span>
+            <select id="sundaySchoolFilter">
+              <option value="">全部</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>小組聚會出席</span>
+            <select id="groupAttendanceFilter">
+              <option value="">全部</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>事工參與量</span>
+            <select id="participationFilter">
+              <option value="">全部</option>
+            </select>
+          </label>
+        </div>
+        <div id="memberList" class="member-list" aria-label="會友列表"></div>
+      </aside>
+
+      <section class="detail" id="profileDetail">
+        <div class="empty-state">
+          <h2>選擇一位會友</h2>
+          <p>左側列表會顯示主日會友名單中的成員。</p>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <template id="memberRowTemplate">
+    <button class="member-row" type="button">
+      <span class="member-name"></span>
+      <span class="member-meta"></span>
+    </button>
+  </template>
+
+  <script src="script.js?v=20260702_1"></script>
+</body>
+</html>
