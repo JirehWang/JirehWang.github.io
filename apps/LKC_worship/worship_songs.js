@@ -211,3 +211,18 @@ function showPlaceholder(msg) {
   ph.style.display = 'block';
   ph.innerHTML = `<div class="p-4">${msg}</div>`;
 }
+
+// --- 頁面初始化 ---
+window.onload = () => {
+  // 根據當前日期設定預設季度
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth(); // 0-11
+  const currentQuarter = 'Q' + (Math.floor(currentMonth / 3) + 1);
+  const targetVal = `${currentYear}-${currentQuarter}`;
+
+  const quarterSelect = document.getElementById('quarterSelect');
+  if (quarterSelect && Array.from(quarterSelect.options).some(opt => opt.value === targetVal)) {
+    quarterSelect.value = targetVal;
+  }
+};

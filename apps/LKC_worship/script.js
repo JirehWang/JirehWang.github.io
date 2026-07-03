@@ -182,6 +182,22 @@ async function openMainMemberDropdown(anchorEl) {
 window.onload = () => {
   const syncTimeEl = document.getElementById('syncTime');
   if (syncTimeEl) syncTimeEl.innerText = new Date().toLocaleTimeString();
+
+  // 根據當前日期設定預設季度
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth(); // 0-11
+  const currentQuarter = 'Q' + (Math.floor(currentMonth / 3) + 1);
+
+  const yearSelect = document.getElementById('yearSelect');
+  const quarterSelect = document.getElementById('quarterSelect');
+  if (yearSelect && Array.from(yearSelect.options).some(opt => opt.value === String(currentYear))) {
+    yearSelect.value = String(currentYear);
+  }
+  if (quarterSelect && Array.from(quarterSelect.options).some(opt => opt.value === currentQuarter)) {
+    quarterSelect.value = currentQuarter;
+  }
+
   loadDashboard();
 };
 
