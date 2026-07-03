@@ -257,13 +257,22 @@ flowchart TB
 | 小組點名 | `apps/LKC_Group` | `_handleGroupRequest` | `getGroups`, `verifyGroup`, `submitAttendance`, `getWeeklyReport`, `happyGroup_*` |
 | 事工管理 | `apps/LKC_MinistrySchedule` | `_handleMinistryRequest` | `ministry_getGroups`, `ministry_getPageConfig`, `ministry_saveSheetData`, `ministry_savePageFieldConfig`, `ministry_saveGroupMembers`, `ministry_getGroupMembers` |
 | 教會行事曆 | `apps/LKC_MasterSchedule` | `_handleCalendarRequest` | `cal_getTypes`, `cal_getFields`, `cal_getEvents`, `cal_addEvent`, `cal_queryBible` |
-| 敬拜團 | `apps/LKC_worship` | `_handleWorshipRequest` | `worship_getSchedule`, `worship_getPositions`, `worship_getSongs`, `worship_saveSchedule` |
+| 敬拜團 | `apps/LKC_worship` | `_handleWorshipRequest` | `worship_getSchedule`, `worship_getScheduleByDateRange`, `worship_getPositions`, `worship_getTeamMembers`, `worship_getSongs`, `worship_saveSchedule`, `worship_savePositions`, `worship_saveTeamMembers`, `worship_saveSongs` |
 | 會友狀態監控 | `apps/LKC_MemberStatus` | `_handleMemberStatusRequest` | `memberStatus_getMembers`, `memberStatus_getProfile`, `memberStatus_getServiceIndex`, `memberStatus_refreshCaches` |
 | 兒童出席 | `apps/LKC_ChildrenAttendance` | `兒童出席_GAS/Core.js` | `children_getAllMembers`, `children_getSmartAttendanceList`, `children_saveAttendance` |
 | 新家人 | `apps/LKC_NewFamily` | `新家人管理系統/Code.js` | `getTrackingCases`, `getClosedCases`, `updateTrackingCase`, `closeCases` |
 | 奉獻 | `apps/LKC_Offering` | `奉獻管理系統/程式碼.js` | `queryMemberOffering`, `adminAddOfferings`, `processReceiptImage`, `searchMemberCode` |
 | 車號查詢 | `apps/LKC_WhosCar` | `車號查詢/core.js` | GET 車牌查詢 / keep alive |
 | 週報 | `apps/LKC_SundayBulletin` | `週報管理系統/程式碼.js` + 多系統讀取 | 週報草稿/經文查詢/主日/小組/敬拜/行事曆聚合 |
+
+### 近期更新關聯
+
+| 系統 | 更新點 | 架構影響 |
+|---|---|---|
+| 事工管理 | 非 `小組聚會表模板` / `團契聚會表模板` 的事工頁面增加 `pageFieldConfig.scheduleMode`，可在 `schedule` 與 `membersOnly` 間切換 | `schedule` 沿用既有班表資料流；`membersOnly` 只維護 `ministry_saveGroupMembers` 成員名單，不讀班表。舊資料未設定時視為 `schedule`，保留既有行為 |
+| 事工管理 | `ministry_savePageFieldConfig` 會保存 `scheduleMode` | 需要同步失效 `ministry_getPageConfig`、`ministry_getAggregatedReport` 與 `memberStatus_*`，避免會友狀態仍讀到舊模式 |
+| 敬拜團 | 管理端補強年度/季度排班、位置設定、團員名單、歌曲庫、行事曆連結快取操作 | `LKC_worship_TEST` 透過 `config.js` 加 `worship_` 前綴後進入合併主 GAS；位置/團員/歌曲各自對應 `worship_savePositions`、`worship_saveTeamMembers`、`worship_saveSongs` 與相關 cache topic |
+| 敬拜團 | 會友狀態監控讀取敬拜團近一年服事 | `MemberStatusCore.js` 直接讀 `getScheduleByDateRange` 聚合敬拜團欄位；敬拜團班表或團員異動需失效 `memberStatus_getMembers`、`memberStatus_getProfile`、`memberStatus_getServiceIndex` |
 
 ## 5. Firebase / CacheService 失效關聯
 
@@ -296,7 +305,7 @@ flowchart LR
 | 小組點名異動 | `getWeeklyReport`, `getStats`, `getAllGroupsStats`, `checkGroupStatus` |
 | 事工異動 | `ministry_getGroups`, `ministry_getAggregatedReport`, `ministry_getPageConfig`, `memberStatus_getMembers`, `memberStatus_getProfile`, `memberStatus_getServiceIndex` |
 | 行事曆異動 | `cal_getTypes`, `cal_getFields`, `cal_getEvents`, `cal_getEvent`, `getSchedule`, `getScheduleByDateRange` |
-| 敬拜團異動 | `worship_getSchedule`, `worship_getScheduleByDateRange`, `worship_getPositions`, `worship_getSongs`, `worship_getTeamMembers` |
+| 敬拜團異動 | `worship_getSchedule`, `worship_getScheduleByDateRange`, `worship_getPositions`, `worship_getSongs`, `worship_getTeamMembers`, `memberStatus_getMembers`, `memberStatus_getProfile`, `memberStatus_getServiceIndex` |
 | 會友狀態刷新 | `memberStatus_getMembers`, `memberStatus_getProfile`, `memberStatus_getServiceIndex`, `memberStatus_getDiscipleshipStatus` |
 | 兒童出席異動 | `children_getAllMembers`, `children_getSmartAttendanceList`, `children_getAttendanceStats`, `children_getAttendanceTrend` |
 
@@ -314,7 +323,7 @@ flowchart TD
     MemberSheet["會友名單 Sheet<br/>UID / 姓名 / 小組關聯"]
     AttendanceSheet["主日出席 Sheet<br/>點名系統清單 / 點名紀錄"]
     GroupSheet["小組 Sheet<br/>小組清單 / 名單 / 點名紀錄"]
-    MinistrySheet["事工 Sheet<br/>Config / 事工頁面資料"]
+    MinistrySheet["事工 Sheet<br/>Config / pageFieldConfig.scheduleMode / 事工頁面資料"]
     CalendarSheet["行事曆 Sheet<br/>Types / Fields / Events"]
     WorshipSheet["敬拜團 Sheet<br/>Schedule / Songs / Positions / Team"]
     NewFamilySheet["新家人 Sheet<br/>tracking / closed"]
@@ -400,7 +409,7 @@ flowchart TD
 | 事工系統：`小組聚會表模板` / `團契聚會表模板` | 讀名單 + 近一年班表，統計小組/團契服事 |
 | 事工系統：非小組聚會模板 + `scheduleMode=schedule` 或舊資料未設定 | 讀名單 + 近一年班表，統計教會事工服事；`姓名` / `成員` 等名單欄位不當作服事欄位 |
 | 事工系統：非小組聚會模板 + `scheduleMode=membersOnly` | 只讀名單，判斷是否屬於該教會事工；不讀班表 |
-| 敬拜團 | 讀近一年 `getScheduleByDateRange` 服事紀錄 |
+| 敬拜團 | 讀近一年 `getScheduleByDateRange` 服事紀錄；前端經 `worship_getScheduleByDateRange` 讀取，會友狀態後端在合併主 GAS 內直接呼叫同一組函式 |
 | 事工參與量 | `groupMinistries + churchMinistries + worship.positions` 產生 `participation`，前端以點陣圖呈現高低 |
 | 門訓 | 保留 `discipleship` 欄位，第一版回 `unknown` |
 | 無法配對姓名 | 放入 `unresolvedParticipants`，不硬配 UID |
