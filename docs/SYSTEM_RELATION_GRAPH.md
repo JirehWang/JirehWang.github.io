@@ -255,7 +255,7 @@ flowchart TB
 |---|---|---|---|
 | 主日出席 | `apps/LKC_SundayserviceAttendance` | `_handleAttendanceRequest` | `getAllMembers`, `getSmartAttendanceList`, `saveAttendance`, `getAttendanceStats` |
 | 小組點名 | `apps/LKC_Group` | `_handleGroupRequest` | `getGroups`, `verifyGroup`, `submitAttendance`, `getWeeklyReport`, `happyGroup_*` |
-| 事工管理 | `apps/LKC_MinistrySchedule` | `_handleMinistryRequest` | `ministry_getGroups`, `ministry_getPageConfig`, `ministry_saveSheetData`, `ministry_getGroupMembers` |
+| 事工管理 | `apps/LKC_MinistrySchedule` | `_handleMinistryRequest` | `ministry_getGroups`, `ministry_getPageConfig`, `ministry_saveSheetData`, `ministry_savePageFieldConfig`, `ministry_saveGroupMembers`, `ministry_getGroupMembers` |
 | 教會行事曆 | `apps/LKC_MasterSchedule` | `_handleCalendarRequest` | `cal_getTypes`, `cal_getFields`, `cal_getEvents`, `cal_addEvent`, `cal_queryBible` |
 | 敬拜團 | `apps/LKC_worship` | `_handleWorshipRequest` | `worship_getSchedule`, `worship_getPositions`, `worship_getSongs`, `worship_saveSchedule` |
 | 會友狀態監控 | `apps/LKC_MemberStatus` | `_handleMemberStatusRequest` | `memberStatus_getMembers`, `memberStatus_getProfile`, `memberStatus_getServiceIndex`, `memberStatus_refreshCaches` |
@@ -294,7 +294,7 @@ flowchart LR
 | 小組名單/小組清單異動 | `getGroups`, `getAdminGroupsList`, `checkGroupStatus`, `ministry_getGroups`, `ministry_getGroupMembers` |
 | 主日點名異動 | `getWeeklyReport`, `getAttendanceStats`, `getAttendanceTrend`, `getSmartAttendanceList`, `getCategoryChartData` |
 | 小組點名異動 | `getWeeklyReport`, `getStats`, `getAllGroupsStats`, `checkGroupStatus` |
-| 事工異動 | `ministry_getGroups`, `ministry_getAggregatedReport`, `ministry_getPageConfig` |
+| 事工異動 | `ministry_getGroups`, `ministry_getAggregatedReport`, `ministry_getPageConfig`, `memberStatus_getMembers`, `memberStatus_getProfile`, `memberStatus_getServiceIndex` |
 | 行事曆異動 | `cal_getTypes`, `cal_getFields`, `cal_getEvents`, `cal_getEvent`, `getSchedule`, `getScheduleByDateRange` |
 | 敬拜團異動 | `worship_getSchedule`, `worship_getScheduleByDateRange`, `worship_getPositions`, `worship_getSongs`, `worship_getTeamMembers` |
 | 會友狀態刷新 | `memberStatus_getMembers`, `memberStatus_getProfile`, `memberStatus_getServiceIndex`, `memberStatus_getDiscipleshipStatus` |
@@ -372,6 +372,7 @@ flowchart TD
     AttendanceRecords["AttendanceDB / ReportService<br/>近一年主日禮拜 / 主日學出席"]
     GroupAttendance["GroupStatistics<br/>近一年小組聚會出席"]
     MinistryConfig["MinistryCore<br/>Config / 事工分頁"]
+    MinistryMode["pageFieldConfig.scheduleMode<br/>schedule / membersOnly"]
     WorshipSchedule["WorshipSchedule<br/>近一年敬拜團服事"]
     Participation["participation<br/>事工參與量 / 點陣圖"]
     Disciple["門訓狀態<br/>reserved / unknown"]
@@ -382,6 +383,7 @@ flowchart TD
     Core --> AttendanceRecords
     Core --> GroupAttendance
     Core --> MinistryConfig
+    MinistryConfig --> MinistryMode
     Core --> WorshipSchedule
     Core --> Participation
     Core --> Disciple
@@ -396,7 +398,8 @@ flowchart TD
 | 主日學出席 | 讀近一年名稱含 `主日學` 的點名紀錄，計算 `count / total / rate / lastDate` |
 | 小組聚會出席 | 讀近一年 `*_點名紀錄`，只對會友目前分屬小組/團契計算出席摘要 |
 | 事工系統：`小組聚會表模板` / `團契聚會表模板` | 讀名單 + 近一年班表，統計小組/團契服事 |
-| 事工系統：非小組聚會模板 | 只讀名單，判斷是否屬於該教會事工；不讀班表 |
+| 事工系統：非小組聚會模板 + `scheduleMode=schedule` 或舊資料未設定 | 讀名單 + 近一年班表，統計教會事工服事；`姓名` / `成員` 等名單欄位不當作服事欄位 |
+| 事工系統：非小組聚會模板 + `scheduleMode=membersOnly` | 只讀名單，判斷是否屬於該教會事工；不讀班表 |
 | 敬拜團 | 讀近一年 `getScheduleByDateRange` 服事紀錄 |
 | 事工參與量 | `groupMinistries + churchMinistries + worship.positions` 產生 `participation`，前端以點陣圖呈現高低 |
 | 門訓 | 保留 `discipleship` 欄位，第一版回 `unknown` |

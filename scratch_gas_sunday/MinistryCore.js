@@ -40,6 +40,15 @@ const MINISTRY_INITIAL_FIELD_TEMPLATES = {
   }
 };
 
+function _ministryNormalizeScheduleMode(mode) {
+  return mode === "membersOnly" ? "membersOnly" : "schedule";
+}
+
+function _ministryRequiresSchedule(templateName, pageFieldConfig) {
+  if (templateName === "小組聚會表模板" || templateName === "團契聚會表模板") return true;
+  return _ministryNormalizeScheduleMode(pageFieldConfig && pageFieldConfig.scheduleMode) !== "membersOnly";
+}
+
 function _ministryFieldTemplateType(templateName) {
   if (templateName === "小組聚會表模板" || templateName === "團契聚會表模板" || templateName === "聚會型模板") {
     return "聚會型模板";
@@ -53,6 +62,7 @@ function _ministryDefaultPageFieldConfig(pageId, templateName) {
   return {
     pageId: pageId || "",
     fieldTemplateType: fieldTemplateType,
+    scheduleMode: "schedule",
     fields: template.defaultFields.map(name => ({
       name: name,
       enabled: true,
@@ -96,6 +106,7 @@ function _ministryNormalizePageFieldConfig(config, pageId, templateName) {
   return {
     pageId: pageId || "",
     fieldTemplateType: fieldTemplateType,
+    scheduleMode: _ministryNormalizeScheduleMode(config.scheduleMode || fallback.scheduleMode),
     fields: fields,
     requiredFields: requiredFields,
     customFields: fields.filter(f => f.custom).map(f => f.name),
@@ -292,6 +303,7 @@ function ministry_getPageConfig(id, autoCreate) {
     autoRoleRules: "",
     eventData:     [],
     sermonSettings: sermonSettings,
+    scheduleMode:   pageFieldConfig.scheduleMode,
     pageFieldConfig: pageFieldConfig
   };
 
@@ -518,9 +530,14 @@ function ministry_getAggregatedReport(type) {
     const gStatus = config[i][4] ? config[i][4].toString().trim() : "";
     if (!gName || gStatus !== "啟用") continue;
 
+    let pageFieldConfig = {};
+    if (config[i].length > 8 && config[i][8]) {
+      try { pageFieldConfig = JSON.parse(config[i][8].toString().trim()); } catch (e) { pageFieldConfig = {}; }
+    }
+    const requiresSchedule = _ministryRequiresSchedule(gTemp, pageFieldConfig);
     if (type === "smallGroup" && (gTemp === "小組聚會表模板" || gTemp === "團契聚會表模板")) {
       targetGroups.push({ name: gName, template: gTemp });
-    } else if (type === "others" && gTemp !== "小組聚會表模板" && gTemp !== "團契聚會表模板" && gTemp !== "") {
+    } else if (type === "others" && gTemp !== "小組聚會表模板" && gTemp !== "團契聚會表模板" && gTemp !== "" && requiresSchedule) {
       targetGroups.push({ name: gName, template: gTemp });
     }
   }
@@ -646,7 +663,7 @@ function ministry_savePageFieldConfig(data) {
       s.getRange(i + 1, 9).setValue(JSON.stringify(pageFieldConfig));
       _invalidateConfigDataCache();
       invalidateMinistryReportCache();
-      firebaseInvalidate(['ministry_getPageConfig', 'ministry_getAggregatedReport']);
+      firebaseInvalidate(['ministry_getPageConfig', 'ministry_getAggregatedReport', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex']);
       _enqueueAuditLog("system", "savePageFieldConfig", { id: data.id, fields: pageFieldConfig.fields.length });
       return { msg: "欄位設定已儲存" };
     }

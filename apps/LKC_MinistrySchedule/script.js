@@ -54,6 +54,7 @@ let bulletinModalInstance = null;
 // 名單與聚會資料變數
 let localCustomMembers = [];
 let currentTemplate = "";
+let currentScheduleMode = "schedule";
 let currentEventData = [];
 let currentSermonSettings = { useSermon: false, sermonType: "華語/聯合" };
 let currentPageFieldConfig = null;
@@ -139,11 +140,63 @@ function normalizeFieldConfig(rawConfig, templateType, pageId) {
   return {
     pageId: pageId || "",
     fieldTemplateType: templateType,
+    scheduleMode: normalizeScheduleMode(rawConfig && rawConfig.scheduleMode),
     fields,
     requiredFields,
     customFields: fields.filter(field => field.custom).map(field => field.name),
     updatedAt: new Date().toISOString()
   };
+}
+
+function normalizeScheduleMode(mode) {
+  return mode === "membersOnly" ? "membersOnly" : "schedule";
+}
+
+function isScheduleModeEditable() {
+  return !isMeetingTemplate();
+}
+
+function isScheduleRequired() {
+  return isMeetingTemplate() || currentScheduleMode !== "membersOnly";
+}
+
+function syncScheduleModeControls() {
+  const section = document.getElementById('scheduleModeSection');
+  const select = document.getElementById('scheduleModeSelect');
+  const editable = isScheduleModeEditable();
+  const requiresSchedule = isScheduleRequired();
+
+  if (section) section.classList.toggle('hidden', !editable);
+  if (select) select.value = currentScheduleMode;
+  document.querySelector('.date-filter-toolbar')?.classList.toggle('hidden', !requiresSchedule);
+  document.querySelector('.ministry-primary-actions')?.classList.toggle('hidden', !requiresSchedule);
+  document.getElementById('toggleActionsBtn')?.classList.toggle('hidden', !requiresSchedule);
+  document.getElementById('saveScheduleDataBtn')?.classList.toggle('hidden', !requiresSchedule);
+}
+
+function renderMembersOnlyView() {
+  const container = document.getElementById('dynamicFormContainer');
+  if (!container) return;
+  const memberRows = localCustomMembers.length
+    ? localCustomMembers.map(m => `
+      <li class="list-group-item d-flex justify-content-between align-items-center">
+        <span class="fw-bold">${m.name}</span>
+        ${m.uid ? `<small class="text-muted">${m.uid}</small>` : ''}
+      </li>
+    `).join('')
+    : '<li class="list-group-item text-muted text-center">尚未建立成員名單</li>';
+
+  container.innerHTML = `
+    <div class="members-only-view p-4 text-center">
+      <h5 class="fw-bold text-primary mb-2">此事工目前不需要排班</h5>
+      <div class="text-muted mb-3">只維護成員名單。</div>
+      <div class="members-only-actions d-flex flex-wrap justify-content-center gap-2 mb-4">
+        <button type="button" class="btn btn-primary fw-bold" onclick="openMemberModal()">管理成員名單</button>
+        <button type="button" class="btn btn-outline-secondary fw-bold" onclick="openScheduleSettingsModal()">事工模式設定</button>
+      </div>
+      <ul class="list-group text-start mx-auto" style="max-width: 420px;">${memberRows}</ul>
+    </div>
+  `;
 }
 
 function buildPageFieldConfig(data, rawHeaders) {
@@ -152,7 +205,10 @@ function buildPageFieldConfig(data, rawHeaders) {
   const stored = localStorage.getItem(storageKey);
   if (stored) {
     try {
-      return normalizeFieldConfig(JSON.parse(stored), templateType, currentId);
+      const storedConfig = JSON.parse(stored);
+      const backendMode = data.scheduleMode || (data.pageFieldConfig && data.pageFieldConfig.scheduleMode);
+      if (backendMode) storedConfig.scheduleMode = backendMode;
+      return normalizeFieldConfig(storedConfig, templateType, currentId);
     } catch (e) {
       localStorage.removeItem(storageKey);
     }
@@ -601,6 +657,16 @@ function renderTable(data) {
   let validColCount = rawHeaders.length;
   while (validColCount > 0 && rawHeaders[validColCount - 1] === "") validColCount--;
   currentPageFieldConfig = buildPageFieldConfig(data, rawHeaders.slice(0, validColCount));
+  currentScheduleMode = isGroupOrFellowship
+    ? "schedule"
+    : normalizeScheduleMode(data.scheduleMode || currentPageFieldConfig.scheduleMode);
+  currentPageFieldConfig.scheduleMode = currentScheduleMode;
+  syncScheduleModeControls();
+  if (!isScheduleRequired()) {
+    currentTableHeaders = getEnabledFieldsFromConfig(currentPageFieldConfig);
+    renderMembersOnlyView();
+    return;
+  }
   rawHeaders = getEnabledFieldsFromConfig(currentPageFieldConfig);
   validColCount = rawHeaders.length;
 
@@ -959,6 +1025,10 @@ function updateTemplateSpecificLabels() {
 }
 
 function openQuarterModal() {
+  if (!isScheduleRequired()) {
+    getNotifier().warning("⚠️ 此事工目前設定為不需要排班");
+    return;
+  }
   const yearInput = document.getElementById('quarterYear');
   const quarterSelect = document.getElementById('quarterNumber');
   const sermonCheckbox = document.getElementById('quarterUseSermon');
@@ -1043,6 +1113,10 @@ function generateQuarterRows() {
 }
 
 function openAiScheduleModal() {
+  if (!isScheduleRequired()) {
+    getNotifier().warning("⚠️ 此事工目前設定為不需要排班");
+    return;
+  }
   const modal = new bootstrap.Modal(document.getElementById('aiScheduleModal'));
   modal.show();
   setTimeout(() => {
@@ -1061,7 +1135,59 @@ function openScheduleRuleModal() {
 }
 
 function openScheduleSettingsModal() {
+  syncScheduleModeControls();
   new bootstrap.Modal(document.getElementById('scheduleSettingsModal')).show();
+}
+
+async function saveScheduleMode() {
+  if (window.event) window.event.preventDefault();
+  if (!isScheduleModeEditable()) return;
+  if (getUIState().isLocked('saveScheduleMode')) return;
+  getUIState().lock('saveScheduleMode');
+
+  const select = document.getElementById('scheduleModeSelect');
+  const previousMode = currentScheduleMode;
+  const nextMode = normalizeScheduleMode(select && select.value);
+  const nextConfig = {
+    ...(currentPageFieldConfig || normalizeFieldConfig(null, getFieldTemplateType(currentTemplate), currentId)),
+    scheduleMode: nextMode
+  };
+
+  getNotifier().showLoading("儲存事工模式中...");
+  try {
+    await fetchAPI("savePageFieldConfig", { id: currentId, pageFieldConfig: nextConfig });
+    if (typeof window.churchAPIInvalidate === 'function') {
+      await Promise.allSettled([
+        window.churchAPIInvalidate('ministry_getPageConfig'),
+        window.churchAPIInvalidate('ministry_getAggregatedReport'),
+        window.churchAPIInvalidate('memberStatus_getServiceIndex'),
+        window.churchAPIInvalidate('memberStatus_getMembers'),
+        window.churchAPIInvalidate('memberStatus_getProfile')
+      ]);
+    }
+    const data = await fetchAPI('getPageConfig', { id: currentId, refreshAt: Date.now() });
+    const savedConfig = data && (data.pageFieldConfig || data.fieldConfig || {});
+    const savedMode = normalizeScheduleMode(savedConfig.scheduleMode || data.scheduleMode);
+    if (savedMode !== nextMode) {
+      throw new APIError('後端尚未保存事工模式，請確認 GAS 已部署最新版後再試一次。');
+    }
+    currentScheduleMode = nextMode;
+    currentPageFieldConfig = normalizeFieldConfig(savedConfig, getFieldTemplateType(currentTemplate), currentId);
+    try {
+      localStorage.setItem(getFieldConfigStorageKey(), JSON.stringify(currentPageFieldConfig));
+    } catch (storageErr) {
+      console.warn('[ministry] failed to persist field config locally:', storageErr);
+    }
+    renderTable(data);
+    getNotifier().success(nextMode === "membersOnly" ? "✅ 已切換為不需要排班" : "✅ 已切換為需要排班");
+  } catch (err) {
+    currentScheduleMode = previousMode;
+    syncScheduleModeControls();
+    handleAPIError(err);
+  } finally {
+    getNotifier().hideLoading();
+    getUIState().unlock('saveScheduleMode');
+  }
 }
 
 function focusPasteBox() {
@@ -1405,6 +1531,10 @@ function clearDateFilter() {
 // ============================================================
 async function processAI() {
   if (window.event) window.event.preventDefault();
+  if (!isScheduleRequired()) {
+    getNotifier().warning("⚠️ 此事工目前設定為不需要排班");
+    return;
+  }
 
   // 防止重複提交
   if (getUIState().isLocked('processAI')) return;
@@ -1609,6 +1739,10 @@ function fillTableWithData(parsedRows, isPaste = false) {
 // ============================================================
 async function saveData() {
   if (window.event) window.event.preventDefault();
+  if (!isScheduleRequired()) {
+    getNotifier().warning("⚠️ 此事工目前設定為不需要排班，請改用成員名單儲存");
+    return;
+  }
 
   // 防止重複提交
   if (getUIState().isLocked('saveData')) return;
@@ -1705,7 +1839,8 @@ if (createForm) {
       const template = initialFieldTemplates[fieldTemplateType] || initialFieldTemplates["事工型模板"];
       const firstConfig = normalizeFieldConfig({
         fields: template.defaultFields.map(name => ({ name, enabled: true, custom: false })),
-        requiredFields: template.requiredFields
+        requiredFields: template.requiredFields,
+        scheduleMode: "schedule"
       }, fieldTemplateType, nextId);
       await fetchAPI("createGroup", {
         id: nextId,
@@ -2369,6 +2504,45 @@ function downloadExcel() {
 // ============================================================
 //  👥 管理同工名單
 // ============================================================
+let _memberSuggestionsCache = null;
+
+async function loadMemberSuggestions() {
+  const datalist = document.getElementById('memberSuggestionsList');
+  if (!datalist) return;
+
+  const buildOptions = (data) => {
+    // 排除已在名單中的 (同 name+uid 才算重複)
+    const existingKey = new Set(localCustomMembers.map(m => `${m.name}__${m.uid || ''}`));
+    const candidates = data.filter(m => !existingKey.has(`${m.name}__${m.uid}`));
+
+    // 計算每個 name 出現次數以決定是否需要用 UID 區分
+    const nameCount = {};
+    candidates.forEach(m => { nameCount[m.name] = (nameCount[m.name] || 0) + 1; });
+
+    datalist.innerHTML = candidates.map(m => {
+      const label = nameCount[m.name] > 1
+        ? `${m.name} (${m.uid})`
+        : m.name;
+      return `<option value="${label}"></option>`;
+    }).join('');
+  };
+
+  if (_memberSuggestionsCache) {
+    buildOptions(_memberSuggestionsCache);
+    return;
+  }
+
+  try {
+    const res = await fetchAPI('getMemberSuggestions');
+    if (res && Array.isArray(res)) {
+      _memberSuggestionsCache = res;
+      buildOptions(res);
+    }
+  } catch (e) {
+    console.warn('載入會友建議清單失敗', e);
+  }
+}
+
 function openMemberModal() {
   if (window.event) window.event.preventDefault();
   const roleSelect = document.getElementById('newMemberRole');
@@ -2378,6 +2552,7 @@ function openMemberModal() {
     roleSelect.classList.add('hidden');
   }
   renderMemberList();
+  loadMemberSuggestions();
   new bootstrap.Modal(document.getElementById('memberModal')).show();
 }
 
@@ -2387,6 +2562,7 @@ function renderMemberList() {
     <li class="list-group-item d-flex justify-content-between align-items-center">
       <div>
         <span class="fw-bold">${m.name}</span>
+        ${m.uid ? `<small class="text-muted ms-2">(${m.uid})</small>` : ''}
         ${currentTemplate === "新家人服事表模板" ? `<span class="badge bg-secondary ms-2">${m.role}</span>` : ''}
       </div>
       <button type="button" class="btn btn-sm btn-danger" onclick="deleteMember(${idx})">刪除</button>
@@ -2396,7 +2572,7 @@ function renderMemberList() {
 
 function addMember() {
   if (window.event) window.event.preventDefault();
-  const nameInput = document.getElementById('newMemberName');
+  const nameInput = document.getElementById('newMemberInput');
   const roleSelect = document.getElementById('newMemberRole');
   const rawText = nameInput.value.trim();
   const role = roleSelect.value;
@@ -2406,38 +2582,43 @@ function addMember() {
     return;
   }
 
-  const names = rawText.split(/[\n,，、\s]+/).filter(n => n.trim() !== "");
-  let addedCount = 0;
-  let dupCount = 0;
+  // 解析「名字 (LKxxxxx)」格式（同名情況下會看到）
+  const m = rawText.match(/^(.+?)\s*\((LK\d+)\)\s*$/i);
+  let newName = m ? m[1].trim() : rawText;
+  let newUid  = m ? m[2].trim().toUpperCase() : '';
 
-  names.forEach(name => {
-    if (localCustomMembers.find(m => m.name === name)) {
-      dupCount++;
-    } else {
-      localCustomMembers.push({
-        name: name,
-        role: currentTemplate === "新家人服事表模板" ? role : "一般同工"
-      });
-      addedCount++;
-    }
+  // 若使用者只打了姓名，且大名單中恰好有 唯一一個 同名會友 → 自動帶入 UID
+  if (!newUid && _memberSuggestionsCache) {
+    const matched = _memberSuggestionsCache.filter(x => x.name === newName);
+    if (matched.length === 1) newUid = matched[0].uid;
+  }
+
+  // 同名 + 同 UID 才視為重複（容許多個同名但 UID 不同的人）
+  const dup = localCustomMembers.some(em =>
+    em.name === newName && (em.uid || '') === newUid
+  );
+  if (dup) {
+    getNotifier().warning("⚠️ 此人已經在名單中了！");
+    return;
+  }
+
+  localCustomMembers.push({
+    name: newName,
+    uid: newUid,
+    role: currentTemplate === "新家人服事表模板" ? role : "一般同工"
   });
 
   nameInput.value = "";
   renderMemberList();
-
-  if (addedCount > 1) {
-    getNotifier().success(`✅ 成功批量新增 ${addedCount} 筆名單！` + (dupCount > 0 ? `\n⚠️ 另有 ${dupCount} 筆已存在被自動略過。` : ""));
-  } else if (addedCount === 0 && dupCount > 0) {
-    getNotifier().warning("⚠️ 您輸入的名字都已經在名單中囉！");
-  } else {
-    getNotifier().success("✅ 已新增");
-  }
+  loadMemberSuggestions();
+  getNotifier().success("✅ 已新增");
 }
 
 function deleteMember(idx) {
   if (window.event) window.event.preventDefault();
   localCustomMembers.splice(idx, 1);
   renderMemberList();
+  loadMemberSuggestions();
 }
 
 async function saveMembersToServer() {

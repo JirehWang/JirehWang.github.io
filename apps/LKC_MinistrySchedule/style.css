@@ -272,6 +272,48 @@ body {
   font-size: 0.9rem;
 }
 
+.schedule-mode-controls {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.schedule-mode-controls .form-select {
+  width: 160px;
+}
+
+.members-only-view {
+  overflow-x: hidden;
+  white-space: normal;
+}
+
+.members-only-actions {
+  min-width: 0;
+  width: 100%;
+}
+
+.members-only-actions .btn {
+  max-width: 100%;
+}
+
+.members-only-view .list-group {
+  max-width: 420px;
+}
+
+.members-only-view .list-group-item {
+  gap: 12px;
+  min-width: 0;
+}
+
+.members-only-view .fw-bold {
+  overflow-wrap: anywhere;
+}
+
+.members-only-view small {
+  white-space: nowrap;
+}
+
 .schedule-rule-textarea {
   min-height: 280px;
   resize: vertical;
@@ -539,6 +581,17 @@ body {
   .field-settings-actions {
     justify-content: flex-start;
   }
+
+  .schedule-mode-controls {
+    align-items: stretch;
+    flex: 1 1 100%;
+    flex-direction: column;
+  }
+
+  .schedule-mode-controls .form-select,
+  .schedule-mode-controls .btn {
+    width: 100%;
+  }
 }
 
 @media (max-width: 768px) {
@@ -565,6 +618,23 @@ body {
   .grid-checkbox {
     width: 1.45em;
     height: 1.45em;
+  }
+
+  .members-only-view {
+    padding: 16px 4px !important;
+  }
+
+  .members-only-actions .btn {
+    flex: 1 1 100%;
+  }
+
+  .members-only-view .list-group-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .members-only-view small {
+    white-space: normal;
   }
 }
 
@@ -1204,4 +1274,3 @@ tr.closest-date-row td {
   background-color: rgba(232, 247, 240, 0.7) !important;
   border-bottom: 2px solid rgba(46, 125, 50, 0.2) !important;
 }
-

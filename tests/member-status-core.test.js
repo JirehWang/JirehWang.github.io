@@ -34,7 +34,8 @@ const ministrySheets = {
   Config: makeSheet([
     ['UUID', 'ID', '名稱', '模板', '狀態', '規則', '名單', '講道設定', 'pageFieldConfig'],
     ['uuid-a', 'G01', '葡萄樹A組', '小組聚會表模板', '啟用', '', '[]', '', ''],
-    ['uuid-b', 'M01', '招待組', '事工型模板', '啟用', '', JSON.stringify([{ name: '王小明' }, { name: '重名' }]), '', ''],
+    ['uuid-b', 'M01', '招待組', '事工型模板', '啟用', '', JSON.stringify([{ name: '王小明' }, { name: '重名' }]), '', JSON.stringify({ scheduleMode: 'schedule' })],
+    ['uuid-d', 'M02', '關懷組', '事工型模板', '啟用', '', JSON.stringify([{ name: '王小明' }]), '', JSON.stringify({ scheduleMode: 'membersOnly' })],
     ['uuid-c', 'F01', '團契A', '團契聚會表模板', '啟用', '', '[]', '', '']
   ]),
   '葡萄樹A組': makeSheet([
@@ -44,8 +45,12 @@ const ministrySheets = {
   ]),
   '招待組': makeSheet([
     ['姓名', '備註', '日期', '班表欄位'],
-    ['王小明', '', '2026-06-01', '不應讀取'],
+    ['王小明', '', '2026-06-01', '王小明'],
     ['不存在', '', '2026-06-01', '不應讀取']
+  ]),
+  '關懷組': makeSheet([
+    ['姓名', '備註', '日期', '班表欄位'],
+    ['王小明', '', '2026-06-01', '不應讀取']
   ]),
   '團契A': makeSheet([
     ['日期', '司會', '敬拜'],
@@ -140,9 +145,13 @@ assert.strictEqual(wang.groups[0].role, '核心同工');
 assert.strictEqual(wang.groupMinistries.length, 1, 'group ministry should be attached');
 assert.strictEqual(wang.groupMinistries[0].duties.includes('破冰'), true, 'recent group duty should be read');
 assert.strictEqual(wang.groupMinistries[0].serviceHistory.length, 1, 'old group rows should be excluded');
-assert.strictEqual(wang.churchMinistries.length, 1, 'non-group ministry membership should be attached');
+assert.strictEqual(wang.churchMinistries.length, 2, 'non-group ministry membership should be attached');
 assert.strictEqual(wang.churchMinistries[0].ministryName, '招待組');
-assert.strictEqual(wang.churchMinistries[0].serviceHistory.length, 0, 'non-group ministry schedules must not be read');
+assert.strictEqual(wang.churchMinistries[0].serviceHistory.length, 1, 'scheduled non-group ministry schedules should be read');
+assert.strictEqual(wang.churchMinistries[0].duties.includes('班表欄位'), true, 'scheduled non-group ministry duties should be tracked');
+const careMinistry = wang.churchMinistries.find(x => x.ministryName === '關懷組');
+assert(careMinistry, 'members-only ministry membership should be attached');
+assert.strictEqual(careMinistry.serviceHistory.length, 0, 'members-only ministry schedules must not be read');
 assert.strictEqual(wang.worship.positions.includes('主領'), true, 'worship schedule should be read');
 assert.strictEqual(wang.worship.serviceHistory.length, 1, 'old worship rows should be excluded');
 assert.strictEqual(wang.discipleship.status, 'unknown');

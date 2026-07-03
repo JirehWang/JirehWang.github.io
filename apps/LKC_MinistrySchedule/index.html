@@ -76,7 +76,7 @@
 
         <div class="report-header-actions">
           <button class="btn btn-outline-info fw-bold" onclick="showBulletinBoard()">預覽佈告欄</button>
-          <button class="btn btn-primary px-4 fw-bold" onclick="saveData()">儲存變更</button>
+          <button id="saveScheduleDataBtn" class="btn btn-primary px-4 fw-bold" onclick="saveData()">儲存變更</button>
         </div>
       </div>
 
@@ -155,6 +155,22 @@
               <strong>設定組員身分</strong>
               <span>小組/團契分頁使用，寫回主日會友名單。</span>
             </button>
+          </div>
+
+          <div id="scheduleModeSection" class="hidden mt-3 p-3 bg-light border border-secondary border-opacity-25 rounded shadow-sm">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+              <div>
+                <h6 class="fw-bold text-primary mb-1">事工模式</h6>
+                <div class="small text-muted">既有排班資料會保留。</div>
+              </div>
+              <div class="schedule-mode-controls">
+                <select id="scheduleModeSelect" class="form-select form-select-sm">
+                  <option value="schedule">需要排班</option>
+                  <option value="membersOnly">不需要排班</option>
+                </select>
+                <button class="btn btn-sm btn-primary fw-bold" type="button" onclick="saveScheduleMode()">套用</button>
+              </div>
+            </div>
           </div>
 
           <div id="sermonSettingsSection" class="hidden mt-3 p-3 bg-light border border-info border-opacity-25 rounded shadow-sm">
@@ -244,7 +260,8 @@
         </div>
         <div class="modal-body">
           <div class="d-flex gap-2 mb-3 align-items-start">
-            <textarea id="newMemberName" class="form-control" rows="2" placeholder="輸入姓名 (支援批量：可貼上多筆，用換行、空格或逗號隔開)"></textarea>
+            <input type="text" id="newMemberInput" class="form-control" list="memberSuggestionsList" placeholder="輸入姓名 (可從下拉清單選擇)">
+            <datalist id="memberSuggestionsList"></datalist>
             <div class="d-flex flex-column gap-2">
               <select id="newMemberRole" class="form-select w-auto hidden">
                 <option value="一般同工">一般同工</option>

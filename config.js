@@ -163,6 +163,7 @@
     'ministry_getAggregatedReport': _SIX_HOURS,
     'ministry_getPageConfig':       _SIX_HOURS,
     'ministry_getGroupMembers':     _SIX_HOURS,
+    'ministry_getMemberSuggestions': _SIX_HOURS,
 
     // 會友狀態監控
     'memberStatus_getMembers':              300,
@@ -204,15 +205,15 @@
   // 使用 cacheDeleteAll 清整個 topic（包含所有 subkey），所以不分 data 變體
   const _INVALIDATE_ON_WRITE = {
     // ── 會友名單異動 ──
-    'addMember':              ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig', 'getSmartAttendanceList', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
-    'updateMember':           ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig', 'getSmartAttendanceList', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
-    'deleteMember':           ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig', 'getSmartAttendanceList', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
+    'addMember':              ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'ministry_getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig', 'getSmartAttendanceList', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
+    'updateMember':           ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'ministry_getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig', 'getSmartAttendanceList', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
+    'deleteMember':           ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'ministry_getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'getAdminGroupsList', 'ministry_getPageConfig', 'getSmartAttendanceList', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
 
     // ── 小組異動 ──
     'createGroup':            ['getGroups', 'getAdminGroupsList'],
     'updateGroupInfo':        ['getGroups', 'getAdminGroupsList'],
-    'updateMemberList':       ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'ministry_getPageConfig', 'ministry_getGroupMembers', 'checkGroupStatus', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
-    'ministry_updateGroupMemberRoles': ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'ministry_getPageConfig', 'ministry_getGroupMembers', 'checkGroupStatus', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
+    'updateMemberList':       ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'ministry_getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'ministry_getPageConfig', 'ministry_getGroupMembers', 'checkGroupStatus', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
+    'ministry_updateGroupMemberRoles': ['getAllMembers', 'getAllGroupMembers', 'getMemberSuggestions', 'ministry_getMemberSuggestions', 'getStats', 'getAllGroupsStats', 'ministry_getPageConfig', 'ministry_getGroupMembers', 'checkGroupStatus', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
     'initGroup':              ['checkGroupStatus', 'getGroups', 'getAllGroupMembers'],
 
     // ── 主日點名異動 ──
@@ -229,6 +230,7 @@
     'ministry_createGroup':       ['ministry_getGroups', 'ministry_getAggregatedReport'],
     'ministry_toggleGroupStatus': ['ministry_getGroups'],
     'ministry_saveSheetData':     ['ministry_getAggregatedReport', 'ministry_getPageConfig', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
+    'ministry_savePageFieldConfig': ['ministry_getAggregatedReport', 'ministry_getPageConfig', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
     'ministry_saveGroupPrompt':   ['ministry_getPageConfig'],
     'ministry_saveGroupMembers':  ['ministry_getPageConfig', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
     'ministry_saveSermonSettings': ['ministry_getPageConfig'],
