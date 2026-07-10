@@ -43,6 +43,7 @@
 
   // 📝 子系統 → 後端 action 自動前綴（避免不同系統 action 名稱衝突）
   const _ACTION_PREFIX = {
+    "LKC_MinistrySchedule":      "ministry_",
     "LKC_MinistrySchedule_TEST": "ministry_",
     "LKC_worship_TEST":          "worship_",
     "LKC_MemberStatus":          "memberStatus_",
