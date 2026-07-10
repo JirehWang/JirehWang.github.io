@@ -651,14 +651,11 @@ function renderTable(data) {
   const groupRoleBtn = document.getElementById('manageGroupRolesBtn');
   const isGroupOrFellowship = (currentTemplate === "小組聚會表模板" || currentTemplate === "團契聚會表模板");
 
-  if (currentScheduleTarget === "clusters") {
-    currentGroupMembers = globalGroupClusters;
-  } else {
-    currentGroupMembers = localCustomMembers.map(m => m.name);
-  }
+  currentGroupMembers = localCustomMembers.map(m => m.name);
 
-  if (memberBtn && !isGroupOrFellowship && currentScheduleTarget !== "clusters") {
+  if (memberBtn && !isGroupOrFellowship) {
     memberBtn.classList.remove('hidden');
+    memberBtn.innerText = currentScheduleTarget === "clusters" ? "👥 管理小組群名單" : "👥 管理同工名單";
 
     if (currentTemplate === "新家人服事表模板") {
       const parentNames = localCustomMembers.filter(m => m.role === "小家長").map(m => m.name).join(", ");
@@ -743,8 +740,6 @@ function renderTable(data) {
       const parentNames = localCustomMembers.filter(m => m.role === "小家長").map(m => m.name);
       datalistHTML += `<datalist id="normalMembersList">` + normalNames.map(m => `<option value="${m}">`).join('') + `</datalist>`;
       datalistHTML += `<datalist id="parentMembersList">` + parentNames.map(m => `<option value="${m}">`).join('') + `</datalist>`;
-    } else if (currentScheduleTarget === "clusters") {
-      datalistHTML += `<datalist id="customMembersList">` + globalGroupClusters.map(m => `<option value="${m}">`).join('') + `</datalist>`;
     } else {
       const customNames = localCustomMembers.map(m => m.name);
       datalistHTML += `<datalist id="customMembersList">` + customNames.map(m => `<option value="${m}">`).join('') + `</datalist>`;
@@ -2594,6 +2589,15 @@ async function loadMemberSuggestions() {
   const datalist = document.getElementById('memberSuggestionsList');
   if (!datalist) return;
 
+  if (currentScheduleTarget === "clusters") {
+    await loadGroupClusters();
+    // 排除已在名單中的 (只比對 name)
+    const existingNames = new Set(localCustomMembers.map(m => m.name));
+    const candidates = globalGroupClusters.filter(name => !existingNames.has(name));
+    datalist.innerHTML = candidates.map(name => `<option value="${name}"></option>`).join('');
+    return;
+  }
+
   const buildOptions = (data) => {
     // 排除已在名單中的 (同 name+uid 才算重複)
     const existingKey = new Set(localCustomMembers.map(m => `${m.name}__${m.uid || ''}`));
@@ -2635,9 +2639,25 @@ function openMemberModal() {
   } else {
     roleSelect.classList.add('hidden');
   }
+
+  const modalEl = document.getElementById('memberModal');
+  const titleEl = modalEl.querySelector('.modal-title');
+  const inputEl = document.getElementById('newMemberInput');
+  if (currentScheduleTarget === "clusters") {
+    if (titleEl) titleEl.innerText = "👥 管理小組群名單";
+    if (inputEl) {
+      inputEl.placeholder = "輸入小組群名稱 (可從下拉清單選擇)";
+    }
+  } else {
+    if (titleEl) titleEl.innerText = "👥 管理同工名單";
+    if (inputEl) {
+      inputEl.placeholder = "輸入姓名 (可從下拉清單選擇)";
+    }
+  }
+
   renderMemberList();
   loadMemberSuggestions();
-  new bootstrap.Modal(document.getElementById('memberModal')).show();
+  new bootstrap.Modal(modalEl).show();
 }
 
 function renderMemberList() {
