@@ -178,13 +178,15 @@ function renderParticipationMap(rows) {
   }
   container.innerHTML = sorted.map(member => {
     const count = getParticipationCount(member);
-    const dots = Math.min(12, Math.max(0, count));
+    const dotClasses = getDotClasses(member);
     return `
       <button class="participation-row" type="button" data-uid="${escapeHtml(member.uid || '')}" title="${escapeHtml(member.name || '')}">
         <span class="participation-name">${escapeHtml(member.name || '')}</span>
-        <span class="dot-track" aria-hidden="true">${Array.from({ length: 12 }).map((_, index) =>
-          `<span class="dot${index < dots ? ' filled' : ''}"></span>`
-        ).join('')}</span>
+        <span class="dot-track" aria-hidden="true">${Array.from({ length: 12 }).map((_, index) => {
+          const isFilled = index < dotClasses.length;
+          const fillClass = isFilled ? ` filled ${dotClasses[index]}` : '';
+          return `<span class="dot${fillClass}"></span>`;
+        }).join('')}</span>
         <span class="participation-score">${count}</span>
       </button>
     `;
@@ -246,7 +248,7 @@ function renderProfile(profile, unresolved) {
 
       <section class="section wide">
         <h3>事工參與量</h3>
-        ${renderParticipation(profile.participation || {})}
+        ${renderParticipation(profile)}
       </section>
 
       <section class="section wide">
@@ -296,20 +298,57 @@ function renderAttendanceCard(label, bucket) {
   `;
 }
 
-function renderParticipation(participation) {
+function renderParticipation(profile) {
+  const participation = profile && profile.participation ? profile.participation : {};
   const count = Number(participation.ministryCount || 0);
   const serviceCount = Number(participation.serviceCount || 0);
   const level = participation.level || 'none';
   const dots = Math.min(12, Math.max(0, count));
+
+  // 取得所有參與的事工清單與類型
+  const ministries = [];
+  if (profile) {
+    if (profile.groupMinistries && profile.groupMinistries.length) {
+      profile.groupMinistries.forEach(item => {
+        ministries.push({ name: item.groupName || item.ministryName, type: 'group' });
+      });
+    }
+    if (profile.churchMinistries && profile.churchMinistries.length) {
+      profile.churchMinistries.forEach(item => {
+        ministries.push({ name: item.ministryName, type: 'ministry' });
+      });
+    }
+    if (profile.worship && profile.worship.positions && profile.worship.positions.length) {
+      profile.worship.positions.forEach(pos => {
+        ministries.push({ name: `敬拜團 (${pos})`, type: 'ministry' });
+      });
+    }
+  }
+
+  const ministryTags = ministries.length
+    ? `<div class="tag-list" style="margin-top:10px;">
+        <span class="muted" style="font-size:13px; display:inline-flex; align-items:center;">參與項目：</span>
+        ${ministries.map(m => {
+          const tagClass = m.type === 'group' ? 'accent' : 'gold';
+          return `<span class="tag ${tagClass}">${escapeHtml(m.name)}</span>`;
+        }).join('')}
+       </div>`
+    : '';
+
+  const dotClasses = getDotClasses(profile);
+
   return `
     <div class="tag-list" style="margin-bottom:10px;">
       <span class="tag accent">參與 ${count}</span>
       <span class="tag">服事紀錄 ${serviceCount}</span>
       <span class="tag gold">${escapeHtml(level)}</span>
     </div>
-    <div class="dot-track" aria-label="事工參與量">${Array.from({ length: 12 }).map((_, index) =>
-      `<span class="dot${index < dots ? ' filled' : ''}"></span>`
-    ).join('')}</div>
+    <div class="dot-track" aria-label="事工參與量" style="margin-bottom:10px;">${Array.from({ length: 12 }).map((_, index) => {
+      const isFilled = index < dotClasses.length;
+      const fillClass = isFilled ? ` filled ${dotClasses[index]}` : '';
+      return `<span class="dot${fillClass}"></span>`;
+    }).join('')}</div>
+    ${ministryTags}
   `;
 }
 
@@ -404,4 +443,34 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function getDotClasses(member) {
+  if (!member) return [];
+  const classes = [];
+
+  // 1. Group ministries (聚會型)
+  const groupCount = member.groupMinistries ? member.groupMinistries.length : 0;
+  for (let i = 0; i < groupCount; i++) {
+    classes.push('group-dot');
+  }
+
+  // 2. Church ministries (事工型)
+  const churchCount = member.churchMinistries ? member.churchMinistries.length : 0;
+  for (let i = 0; i < churchCount; i++) {
+    classes.push('ministry-dot');
+  }
+
+  // 3. Worship team (事工型)
+  let worshipCount = 0;
+  if (member.worshipPositions) {
+    worshipCount = member.worshipPositions.length;
+  } else if (member.worship && member.worship.positions) {
+    worshipCount = member.worship.positions.length;
+  }
+  for (let i = 0; i < worshipCount; i++) {
+    classes.push('ministry-dot');
+  }
+
+  return classes.slice(0, 12);
 }

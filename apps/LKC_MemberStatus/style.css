@@ -188,6 +188,16 @@ h1 {
   background: var(--accent);
 }
 
+.dot.filled.group-dot {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.dot.filled.ministry-dot {
+  border-color: var(--gold);
+  background: var(--gold);
+}
+
 .participation-score {
   color: var(--muted);
   font-size: 12px;

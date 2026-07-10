@@ -55,6 +55,8 @@ let bulletinModalInstance = null;
 let localCustomMembers = [];
 let currentTemplate = "";
 let currentScheduleMode = "schedule";
+let currentScheduleTarget = "members";
+let globalGroupClusters = [];
 let currentEventData = [];
 let currentSermonSettings = { useSermon: false, sermonType: "華語/聯合" };
 let currentPageFieldConfig = null;
@@ -141,6 +143,7 @@ function normalizeFieldConfig(rawConfig, templateType, pageId) {
     pageId: pageId || "",
     fieldTemplateType: templateType,
     scheduleMode: normalizeScheduleMode(rawConfig && rawConfig.scheduleMode),
+    scheduleTarget: rawConfig && rawConfig.scheduleTarget || "members",
     fields,
     requiredFields,
     customFields: fields.filter(field => field.custom).map(field => field.name),
@@ -163,11 +166,13 @@ function isScheduleRequired() {
 function syncScheduleModeControls() {
   const section = document.getElementById('scheduleModeSection');
   const select = document.getElementById('scheduleModeSelect');
+  const targetSelect = document.getElementById('scheduleTargetSelect');
   const editable = isScheduleModeEditable();
   const requiresSchedule = isScheduleRequired();
 
   if (section) section.classList.toggle('hidden', !editable);
   if (select) select.value = currentScheduleMode;
+  if (targetSelect) targetSelect.value = currentScheduleTarget || "members";
   document.querySelector('.date-filter-toolbar')?.classList.toggle('hidden', !requiresSchedule);
   document.querySelector('.ministry-primary-actions')?.classList.toggle('hidden', !requiresSchedule);
   document.getElementById('toggleActionsBtn')?.classList.toggle('hidden', !requiresSchedule);
@@ -208,6 +213,8 @@ function buildPageFieldConfig(data, rawHeaders) {
       const storedConfig = JSON.parse(stored);
       const backendMode = data.scheduleMode || (data.pageFieldConfig && data.pageFieldConfig.scheduleMode);
       if (backendMode) storedConfig.scheduleMode = backendMode;
+      const backendTarget = data.scheduleTarget || (data.pageFieldConfig && data.pageFieldConfig.scheduleTarget);
+      if (backendTarget) storedConfig.scheduleTarget = backendTarget;
       return normalizeFieldConfig(storedConfig, templateType, currentId);
     } catch (e) {
       localStorage.removeItem(storageKey);
@@ -243,6 +250,27 @@ function savePageFieldConfigLocally(config) {
 // ============================================================
 
 const _API_TIMEOUT_MS = 120000;
+
+async function loadGroupClusters() {
+  if (globalGroupClusters.length > 0) return globalGroupClusters;
+  try {
+    const res = await fetchAPI('getDistrictsAndClusters');
+    if (res && Array.isArray(res.clusters)) {
+      globalGroupClusters = res.clusters.map(c => c.name);
+    }
+  } catch (err) {
+    console.error('Failed to load group clusters:', err);
+  }
+  return globalGroupClusters;
+}
+
+async function prepareClustersAndRender(data) {
+  const target = data && data.pageFieldConfig && data.pageFieldConfig.scheduleTarget || "members";
+  if (target === "clusters") {
+    await loadGroupClusters();
+  }
+  renderTable(data);
+}
 
 function normalizeMinistryAction(action) {
   return action.indexOf('ministry_') === 0 ? action : 'ministry_' + action;
@@ -460,7 +488,7 @@ window.onload = async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const autoCreate = urlParams.get('from') === 'group' || urlParams.get('autoCreate') === '1';
       const data = await fetchAPI('getPageConfig', { id: currentId, autoCreate: autoCreate });
-      renderTable(data);
+      await prepareClustersAndRender(data);
 
       // 如果未解鎖，才顯示佈告欄 (預覽模式)
       if (!isEditorUnlocked) {
@@ -603,6 +631,7 @@ function renderTable(data) {
   });
 
   currentTemplate = data.template || "";
+  currentScheduleTarget = data.scheduleTarget || (currentPageFieldConfig && currentPageFieldConfig.scheduleTarget) || "members";
   localCustomMembers = data.customMembers || [];
   updateTemplateSpecificLabels();
 
@@ -610,9 +639,14 @@ function renderTable(data) {
   const groupRoleBtn = document.getElementById('manageGroupRolesBtn');
   const isGroupOrFellowship = (currentTemplate === "小組聚會表模板" || currentTemplate === "團契聚會表模板");
 
-  if (memberBtn && !isGroupOrFellowship) {
-    memberBtn.classList.remove('hidden');
+  if (currentScheduleTarget === "clusters") {
+    currentGroupMembers = globalGroupClusters;
+  } else {
     currentGroupMembers = localCustomMembers.map(m => m.name);
+  }
+
+  if (memberBtn && !isGroupOrFellowship && currentScheduleTarget !== "clusters") {
+    memberBtn.classList.remove('hidden');
 
     if (currentTemplate === "新家人服事表模板") {
       const parentNames = localCustomMembers.filter(m => m.role === "小家長").map(m => m.name).join(", ");
@@ -661,6 +695,10 @@ function renderTable(data) {
     ? "schedule"
     : normalizeScheduleMode(data.scheduleMode || currentPageFieldConfig.scheduleMode);
   currentPageFieldConfig.scheduleMode = currentScheduleMode;
+  currentScheduleTarget = isGroupOrFellowship
+    ? "members"
+    : (data.scheduleTarget || currentPageFieldConfig.scheduleTarget || "members");
+  currentPageFieldConfig.scheduleTarget = currentScheduleTarget;
   syncScheduleModeControls();
   if (!isScheduleRequired()) {
     currentTableHeaders = getEnabledFieldsFromConfig(currentPageFieldConfig);
@@ -693,6 +731,8 @@ function renderTable(data) {
       const parentNames = localCustomMembers.filter(m => m.role === "小家長").map(m => m.name);
       datalistHTML += `<datalist id="normalMembersList">` + normalNames.map(m => `<option value="${m}">`).join('') + `</datalist>`;
       datalistHTML += `<datalist id="parentMembersList">` + parentNames.map(m => `<option value="${m}">`).join('') + `</datalist>`;
+    } else if (currentScheduleTarget === "clusters") {
+      datalistHTML += `<datalist id="customMembersList">` + globalGroupClusters.map(m => `<option value="${m}">`).join('') + `</datalist>`;
     } else {
       const customNames = localCustomMembers.map(m => m.name);
       datalistHTML += `<datalist id="customMembersList">` + customNames.map(m => `<option value="${m}">`).join('') + `</datalist>`;
@@ -1146,11 +1186,15 @@ async function saveScheduleMode() {
   getUIState().lock('saveScheduleMode');
 
   const select = document.getElementById('scheduleModeSelect');
+  const targetSelect = document.getElementById('scheduleTargetSelect');
   const previousMode = currentScheduleMode;
+  const previousTarget = currentScheduleTarget;
   const nextMode = normalizeScheduleMode(select && select.value);
+  const nextTarget = targetSelect ? targetSelect.value : "members";
   const nextConfig = {
     ...(currentPageFieldConfig || normalizeFieldConfig(null, getFieldTemplateType(currentTemplate), currentId)),
-    scheduleMode: nextMode
+    scheduleMode: nextMode,
+    scheduleTarget: nextTarget
   };
 
   getNotifier().showLoading("儲存事工模式中...");
@@ -1168,20 +1212,23 @@ async function saveScheduleMode() {
     const data = await fetchAPI('getPageConfig', { id: currentId, refreshAt: Date.now() });
     const savedConfig = data && (data.pageFieldConfig || data.fieldConfig || {});
     const savedMode = normalizeScheduleMode(savedConfig.scheduleMode || data.scheduleMode);
-    if (savedMode !== nextMode) {
-      throw new APIError('後端尚未保存事工模式，請確認 GAS 已部署最新版後再試一次。');
+    const savedTarget = savedConfig.scheduleTarget || data.scheduleTarget || "members";
+    if (savedMode !== nextMode || savedTarget !== nextTarget) {
+      throw new APIError('後端尚未保存設定，請確認 GAS 已部署最新版後再試一次。');
     }
     currentScheduleMode = nextMode;
+    currentScheduleTarget = nextTarget;
     currentPageFieldConfig = normalizeFieldConfig(savedConfig, getFieldTemplateType(currentTemplate), currentId);
     try {
       localStorage.setItem(getFieldConfigStorageKey(), JSON.stringify(currentPageFieldConfig));
     } catch (storageErr) {
       console.warn('[ministry] failed to persist field config locally:', storageErr);
     }
-    renderTable(data);
-    getNotifier().success(nextMode === "membersOnly" ? "✅ 已切換為不需要排班" : "✅ 已切換為需要排班");
+    await prepareClustersAndRender(data);
+    getNotifier().success("✅ 已儲存事工設定");
   } catch (err) {
     currentScheduleMode = previousMode;
+    currentScheduleTarget = previousTarget;
     syncScheduleModeControls();
     handleAPIError(err);
   } finally {
@@ -1826,6 +1873,20 @@ function showSection(id) {
 // ============================================================
 const createForm = document.getElementById('createGroupForm');
 if (createForm) {
+  const templateSelect = document.getElementById('templateSelect');
+  if (templateSelect) {
+    templateSelect.addEventListener('change', function() {
+      const container = document.getElementById('ministryOptionsContainer');
+      if (container) {
+        if (this.value === '事工型模板') {
+          container.classList.remove('hidden');
+        } else {
+          container.classList.add('hidden');
+        }
+      }
+    });
+  }
+
   createForm.onsubmit = async function(e) {
     e.preventDefault();
 
@@ -1837,10 +1898,21 @@ if (createForm) {
       const fieldTemplateType = document.getElementById('templateSelect').value;
       const nextId = document.getElementById('newId').value.trim();
       const template = initialFieldTemplates[fieldTemplateType] || initialFieldTemplates["事工型模板"];
+      
+      let scheduleMode = "schedule";
+      let scheduleTarget = "members";
+      if (fieldTemplateType === "事工型模板") {
+        const modeEl = document.getElementById('newScheduleModeSelect');
+        const targetEl = document.getElementById('newScheduleTargetSelect');
+        if (modeEl) scheduleMode = modeEl.value;
+        if (targetEl) scheduleTarget = targetEl.value;
+      }
+
       const firstConfig = normalizeFieldConfig({
         fields: template.defaultFields.map(name => ({ name, enabled: true, custom: false })),
         requiredFields: template.requiredFields,
-        scheduleMode: "schedule"
+        scheduleMode: scheduleMode,
+        scheduleTarget: scheduleTarget
       }, fieldTemplateType, nextId);
       await fetchAPI("createGroup", {
         id: nextId,
@@ -2641,7 +2713,7 @@ async function saveMembersToServer() {
 
     getNotifier().showLoading("🔄 更新畫面中...");
     const freshConfig = await fetchAPI('getPageConfig', { id: currentId });
-    renderTable(freshConfig);
+    await prepareClustersAndRender(freshConfig);
     getNotifier().success("✅ 畫面已更新");
   } catch (err) {
     handleAPIError(err);
@@ -2752,7 +2824,7 @@ async function saveGroupRoles() {
     // 重新讀取頁面設定（讓 AI 規則更新到新身分）
     getNotifier().showLoading("🔄 更新畫面中...");
     const freshConfig = await fetchAPI('getPageConfig', { id: currentId });
-    renderTable(freshConfig);
+    await prepareClustersAndRender(freshConfig);
   } catch (err) {
     handleAPIError(err);
   } finally {

@@ -63,6 +63,7 @@ function _ministryDefaultPageFieldConfig(pageId, templateName) {
     pageId: pageId || "",
     fieldTemplateType: fieldTemplateType,
     scheduleMode: "schedule",
+    scheduleTarget: "members",
     fields: template.defaultFields.map(name => ({
       name: name,
       enabled: true,
@@ -107,6 +108,7 @@ function _ministryNormalizePageFieldConfig(config, pageId, templateName) {
     pageId: pageId || "",
     fieldTemplateType: fieldTemplateType,
     scheduleMode: _ministryNormalizeScheduleMode(config.scheduleMode || fallback.scheduleMode),
+    scheduleTarget: config.scheduleTarget || fallback.scheduleTarget || "members",
     fields: fields,
     requiredFields: requiredFields,
     customFields: fields.filter(f => f.custom).map(f => f.name),
@@ -304,6 +306,7 @@ function ministry_getPageConfig(id, autoCreate) {
     eventData:     [],
     sermonSettings: sermonSettings,
     scheduleMode:   pageFieldConfig.scheduleMode,
+    scheduleTarget: pageFieldConfig.scheduleTarget || "members",
     pageFieldConfig: pageFieldConfig
   };
 

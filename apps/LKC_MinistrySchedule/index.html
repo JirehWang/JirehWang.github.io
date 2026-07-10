@@ -59,6 +59,23 @@
           </select>
           <div class="form-text">建立後會先套用初始欄位，之後可在「表格欄位設定」調整。</div>
         </div>
+        <div id="ministryOptionsContainer" class="hidden border rounded p-3 mb-3 bg-light">
+          <h6 class="fw-bold text-secondary mb-3">事工進階設定</h6>
+          <div class="mb-3">
+            <label class="form-label text-muted small fw-bold">是否排班</label>
+            <select id="newScheduleModeSelect" class="form-select">
+              <option value="schedule" selected>需要排班</option>
+              <option value="membersOnly">不需要排班 (僅維護同工/小組名單)</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted small fw-bold">排班/名單對象</label>
+            <select id="newScheduleTargetSelect" class="form-select">
+              <option value="members" selected>排人員 (同工名單)</option>
+              <option value="clusters">排小組群 (至小組點名系統撈取定義)</option>
+            </select>
+          </div>
+        </div>
         <div class="d-flex gap-2">
           <button type="submit" class="btn btn-success flex-grow-1">確認建立</button>
           <button type="button" class="btn btn-light flex-grow-1" onclick="showSection('adminMain')">取消</button>
@@ -160,13 +177,17 @@
           <div id="scheduleModeSection" class="hidden mt-3 p-3 bg-light border border-secondary border-opacity-25 rounded shadow-sm">
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
               <div>
-                <h6 class="fw-bold text-primary mb-1">事工模式</h6>
+                <h6 class="fw-bold text-primary mb-1">事工模式與對象</h6>
                 <div class="small text-muted">既有排班資料會保留。</div>
               </div>
-              <div class="schedule-mode-controls">
-                <select id="scheduleModeSelect" class="form-select form-select-sm">
+              <div class="schedule-mode-controls d-flex flex-wrap gap-2 align-items-center">
+                <select id="scheduleModeSelect" class="form-select form-select-sm" style="width: auto;">
                   <option value="schedule">需要排班</option>
                   <option value="membersOnly">不需要排班</option>
+                </select>
+                <select id="scheduleTargetSelect" class="form-select form-select-sm" style="width: auto;">
+                  <option value="members">排人員</option>
+                  <option value="clusters">排小組群</option>
                 </select>
                 <button class="btn btn-sm btn-primary fw-bold" type="button" onclick="saveScheduleMode()">套用</button>
               </div>

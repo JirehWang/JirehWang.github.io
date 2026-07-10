@@ -87,9 +87,11 @@ graph TD
     Core -->|1. getPageConfig| GAS
     Core -->|2. saveSheetData| GAS
     Core -->|3. processAI| GAS
+    Core -->|4. getMemberSuggestions| GAS
     
     Core <-->|匯出匯入/讀寫| XLSX[SheetJS 引擎]
-    Core <-->|同工自動完成| Autocomplete[人員建議選單]
+    Core <-->|同工建議/自動完成| Autocomplete[人員建議選單]
+    GAS -->|提供會友大名單| Autocomplete
 ```
 
 ### 貼上 LINE 文字 AI 自動排班資料流

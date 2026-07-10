@@ -100,6 +100,10 @@ function _handleMinistryRequest(body) {
         result = { status: 'success', data: ministry_getPageConfig(data.id, data.autoCreate) };
         break;
       case 'ministry_getAggregatedReport':  result = { status: 'success', data: ministry_getAggregatedReport(data.type) }; break;
+      case 'ministry_getDistrictsAndClusters':
+        result = handleHierarchyAction('getDistrictsAndClusters', data);
+        break;
+
 
       // 寫入
       case 'ministry_saveSheetData':        result = { status: 'success', message: ministry_saveSheetData(data) }; break;
