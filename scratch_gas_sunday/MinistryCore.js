@@ -1031,3 +1031,67 @@ function ministry_verifyPageId(id, code) {
   var isMatch = (cleanCode === decryptedId.toUpperCase());
   return { success: isMaster || isMatch };
 }
+
+function ministry_updatePageInfo(data) {
+  const oldIdDecrypted = decryptGroupCode(data.oldId);
+  const newId = data.newId.toString().trim();
+  const newName = data.newName.toString().trim();
+  
+  if (!newId || !newName) {
+    throw new Error("代碼與分頁名稱不可為空。");
+  }
+
+  const ss = getMinistrySS();
+  const s = ss.getSheetByName('Config');
+  const configData = s.getDataRange().getValues();
+  
+  // 檢查新的代碼是否已被其他分頁佔用
+  for (let i = 1; i < configData.length; i++) {
+    const currentId = configData[i][1].toString().trim();
+    if (currentId === newId && currentId !== oldIdDecrypted) {
+      throw new Error("此代碼已被其他分頁佔用！");
+    }
+  }
+
+  for (let i = 1; i < configData.length; i++) {
+    if (configData[i][1].toString().trim() === oldIdDecrypted) {
+      const oldName = configData[i][2].toString().trim();
+      
+      // 1. 修改實際的工作表名稱
+      if (oldName !== newName) {
+        const targetSheet = ss.getSheetByName(oldName);
+        if (targetSheet) {
+          targetSheet.setName(newName);
+        } else {
+          console.warn("Could not find sheet to rename: " + oldName);
+        }
+      }
+      
+      // 2. 更新 Config 中的欄位
+      s.getRange(i + 1, 2).setValue(newId); // ID (Column B)
+      s.getRange(i + 1, 3).setValue(newName); // Name (Column C)
+      
+      // 3. 更新 pageFieldConfig 中的 pageId
+      let pageFieldConfig = null;
+      if (configData[i].length > 8 && configData[i][8]) {
+        try {
+          pageFieldConfig = JSON.parse(configData[i][8].toString().trim());
+        } catch (e) {
+          pageFieldConfig = null;
+        }
+      }
+      if (pageFieldConfig) {
+        pageFieldConfig.pageId = newId;
+        s.getRange(i + 1, 9).setValue(JSON.stringify(pageFieldConfig));
+      }
+      
+      _invalidateConfigDataCache();
+      _invalidateMinistryGroupsCache();
+      invalidateMinistryReportCache();
+      firebaseInvalidate(['ministry_getPageConfig', 'ministry_getAggregatedReport', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex']);
+      _enqueueAuditLog("system", "updatePageInfo", { oldId: oldIdDecrypted, newId: newId, newName: newName });
+      return { msg: "分頁資訊已更新", newIdEncrypted: encryptGroupCode(newId) };
+    }
+  }
+  throw new Error("找不到該分頁 ID：" + oldIdDecrypted);
+}

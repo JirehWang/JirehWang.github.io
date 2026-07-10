@@ -108,6 +108,7 @@ function _handleMinistryRequest(body) {
       // 寫入
       case 'ministry_saveSheetData':        result = { status: 'success', message: ministry_saveSheetData(data) }; break;
       case 'ministry_savePageFieldConfig':  result = { status: 'success', message: ministry_savePageFieldConfig(data).msg }; break;
+      case 'ministry_updatePageInfo':       result = { status: 'success', data: ministry_updatePageInfo(data) }; break;
       case 'ministry_createGroup':          result = { status: 'success', message: ministry_createGroup(data).msg }; break;
       case 'ministry_toggleGroupStatus':    result = { status: 'success', message: ministry_toggleGroupStatus(data).msg }; break;
       case 'ministry_saveGroupPrompt':      result = { status: 'success', message: ministry_saveGroupPrompt(data).msg }; break;

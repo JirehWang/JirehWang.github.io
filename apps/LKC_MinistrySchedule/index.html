@@ -439,6 +439,38 @@
     </div>
   </div>
 
+  <!-- 編輯事工型分頁名稱與代碼 Modal -->
+  <div class="modal fade" id="editMinistryPageModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title fw-bold">✏️ 編輯事工分頁資訊</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="editMinistryPageForm">
+            <input type="hidden" id="editPageOldId">
+            <div class="mb-3">
+              <label class="form-label text-muted small fw-bold">分頁名稱 (對應 Google Sheet 頁籤名稱)</label>
+              <input type="text" id="editPageName" class="form-control fw-bold" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label text-muted small fw-bold">分頁代碼 (英文代碼，用於 URL 識別)</label>
+              <input type="text" id="editPageId" class="form-control fw-bold" required pattern="^[A-Za-z0-9_]+$" title="僅接受英數字與下底線">
+            </div>
+            <div class="alert alert-warning small m-0" role="alert">
+              <strong>⚠️ 注意：</strong>修改代碼將會改變此分頁的連結網址，舊的分享連結將會失效！
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-primary fw-bold" onclick="submitEditMinistryPage()">儲存修改</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>

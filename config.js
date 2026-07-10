@@ -19,7 +19,7 @@
   const _URL_ROUTER = {
     "LKC_worship":                      "https://script.google.com/macros/s/AKfycbyk_6tUucVg-U4rRQjYHvk632teZyxufDkNX_X1WRUXPMGgsTaemVXD_mv9kBDjuSwOnA/exec",
     "LKC_MasterSchedule":               "https://script.google.com/macros/s/AKfycbwiYYWgKxmLRAEaE_pbp_kWyAzlRPcwYVQfvmJVamRJvosvt5wTTkvwebbFBkP8rMqX/exec",
-    "LKC_MinistrySchedule":             "https://script.google.com/macros/s/AKfycbx4268IkgwQm2Es0gjDHLU_U9nKJrRMR1-xzbbtuaq08lePLgAQ2wnDRrCeHdy9jNhh/exec",
+    "LKC_MinistrySchedule":             "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
     "LKC_Group":                        "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
     "LKC_WhosCar":                      "https://script.google.com/macros/s/AKfycbxOkoaNquIx_V8n_7eS_5ULmoqxPVly_Bezx9_QsmWSzNOcojrCI9Oa6UNd5hOD2euS/exec",
     "LKC_SundayserviceAttendance":      "https://script.google.com/macros/s/AKfycbxBOFeLiXu23kBMGU8iSvRyJci6fruTfk7HdahhcQFY777sCPSgasuNM7Z1CeuzuS-r/exec",
@@ -165,7 +165,7 @@
     'ministry_getGroupMembers':     _SIX_HOURS,
     'ministry_getMemberSuggestions': _SIX_HOURS,
 
-    // 會友狀態監控
+    // 同工服事狀態管理系統
     'memberStatus_getMembers':              300,
     'memberStatus_getProfile':              300,
     'memberStatus_getServiceIndex':         300,
@@ -255,7 +255,7 @@
     'worship_setDateOverride':         ['worship_getSchedule', 'worship_getScheduleByDateRange'],
     'worship_clearCalendarLinkCache':  ['worship_getSchedule', 'worship_getScheduleByDateRange', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
 
-    // ── 會友狀態監控 ──
+    // ── 同工服事狀態管理系統 ──
     'memberStatus_refreshCaches': ['memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex', 'memberStatus_getDiscipleshipStatus'],
 
     // ── 教會行事曆異動 ──

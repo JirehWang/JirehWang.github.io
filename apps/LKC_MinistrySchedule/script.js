@@ -518,14 +518,17 @@ async function loadAdminData() {
     const base = window.location.href.split('?')[0];
 
     const grouped = groups.reduce((acc, g) => {
-      const cat = g.template || "未分類項目";
-      if (!acc[cat]) acc[cat] = [];
-      acc[cat].push(g);
+      const cat = getFieldTemplateType(g.template || "");
+      const catName = cat === "聚會型模板" ? "聚會型分頁" : "事工型分頁";
+      if (!acc[catName]) acc[catName] = [];
+      acc[catName].push(g);
       return acc;
     }, {});
 
     let html = "";
-    for (const cat in grouped) {
+    const catKeys = ["聚會型分頁", "事工型分頁"];
+    catKeys.forEach(cat => {
+      if (!grouped[cat]) return;
       html += `<div class="col-12 category-section" data-cat="${cat}"><div class="category-header">📦 ${cat} <span class="category-badge">${grouped[cat].length}</span></div></div>`;
 
       html += grouped[cat].map(g => {
@@ -533,24 +536,33 @@ async function loadAdminData() {
         const shareUrl = `${base}?id=${encryptGroupCode(g.id)}`;
 
         return `
-          <div class="col-12 col-md-4 group-item" data-search="${g.name} ${g.template}">
+          <div class="col-12 col-md-4 group-item" data-search="${g.name} ${g.template} ${g.id}">
             <div class="card group-card h-100 shadow-sm d-flex flex-column" style="opacity: ${isEnabled ? '1' : '0.5'}; border-left: 5px solid ${isEnabled ? '#0d6efd' : '#ced4da'};">
-              <div class="card-body p-3 flex-grow-1">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                  <a href="${isEnabled ? shareUrl : 'javascript:void(0)'}" class="group-link m-0" style="${isEnabled ? '' : 'pointer-events: none; cursor: default;'}">
-                    <h5 class="card-title ${isEnabled ? 'text-dark' : 'text-muted'} m-0" style="${isEnabled ? '' : 'text-decoration: line-through;'}">${g.name}</h5>
-                  </a>
-                  <div class="form-check form-switch m-0 ms-3">
-                    <input class="form-check-input" type="checkbox" role="switch" ${isEnabled ? 'checked' : ''} onchange="toggleStatus('${g.id}', '${g.status}')">
+              <div class="card-body p-3 flex-grow-1 d-flex flex-column justify-content-between">
+                <div>
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <a href="${isEnabled ? shareUrl : 'javascript:void(0)'}" class="group-link m-0" style="${isEnabled ? '' : 'pointer-events: none; cursor: default;'}">
+                      <h5 class="card-title ${isEnabled ? 'text-dark' : 'text-muted'} m-0" style="${isEnabled ? '' : 'text-decoration: line-through;'}">${g.name}</h5>
+                    </a>
+                    <div class="form-check form-switch m-0 ms-3">
+                      <input class="form-check-input" type="checkbox" role="switch" ${isEnabled ? 'checked' : ''} onchange="toggleStatus('${g.id}', '${g.status}')">
+                    </div>
                   </div>
+                  <div class="text-muted small mb-2">代碼: <code>${g.id}</code></div>
                 </div>
-                ${isEnabled ? `<button class="btn btn-sm btn-outline-success w-100 mt-2 fw-bold" onclick="copyShareLink('${shareUrl}')">🔗 複製分享網址</button>` : '<p class="text-muted small mt-2 m-0 text-center">已停用</p>'}
+                <div>
+                  <div class="d-flex gap-1 flex-wrap mt-2">
+                    ${isEnabled ? `<button class="btn btn-sm btn-outline-success flex-grow-1 fw-bold" onclick="copyShareLink('${shareUrl}')">🔗 複製連結</button>` : ''}
+                    ${cat === "事工型分頁" ? `<button class="btn btn-sm btn-outline-primary flex-grow-1 fw-bold" onclick="openEditPageModal('${g.id}', '${g.name}')">✏️ 編輯</button>` : ''}
+                  </div>
+                  ${!isEnabled ? '<p class="text-muted small mt-2 m-0 text-center">已停用</p>' : ''}
+                </div>
               </div>
             </div>
           </div>
         `;
       }).join('');
-    }
+    });
 
     div.innerHTML = html || '<p class="text-center text-muted">目前尚無資料</p>';
     document.getElementById('templateSelect').innerHTML = `
@@ -3619,3 +3631,53 @@ function parseToSlashDate(rawStr) {
   return hypenDate.replace(/-/g, "/");
 }
 window.parseToSlashDate = parseToSlashDate;
+
+function openEditPageModal(id, name) {
+  document.getElementById('editPageOldId').value = id;
+  document.getElementById('editPageName').value = name;
+  document.getElementById('editPageId').value = id;
+  
+  const modal = new bootstrap.Modal(document.getElementById('editMinistryPageModal'));
+  modal.show();
+}
+window.openEditPageModal = openEditPageModal;
+
+async function submitEditMinistryPage() {
+  const oldId = document.getElementById('editPageOldId').value;
+  const newName = document.getElementById('editPageName').value.trim();
+  const newId = document.getElementById('editPageId').value.trim();
+
+  if (!newName || !newId) {
+    getNotifier().error("❌ 分頁名稱與代碼不可為空！");
+    return;
+  }
+  
+  if (!/^[A-Za-z0-9_]+$/.test(newId)) {
+    getNotifier().error("❌ 分頁代碼僅接受英數字與下底線！");
+    return;
+  }
+
+  getNotifier().showLoading("⏳ 正在更新分頁資訊...");
+  try {
+    const res = await fetchAPI("updatePageInfo", {
+      oldId: encryptGroupCode(oldId),
+      newId: newId,
+      newName: newName
+    });
+    
+    getNotifier().success(`✅ ${res.msg || "更新成功"}`);
+    
+    // 關閉 Modal
+    const modalEl = document.getElementById('editMinistryPageModal');
+    const modalInstance = bootstrap.Modal.getInstance(modalEl);
+    if (modalInstance) modalInstance.hide();
+    
+    // 重新載入儀表板
+    await loadAdminData();
+  } catch (err) {
+    handleAPIError(err);
+  } finally {
+    getNotifier().hideLoading();
+  }
+}
+window.submitEditMinistryPage = submitEditMinistryPage;

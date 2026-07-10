@@ -4,7 +4,7 @@
   <meta name="robots" content="noindex, nofollow">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>會友狀態監控</title>
+  <title>同工服事狀態管理系統</title>
   <link rel="stylesheet" href="style.css?v=20260702_1">
   <link rel="manifest" href="../../manifest.json">
   <script>window._GAS_KEY = 'LKC_MemberStatus';</script>
@@ -13,14 +13,14 @@
 <body>
   <div id="loadingOverlay" class="loading-overlay">
     <div class="spinner"></div>
-    <div id="loadingText">載入會友狀態...</div>
+    <div id="loadingText">載入同工服事狀態...</div>
   </div>
 
   <main class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">Member Status Monitor</p>
-        <h1>會友狀態監控</h1>
+        <p class="eyebrow">Staff Service Status Management System</p>
+        <h1>同工服事狀態管理系統</h1>
       </div>
       <div class="topbar-actions">
         <button class="icon-btn" id="refreshBtn" title="重新整理" aria-label="重新整理">↻</button>
@@ -31,6 +31,14 @@
       <div class="metric">
         <span>會友</span>
         <strong id="metricMembers">0</strong>
+      </div>
+      <div class="metric">
+        <span>聚會型服事</span>
+        <strong id="metricServingGroup">0</strong>
+      </div>
+      <div class="metric">
+        <span>事工型服事</span>
+        <strong id="metricServingMinistry">0</strong>
       </div>
       <div class="metric">
         <span>小組/團契</span>

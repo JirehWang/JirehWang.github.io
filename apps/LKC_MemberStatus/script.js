@@ -95,7 +95,24 @@ function fillOptionSelect(id, values) {
 }
 
 function renderMetrics() {
+  let servingGroupCount = 0;
+  let servingMinistryCount = 0;
+  
+  state.members.forEach(m => {
+    const groupCount = m.groupMinistries ? m.groupMinistries.length : 0;
+    if (groupCount > 0) {
+      servingGroupCount++;
+    }
+    const churchCount = m.churchMinistries ? m.churchMinistries.length : 0;
+    const worshipCount = m.worshipPositions ? m.worshipPositions.length : (m.worship && m.worship.positions ? m.worship.positions.length : 0);
+    if ((churchCount + worshipCount) > 0) {
+      servingMinistryCount++;
+    }
+  });
+
   document.getElementById('metricMembers').textContent = state.members.length;
+  document.getElementById('metricServingGroup').textContent = servingGroupCount;
+  document.getElementById('metricServingMinistry').textContent = servingMinistryCount;
   document.getElementById('metricGroups').textContent = (state.filters.groups || []).length;
   document.getElementById('metricMinistries').textContent = (state.filters.ministries || []).length;
   document.getElementById('metricUnresolved').textContent = state.unresolved.length;
