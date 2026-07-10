@@ -274,16 +274,6 @@ function renderProfile(profile, unresolved) {
       </section>
 
       <section class="section wide">
-        <h3>一般教會事工</h3>
-        ${renderChurchMinistries(profile.churchMinistries || [])}
-      </section>
-
-      <section class="section wide">
-        <h3>敬拜團近一年服事</h3>
-        ${renderWorship(profile.worship || {})}
-      </section>
-
-      <section class="section wide">
         <h3>未配對資料</h3>
         ${renderUnresolved(unresolved)}
       </section>
@@ -379,43 +369,19 @@ function renderGroups(groups) {
 function renderGroupMinistries(items) {
   if (!items.length) return '<p class="muted">近一年沒有小組/團契服事紀錄</p>';
   return items.map(item => `
-    <div class="ministry-block">
-      <h4>${escapeHtml(item.groupName)}</h4>
-      <div class="tag-list" style="margin-bottom:10px;">
-        <span class="tag accent">${escapeHtml(item.template)}</span>
-        <span class="tag">${escapeHtml(item.role || '')}</span>
+    <div class="ministry-block" style="margin-bottom: 12px;">
+      <h4 style="margin-bottom: 8px;">${escapeHtml(item.groupName)}</h4>
+      <div class="tag-list">
+        ${item.role ? `<span class="tag">${escapeHtml(item.role)}</span>` : ''}
         ${(item.duties || []).map(d => `<span class="tag gold">${escapeHtml(d)}</span>`).join('')}
       </div>
-      ${renderHistory((item.serviceHistory || []).map(h => ({
-        date: h.date,
-        label: h.duty,
-        note: h.topic || h.ministryName || ''
-      })))}
     </div>
   `).join('');
 }
 
-function renderChurchMinistries(items) {
-  if (!items.length) return '<p class="muted">沒有一般教會事工名單紀錄</p>';
-  return `<div class="tag-list">${items.map(item =>
-    `<span class="tag accent">${escapeHtml(item.ministryName)} · ${escapeHtml(item.template)}</span>`
-  ).join('')}</div>`;
-}
 
-function renderWorship(worship) {
-  const history = worship.serviceHistory || [];
-  if (!history.length) return '<p class="muted">近一年沒有敬拜團服事紀錄</p>';
-  return `
-    <div class="tag-list" style="margin-bottom:10px;">
-      ${(worship.positions || []).map(p => `<span class="tag gold">${escapeHtml(p)}</span>`).join('')}
-    </div>
-    ${renderHistory(history.map(h => ({
-      date: h.date,
-      label: h.position,
-      note: h.meetingName || h.meetingType || ''
-    })))}
-  `;
-}
+
+
 
 function renderHistory(items) {
   if (!items.length) return '<p class="muted">沒有紀錄</p>';
