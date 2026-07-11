@@ -410,6 +410,13 @@ async function changeDateOverride(date, typeId, selectEl) {
     if (!_calLinkConfig.overrides) _calLinkConfig.overrides = {};
     if (typeId) _calLinkConfig.overrides[date] = typeId;
     else delete _calLinkConfig.overrides[date];
+    
+    // 🌟 自動清除 Firebase 快取，確保其它頁籤與預覽讀取到最新合併資料
+    if (typeof window.churchAPIInvalidate === 'function') {
+      await window.churchAPIInvalidate('getSchedule');
+      await window.churchAPIInvalidate('getScheduleByDateRange');
+    }
+    
     // 只重渲染清單（保留下拉狀態）
     renderScheduleDateList();
   } catch (err) {
@@ -426,6 +433,13 @@ async function saveDefaultSubType() {
     const res = await callAPI('setDefaultSermonSubType', { typeId });
     if (res.status !== 'success') throw new Error(res.message);
     if (_calLinkConfig) _calLinkConfig.defaultSermonSubTypeId = typeId;
+    
+    // 🌟 自動清除 Firebase 快取，確保其它頁籤與預覽讀取到最新合併資料
+    if (typeof window.churchAPIInvalidate === 'function') {
+      await window.churchAPIInvalidate('getSchedule');
+      await window.churchAPIInvalidate('getScheduleByDateRange');
+    }
+    
     renderCalLinkUI();
     renderScheduleDateList(); // 預設變了，每列「實際採用」也要更新
   } catch (err) {
