@@ -1088,7 +1088,7 @@ function ministry_updatePageInfo(data) {
       _invalidateConfigDataCache();
       _invalidateMinistryGroupsCache();
       invalidateMinistryReportCache();
-      firebaseInvalidate(['ministry_getPageConfig', 'ministry_getAggregatedReport', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex']);
+      firebaseInvalidate(['ministry_getGroups', 'ministry_getPageConfig', 'ministry_getAggregatedReport', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex']);
       _enqueueAuditLog("system", "updatePageInfo", { oldId: oldIdDecrypted, newId: newId, newName: newName });
       return { msg: "分頁資訊已更新", newIdEncrypted: encryptGroupCode(newId) };
     }
