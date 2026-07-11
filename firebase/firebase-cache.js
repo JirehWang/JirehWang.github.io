@@ -14,8 +14,10 @@ import { rtdb } from './firebase-config.js';
 import {
   ref, get, set, remove
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+import { createSingleFlight } from './cache-single-flight.mjs';
 
 const ROOT = 'cache';
+const _cacheLoads = createSingleFlight();
 
 function _path(topic, subkey) {
   return `${ROOT}/${topic}/${subkey || '_default'}`;
@@ -96,17 +98,22 @@ export async function cacheDeleteAll(topic) {
 
 // 高階：先讀快取，沒有或過期時呼叫 loader() 並寫回
 export async function cacheGetOrFetch(topic, subkey, loader, ttlSeconds = 300) {
-  const hit = await cacheGet(topic, subkey);
-  if (hit !== null) return hit;
-  const fresh = await loader();
-  await cacheSet(topic, subkey, fresh, ttlSeconds);
-  return fresh;
+  const result = await _cacheLoads.run(_path(topic, subkey), async () => {
+    const hit = await cacheGet(topic, subkey);
+    if (hit !== null) return { value: hit, source: 'cache' };
+    const fresh = await loader();
+    await cacheSet(topic, subkey, fresh, ttlSeconds);
+    return { value: fresh, source: 'fresh' };
+  });
+  return result.value;
 }
 
 export async function cacheGetOrFetchWithMeta(topic, subkey, loader, ttlSeconds = 300) {
-  const hit = await cacheGet(topic, subkey);
-  if (hit !== null) return { value: hit, source: 'cache' };
-  const fresh = await loader();
-  await cacheSet(topic, subkey, fresh, ttlSeconds);
-  return { value: fresh, source: 'fresh' };
+  return _cacheLoads.run(_path(topic, subkey), async () => {
+    const hit = await cacheGet(topic, subkey);
+    if (hit !== null) return { value: hit, source: 'cache' };
+    const fresh = await loader();
+    await cacheSet(topic, subkey, fresh, ttlSeconds);
+    return { value: fresh, source: 'fresh' };
+  });
 }

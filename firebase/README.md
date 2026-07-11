@@ -1,5 +1,11 @@
 # Firebase Firestore 快取整合
 
+## 快取併發與失效策略（2026-07）
+
+- `cacheGetOrFetch` 與 `cacheGetOrFetchWithMeta` 在同一頁面內會共用相同 `topic/subkey` 的進行中請求，避免元件同時初始化時重複讀取 GAS。
+- 進行中的 Promise 無論成功或失敗都會移除，因此後續重新整理仍會正常執行。
+- 管理入口先清 RTDB topics，再呼叫 GAS 重建後端快取；GAS 批次 invalidation 使用一次 root PATCH，失敗時退回逐筆刪除。
+
 把 GAS 回傳的 JSON 暫存到 Firestore，降低呼叫頻率、加快讀取。
 
 ## 一、初次設定（你只需要做一次）

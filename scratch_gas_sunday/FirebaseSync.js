@@ -134,8 +134,30 @@ function firebaseCacheDelete(topic, subkey) {
  * 批次清除多個 topic
  */
 function firebaseInvalidate(topics) {
-  if (!topics || !topics.length) return;
-  topics.forEach(t => firebaseCacheDeleteAll(t));
+  if (!topics || !topics.length) return { invalidatedCount: 0, mode: 'none' };
+  const uniqueTopics = Array.from(new Set(topics.map(t => String(t || '').trim()).filter(Boolean)));
+
+  try {
+    const token = _getFirebaseAccessToken();
+    const updates = {};
+    uniqueTopics.forEach(topic => { updates[topic] = null; });
+    const response = UrlFetchApp.fetch(FIREBASE_DB_URL + '/cache.json', {
+      method: 'patch',
+      contentType: 'application/json',
+      headers: { 'Authorization': 'Bearer ' + token },
+      payload: JSON.stringify(updates),
+      muteHttpExceptions: true
+    });
+    const status = response.getResponseCode();
+    if (status < 200 || status >= 300) {
+      throw new Error('RTDB batch invalidation HTTP ' + status + ': ' + response.getContentText());
+    }
+    return { invalidatedCount: uniqueTopics.length, mode: 'batch' };
+  } catch (e) {
+    console.log('[firebase] batch invalidate 失敗，改用逐筆刪除: ' + e.message);
+    uniqueTopics.forEach(topic => firebaseCacheDeleteAll(topic));
+    return { invalidatedCount: uniqueTopics.length, mode: 'fallback' };
+  }
 }
 
 // ═══════════════════════════════════════════════════════════

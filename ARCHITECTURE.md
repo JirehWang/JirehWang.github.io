@@ -24,6 +24,14 @@
 
 # 🏛️ 教會系統架構文件（測試版）
 
+## 2026-07 快取協調更新
+
+- `admin.html` 的既有維護操作由 `admin-cache-coordinator.js` 協調；UI 與使用流程不變。
+- 維護順序統一為 Firebase invalidation 在前、GAS refresh 在後；全量 refresh 的 GAS 併發上限為 2。
+- `firebase/firebase-cache.js` 透過 `cache-single-flight.mjs` 合併同 topic/subkey 的同時 cache miss，避免同頁重複呼叫 GAS。
+- 整合 GAS、兒童 GAS、獨立敬拜團 GAS 的 `firebaseInvalidate` 將多 topic 刪除批次化為一次 RTDB PATCH，並保留逐筆 DELETE fallback。
+- 權限、路由 key、action prefix、API request/response 契約與各頁操作規則未調整。
+
 ## 📦 三層式快取架構（最終形態）
 
 ```

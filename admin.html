@@ -419,6 +419,7 @@
     © 林口教會管理系統
 </footer>
 
+<script src="admin-cache-coordinator.js"></script>
 <script>
     // 當頁面載入或視窗大小改變時，重新計算對角線漸層
     document.addEventListener('DOMContentLoaded', calculateDiagonalGradients);
@@ -568,15 +569,11 @@
         if (!config) return;
         setCacheUiBusy(true, '正在更新「' + config.label + '」快取...');
         try {
-            if (config.backendRefresh) {
-                await refreshBackendCache(config.backendRefresh);
-            }
-            // 新家人系統的後端重建會直接將新資料寫入 Firebase (warm cache)
-            // 因此前端不需要再次刪除它，否則會把剛重建好的熱快取清空
-            let count = config.topics.length;
-            if (groupKey !== 'newfamily') {
-                count = await deleteFirebaseTopics(config.topics);
-            }
+            const result = await window.AdminCacheCoordinator.refreshCacheGroup(config, {
+                deleteTopics: deleteFirebaseTopics,
+                refreshBackend: refreshBackendCache
+            });
+            const count = result.topicCount;
             showResultToast('✅ 已清除「' + config.label + '」' + count + ' 個資料快取');
         } catch (err) {
             console.warn('資料快取清除失敗:', err);
@@ -588,12 +585,13 @@
 
     async function clearAllDataCache() {
         if (!confirm('這會清除所有系統的資料快取，短時間內可能讓各系統重新讀取 GAS 並變慢。確定要繼續嗎？')) return;
-        const topics = Object.values(CACHE_GROUPS).flatMap(group => group.topics);
-        const backendRefreshes = uniqueTopics(Object.values(CACHE_GROUPS).map(group => group.backendRefresh).filter(Boolean));
         setCacheUiBusy(true, '正在清除全部資料快取...');
         try {
-            await Promise.all(backendRefreshes.map(action => refreshBackendCache(action)));
-            const count = await deleteFirebaseTopics(topics);
+            const result = await window.AdminCacheCoordinator.refreshAllCacheGroups(CACHE_GROUPS, {
+                deleteTopics: deleteFirebaseTopics,
+                refreshBackend: refreshBackendCache
+            }, { concurrency: 2 });
+            const count = result.topicCount;
             showResultToast('✅ 已清除全部資料快取（' + count + ' 個 topic）');
         } catch (err) {
             console.warn('全部資料快取清除失敗:', err);

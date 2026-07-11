@@ -553,18 +553,19 @@
           try {
             const invalidationStartedAt = Date.now();
             const failedTopics = [];
-            await Promise.all(toInvalidate.map(topic =>
+            const uniqueTopics = Array.from(new Set(toInvalidate));
+            await Promise.all(uniqueTopics.map(topic =>
               fb.cacheDeleteAll(topic).catch(err => {
                 console.warn('[invalidate]', topic, err);
                 failedTopics.push(topic);
               })
             ));
-            console.log('[invalidate] cleared:', toInvalidate.join(', '));
+            console.log('[invalidate] cleared:', uniqueTopics.join(', '));
             logApi('info', 'cache invalidated after write', {
               invalidation: {
                 writeAction: realAction,
-                topics: toInvalidate,
-                count: toInvalidate.length,
+                topics: uniqueTopics,
+                count: uniqueTopics.length,
                 failedTopics,
                 durationMs: Date.now() - invalidationStartedAt
               }

@@ -1,5 +1,23 @@
 # LKC1958 整體系統關聯圖
 
+## 管理入口快取維護流程（2026-07）
+
+```mermaid
+flowchart LR
+  Admin["admin.html：既有快取按鈕"] --> Coordinator["admin-cache-coordinator.js"]
+  Coordinator -->|"1. 去重並刪除 topics"| RTDB["Firebase RTDB cache/*"]
+  Coordinator -->|"2. 最多 2 個並行"| GAS["各 GAS refresh action"]
+  GAS --> LocalCache["GAS CacheService 重建／清除"]
+  GAS -->|"批次 PATCH；失敗逐筆 DELETE"| RTDB
+  Config["config.js / churchAPI"] --> BrowserCache["firebase-cache.js"]
+  BrowserCache -->|"同 key single-flight"| GAS
+```
+
+- 使用者操作契約不變：入口、按鈕、確認視窗、成功／失敗提示與 action 名稱維持原樣。
+- 單一與全量維護都採「刪除舊 Firebase topic → 呼叫 GAS refresh」，避免 warm cache 被後續刪除。
+- `firebase/cache-single-flight.mjs` 只合併同一瀏覽器頁面中相同 topic/subkey 的進行中請求；完成或失敗後立即釋放。
+- GAS `firebaseInvalidate(topics)` 使用一次 RTDB root PATCH 清除多個 topic；非 2xx 或例外時保留逐筆刪除 fallback。
+
 > 產生方式：使用 codebase MCP 對前端 `D:\program\Github\LKC1958_June_1.github.io` 與後端 `D:\program\LKC` 建立索引後，搭配實際入口檔案核對整理。
 >
 > 主要依據：

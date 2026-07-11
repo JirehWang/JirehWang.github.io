@@ -147,8 +147,8 @@ assert.strictEqual(wang.groupMinistries[0].duties.includes('破冰'), true, 'rec
 assert.strictEqual(wang.groupMinistries[0].serviceHistory.length, 1, 'old group rows should be excluded');
 assert.strictEqual(wang.churchMinistries.length, 2, 'non-group ministry membership should be attached');
 assert.strictEqual(wang.churchMinistries[0].ministryName, '招待組');
-assert.strictEqual(wang.churchMinistries[0].serviceHistory.length, 1, 'scheduled non-group ministry schedules should be read');
-assert.strictEqual(wang.churchMinistries[0].duties.includes('班表欄位'), true, 'scheduled non-group ministry duties should be tracked');
+assert.strictEqual(wang.churchMinistries[0].serviceHistory.length, 0, 'non-group ministry schedules must not be exposed in member status');
+assert.strictEqual(wang.churchMinistries[0].duties.length, 0, 'non-group ministry duties must not be tracked');
 const careMinistry = wang.churchMinistries.find(x => x.ministryName === '關懷組');
 assert(careMinistry, 'members-only ministry membership should be attached');
 assert.strictEqual(careMinistry.serviceHistory.length, 0, 'members-only ministry schedules must not be read');
