@@ -62,9 +62,9 @@ function initCalendar() {
       const ev = arg.event.extendedProps.raw;
       const iconHtml = ev.typeIcon ? `<span class="me-1">${ev.typeIcon}</span>` : '';
       return {
-        html: `<div class="d-flex align-items-center" style="overflow:hidden;">
+        html: `<div class="d-flex align-items-center" style="overflow:hidden; color:${arg.event.textColor};">
                  ${iconHtml}
-                 <span class="text-truncate">${escapeHtml(ev.title || ev.typeName)}</span>
+                 <span class="text-truncate" style="font-weight:600;">${escapeHtml(ev.title || ev.typeName)}</span>
                </div>`
       };
     }
@@ -176,9 +176,9 @@ async function loadEventsForRange(startDate, endDate) {
         id: ev.eventId,
         title: ev.title || ev.typeName,
         start: ev.date,
-        backgroundColor: ev.typeColor,
-        borderColor: ev.typeColor,
-        textColor: '#fff',
+        backgroundColor: 'transparent',
+        borderColor: 'transparent',
+        textColor: ev.typeColor || '#334155',
         extendedProps: { raw: ev }
       });
     });
