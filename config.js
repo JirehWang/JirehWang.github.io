@@ -232,6 +232,7 @@
     'ministry_toggleGroupStatus': ['ministry_getGroups'],
     'ministry_saveSheetData':     ['ministry_getAggregatedReport', 'ministry_getPageConfig', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
     'ministry_savePageFieldConfig': ['ministry_getAggregatedReport', 'ministry_getPageConfig', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
+    'ministry_updatePageInfo':    ['ministry_getGroups', 'ministry_getPageConfig', 'ministry_getAggregatedReport', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
     'ministry_saveGroupPrompt':   ['ministry_getPageConfig'],
     'ministry_saveGroupMembers':  ['ministry_getPageConfig', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
     'ministry_saveSermonSettings': ['ministry_getPageConfig'],
