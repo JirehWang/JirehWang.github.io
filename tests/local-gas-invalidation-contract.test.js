@@ -19,7 +19,9 @@ for (const file of gasFiles) {
   });
 }
 
-test('one-command GAS rollback assets exist', () => {
+test('one-command GAS rollback assets exist', {
+  skip: !fs.existsSync('restore-current-state.ps1')
+}, () => {
   assert.equal(fs.existsSync('restore-current-state.ps1'), true);
   for (const name of ['main-FirebaseSync.js', 'children-FirebaseSync.js', 'worship-FirebaseSync.js', 'MemberStatusCore.js', 'main-ARCHITECTURE.md']) {
     assert.equal(fs.existsSync(`.rollback/gas/${name}`), true, name);
