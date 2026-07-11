@@ -70,3 +70,10 @@ test('new-family templates provide the shared list used by enabled custom fields
     /datalist id="customMembersList"/
   );
 });
+
+test('meeting templates retain the backend all-member list for break and worship fields', () => {
+  assert.match(
+    source,
+    /if \(!isGroupOrFellowship\) currentGroupMembers = localCustomMembers\.map\(m => m\.name\);/
+  );
+});

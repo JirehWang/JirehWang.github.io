@@ -693,7 +693,9 @@ function renderTable(data) {
   const groupRoleBtn = document.getElementById('manageGroupRolesBtn');
   const isGroupOrFellowship = (currentTemplate === "小組聚會表模板" || currentTemplate === "團契聚會表模板");
 
-  currentGroupMembers = localCustomMembers.map(m => m.name);
+  // 聚會型模板的 members 來自小組主名單（核心＋一般同工）；不可被
+  // 事工自訂名單覆蓋，否則破冰／敬拜欄位會遺失一般同工。
+  if (!isGroupOrFellowship) currentGroupMembers = localCustomMembers.map(m => m.name);
 
   if (memberBtn && !isGroupOrFellowship) {
     memberBtn.classList.remove('hidden');
