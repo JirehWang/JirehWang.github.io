@@ -100,9 +100,15 @@ function _handleMinistryRequest(body) {
         result = { status: 'success', data: ministry_getPageConfig(data.id, data.autoCreate) };
         break;
       case 'ministry_getAggregatedReport':  result = { status: 'success', data: ministry_getAggregatedReport(data.type) }; break;
-      case 'ministry_getDistrictsAndClusters':
-        result = handleHierarchyAction('getDistrictsAndClusters', data);
+      case 'ministry_getDistrictsAndClusters': {
+        const r = handleHierarchyAction('getDistrictsAndClusters', data);
+        if (r.success) {
+          result = { status: 'success', data: r };
+        } else {
+          result = { status: 'error', message: r.message || '伺服器錯誤' };
+        }
         break;
+      }
 
 
       // 寫入
