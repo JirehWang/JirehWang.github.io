@@ -11,9 +11,58 @@ let _fieldsByType = {}; // typeId → fields (cache)
 let _currentDetailEvent = null;
 let _isInitialLoad = true;
 
+function showLoading(actionName) {
+  const overlay = document.getElementById('loadingOverlay');
+  const textEl = document.getElementById('loadingText');
+  const subtextEl = document.getElementById('loadingSubtext');
+  if (!overlay || !textEl || !subtextEl) return;
+  
+  if (actionName === 'cal_updateEvent' || actionName === 'cal_addEvent') {
+    textEl.innerText = "正在儲存變更...";
+    subtextEl.innerText = "正在同步更新試算表與 Firebase 快取";
+  } else if (actionName === 'cal_aiParseForType') {
+    textEl.innerText = "AI 正在進行排程解析...";
+    subtextEl.innerText = "這可能需要數秒時間，請稍候";
+  } else if (actionName === 'cal_getEvents') {
+    textEl.innerText = "正在讀取行事曆事項...";
+    subtextEl.innerText = "正在加載最新行程數據";
+  } else if (actionName === 'cal_deleteEvent') {
+    textEl.innerText = "正在刪除事項...";
+    subtextEl.innerText = "正在自試算表中移除該行程";
+  } else if (actionName === 'cal_addEventsBatch') {
+    textEl.innerText = "正在批次寫入事項...";
+    subtextEl.innerText = "正在一次性建立多筆行程中";
+  } else if (actionName === 'cal_setupSchema') {
+    textEl.innerText = "正在升級資料結構...";
+    subtextEl.innerText = "正在為您無損升級現有 Google 試算表欄位";
+  } else {
+    textEl.innerText = "正在處理中...";
+    subtextEl.innerText = "系統正在處理中，請稍候";
+  }
+  
+  overlay.style.display = 'flex';
+  overlay.offsetHeight; // 強制重繪
+  overlay.classList.add('show');
+}
+
+function hideLoading() {
+  const overlay = document.getElementById('loadingOverlay');
+  if (!overlay) return;
+  overlay.classList.remove('show');
+  setTimeout(() => {
+    overlay.style.display = 'none';
+  }, 250);
+}
+
 async function callAPI(action, data) {
   if (typeof window.churchAPI !== 'function') throw new Error('config.js 尚未載入');
-  return await window.churchAPI(action, data || {});
+  showLoading(action);
+  try {
+    const res = await window.churchAPI(action, data || {});
+    return res;
+  } finally {
+    hideLoading();
+  }
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -60,12 +109,16 @@ function initCalendar() {
     eventContent: function(arg) {
       // 自訂事件渲染：圖示 + 標題 + 子類型 badge
       const ev = arg.event.extendedProps.raw;
-      const iconHtml = ev.typeIcon ? `<span class="me-1">${ev.typeIcon}</span>` : '';
+      const iconHtml = ev.typeIcon ? `<span class="icon-span">${ev.typeIcon}</span>` : '';
+      const color = ev.typeColor || '#6366f1';
+      const transparentBg = color + '1f'; // 12% opacity
       return {
-        html: `<div class="d-flex align-items-center" style="overflow:hidden; color:${arg.event.textColor};">
-                 ${iconHtml}
-                 <span class="text-truncate" style="font-weight:600;">${escapeHtml(ev.title || ev.typeName)}</span>
-               </div>`
+        html: `
+          <div class="custom-event-card" style="--event-theme-color: ${color}; --card-bg-opacity: ${transparentBg};">
+            ${iconHtml}
+            <span class="title-text" style="color: #334155;">${escapeHtml(ev.title || ev.typeName)}</span>
+          </div>
+        `
       };
     }
   });
@@ -122,7 +175,13 @@ function renderTypeChips() {
     const chipsHtml = group.items.map(t => {
       const isParent = t.typeId === group.root.typeId;
       const label = isParent ? `${t.icon || ''} ${t['名稱']}` : `${t.icon || ''} ${t['名稱']}`;
-      return `<span class="badge filter-chip" style="background-color:${t.color || '#667eea'};color:#fff;"
+      const color = t.color || '#6366f1';
+      const bg = color + '14'; // 8% opacity (hex '14')
+      const textCol = color;
+      const shadow = `0 4px 10px ${color}1f`;
+      const hoverShadow = `${color}33`;
+      const styleStr = `--chip-color:${color}; --chip-bg:${bg}; --chip-text-color:${textCol}; --chip-shadow:${shadow}; --chip-hover-shadow:${hoverShadow};`;
+      return `<span class="badge filter-chip" style="${styleStr}"
                 data-tid="${t.typeId}" onclick="toggleChip('${t.typeId}')">${label}</span>`;
     }).join('');
     return `<div class="d-flex align-items-center gap-1 me-3">

@@ -342,10 +342,21 @@
       text-align: left;
     }
   </style>
+  <link rel="stylesheet" href="calendar-custom.css">
 </head>
 <body>
+
+<!-- 全域運算載入中遮罩元件 -->
+<div id="loadingOverlay" class="loading-overlay">
+  <div class="loading-card">
+    <div class="spinner-glow"></div>
+    <div class="loading-text" id="loadingText">正在處理中...</div>
+    <div class="loading-subtext" id="loadingSubtext">請稍候，系統正在處理中</div>
+  </div>
+</div>
+
 <div class="container-fluid py-3">
-  <div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="header-section d-flex justify-content-between align-items-center">
     <div>
       <h3 class="fw-bold mb-1">📅 教會行事曆</h3>
       <div class="text-muted small">月曆視圖 + 彩色分類 + 動態欄位</div>

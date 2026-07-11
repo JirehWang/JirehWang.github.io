@@ -1,0 +1,296 @@
+/* 教會行事曆 - 改版精緻化視覺設計與運載狀態樣式 */
+
+body {
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.03) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.02) 0px, transparent 50%) !important;
+  background-attachment: fixed !important;
+}
+
+/* 頂部標題與選單列精緻化 */
+.header-section {
+  background: rgba(255, 255, 255, 0.6) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(226, 232, 240, 0.8) !important;
+  border-radius: 16px !important;
+  padding: 1.25rem 1.5rem !important;
+  margin-bottom: 1.5rem !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01) !important;
+}
+
+h3.fw-bold.mb-1 {
+  background: linear-gradient(135deg, #1e293b 0%, #475569 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* FullCalendar 主框體美化 */
+#calendar {
+  border-radius: 20px !important;
+  padding: 2rem !important;
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.03) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+/* FullCalendar Toolbar & Headers */
+.fc-toolbar-title {
+  font-size: 1.6rem !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em !important;
+}
+
+.fc .fc-button {
+  font-weight: 600 !important;
+  font-size: 1rem !important;
+  border-radius: 10px !important;
+}
+
+.fc .fc-button-active {
+  background-color: #4f46e5 !important;
+  border-color: #4f46e5 !important;
+  box-shadow: 0 4px 10px rgba(79, 70, 233, 0.15) !important;
+}
+
+.fc .fc-col-header-cell {
+  background-color: #f8fafc !important;
+  padding: 0.85rem 0 !important;
+  font-weight: 700 !important;
+  font-size: 0.95rem !important;
+  border-bottom: 2px solid var(--border-color) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.fc-day-today {
+  background-color: rgba(99, 102, 241, 0.02) !important;
+}
+
+.fc-day-today .fc-daygrid-day-number {
+  background-color: var(--primary-color) !important;
+  border-radius: 50% !important;
+  width: 28px !important;
+  height: 28px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 4px !important;
+}
+
+/* FullCalendar Events styling (半透明卡片樣式) */
+.fc-event {
+  cursor: pointer !important;
+  border: none !important;
+  padding: 0px !important;
+  border-radius: 8px !important;
+  font-size: 0.92rem !important;
+  font-weight: 600 !important;
+  margin-top: 4px !important;
+  margin-bottom: 4px !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.01) !important;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  background: transparent !important;
+}
+
+.fc-event:hover {
+  transform: translateY(-1.5px) scale(1.015) !important;
+  box-shadow: 0 6px 12px -3px rgba(0, 0, 0, 0.07) !important;
+}
+
+.custom-event-card {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+  background-color: var(--card-bg-opacity);
+  border-left: 3.5px solid var(--event-theme-color);
+  padding: 6px 10px;
+}
+
+.custom-event-card::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: var(--event-theme-color);
+  margin-right: 0.45rem;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.custom-event-card .title-text {
+  font-weight: 600;
+  color: #334155;
+  font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.custom-event-card .icon-span {
+  font-size: 0.95rem;
+  margin-right: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Global Buttons & Form Controls facelifts */
+.btn {
+  border-radius: 10px !important;
+  font-weight: 600 !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.btn:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05) !important;
+}
+
+.btn-outline-primary {
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+  background-color: #fff !important;
+}
+
+.btn-outline-primary:hover {
+  border-color: var(--primary-color) !important;
+  color: var(--primary-color) !important;
+  background-color: #fff !important;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1) !important;
+}
+
+/* Filter Card & Chips (Glassmorphism & Glow Selected) */
+.card.mb-3.border-0.shadow-sm {
+  border-radius: 16px !important;
+  border: 1px solid rgba(226, 232, 240, 0.8) !important;
+  background: rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.01), 0 4px 6px -4px rgba(0, 0, 0, 0.01) !important;
+}
+
+.filter-chip {
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  padding: 0.45rem 0.9rem !important;
+  border-radius: 30px !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 2px solid var(--chip-color) !important;
+  background-color: var(--chip-bg) !important;
+  color: var(--chip-text-color) !important;
+  box-shadow: var(--chip-shadow) !important;
+}
+
+.filter-chip:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px var(--chip-hover-shadow) !important;
+}
+
+.filter-chip.off {
+  opacity: 0.55;
+  filter: grayscale(60%);
+  background-color: #f1f5f9 !important;
+  color: #64748b !important;
+  border: 1.5px dashed #cbd5e1 !important;
+  box-shadow: none !important;
+}
+
+/* Modals styling */
+.modal-content {
+  border-radius: 20px !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* ─── 全域運算載入中遮罩 (Global Loading Overlay) ─── */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.loading-overlay.show {
+  display: flex;
+  opacity: 1;
+}
+
+.loading-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 20px;
+  padding: 2.25rem 3rem;
+  box-shadow: 
+    0 20px 25px -5px rgba(0, 0, 0, 0.05),
+    0 10px 10px -5px rgba(0, 0, 0, 0.03),
+    0 0 40px rgba(99, 102, 241, 0.1);
+  text-align: center;
+  transform: scale(0.9);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.loading-overlay.show .loading-card {
+  transform: scale(1);
+}
+
+.spinner-glow {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 1.25rem auto;
+}
+
+.spinner-glow::before, .spinner-glow::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  border-top-color: var(--primary-color);
+  animation: spin 1s linear infinite;
+}
+
+.spinner-glow::after {
+  border-top-color: #10b981;
+  animation: spin 1.5s linear infinite;
+  opacity: 0.6;
+}
+
+.loading-text {
+  font-weight: 700;
+  color: #334155;
+  font-size: 1.05rem;
+  margin-bottom: 0.25rem;
+}
+
+.loading-subtext {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
