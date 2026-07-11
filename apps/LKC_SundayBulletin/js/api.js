@@ -218,6 +218,7 @@ const ChurchAPI = {
             scripture:    twS?.scripture      || zhS?.scripture      || e['經文']  || e.scripture    || '',
             callToWorship:twS?.callToWorship  || zhS?.callToWorship  || e['宣召']  || e.callToWorship|| '',
             goldenVerse:  twS?.goldenVerse    || zhS?.goldenVerse    || e['金句']  || e.goldenVerse  || '',
+            responsivePsalm: twS?.responsiveReading || e.responsiveReading || '',
             hymn:         twS?.hymns          || zhS?.hymns          || e['詩歌']  || e['聖詩'] || e.hymn || '',
             notes:        e['備註']           || e.notes        || '',
             zhSermonTitle: zhS?.title     || twS?.title     || '',

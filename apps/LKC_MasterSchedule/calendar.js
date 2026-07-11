@@ -1065,6 +1065,7 @@ async function downloadSermonTemplate(typeName) {
     if (f['顯示名稱'] === '經文') return '約翰福音 3:16';
     if (f['顯示名稱'] === '宣召') return '詩篇 23:1-6';
     if (f['顯示名稱'] === '金句') return '神愛世人...';
+    if (f['顯示名稱'] === '啟應文') return '第 3 篇';
     if (f['顯示名稱'] === '詩歌') return '讚美詩 101 首';
     if (f['顯示名稱'] === '備註') return '無';
     return f.required ? '（必填）' : '（選填）';

@@ -121,6 +121,7 @@ const BulletinModel = {
         if (window.BibleFormatter) goldenVerseText = window.BibleFormatter.format(goldenVerseText);
         this.set('taiwanese.goldenVerseText', goldenVerseText);
         if (tw.hymn) this.set('taiwanese.openingHymn', tw.hymn);
+        if (tw.responsivePsalm) this.set('taiwanese.responsivePsalm', tw.responsivePsalm);
         this.set('ministry.thisWeek.tw.presider', tw.speaker || '');
       }
       if (zh) {
