@@ -7,6 +7,7 @@ let uniquePersonnel = [];
 let sortablePositions = null;
 let _worshipTeamCache = null; // 敬拜團員名單快取（供「位置與同工」下拉使用）
 let loadedDashboardData = []; // 供團員查詢服事天數使用
+let currentQueryRange = { startDate: '', endDate: '' }; // 當前查詢區間，儲存時用來作為 Sheets 覆蓋邊界
 
 // ==========================================
 // 🔍 共用：可搜尋浮動下拉選單元件
@@ -805,11 +806,40 @@ function renderDashboardTable(data) {
   data.forEach((row, idx) => {
     const hasWarning = row.hasWarning || false;
     const warningMsg = row.warningMessage || '';
+    const isSuspended = row.狀態 === '停開';
     
     // 卡片背景微調 (最接近今日的聚會卡片加上 id="worship-closest-date-item" 與 closest-date-card 樣式類別)
     const isClosest = (idx === closestIdx);
     const cardIdAttr = isClosest ? 'id="worship-closest-date-item"' : '';
     const closestClass = isClosest ? 'closest-date-card' : '';
+    
+    if (isSuspended) {
+      cardsHtml += `<div ${cardIdAttr} class="dashboard-card ${closestClass} suspended-card" style="background: rgba(240, 240, 240, 0.55) !important; border: 1.5px dashed #ccc; opacity: 0.95;">
+        <div>
+          <div class="card-top">
+            <div class="card-date-info">
+              <span class="card-date text-muted" style="text-decoration: line-through;">${row['日期'] || ''}</span>
+              <span class="card-meeting-name text-muted">${row['聚會名稱'] || ''}</span>
+            </div>
+            <span class="badge bg-danger">聚會停開</span>
+          </div>
+          
+          <div class="text-center py-4 my-2 text-muted fw-bold" style="font-size: 1.05rem; letter-spacing: 1px;">
+            📢 本週聚會/服事暫停一次
+          </div>
+          
+          ${(row['牧師'] || row['題目'] || row['經文']) ? `
+            <div class="sermon-box" style="background: rgba(0,0,0,0.03); border: 1px solid rgba(0,0,0,0.05); margin-top: 10px;">
+              🎙️ <strong>講道：</strong>${row['牧師'] || '-'}<br>
+              📖 <strong>題目：</strong>${row['題目'] || '-'}<br>
+              📜 <strong>經文：</strong>${formatScriptureLink(row['經文'])}
+            </div>
+          ` : ''}
+        </div>
+      </div>`;
+      return;
+    }
+    
     cardsHtml += `<div ${cardIdAttr} class="dashboard-card ${closestClass}" style="${hasWarning ? 'background: rgba(255, 243, 205, 0.3) !important;' : ''}">
       <div>
         <!-- 卡片頂部 -->
@@ -903,6 +933,34 @@ function renderDashboardTable(data) {
   data.forEach(row => {
     const hasWarning = row.hasWarning || false;
     const warningMsg = row.warningMessage || '';
+    const isSuspended = row.狀態 === '停開';
+    
+    if (isSuspended) {
+      let dateCellContent = `<span style="text-decoration: line-through; color: #6c757d;">${row['日期'] || ''}</span>`;
+      
+      const preacher = row['牧師'] || '';
+      const title = row['題目'] || '';
+      const scripture = row['經文'] || '';
+      let sermonInfo = '';
+      if (preacher) sermonInfo += `🎙️ <strong>${preacher}</strong><br>`;
+      if (title && title !== '-') sermonInfo += `📖 <span class="text-muted">${title}</span><br>`;
+      if (scripture && scripture !== '-') sermonInfo += `📜 <span class="text-muted" style="font-size:0.82rem;">${formatScriptureLink(scripture)}</span>`;
+      if (!sermonInfo) sermonInfo = '-';
+      
+      tableHtml += `<tr class="suspended-row" style="background-color: #f8f9fa; opacity: 0.75;">
+        <td>${dateCellContent}</td>
+        <td><strong class="text-muted">${row['聚會名稱'] || ''}</strong></td>
+        <td><span class="badge bg-danger">停開</span></td>
+        <td style="text-align: left; vertical-align: top;">${sermonInfo}</td>
+      `;
+      
+      dynamicHeaders.forEach(() => {
+        tableHtml += `<td><span class="text-muted" style="font-style: italic;">－</span></td>`;
+      });
+      
+      tableHtml += `<td><span class="text-muted" style="font-style: italic;">暫停服事</span></td></tr>`;
+      return;
+    }
     
     // 日期欄位內容 (請假警示加在日期下方)
     let dateCellContent = `<span style="font-weight:bold; color: ${hasWarning ? '#9a4005' : '#006030'};">${row['日期'] || ''}</span>`;
@@ -1143,6 +1201,17 @@ async function loadScheduleByQuarter() {
     year = parts[0];
     quarter = parts[1];
   }
+
+  // 記錄當前季度的起始與結束日期，供儲存時覆蓋邊界使用
+  let startMonth, endMonth, endDay;
+  if (quarter === 'Q1') { startMonth = '01'; endMonth = '03'; endDay = '31'; }
+  else if (quarter === 'Q2') { startMonth = '04'; endMonth = '06'; endDay = '30'; }
+  else if (quarter === 'Q3') { startMonth = '07'; endMonth = '09'; endDay = '30'; }
+  else if (quarter === 'Q4') { startMonth = '10'; endMonth = '12'; endDay = '31'; }
+  currentQueryRange = {
+    startDate: `${year}-${startMonth}-01`,
+    endDate: `${year}-${endMonth}-${endDay}`
+  };
   
   document.getElementById('previewContainer').style.display = 'none';
   document.getElementById('saveScheduleBtn').style.display = 'none';
@@ -1168,6 +1237,9 @@ async function loadScheduleByDateRange() {
   const start = document.getElementById('queryStartDate').value;
   const end = document.getElementById('queryEndDate').value;
   if (!start || !end) return userNotification.warning("請先設定起訖日期");
+
+  // 記錄當前查詢的日期區間，供儲存時覆蓋邊界使用
+  currentQueryRange = { startDate: start, endDate: end };
 
   document.getElementById('previewContainer').style.display = 'none';
   document.getElementById('saveScheduleBtn').style.display = 'none';
@@ -1397,6 +1469,7 @@ function smartGenerateSchedule() {
   currentPositions.forEach(p => consecutive[p.positionName] = {});
 
   generatedScheduleData.forEach((row) => {
+    if (row.狀態 === '停開') return; // 停開的場次不進行自動排班
     let leaves = row.leaves || [];
     let assigned = [];
 
@@ -1470,6 +1543,11 @@ function renderPreviewTable(data) {
   // --- 資料列 ---
   data.forEach((row, idx) => {
     let tr = document.createElement('tr');
+    const isSuspended = row.狀態 === '停開';
+    if (isSuspended) {
+      tr.style.opacity = '0.65';
+      tr.style.backgroundColor = '#f8f9fa';
+    }
 
     headers.forEach(h => {
       let td = document.createElement('td');
@@ -1486,11 +1564,18 @@ function renderPreviewTable(data) {
         td.innerHTML = `
           <button class="btn btn-sm btn-outline-secondary py-0 px-2 mb-1" 
                   style="font-size:0.78rem; white-space:nowrap;" 
-                  onclick="openRowLeaveModal(${idx})">設請假</button>
+                  onclick="openRowLeaveModal(${idx})" ${isSuspended ? 'disabled' : ''}>設請假</button>
           <div style="max-width:105px; white-space:normal; margin:0 auto;">${leaveBadges}</div>`;
 
       } else if (h === '日期') {
-        td.innerHTML = `<span class="badge bg-secondary" style="font-size:0.85rem; white-space:nowrap;">${row[h] || ''}</span>`;
+        td.innerHTML = `
+          <div class="d-flex align-items-center justify-content-center gap-1">
+            <span class="badge ${isSuspended ? 'bg-danger' : 'bg-secondary'}" style="font-size:0.85rem; white-space:nowrap;">
+              ${row[h] || ''}${isSuspended ? ' (停開)' : ''}
+            </span>
+            <button class="btn btn-xs btn-outline-dark p-1 lh-1" style="font-size: 0.7rem; border-radius: 4px;" onclick="openRowActionMenu(this, ${idx})" title="操作">⚙️</button>
+          </div>
+        `;
 
       } else if (h === '聚會名稱' || h === '聚會類別') {
         let input = document.createElement('input');
@@ -1502,6 +1587,10 @@ function renderPreviewTable(data) {
         input.value = row[h] || '';
         input.onclick = function() { this.select(); };
         input.onchange = (e) => { generatedScheduleData[idx][h] = e.target.value.trim(); };
+        if (isSuspended) {
+          input.disabled = true;
+          input.style.textDecoration = 'line-through';
+        }
         td.appendChild(input);
 
       } else {
@@ -1523,6 +1612,12 @@ function renderPreviewTable(data) {
         const defaultLabel = pos?.isRequired === '是' ? '【待定】' : '－';
         sel.innerHTML = `<option value="${defaultVal}">${defaultLabel}</option>` 
           + cands.map(c => `<option value="${c}" ${row[h] === c ? 'selected' : ''}>${c}</option>`).join('');
+
+        if (isSuspended) {
+          sel.disabled = true;
+          sel.style.backgroundColor = '#e9ecef';
+          sel.style.color = '#6c757d';
+        }
 
         sel.onchange = function() {
           generatedScheduleData[idx][h] = this.value;
@@ -1550,7 +1645,11 @@ async function saveGeneratedSchedule() {
   const btn = document.getElementById('saveScheduleBtn'); 
   btn.disabled = true; 
   btn.innerText = "儲存中...";
-  const result = await callAPI('saveSchedule', { scheduleData: generatedScheduleData });
+  const result = await callAPI('saveSchedule', { 
+    scheduleData: generatedScheduleData,
+    startDate: currentQueryRange.startDate,
+    endDate: currentQueryRange.endDate
+  });
   if (result.status === 'success') { 
     userNotification.success("🎉 排班表已成功存檔！");
     loadDashboard(); 
@@ -1558,6 +1657,52 @@ async function saveGeneratedSchedule() {
   }
   btn.disabled = false; 
   btn.innerText = "💾 儲存並發佈";
+}
+
+// ⚙️ 齒輪操作浮動選單邏輯：停開與刪除
+function openRowActionMenu(anchorEl, idx) {
+  const row = generatedScheduleData[idx];
+  const isSuspended = row.狀態 === '停開';
+  
+  const items = [
+    {
+      label: isSuspended ? '🟢 恢復為正常聚會' : '⚠️ 標記為此日停開',
+      value: 'toggle_status'
+    },
+    {
+      label: '❌ 刪除此列服事',
+      value: 'delete_row'
+    }
+  ];
+  
+  _showFloatingDropdown(anchorEl, items, (item) => {
+    if (item.value === 'toggle_status') {
+      if (isSuspended) {
+        row.狀態 = '正常';
+        // 恢復所有職位選單為預設狀態
+        currentPositions.forEach(pos => {
+          row[pos.positionName] = pos.isRequired === '是' ? '【待定】' : '';
+        });
+      } else {
+        row.狀態 = '停開';
+        // 清空所有同工名單
+        currentPositions.forEach(pos => {
+          row[pos.positionName] = '';
+        });
+      }
+      renderPreviewTable(generatedScheduleData);
+    } else if (item.value === 'delete_row') {
+      const date = row['日期'] || '';
+      if (confirm(`⚠️ 確定要完全刪除 ${date} 的服事列嗎？\n此操作在點擊下方的「儲存並發佈」後將永久從試算表中移除，無法復原。`)) {
+        generatedScheduleData.splice(idx, 1);
+        renderPreviewTable(generatedScheduleData);
+      }
+    }
+  }, {
+    placeholder: '選擇操作...',
+    emptyText: '無操作',
+    width: 180
+  });
 }
 
 // 🌟 驗證手動選擇同工是否違反規則（請假、重複、連續三週以上服事）
@@ -1571,6 +1716,13 @@ function validateCellSelection(idx, positionName, value, selectEl, triggerAlert 
   }
 
   const row = generatedScheduleData[idx];
+  if (row && row.狀態 === '停開') {
+    selectEl.style.backgroundColor = '#e9ecef';
+    selectEl.style.color = '#6c757d';
+    selectEl.style.fontWeight = 'normal';
+    selectEl.title = '';
+    return;
+  }
 
   // 1. 該人員請假
   const leaves = row.leaves || [];
