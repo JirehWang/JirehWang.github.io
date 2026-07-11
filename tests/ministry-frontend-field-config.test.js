@@ -54,3 +54,19 @@ test('backend field list setting wins over stale local field configuration', () 
   assert.equal(result.scheduleTarget, 'clusters');
   assert.equal(result.fields.find(field => field.name === '小組').useMemberList, true);
 });
+
+test('new-family templates provide the shared list used by enabled custom fields', () => {
+  const datalistSection = source.slice(
+    source.indexOf('let datalistHTML = "";'),
+    source.indexOf('const gridTemplate', source.indexOf('let datalistHTML = "";'))
+  );
+  const newFamilyStart = datalistSection.indexOf('if (currentTemplate === "新家人服事表模板")');
+  const newFamilyBlock = datalistSection.slice(
+    newFamilyStart,
+    datalistSection.indexOf('\n    } else {', newFamilyStart)
+  );
+  assert.match(
+    newFamilyBlock,
+    /datalist id="customMembersList"/
+  );
+});

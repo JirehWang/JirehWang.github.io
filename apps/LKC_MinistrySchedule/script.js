@@ -780,8 +780,10 @@ function renderTable(data) {
     if (currentTemplate === "新家人服事表模板") {
       const normalNames = localCustomMembers.filter(m => m.role === "一般同工").map(m => m.name);
       const parentNames = localCustomMembers.filter(m => m.role === "小家長").map(m => m.name);
+      const customNames = localCustomMembers.map(m => m.name);
       datalistHTML += `<datalist id="normalMembersList">` + normalNames.map(m => `<option value="${m}">`).join('') + `</datalist>`;
       datalistHTML += `<datalist id="parentMembersList">` + parentNames.map(m => `<option value="${m}">`).join('') + `</datalist>`;
+      datalistHTML += `<datalist id="customMembersList">` + customNames.map(m => `<option value="${m}">`).join('') + `</datalist>`;
     } else {
       const customNames = localCustomMembers.map(m => m.name);
       datalistHTML += `<datalist id="customMembersList">` + customNames.map(m => `<option value="${m}">`).join('') + `</datalist>`;

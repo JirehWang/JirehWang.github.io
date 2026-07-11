@@ -35,6 +35,7 @@
   * **本機驗證解鎖與 URL 混淆**：網頁載入時若網址帶有明文 `?id=明文`，前端會即時以 `window.encryptGroupCode()` 進行 XOR 加密並重寫網址列為 `?id=enc_...`，隱藏真實 ID。點擊編輯時，使用 `window.decryptGroupCode()` 對比輸入金鑰與解密後的 `currentId`，進行 0ms 延遲的前端本理解鎖。
   * **排班對象設定**：事工型模板可保存 `scheduleTarget` 為同工名單或小組群；GAS 讀回設定時必須保留此值及每個欄位的 `useMemberList`，班表欄位才能持續套用正確 datalist。
   * **本機欄位快取**：讀取既有頁面時，後端已儲存欄位的 `enabled`／`custom`／`useMemberList` 必須優先於 localStorage；本機只保留後端尚未存在的暫存欄位，避免舊快取蓋掉已儲存的小組群清單設定。
+  * **新家人模板的共用清單**：除了小家長與一般同工的角色專用 datalist，任何啟用 `useMemberList` 的一般自訂欄位都使用 `customMembersList`；此清單須包含該頁完整名單，才能支援小組群等非角色欄位。
 
 ### 2. 佈告欄與總表
 * `groupboard.html`：公開的「小組近期聚會佈告欄」網頁。
