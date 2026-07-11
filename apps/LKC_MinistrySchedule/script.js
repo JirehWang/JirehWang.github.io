@@ -238,6 +238,25 @@ function buildPageFieldConfig(data, rawHeaders) {
       if (backendMode) storedConfig.scheduleMode = backendMode;
       const backendTarget = data.scheduleTarget || (data.pageFieldConfig && data.pageFieldConfig.scheduleTarget);
       if (backendTarget) storedConfig.scheduleTarget = backendTarget;
+      // 後端已儲存的欄位設定是跨裝置的真實來源；避免舊版 localStorage
+      // 蓋掉「使用名單」等新設定。保留只存在於本機的暫存欄位，讓離線變更不會消失。
+      const backendFields = data.pageFieldConfig && Array.isArray(data.pageFieldConfig.fields)
+        ? data.pageFieldConfig.fields
+        : [];
+      if (backendFields.length) {
+        const backendFieldByName = new Map(backendFields.map(field => [field && field.name, field]));
+        const localFields = Array.isArray(storedConfig.fields) ? storedConfig.fields : [];
+        const localFieldNames = new Set();
+        storedConfig.fields = localFields.map(field => {
+          const name = typeof field === "string" ? field : field && field.name;
+          localFieldNames.add(name);
+          const backendField = backendFieldByName.get(name);
+          return backendField ? { ...(typeof field === "object" ? field : { name }), ...backendField } : field;
+        });
+        backendFields.forEach(field => {
+          if (field && field.name && !localFieldNames.has(field.name)) storedConfig.fields.push(field);
+        });
+      }
       return normalizeFieldConfig(storedConfig, templateType, currentId);
     } catch (e) {
       localStorage.removeItem(storageKey);
