@@ -64,11 +64,16 @@ function _ministryDefaultPageFieldConfig(pageId, templateName) {
     fieldTemplateType: fieldTemplateType,
     scheduleMode: "schedule",
     scheduleTarget: "members",
-    fields: template.defaultFields.map(name => ({
-      name: name,
-      enabled: true,
-      custom: false
-    })),
+    fields: template.defaultFields.map(name => {
+      const noListFields = ["日期", "地點", "主題", "經文", "聚會名稱", "聚會類別", "套用講道"];
+      const isNoListDefault = noListFields.some(f => name.includes(f));
+      return {
+        name: name,
+        enabled: true,
+        custom: false,
+        useMemberList: !isNoListDefault
+      };
+    }),
     requiredFields: template.requiredFields.slice(),
     customFields: [],
     updatedAt: new Date().toISOString()
@@ -85,21 +90,30 @@ function _ministryNormalizePageFieldConfig(config, pageId, templateName) {
   const sourceFields = Array.isArray(config.fields) && config.fields.length ? config.fields : fallback.fields;
   const seen = {};
   const fields = [];
+  const noListFields = ["日期", "地點", "主題", "經文", "聚會名稱", "聚會類別", "套用講道"];
 
   sourceFields.forEach(field => {
     const name = typeof field === "string" ? field : field && field.name;
     if (!name || seen[name]) return;
     seen[name] = true;
+
+    const isNoListDefault = noListFields.some(f => name.includes(f));
+    const useMemberList = (field && typeof field.useMemberList === "boolean")
+      ? field.useMemberList
+      : !isNoListDefault;
+
     fields.push({
       name: name,
       enabled: requiredFields.indexOf(name) !== -1 ? true : !(field && field.enabled === false),
-      custom: !!(field && field.custom)
+      custom: !!(field && field.custom),
+      useMemberList: useMemberList
     });
   });
 
   requiredFields.forEach(name => {
     if (!seen[name]) {
-      fields.unshift({ name: name, enabled: true, custom: false });
+      const isNoListDefault = noListFields.some(f => name.includes(f));
+      fields.unshift({ name: name, enabled: true, custom: false, useMemberList: !isNoListDefault });
       seen[name] = true;
     }
   });

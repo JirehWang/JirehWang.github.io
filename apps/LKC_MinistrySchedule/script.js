@@ -113,6 +113,19 @@ function getRequiredFields(config) {
     : ["日期"];
 }
 
+function isFieldMemberListEnabled(fieldName) {
+  if (!currentPageFieldConfig || !Array.isArray(currentPageFieldConfig.fields)) {
+    const noListFields = ["日期", "地點", "主題", "經文", "聚會名稱", "聚會類別", "套用講道"];
+    return !noListFields.some(f => fieldName.includes(f));
+  }
+  const fieldObj = currentPageFieldConfig.fields.find(f => f.name === fieldName);
+  if (fieldObj && typeof fieldObj.useMemberList === "boolean") {
+    return fieldObj.useMemberList;
+  }
+  const noListFields = ["日期", "地點", "主題", "經文", "聚會名稱", "聚會類別", "套用講道"];
+  return !noListFields.some(f => fieldName.includes(f));
+}
+
 function normalizeFieldConfig(rawConfig, templateType, pageId) {
   const template = initialFieldTemplates[templateType] || initialFieldTemplates["事工型模板"];
   const requiredFields = Array.from(new Set([...(rawConfig && rawConfig.requiredFields || []), ...template.requiredFields]));
@@ -122,20 +135,30 @@ function normalizeFieldConfig(rawConfig, templateType, pageId) {
 
   const seen = new Set();
   const fields = [];
+  const noListFields = ["日期", "地點", "主題", "經文", "聚會名稱", "聚會類別", "套用講道"];
+
   sourceFields.forEach(field => {
     const name = typeof field === "string" ? field : field && field.name;
     if (!name || seen.has(name)) return;
     seen.add(name);
+
+    const isNoListDefault = noListFields.some(f => name.includes(f));
+    const useMemberList = (field && typeof field.useMemberList === "boolean")
+      ? field.useMemberList
+      : !isNoListDefault;
+
     fields.push({
       name,
       enabled: requiredFields.includes(name) ? true : (typeof field === "object" && field.enabled === false ? false : true),
-      custom: typeof field === "object" ? field.custom === true : !template.defaultFields.includes(name)
+      custom: typeof field === "object" ? field.custom === true : !template.defaultFields.includes(name),
+      useMemberList: useMemberList
     });
   });
   requiredFields.forEach(name => {
     if (!seen.has(name)) {
       seen.add(name);
-      fields.unshift({ name, enabled: true, custom: false });
+      const isNoListDefault = noListFields.some(f => name.includes(f));
+      fields.unshift({ name, enabled: true, custom: false, useMemberList: !isNoListDefault });
     }
   });
 
@@ -921,9 +944,12 @@ function createRowHTML(rowData, gridTemplate) {
         } else if (currentTemplate === "新家人服事表模板" && header.includes("新家人同工")) {
           listAttr = `list="normalMembersList"`;
           extraClass = `datalist-input`;
-        } else {
+        } else if (isFieldMemberListEnabled(header)) {
           listAttr = `list="customMembersList"`;
           extraClass = `datalist-input`;
+        } else {
+          listAttr = "";
+          extraClass = "";
         }
       }
 
@@ -1266,11 +1292,20 @@ function renderFieldSettingsList() {
   const required = getRequiredFields(fieldSettingsDraft);
   list.innerHTML = fieldSettingsDraft.fields.map((field, idx) => {
     const isRequired = required.includes(field.name);
+    const isNoListField = ["日期", "聚會名稱", "聚會類別", "套用講道"].some(f => field.name.includes(f));
+    const showMemberListToggle = !isNoListField;
+
     return `
       <div class="field-settings-row">
         <div class="field-settings-name">${field.name}${isRequired ? ' <span class="field-settings-required">必要</span>' : ''}</div>
         <div class="form-check form-switch m-0">
           <input class="form-check-input" type="checkbox" ${field.enabled !== false ? 'checked' : ''} ${isRequired ? 'disabled' : ''} onchange="toggleDraftField(${idx}, this.checked)">
+        </div>
+        <div class="form-check m-0">
+          ${showMemberListToggle ? `
+            <input class="form-check-input" type="checkbox" ${field.useMemberList !== false ? 'checked' : ''} onchange="toggleDraftFieldMemberList(${idx}, this.checked)" id="toggleList_${idx}">
+            <label class="form-check-label small text-muted" for="toggleList_${idx}">套用名單</label>
+          ` : ''}
         </div>
         <div class="text-muted small">${field.custom ? '自訂' : '模板'}</div>
         <div class="field-settings-actions">
@@ -1281,6 +1316,10 @@ function renderFieldSettingsList() {
       </div>
     `;
   }).join('');
+}
+
+function toggleDraftFieldMemberList(idx, checked) {
+  fieldSettingsDraft.fields[idx].useMemberList = checked;
 }
 
 function toggleDraftField(idx, checked) {
@@ -1313,7 +1352,7 @@ function addCustomField() {
     getNotifier().warning("⚠️ 此欄位已存在");
     return;
   }
-  fieldSettingsDraft.fields.push({ name, enabled: true, custom: true });
+  fieldSettingsDraft.fields.push({ name, enabled: true, custom: true, useMemberList: true });
   input.value = "";
   renderFieldSettingsList();
 }
