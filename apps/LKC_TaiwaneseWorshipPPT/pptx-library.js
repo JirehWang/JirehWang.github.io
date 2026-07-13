@@ -239,7 +239,12 @@
   async function downloadAndParse(entry, JSZipImplementation) {
     if (!entry || !entry.fileId) throw new Error('找不到對應的雲端 PPTX');
     const url = entry.downloadUrl || `https://drive.usercontent.google.com/download?id=${encodeURIComponent(entry.fileId)}&export=download&confirm=t`;
-    const response = await fetch(url);
+    let response;
+    try {
+      response = await fetch(url);
+    } catch (error) {
+      throw new Error(`PPTX 下載失敗：${error && error.message ? error.message : error}`);
+    }
     if (!response.ok) throw new Error(`PPTX 下載失敗（${response.status}）`);
     return parsePptx(await response.arrayBuffer(), JSZipImplementation);
   }

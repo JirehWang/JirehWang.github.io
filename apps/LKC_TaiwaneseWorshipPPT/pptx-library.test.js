@@ -49,3 +49,16 @@ test('turns EMU rectangles into stable percentages', () => {
     { x: 0, y: 10, w: 50, h: 50 }
   );
 });
+
+test('reports the PPTX download stage when the browser fetch fails', async () => {
+  const previousFetch = global.fetch;
+  global.fetch = async () => { throw new TypeError('Failed to fetch'); };
+  try {
+    await assert.rejects(
+      library.downloadAndParse({ fileId: 'test-file' }, {}),
+      /PPTX 下載失敗.*Failed to fetch/
+    );
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
