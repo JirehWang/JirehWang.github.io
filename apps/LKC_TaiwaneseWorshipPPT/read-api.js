@@ -45,11 +45,13 @@
   }
 
   async function read(action, data) {
-    if (root.ensureAPIReady) await root.ensureAPIReady();
     const useJsonpFirst = root.location && root.location.protocol === 'file:';
-    if (!useJsonpFirst && typeof root.churchAPI === 'function') {
+    if (!useJsonpFirst) {
       try {
-        return await root.churchAPI(action, data || {});
+        if (root.ensureAPIReady) await root.ensureAPIReady();
+        if (typeof root.churchAPI === 'function') {
+          return await root.churchAPI(action, data || {});
+        }
       } catch (error) {
         if (!/failed to fetch|network|load failed/i.test(String(error && error.message))) throw error;
       }
