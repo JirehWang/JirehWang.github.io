@@ -68,6 +68,13 @@
     };
   }
 
+  function base64ToArrayBuffer(base64) {
+    const binary = atob(String(base64 || ''));
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    return bytes.buffer;
+  }
+
   const directChildren = (node, localName) => Array.from(node ? node.childNodes : []).filter(child => child.nodeType === 1 && child.localName === localName);
   const directChild = (node, localName) => directChildren(node, localName)[0] || null;
   const firstDescendant = (node, localName) => Array.from(node ? node.getElementsByTagNameNS('*', localName) : [])[0] || null;
@@ -236,8 +243,14 @@
     return pages;
   }
 
-  async function downloadAndParse(entry, JSZipImplementation) {
+  async function downloadAndParse(entry, JSZipImplementation, readApi) {
     if (!entry || !entry.fileId) throw new Error('找不到對應的雲端 PPTX');
+    if (typeof readApi === 'function') {
+      const result = await readApi('cal_getPptLibraryFile', { fileId: entry.fileId });
+      const payload = result && result.data;
+      if (!payload || !payload.base64) throw new Error('PPTX 雲端代理未回傳檔案內容');
+      return parsePptx(base64ToArrayBuffer(payload.base64), JSZipImplementation);
+    }
     const url = entry.downloadUrl || `https://drive.usercontent.google.com/download?id=${encodeURIComponent(entry.fileId)}&export=download&confirm=t`;
     let response;
     try {
@@ -256,6 +269,7 @@
     groupTransform,
     mapRect,
     rectToPercent,
+    base64ToArrayBuffer,
     parsePptx,
     downloadAndParse
   };

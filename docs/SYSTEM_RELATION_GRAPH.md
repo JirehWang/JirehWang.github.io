@@ -443,9 +443,9 @@ admin.html → apps/LKC_TaiwaneseWorshipPPT/
 台語禮拜 PPT 編輯器 → localStorage 草稿 + 16:9 即時預覽
 台語禮拜 PPT 編輯器 → config.js / churchAPI → LKC_MasterSchedule GAS `cal_getEvents`
 台語禮拜 PPT 編輯器 → config.js / churchAPI → LKC_MasterSchedule GAS `cal_getPptLibraryIndex`
-台語禮拜 PPT 編輯器（file:// 或 POST 被擋）→ read-api.js JSONP → GAS 唯讀 `cal_getEvents` / `cal_getPptLibraryIndex` / `cal_queryBible`
+台語禮拜 PPT 編輯器（file:// 或 POST 被擋）→ read-api.js JSONP → GAS 唯讀 `cal_getEvents` / `cal_getPptLibraryIndex` / `cal_getPptLibraryFile` / `cal_queryBible`
 LKC_MasterSchedule GAS → Google Drive 聖詩／啟應文資料夾（唯讀檔案索引）
-台語禮拜 PPT 編輯器 → Drive 公開下載網址 → PPTX binary
+台語禮拜 PPT 編輯器 → GAS `cal_getPptLibraryFile` → 索引內 PPTX Base64
 台語禮拜 PPT 編輯器 → pptx-library.js（瀏覽器內解析圖片、文字與座標；不整頁轉圖）
 台語禮拜 PPT 編輯器 → LKC_ppt_generator/bible-service.js（經文代號轉台語全文）
 台語禮拜 PPT 編輯器 → slide-production.js（全文分頁）
@@ -453,4 +453,4 @@ LKC_MasterSchedule GAS → Google Drive 聖詩／啟應文資料夾（唯讀檔�
 台語禮拜 PPT 編輯器 -未串接→ LKC_ppt_generator（完整禮拜 PptxGenJS 匯出）
 ```
 
-行事曆帶入沿用既有 `LKC_MasterSchedule` Router 與 `cal_getEvents` 快取讀取，嚴格選取同日期且類型為 `講道資訊 - 台語` 的事項。一般 HTTP(S) 頁面先使用 `churchAPI` POST；由 `file://` 直接開啟或 POST 遭跨來源政策拒絕時，`read-api.js` 改用 GAS 唯讀 JSONP，僅允許 `cal_getEvents`、`cal_getPptLibraryIndex`、`cal_queryBible`。映射結果先成為 `sourceValue`：講題與講員可直接顯示；宣召、經文、金句由瀏覽器解析範圍後交給 GAS 查詢台語聖經全文並分頁；聖詩、頌榮與啟應文再以 `cal_getPptLibraryIndex` 配對 Drive PPTX。GAS 只回傳檔案索引，PPTX binary 由瀏覽器直接下載並在記憶體內解壓縮。投影片保留純色背景、譜面圖片與文字物件三層，不使用整頁點陣圖。每張產生後的投影片具有穩定 `pageId`，使用者可將不同勾選批次存成不同具名版面群組；群組參數與頁面歸屬隨草稿保存。
+行事曆帶入沿用既有 `LKC_MasterSchedule` Router 與 `cal_getEvents` 快取讀取，嚴格選取同日期且類型為 `講道資訊 - 台語` 的事項。一般 HTTP(S) 頁面先使用 `churchAPI` POST；由 `file://` 直接開啟或 POST 遭跨來源政策拒絕時，`read-api.js` 改用 GAS 唯讀 JSONP，僅允許 `cal_getEvents`、`cal_getPptLibraryIndex`、`cal_getPptLibraryFile`、`cal_queryBible`。映射結果先成為 `sourceValue`：講題與講員可直接顯示；宣召、經文、金句由瀏覽器解析範圍後交給 GAS 查詢台語聖經全文並分頁；聖詩、頌榮與啟應文先以 `cal_getPptLibraryIndex` 配對 Drive PPTX，再以 `cal_getPptLibraryFile` 讀取限定索引內的檔案 Base64。瀏覽器在記憶體內還原 PPTX binary 並解壓縮，避開 GitHub Pages 直接 fetch Drive 的限制。投影片保留純色背景、譜面圖片與文字物件三層，不使用整頁點陣圖。每張產生後的投影片具有穩定 `pageId`，使用者可將不同勾選批次存成不同具名版面群組；群組參數與頁面歸屬隨草稿保存。

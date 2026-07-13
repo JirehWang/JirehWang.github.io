@@ -62,3 +62,8 @@ test('reports the PPTX download stage when the browser fetch fails', async () =>
     global.fetch = previousFetch;
   }
 });
+
+test('decodes a GAS Base64 PPTX response without using Drive fetch', async () => {
+  const bytes = library.base64ToArrayBuffer(Buffer.from([80, 75, 3, 4]).toString('base64'));
+  assert.deepEqual(Array.from(new Uint8Array(bytes)), [80, 75, 3, 4]);
+});

@@ -19,7 +19,7 @@
 
   function pagesForEntry(entry) {
     if (!fileCache.has(entry.fileId)) {
-      fileCache.set(entry.fileId, library.downloadAndParse(entry, window.JSZip).catch(error => {
+      fileCache.set(entry.fileId, library.downloadAndParse(entry, window.JSZip, window.worshipReadAPI).catch(error => {
         fileCache.delete(entry.fileId);
         throw error;
       }));
