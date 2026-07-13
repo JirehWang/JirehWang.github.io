@@ -1,0 +1,257 @@
+(function(root, factory) {
+  const api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  root.TaiwaneseWorshipPptxLibrary = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function() {
+  const PPT_WIDTH_EMU = 12192000;
+  const PPT_HEIGHT_EMU = 6858000;
+
+  function normalizeLibraryNumber(value) {
+    const match = String(value || '').toUpperCase().match(/0*(\d+)\s*([A-Z])?/);
+    return match ? `${Number(match[1])}${match[2] || ''}` : '';
+  }
+
+  function parseLibraryFilename(fileName, kind) {
+    const name = String(fileName || '').trim();
+    if (kind === 'hymn') {
+      const match = name.match(/^第\s*0*(\d+)\s*([A-Za-z]?)\s*首\s*(.*?)\.pptx$/i);
+      if (!match) return null;
+      return { kind, number: `${Number(match[1])}${match[2].toUpperCase()}`, title: match[3].trim() };
+    }
+    if (kind === 'response') {
+      const match = name.match(/^0*(\d+)\.pptx$/i);
+      if (!match) return null;
+      const number = String(Number(match[1]));
+      return { kind, number, title: `啟應文 ${number}` };
+    }
+    return null;
+  }
+
+  function findLibraryEntry(entries, kind, sourceValue) {
+    const number = normalizeLibraryNumber(sourceValue);
+    return (Array.isArray(entries) ? entries : []).find(entry =>
+      entry.kind === kind && normalizeLibraryNumber(entry.number) === number
+    ) || null;
+  }
+
+  function groupTransform(xfrm, parent) {
+    const base = parent || { sx: 1, sy: 1, tx: 0, ty: 0 };
+    const xScale = (Number(xfrm.extX) || 1) / (Number(xfrm.chExtX) || Number(xfrm.extX) || 1);
+    const yScale = (Number(xfrm.extY) || 1) / (Number(xfrm.chExtY) || Number(xfrm.extY) || 1);
+    return {
+      sx: base.sx * xScale,
+      sy: base.sy * yScale,
+      tx: base.tx + base.sx * ((Number(xfrm.offX) || 0) - (Number(xfrm.chOffX) || 0) * xScale),
+      ty: base.ty + base.sy * ((Number(xfrm.offY) || 0) - (Number(xfrm.chOffY) || 0) * yScale)
+    };
+  }
+
+  function mapRect(rect, transform) {
+    const map = transform || { sx: 1, sy: 1, tx: 0, ty: 0 };
+    return {
+      x: map.tx + map.sx * (Number(rect.x) || 0),
+      y: map.ty + map.sy * (Number(rect.y) || 0),
+      w: map.sx * (Number(rect.w) || 0),
+      h: map.sy * (Number(rect.h) || 0)
+    };
+  }
+
+  const round = value => Number(Number(value).toFixed(4));
+  function rectToPercent(rect, width, height) {
+    const slideWidth = Number(width) || PPT_WIDTH_EMU;
+    const slideHeight = Number(height) || PPT_HEIGHT_EMU;
+    return {
+      x: round(rect.x / slideWidth * 100),
+      y: round(rect.y / slideHeight * 100),
+      w: round(rect.w / slideWidth * 100),
+      h: round(rect.h / slideHeight * 100)
+    };
+  }
+
+  const directChildren = (node, localName) => Array.from(node ? node.childNodes : []).filter(child => child.nodeType === 1 && child.localName === localName);
+  const directChild = (node, localName) => directChildren(node, localName)[0] || null;
+  const firstDescendant = (node, localName) => Array.from(node ? node.getElementsByTagNameNS('*', localName) : [])[0] || null;
+  const intAttr = (node, name, fallback = 0) => node ? Number(node.getAttribute(name) || fallback) : fallback;
+
+  function parseTransform(node) {
+    const off = directChild(node, 'off');
+    const ext = directChild(node, 'ext');
+    const chOff = directChild(node, 'chOff');
+    const chExt = directChild(node, 'chExt');
+    return {
+      offX: intAttr(off, 'x'), offY: intAttr(off, 'y'),
+      extX: intAttr(ext, 'cx'), extY: intAttr(ext, 'cy'),
+      chOffX: intAttr(chOff, 'x'), chOffY: intAttr(chOff, 'y'),
+      chExtX: intAttr(chExt, 'cx'), chExtY: intAttr(chExt, 'cy')
+    };
+  }
+
+  function shapeRect(shape, transform) {
+    const properties = directChild(shape, 'spPr') || directChild(shape, 'grpSpPr');
+    const xfrm = properties && directChild(properties, 'xfrm');
+    if (!xfrm) return null;
+    const parsed = parseTransform(xfrm);
+    return mapRect({ x: parsed.offX, y: parsed.offY, w: parsed.extX, h: parsed.extY }, transform);
+  }
+
+  const presetColors = { black: '#000000', white: '#ffffff', red: '#ff0000', blue: '#0000ff', yellow: '#ffff00', green: '#008000' };
+  function parseRunStyle(runProperties) {
+    if (!runProperties) return {};
+    const solidFill = directChild(runProperties, 'solidFill');
+    const rgb = solidFill && directChild(solidFill, 'srgbClr');
+    const preset = solidFill && directChild(solidFill, 'prstClr');
+    const eastAsian = directChild(runProperties, 'ea');
+    const latin = directChild(runProperties, 'latin');
+    const color = rgb ? `#${rgb.getAttribute('val')}` : presetColors[preset && preset.getAttribute('val')] || '';
+    return {
+      fontSize: intAttr(runProperties, 'sz') ? intAttr(runProperties, 'sz') / 100 : undefined,
+      bold: runProperties.getAttribute('b') === '1',
+      italic: runProperties.getAttribute('i') === '1',
+      underline: !['', 'none'].includes(runProperties.getAttribute('u') || ''),
+      fontFamily: (eastAsian && eastAsian.getAttribute('typeface')) || (latin && latin.getAttribute('typeface')) || undefined,
+      color: color || undefined
+    };
+  }
+
+  function parseTextShape(shape, transform, slideWidth, slideHeight) {
+    const txBody = directChild(shape, 'txBody');
+    const rect = shapeRect(shape, transform);
+    if (!txBody || !rect) return null;
+    const paragraphs = directChildren(txBody, 'p');
+    const runs = [];
+    paragraphs.forEach((paragraph, paragraphIndex) => {
+      if (paragraphIndex) runs.push({ text: '\n' });
+      Array.from(paragraph.childNodes).filter(node => node.nodeType === 1).forEach(run => {
+        if (run.localName === 'br') {
+          runs.push({ text: '\n' });
+          return;
+        }
+        if (!['r', 'fld'].includes(run.localName)) return;
+        const textNode = directChild(run, 't');
+        if (textNode) runs.push({ text: textNode.textContent || '', ...parseRunStyle(directChild(run, 'rPr')) });
+      });
+    });
+    const text = runs.map(run => run.text).join('');
+    if (!text.trim()) return null;
+    const paragraphProperties = paragraphs[0] && directChild(paragraphs[0], 'pPr');
+    const alignmentMap = { l: 'left', ctr: 'center', r: 'right', just: 'justify', dist: 'justify' };
+    const bodyProperties = directChild(txBody, 'bodyPr');
+    const firstStyledRun = runs.find(run => run.fontSize || run.fontFamily || run.color || run.bold);
+    const percent = rectToPercent(rect, slideWidth, slideHeight);
+    return {
+      type: 'text', text, runs, ...percent,
+      role: percent.y < 18 ? 'title' : 'content',
+      align: alignmentMap[paragraphProperties && paragraphProperties.getAttribute('algn')] || 'left',
+      verticalAlign: ({ ctr: 'center', b: 'end' })[bodyProperties && bodyProperties.getAttribute('anchor')] || 'start',
+      fontSize: (firstStyledRun && firstStyledRun.fontSize) || 18,
+      fontFamily: (firstStyledRun && firstStyledRun.fontFamily) || 'Microsoft JhengHei',
+      color: (firstStyledRun && firstStyledRun.color) || '#000000',
+      bold: Boolean(firstStyledRun && firstStyledRun.bold)
+    };
+  }
+
+  function parsePicture(shape, transform, slideWidth, slideHeight, relationships) {
+    const rect = shapeRect(shape, transform);
+    const blip = firstDescendant(shape, 'blip');
+    if (!rect || !blip) return null;
+    const relationshipId = blip.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'embed') || blip.getAttribute('r:embed');
+    const mediaPath = relationships[relationshipId];
+    if (!mediaPath) return null;
+    return { type: 'image', mediaPath, ...rectToPercent(rect, slideWidth, slideHeight) };
+  }
+
+  function walkShapes(container, transform, slideWidth, slideHeight, relationships, output) {
+    Array.from(container.childNodes).filter(node => node.nodeType === 1).forEach(node => {
+      if (node.localName === 'grpSp') {
+        const groupProperties = directChild(node, 'grpSpPr');
+        const xfrm = groupProperties && directChild(groupProperties, 'xfrm');
+        walkShapes(node, xfrm ? groupTransform(parseTransform(xfrm), transform) : transform, slideWidth, slideHeight, relationships, output);
+      } else if (node.localName === 'sp') {
+        const parsed = parseTextShape(node, transform, slideWidth, slideHeight);
+        if (parsed) output.push(parsed);
+      } else if (node.localName === 'pic') {
+        const parsed = parsePicture(node, transform, slideWidth, slideHeight, relationships);
+        if (parsed) output.push(parsed);
+      }
+    });
+  }
+
+  function resolvePartPath(basePath, target) {
+    const parts = basePath.split('/');
+    parts.pop();
+    String(target || '').split('/').forEach(part => {
+      if (!part || part === '.') return;
+      if (part === '..') parts.pop(); else parts.push(part);
+    });
+    return parts.join('/');
+  }
+
+  function parseRelationships(xmlDocument, slidePath) {
+    const result = {};
+    Array.from(xmlDocument.getElementsByTagNameNS('*', 'Relationship')).forEach(relationship => {
+      result[relationship.getAttribute('Id')] = resolvePartPath(slidePath, relationship.getAttribute('Target'));
+    });
+    return result;
+  }
+
+  const extensionMime = extension => ({ png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', svg: 'image/svg+xml', emf: 'image/emf', wmf: 'image/wmf' })[extension] || 'application/octet-stream';
+
+  async function parsePptx(arrayBuffer, JSZipImplementation) {
+    if (!JSZipImplementation) throw new Error('PPTX 解析元件尚未載入');
+    if (typeof DOMParser === 'undefined') throw new Error('目前瀏覽器不支援 XML 解析');
+    const zip = await JSZipImplementation.loadAsync(arrayBuffer);
+    const xml = async path => {
+      const file = zip.file(path);
+      if (!file) throw new Error(`PPTX 缺少必要檔案：${path}`);
+      return new DOMParser().parseFromString(await file.async('text'), 'application/xml');
+    };
+    const presentation = await xml('ppt/presentation.xml');
+    const slideSize = firstDescendant(presentation, 'sldSz');
+    const slideWidth = intAttr(slideSize, 'cx', PPT_WIDTH_EMU);
+    const slideHeight = intAttr(slideSize, 'cy', PPT_HEIGHT_EMU);
+    const slidePaths = Object.keys(zip.files).filter(path => /^ppt\/slides\/slide\d+\.xml$/.test(path)).sort((a, b) => Number(a.match(/slide(\d+)/)[1]) - Number(b.match(/slide(\d+)/)[1]));
+    const mediaCache = {};
+    const pages = [];
+    for (let index = 0; index < slidePaths.length; index += 1) {
+      const slidePath = slidePaths[index];
+      const relationshipPath = slidePath.replace('ppt/slides/', 'ppt/slides/_rels/') + '.rels';
+      const relationshipFile = zip.file(relationshipPath);
+      const relationships = relationshipFile ? parseRelationships(new DOMParser().parseFromString(await relationshipFile.async('text'), 'application/xml'), slidePath) : {};
+      const slide = await xml(slidePath);
+      const shapeTree = firstDescendant(slide, 'spTree');
+      const objects = [];
+      if (shapeTree) walkShapes(shapeTree, { sx: 1, sy: 1, tx: 0, ty: 0 }, slideWidth, slideHeight, relationships, objects);
+      for (const object of objects.filter(item => item.type === 'image')) {
+        if (!mediaCache[object.mediaPath]) {
+          const media = zip.file(object.mediaPath);
+          if (!media) continue;
+          const extension = object.mediaPath.split('.').pop().toLowerCase();
+          mediaCache[object.mediaPath] = `data:${extensionMime(extension)};base64,${await media.async('base64')}`;
+        }
+        object.src = mediaCache[object.mediaPath];
+        delete object.mediaPath;
+      }
+      pages.push({ id: `imported:${index + 1}`, kind: 'ppt-import', objects, sourceWidth: slideWidth, sourceHeight: slideHeight });
+    }
+    return pages;
+  }
+
+  async function downloadAndParse(entry, JSZipImplementation) {
+    if (!entry || !entry.fileId) throw new Error('找不到對應的雲端 PPTX');
+    const url = entry.downloadUrl || `https://drive.usercontent.google.com/download?id=${encodeURIComponent(entry.fileId)}&export=download&confirm=t`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`PPTX 下載失敗（${response.status}）`);
+    return parsePptx(await response.arrayBuffer(), JSZipImplementation);
+  }
+
+  return {
+    normalizeLibraryNumber,
+    parseLibraryFilename,
+    findLibraryEntry,
+    groupTransform,
+    mapRect,
+    rectToPercent,
+    parsePptx,
+    downloadAndParse
+  };
+});

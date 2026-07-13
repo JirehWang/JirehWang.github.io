@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function() {
   const aliases = {
     call: ['宣召'],
-    sermonTitle: ['講道題目', '講道'],
+    sermonTitle: ['講題', '講道題目', '講道'],
     sermonSpeaker: ['講員', '講道者'],
     scripture: ['經文', '講道經文'],
     verse: ['金句'],
@@ -20,19 +20,31 @@
     const found = values.find(item => names.includes(clean(item.fieldName)));
     return found ? clean(found.value) : '';
   };
-  const hymnNumber = value => (clean(value).match(/\d+/) || [''])[0];
+  const hymnNumber = value => {
+    const match = clean(value).toUpperCase().match(/0*(\d+)\s*([A-Z])?/);
+    return match ? `${Number(match[1])}${match[2] || ''}` : '';
+  };
+  function selectTaiwaneseSermonEvent(events, date) {
+    return (Array.isArray(events) ? events : []).find(event => {
+      const eventDate = clean(event && event.date);
+      const typeName = clean(event && event.typeName);
+      const typeFullName = clean(event && event.typeFullName).replace(/\s+/g, '');
+      return (!date || eventDate === date) && typeName === '台語' && typeFullName === '講道資訊-台語';
+    }) || null;
+  }
+  const getCalendarValue = (event, key) => getValue(event, aliases[key] || []);
   function applyCalendarEvent(event, model) {
     const put = (id, key, value) => { if (value && model[id]) model[id][key] = value; };
-    put('call', 'body', getValue(event, aliases.call));
+    put('call', 'sourceValue', getValue(event, aliases.call));
     put('sermon', 'title', getValue(event, aliases.sermonTitle));
     put('sermon', 'kicker', getValue(event, aliases.sermonSpeaker));
-    put('scripture', 'body', getValue(event, aliases.scripture));
-    put('verse', 'body', getValue(event, aliases.verse));
-    put('response', 'body', getValue(event, aliases.responsiveReading));
-    put('hymn-1', 'title', hymnNumber(getValue(event, aliases.hymn1)));
-    put('hymn-2', 'title', hymnNumber(getValue(event, aliases.hymn2)));
-    put('doxology', 'title', hymnNumber(getValue(event, aliases.doxology)));
+    put('scripture', 'sourceValue', getValue(event, aliases.scripture));
+    put('verse', 'sourceValue', getValue(event, aliases.verse));
+    put('response', 'sourceValue', getValue(event, aliases.responsiveReading));
+    put('hymn-1', 'sourceValue', hymnNumber(getValue(event, aliases.hymn1)));
+    put('hymn-2', 'sourceValue', hymnNumber(getValue(event, aliases.hymn2)));
+    put('doxology', 'sourceValue', hymnNumber(getValue(event, aliases.doxology)));
     return model;
   }
-  return { applyCalendarEvent };
+  return { applyCalendarEvent, selectTaiwaneseSermonEvent, getCalendarValue };
 });

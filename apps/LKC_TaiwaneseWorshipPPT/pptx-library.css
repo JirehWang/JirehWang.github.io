@@ -1,0 +1,6 @@
+.slide-content.template-ppt-import{display:block;position:absolute;inset:0;padding:0;overflow:hidden}
+.ppt-import-layer{position:absolute;inset:0}
+.ppt-object-image,.ppt-object-text{position:absolute;box-sizing:border-box}
+.ppt-object-image{object-fit:fill;mix-blend-mode:multiply}
+.ppt-object-text{display:flex;overflow:hidden;line-height:1.05;white-space:pre;justify-content:flex-start}
+.ppt-text-runs{display:block;width:100%;white-space:pre}

@@ -1,0 +1,12 @@
+.topbar .color-field input[type="color"] {
+  width: 48px;
+  height: 34px;
+  padding: 3px;
+  cursor: pointer;
+}
+
+.layout-params input[type="color"] {
+  height: 34px;
+  padding: 3px;
+  cursor: pointer;
+}
