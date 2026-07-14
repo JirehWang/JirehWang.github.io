@@ -645,11 +645,11 @@ const App = {
           return { failed: [] };
         } else {
           if (!silent) this.showToast('ℹ️ 該日期上傳記錄中無詩歌名稱', 'warning');
-          return { failed: ['上傳記錄中無詩歌名稱'] };
+          return { failed: [] };
         }
       } else {
         if (!silent) this.showToast('ℹ️ 該日期雲端尚無讚美上傳記錄', 'warning');
-        return { failed: ['雲端無讚美上傳記錄'] };
+        return { failed: [] };
       }
     } catch (err) {
       console.error(err);
@@ -702,7 +702,7 @@ const App = {
         return { failed: [] };
       } else {
         if (!silent) this.showToast('ℹ️ 該日期雲端尚無消息/代禱上傳記錄', 'warning');
-        return { failed: ['雲端無消息/代禱上傳記錄'] };
+        return { failed: [] };
       }
     } catch (err) {
       console.error(err);
