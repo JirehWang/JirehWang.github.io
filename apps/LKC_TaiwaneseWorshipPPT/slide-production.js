@@ -25,6 +25,10 @@
     return /^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=\s]+$/i.test(dataUrl) ? dataUrl : '';
   }
 
+  function toWhiteOverlayOpacity(value) {
+    return Math.max(0.4, Math.min(0.8, Number(value || 60) / 100));
+  }
+
   function applyHymnOpacity(model, sectionIds, activeSectionId, value, syncAll) {
     const opacity = Math.max(40, Math.min(80, Number(value) || 60));
     const targets = syncAll ? sectionIds : [activeSectionId];
@@ -156,6 +160,7 @@
     normalizeColor,
     isSupportedBackgroundImage,
     normalizeBackgroundImageDataUrl,
+    toWhiteOverlayOpacity,
     applyHymnOpacity,
     buildBiblePages,
     composeLibraryPages,

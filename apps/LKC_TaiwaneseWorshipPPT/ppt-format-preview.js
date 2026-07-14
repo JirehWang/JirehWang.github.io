@@ -2,11 +2,10 @@ let previewPage = 0;
 const safeHtml = value => String(value || '').replace(/[&<>]/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' })[char]);
 const safeAttr = value => safeHtml(value).replace(/"/g, '&quot;');
 function renderImportedPptPage(page, item) {
-  const imageOpacity = Math.max(0, Math.min(1, Number(item.opacity || 60) / 100));
   return `<div class="ppt-import-layer">${(page.objects || []).map((object, objectIndex) => {
     const geometry = `left:${object.x}%;top:${object.y}%;width:${object.w}%;height:${object.h}%`;
     if (object.type === 'image') {
-      return `<img class="ppt-object-image" src="${safeAttr(object.src || '')}" alt="" style="${geometry};opacity:${imageOpacity}">`;
+      return `<img class="ppt-object-image" src="${safeAttr(object.src || '')}" alt="" style="${geometry}">`;
     }
     const runs = Array.isArray(object.runs) && object.runs.length ? object.runs : [{ text: object.text || '' }];
     const runHtml = runs.map(run => {
@@ -56,10 +55,15 @@ preview = function() {
   background.style.backgroundColor = backgroundColor;
   background.style.opacity = 1;
   const content = document.getElementById('slide-content');
+  const hasHymnWhiteOverlay = (window.hymnOpacitySectionIds || []).includes(active);
+  const whiteOverlayOpacity = hasHymnWhiteOverlay
+    ? window.TaiwaneseWorshipSlideProduction.toWhiteOverlayOpacity(item.opacity)
+    : 0;
+  content.style.setProperty('--hymn-white-overlay-opacity', whiteOverlayOpacity);
   const title = safeHtml(page.title || item.title || item.label);
   const kicker = safeHtml(item.kicker || '');
   if (page.kind === 'ppt-import') {
-    content.className = 'slide-content template-ppt-import';
+    content.className = `slide-content template-ppt-import${hasHymnWhiteOverlay ? ' has-hymn-white-overlay' : ''}`;
     content.innerHTML = renderImportedPptPage(page, item);
   }
   else if (page.kind === 'cover') {
@@ -78,7 +82,7 @@ preview = function() {
   }
   else if (page.kind === 'praise-title') content.className = 'slide-content template-section', content.innerHTML = `<h1>讚美</h1><p>${title}</p><p>${kicker}</p>`;
   else if (page.kind === 'praise-lyrics') content.className = 'slide-content template-praise', content.innerHTML = `<div class="body">${safeHtml(page.body)}</div>`;
-  else if (page.kind === 'score') content.className = 'slide-content template-score', content.innerHTML = `<h1>${title}</h1><p>${kicker}</p><div class="score-slot"></div>`;
+  else if (page.kind === 'score') content.className = `slide-content template-score${hasHymnWhiteOverlay ? ' has-hymn-white-overlay' : ''}`, content.innerHTML = `<h1>${title}</h1><p>${kicker}</p><div class="score-slot"></div>`;
   else {
     const subtitles = { '會前領唱':'請準備心今天的禮拜', '靜默一分鐘':'請將手機關機或靜音', '後奏':'請後奏結束後再起身或交談', '平安禮':'請兄弟姊妹互相行平安禮' };
     content.className = 'slide-content template-section';

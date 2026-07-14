@@ -1,5 +1,7 @@
 .slide-content.template-ppt-import{display:block;position:absolute;inset:0;padding:0;overflow:hidden}
-.ppt-import-layer{position:absolute;inset:0}
+.slide-content.has-hymn-white-overlay::before{content:"";position:absolute;inset:0;background:#fff;opacity:var(--hymn-white-overlay-opacity,.6);pointer-events:none;z-index:0}
+.slide-content.template-score>*{position:relative;z-index:1}
+.ppt-import-layer{position:absolute;inset:0;z-index:1}
 .ppt-object-image,.ppt-object-text{position:absolute;box-sizing:border-box}
 .ppt-object-image{object-fit:fill;mix-blend-mode:multiply}
 .ppt-object-text{display:flex;overflow:hidden;line-height:1.05;white-space:pre;justify-content:flex-start}

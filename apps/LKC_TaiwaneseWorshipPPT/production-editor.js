@@ -17,7 +17,7 @@
       form.insertAdjacentHTML('beforeend', '<button type="button" class="button" id="regenerate-section">依輸入值重新產生</button>');
     } else {
       form.insertAdjacentHTML('beforeend', `<button type="button" class="button" id="load-library-section">載入雲端 PPT 資料庫</button>${item.libraryError ? `<p class="inline-note">${item.libraryError}</p>` : ''}`);
-      if (active !== 'response') form.insertAdjacentHTML('beforeend', `<label class="field"><span>背景透明度</span><div class="range-wrap"><input id="library-image-opacity" type="range" min="40" max="80" value="${item.opacity || 60}"><output class="range-value">${item.opacity || 60}%</output></div></label>`);
+      if (active !== 'response') form.insertAdjacentHTML('beforeend', `<label class="field"><span>聖詩頁白色色塊透明度</span><div class="range-wrap"><input id="library-image-opacity" type="range" min="40" max="80" value="${item.opacity || 60}"><output class="range-value">${item.opacity || 60}%</output></div><small>數值越高，背景越淡。</small></label>`);
     }
     form.querySelector('[data-key="sourceValue"]').addEventListener('input', event => {
       item.sourceValue = event.target.value;

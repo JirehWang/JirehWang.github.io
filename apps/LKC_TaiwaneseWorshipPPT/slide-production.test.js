@@ -10,6 +10,7 @@ const {
   normalizeColor,
   isSupportedBackgroundImage,
   normalizeBackgroundImageDataUrl,
+  toWhiteOverlayOpacity,
   applyHymnOpacity,
   composeLibraryPages,
   applyFixedLibraryDefaults
@@ -28,6 +29,12 @@ test('accepts safe raster background images and rejects unrelated uploads', () =
   assert.equal(isSupportedBackgroundImage({ type: 'application/pdf', name: 'background.pdf' }), false);
   assert.equal(normalizeBackgroundImageDataUrl('data:image/jpeg;base64,YWJj'), 'data:image/jpeg;base64,YWJj');
   assert.equal(normalizeBackgroundImageDataUrl('javascript:alert(1)'), '');
+});
+
+test('uses the hymn setting as white overlay opacity, not score opacity', () => {
+  assert.equal(toWhiteOverlayOpacity(68), 0.68);
+  assert.equal(toWhiteOverlayOpacity(10), 0.4);
+  assert.equal(toWhiteOverlayOpacity(100), 0.8);
 });
 
 test('synchronizes hymn opacity only when the shared checkbox is enabled', () => {
