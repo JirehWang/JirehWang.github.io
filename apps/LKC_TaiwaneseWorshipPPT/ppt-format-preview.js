@@ -74,6 +74,7 @@ preview = function() {
     content.innerHTML = `<h1>台語主日禮拜</h1><p>${formatted}</p>`;
   }
   else if (page.kind === 'content') content.className = 'slide-content template-content', content.innerHTML = `<h1>${title}</h1><div class="body">${safeHtml(page.body)}</div>`;
+  else if (page.kind === 'report') content.className = 'slide-content template-report', content.innerHTML = `<h1>${title}</h1><div class="body">${safeHtml(page.body)}</div>`;
   else if (page.kind === 'scripture') content.className = 'slide-content template-content template-scripture', content.innerHTML = `<h1>${title}</h1><div class="body">${safeHtml(page.body)}</div>`;
   else if (page.kind === 'liturgical') {
     const alignment = page.align === 'center' ? ' is-centered' : ' is-left';

@@ -443,6 +443,8 @@ admin.html → apps/LKC_TaiwaneseWorshipPPT/
 台語禮拜 PPT 編輯器 → localStorage 草稿 + 16:9 即時預覽
 台語禮拜 PPT 編輯器 → config.js / churchAPI → LKC_MasterSchedule GAS `cal_getEvents`
 台語禮拜 PPT 編輯器 → config.js / churchAPI → LKC_MasterSchedule GAS `cal_getPptLibraryIndex`
+台語禮拜 PPT 編輯器 → 週報管理系統 GAS `load` → `reports_YYYY-MM-DD`（本會消息／關懷代禱）
+台語禮拜 PPT 編輯器 → 週報管理系統 GAS `load` → `praise_songs_YYYY-MM-DD`（聖歌隊讚美）
 台語禮拜 PPT 編輯器（file:// 或 POST 被擋）→ read-api.js JSONP → GAS 唯讀 `cal_getEvents` / `cal_getPptLibraryIndex` / `cal_getPptLibraryFile` / `cal_queryBible`
 LKC_MasterSchedule GAS → Google Drive 聖詩／啟應文資料夾（唯讀檔案索引）
 台語禮拜 PPT 編輯器 → GAS `cal_getPptLibraryFile` → 索引內 PPTX Base64
