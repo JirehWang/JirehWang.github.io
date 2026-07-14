@@ -8,6 +8,8 @@ const {
   updateLayoutGroup,
   detachPagesFromLayoutGroup,
   normalizeColor,
+  isSupportedBackgroundImage,
+  normalizeBackgroundImageDataUrl,
   composeLibraryPages,
   applyFixedLibraryDefaults
 } = require('./slide-production.js');
@@ -16,6 +18,15 @@ test('normalizes solid background and text colors to safe hex values', () => {
   assert.equal(normalizeColor('#2f5d50', '#ffffff'), '#2f5d50');
   assert.equal(normalizeColor('#ABC', '#ffffff'), '#aabbcc');
   assert.equal(normalizeColor('not-a-color', '#ffffff'), '#ffffff');
+});
+
+test('accepts safe raster background images and rejects unrelated uploads', () => {
+  assert.equal(isSupportedBackgroundImage({ type: 'image/png', name: 'background.png' }), true);
+  assert.equal(isSupportedBackgroundImage({ type: '', name: 'background.webp' }), true);
+  assert.equal(isSupportedBackgroundImage({ type: 'image/svg+xml', name: 'background.svg' }), false);
+  assert.equal(isSupportedBackgroundImage({ type: 'application/pdf', name: 'background.pdf' }), false);
+  assert.equal(normalizeBackgroundImageDataUrl('data:image/jpeg;base64,YWJj'), 'data:image/jpeg;base64,YWJj');
+  assert.equal(normalizeBackgroundImageDataUrl('javascript:alert(1)'), '');
 });
 
 test('flattens PPT chapters into one continuous deck order', () => {

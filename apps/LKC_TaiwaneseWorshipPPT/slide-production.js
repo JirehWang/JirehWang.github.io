@@ -12,6 +12,19 @@
     return normalizeColor(fallback, '#111111');
   }
 
+  function isSupportedBackgroundImage(file) {
+    if (!file) return false;
+    const type = String(file.type || '').toLowerCase();
+    const name = String(file.name || '').toLowerCase();
+    return ['image/png', 'image/jpeg', 'image/webp'].includes(type)
+      || (!type && /\.(png|jpe?g|webp)$/.test(name));
+  }
+
+  function normalizeBackgroundImageDataUrl(value) {
+    const dataUrl = String(value || '').trim();
+    return /^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=\s]+$/i.test(dataUrl) ? dataUrl : '';
+  }
+
   function buildBiblePages(sectionId, label, reference, records, versesPerPage = 2) {
     const safeRecords = Array.isArray(records) ? records : [];
     const pages = [];
@@ -132,6 +145,8 @@
 
   return {
     normalizeColor,
+    isSupportedBackgroundImage,
+    normalizeBackgroundImageDataUrl,
     buildBiblePages,
     composeLibraryPages,
     applyFixedLibraryDefaults,

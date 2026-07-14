@@ -17,6 +17,7 @@
     <div class="topbar-actions">
       <label>禮拜日期 <input id="service-date" type="date"></label>
       <label class="color-field">投影片底色 <input id="background-color" type="color" value="#ffffff" aria-label="投影片底色"></label>
+      <label class="upload button quiet">上傳背景圖<input id="background-image-upload" type="file" accept="image/png,image/jpeg,image/webp"></label>
       <button class="button quiet" id="calendar-load">從行事曆帶入</button>
       <button class="button quiet" id="layout-panel-open">版面參數</button>
       <button class="button" id="save-draft">儲存草稿</button>
@@ -26,7 +27,7 @@
   <main class="workspace">
     <aside class="flow-panel"><div class="flow-heading"><p>台語主日禮拜</p><strong>製作流程</strong></div><nav id="flow-list" aria-label="禮拜流程"></nav></aside>
     <section class="editor-panel"><div class="panel-heading"><p id="section-kind"></p><h1 id="section-title"></h1></div><form id="editor-form" novalidate></form><p class="save-state" id="save-state">尚未儲存</p></section>
-    <aside class="preview-panel"><div class="preview-heading"><div><p>整份 PPT 預覽</p><strong id="preview-name"></strong></div><div class="page-nav"><button id="page-prev">上一頁</button><span id="slide-count">1 / 1</span><button id="page-next">下一頁</button></div></div><div class="slide-frame"><div class="slide-background"></div><div class="slide-content" id="slide-content"></div></div><div class="preview-note">背景模板僅使用純色，不包含固定文字；標題與內文字色可在「版面參數」中分別調整。</div></aside>
+    <aside class="preview-panel"><div class="preview-heading"><div><p>整份 PPT 預覽</p><strong id="preview-name"></strong></div><div class="page-nav"><button id="page-prev">上一頁</button><span id="slide-count">1 / 1</span><button id="page-next">下一頁</button></div></div><div class="slide-frame"><div class="slide-background"></div><div class="slide-content" id="slide-content"></div></div><div class="preview-note">背景可使用純色或自行上傳圖片，不包含固定文字；標題與內文字色可在「版面參數」中分別調整。</div></aside>
   </main>
   <aside id="layout-floating-panel" class="layout-floating-panel is-hidden" aria-label="版面參數設定"></aside>
   <script>window._GAS_KEY = 'LKC_MasterSchedule'; window._FORCE_PRODUCTION_GAS = true;</script>
@@ -36,14 +37,14 @@
   <script src="../LKC_ppt_generator/bible-service.js"></script>
   <script src="calendar-adapter.js?v=20260714a"></script>
   <script src="pptx-library.js?v=20260714a"></script>
-  <script src="slide-production.js?v=20260714a"></script>
-  <script src="app.js?v=20260714a"></script>
+  <script src="slide-production.js?v=20260714b"></script>
+  <script src="app.js?v=20260714b"></script>
   <script src="content-generators.js?v=20260713d"></script>
   <script src="ppt-library-integration.js?v=20260714a"></script>
   <script src="calendar-integration.js?v=20260713d"></script>
-  <script src="ppt-format-preview.js?v=20260714a"></script>
+  <script src="ppt-format-preview.js?v=20260714b"></script>
   <script src="fixed-page-editor.js?v=20260712c"></script>
   <script src="production-editor.js?v=20260714a"></script>
-  <script src="layout-groups.js?v=20260713b"></script>
+  <script src="layout-groups.js?v=20260714a"></script>
 </body>
 </html>
