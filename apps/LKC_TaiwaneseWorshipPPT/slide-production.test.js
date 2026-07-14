@@ -10,6 +10,7 @@ const {
   normalizeColor,
   isSupportedBackgroundImage,
   normalizeBackgroundImageDataUrl,
+  applyHymnOpacity,
   composeLibraryPages,
   applyFixedLibraryDefaults
 } = require('./slide-production.js');
@@ -27,6 +28,18 @@ test('accepts safe raster background images and rejects unrelated uploads', () =
   assert.equal(isSupportedBackgroundImage({ type: 'application/pdf', name: 'background.pdf' }), false);
   assert.equal(normalizeBackgroundImageDataUrl('data:image/jpeg;base64,YWJj'), 'data:image/jpeg;base64,YWJj');
   assert.equal(normalizeBackgroundImageDataUrl('javascript:alert(1)'), '');
+});
+
+test('synchronizes hymn opacity only when the shared checkbox is enabled', () => {
+  const sectionIds = ['pre-hymn-1', 'hymn-1', 'prayer-song', 'offering', 'doxology', 'amen'];
+  const model = Object.fromEntries(sectionIds.map((id, index) => [id, { opacity: 40 + index }]));
+
+  applyHymnOpacity(model, sectionIds, 'hymn-1', 68, true);
+  assert.deepEqual(sectionIds.map(id => model[id].opacity), [68, 68, 68, 68, 68, 68]);
+
+  applyHymnOpacity(model, sectionIds, 'offering', 52, false);
+  assert.equal(model.offering.opacity, 52);
+  assert.deepEqual(sectionIds.filter(id => id !== 'offering').map(id => model[id].opacity), [68, 68, 68, 68, 68]);
 });
 
 test('flattens PPT chapters into one continuous deck order', () => {

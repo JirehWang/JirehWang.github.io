@@ -373,7 +373,7 @@
   preview = function() { basePreview(); updateDeckNavigator(); };
 
   document.getElementById('save-draft').onclick = () => {
-    localStorage.setItem('lkc-taiwanese-worship-draft', JSON.stringify({ model, backgroundColor, backgroundImage, layoutState }));
+    localStorage.setItem('lkc-taiwanese-worship-draft', JSON.stringify({ model, backgroundColor, backgroundImage, syncHymnOpacity: window.isHymnOpacitySyncEnabled(), layoutState }));
     status('已儲存內容與版面群組');
   };
 

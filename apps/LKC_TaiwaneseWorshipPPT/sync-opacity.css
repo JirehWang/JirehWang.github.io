@@ -1,0 +1,16 @@
+.sync-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: -6px 0 22px;
+  color: var(--ink);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.sync-option input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}

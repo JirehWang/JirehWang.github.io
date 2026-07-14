@@ -25,6 +25,15 @@
     return /^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=\s]+$/i.test(dataUrl) ? dataUrl : '';
   }
 
+  function applyHymnOpacity(model, sectionIds, activeSectionId, value, syncAll) {
+    const opacity = Math.max(40, Math.min(80, Number(value) || 60));
+    const targets = syncAll ? sectionIds : [activeSectionId];
+    (targets || []).forEach(sectionId => {
+      if (model && model[sectionId]) model[sectionId].opacity = opacity;
+    });
+    return model;
+  }
+
   function buildBiblePages(sectionId, label, reference, records, versesPerPage = 2) {
     const safeRecords = Array.isArray(records) ? records : [];
     const pages = [];
@@ -147,6 +156,7 @@
     normalizeColor,
     isSupportedBackgroundImage,
     normalizeBackgroundImageDataUrl,
+    applyHymnOpacity,
     buildBiblePages,
     composeLibraryPages,
     applyFixedLibraryDefaults,

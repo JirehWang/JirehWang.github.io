@@ -2,6 +2,7 @@
   const previousEditor = editor;
   const generatedIds = new Set(['call', 'scripture', 'verse']);
   const portIds = new Set(['pre-hymn-1', 'pre-hymn-2', 'hymn-1', 'hymn-2', 'response', 'prayer-song', 'offering', 'doxology', 'amen']);
+  const hymnOpacityIds = new Set(window.hymnOpacitySectionIds || []);
 
   editor = function() {
     if (!generatedIds.has(active) && !portIds.has(active)) return previousEditor();
@@ -16,7 +17,7 @@
       form.insertAdjacentHTML('beforeend', '<button type="button" class="button" id="regenerate-section">依輸入值重新產生</button>');
     } else {
       form.insertAdjacentHTML('beforeend', `<button type="button" class="button" id="load-library-section">載入雲端 PPT 資料庫</button>${item.libraryError ? `<p class="inline-note">${item.libraryError}</p>` : ''}`);
-      if (active !== 'response') form.insertAdjacentHTML('beforeend', `<label class="field"><span>譜面透明度</span><div class="range-wrap"><input id="library-image-opacity" type="range" min="40" max="80" value="${item.opacity || 60}"><output class="range-value">${item.opacity || 60}%</output></div></label>`);
+      if (active !== 'response') form.insertAdjacentHTML('beforeend', `<label class="field"><span>譜面透明度</span><div class="range-wrap"><input id="library-image-opacity" type="range" min="40" max="80" value="${item.opacity || 60}"><output class="range-value">${item.opacity || 60}%</output></div></label>${hymnOpacityIds.has(active) ? `<label class="sync-option"><input id="sync-hymn-opacity" type="checkbox" ${window.isHymnOpacitySyncEnabled() ? 'checked' : ''}><span>所有聖詩相關頁面一併套用</span></label>` : ''}`);
     }
     form.querySelector('[data-key="sourceValue"]').addEventListener('input', event => {
       item.sourceValue = event.target.value;
@@ -50,9 +51,16 @@
     };
     const imageOpacity = document.getElementById('library-image-opacity');
     if (imageOpacity) imageOpacity.oninput = event => {
-      item.opacity = Number(event.target.value);
+      window.TaiwaneseWorshipSlideProduction.applyHymnOpacity(model, window.hymnOpacitySectionIds, active, Number(event.target.value), hymnOpacityIds.has(active) && window.isHymnOpacitySyncEnabled());
       imageOpacity.nextElementSibling.textContent = `${item.opacity}%`;
       preview();
+    };
+    const syncOpacity = document.getElementById('sync-hymn-opacity');
+    if (syncOpacity) syncOpacity.onchange = event => {
+      window.setHymnOpacitySyncEnabled(event.target.checked);
+      if (event.target.checked) window.TaiwaneseWorshipSlideProduction.applyHymnOpacity(model, window.hymnOpacitySectionIds, active, item.opacity, true);
+      preview();
+      status(event.target.checked ? '已啟用所有聖詩譜面透明度同步' : '已改為各聖詩分開調整透明度');
     };
   };
   render();
