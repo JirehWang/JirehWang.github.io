@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { exportWorshipPPTX, getImportedSlideObjects } = require('./ppt-export.js');
+const { exportWorshipPPTX, getImportedSlideObjects, cleanParagraphProperties } = require('./ppt-export.js');
 
 test('exports slides correctly with mock pptxgenjs', async () => {
   const slides = [];
@@ -91,4 +91,29 @@ test('exports slides correctly with mock pptxgenjs', async () => {
   assert.equal(slides[2].images[0].data, 'data:image/png;base64,123');
   assert.equal(slides[2].texts.length, 1);
   assert.equal(slides[2].texts[0].text[0].text, '歌詞內容');
+});
+
+test('cleanParagraphProperties removes duplicate a:pPr tags from a:p paragraphs', () => {
+  const originalXml = `
+    <a:p>
+      <a:pPr indent="0" marL="0"><a:buNone/></a:pPr>
+      <a:r><a:t>聖詩 </a:t></a:r>
+      <a:pPr indent="0" marL="0"><a:buNone/></a:pPr>
+      <a:r><a:t>065</a:t></a:r>
+      <a:pPr indent="0" marL="0"><a:buNone/></a:pPr>
+      <a:r><a:t> 首</a:t></a:r>
+    </a:p>
+  `;
+  const expectedXml = `
+    <a:p>
+      <a:pPr indent="0" marL="0"><a:buNone/></a:pPr>
+      <a:r><a:t>聖詩 </a:t></a:r>
+      
+      <a:r><a:t>065</a:t></a:r>
+      
+      <a:r><a:t> 首</a:t></a:r>
+    </a:p>
+  `;
+  const result = cleanParagraphProperties(originalXml);
+  assert.equal(result.replace(/\s+/g, ''), expectedXml.replace(/\s+/g, ''));
 });

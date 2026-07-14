@@ -4,6 +4,21 @@
   root.TaiwaneseWorshipPptExport = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function(root) {
 
+  function cleanParagraphProperties(xmlString) {
+    return xmlString.replace(/<a:p>([\s\S]*?)<\/a:p>/g, (pMatch, pContent) => {
+      let firstPPr = null;
+      const cleanedContent = pContent.replace(/<a:pPr([\s\S]*?)<\/a:pPr>/g, (pprMatch) => {
+        if (!firstPPr) {
+          firstPPr = pprMatch;
+          return pprMatch;
+        } else {
+          return '';
+        }
+      });
+      return `<a:p>${cleanedContent}</a:p>`;
+    });
+  }
+
   function exportWorshipPPTX(options = {}) {
     const PptxGenJSClass = options.PptxGenJS || root.PptxGenJS;
     const getDeckEntriesFn = options.getDeckEntries || root.getDeckEntries;
@@ -265,6 +280,40 @@
 
     const fileDate = serviceDate || new Date().toISOString().split('T')[0];
     const fileName = `台語主日禮拜_${fileDate}.pptx`;
+
+    if (typeof pptx.write === 'function' && typeof document !== 'undefined') {
+      return pptx.write('blob').then(async (blob) => {
+        const JSZipLib = options.JSZip || root.JSZip;
+        if (JSZipLib) {
+          const zip = await JSZipLib.loadAsync(blob);
+          const files = Object.keys(zip.files);
+          for (const name of files) {
+            if (name.startsWith('ppt/slides/slide') && name.endsWith('.xml')) {
+              const originalXml = await zip.file(name).async('text');
+              const cleanedXml = cleanParagraphProperties(originalXml);
+              zip.file(name, cleanedXml);
+            }
+          }
+          const cleanedBlob = await zip.generateAsync({
+            type: 'blob',
+            mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+          });
+          const url = URL.createObjectURL(cleanedBlob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => {
+            URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+          }, 100);
+          return;
+        }
+        return pptx.writeFile({ fileName: fileName });
+      });
+    }
+
     return pptx.writeFile({ fileName: fileName });
   }
 
@@ -332,6 +381,7 @@
 
   return {
     exportWorshipPPTX,
-    getImportedSlideObjects
+    getImportedSlideObjects,
+    cleanParagraphProperties
   };
 });
