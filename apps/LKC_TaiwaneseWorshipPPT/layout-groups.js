@@ -378,6 +378,7 @@
   };
 
   document.getElementById('layout-panel-open').onclick = openFloatingPanel;
+  window.getDeckEntries = deckEntries;
 
   flow = renderDeckNavigator;
   renderFloatingPanel();
