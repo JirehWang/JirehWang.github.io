@@ -120,7 +120,22 @@ const BulletinModel = {
         let goldenVerseText = tw.goldenVerseText || '';
         if (window.BibleFormatter) goldenVerseText = window.BibleFormatter.format(goldenVerseText);
         this.set('taiwanese.goldenVerseText', goldenVerseText);
-        if (tw.hymn) this.set('taiwanese.openingHymn', tw.hymn);
+        if (tw.hymn) {
+          let separators = /[,，、\/;；\n\t]+/;
+          if (!separators.test(tw.hymn) && /\d+\s+\d+/.test(tw.hymn)) {
+            separators = /\s+/;
+          }
+          const hymns = tw.hymn.split(separators)
+            .map(h => h.trim())
+            .filter(Boolean)
+            .map(h => {
+              const match = h.match(/\d+/);
+              return match ? match[0] : h;
+            });
+          if (hymns.length > 0) this.set('taiwanese.openingHymn', hymns[0]);
+          if (hymns.length > 1) this.set('taiwanese.responseHymn', hymns[1]);
+          if (hymns.length > 2) this.set('taiwanese.doxologyHymn', hymns[2]);
+        }
         if (tw.responsivePsalm) this.set('taiwanese.responsivePsalm', tw.responsivePsalm);
         this.set('ministry.thisWeek.tw.presider', tw.speaker || '');
       }

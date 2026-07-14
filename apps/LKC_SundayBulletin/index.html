@@ -29,6 +29,8 @@
       <button class="btn btn-outline-white" id="btnSaveDraft">💾 儲存草稿</button>
       <button class="btn btn-outline-white" id="btnLoadDraft">📂 載入草稿</button>
       <button class="btn btn-warning" id="btnExportWord">📄 匯出 Word</button>
+      <a href="praise.html" target="_blank" class="btn btn-outline-white" style="border-color: rgba(255,255,255,0.4);" title="開啟讚美曲目與歌詞上傳頁面">🎵 讚美上傳</a>
+      <a href="reports.html" target="_blank" class="btn btn-outline-white" style="border-color: rgba(255,255,255,0.4);" title="開啟消息報告與代禱事項上傳頁面">📢 報告上傳</a>
     </div>
   </div>
   <nav class="tabs-nav">
@@ -95,7 +97,13 @@
           <div class="form-group"><label>主理者 <span class="source-tag">LKCschedule 講員</span></label><input type="text" class="form-input" data-field="mandarin.presider"></div>
           <div class="section-label">「等候上帝的話」</div>
           <p class="hint">序樂（敬拜團）/ 宣召（司會者）/ 敬拜讚美（敬拜團）/ 使徒信經（會眾）— 固定程序</p>
-          <div class="form-group"><label>敬拜曲目 <span class="source-tag">LKworship</span></label><textarea class="form-input" data-field="mandarin.worshipSongs" rows="3" placeholder="例：奇異恩典、主啊我向你舉手、十字架的愛"></textarea></div>
+          <div class="form-group">
+            <label style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span>敬拜曲目 <span class="source-tag">LKworship</span></span>
+              <button class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 2px 6px; font-weight: normal;" onclick="App.loadUploadedWorshipSongs(event)">⬇ 載入上傳曲目</button>
+            </label>
+            <textarea class="form-input" data-field="mandarin.worshipSongs" rows="3" placeholder="例：奇異恩典、主啊我向你舉手、十字架的愛"></textarea>
+          </div>
           <div class="section-label">「領受上帝的話」</div>
           <div class="form-group"><label>聖經經文 <span class="source-tag">LKCschedule</span></label><input type="text" class="form-input" data-field="mandarin.scripture"></div>
           <div class="form-group"><label>金句全文 <span class="source-tag">自動取得</span></label><textarea class="form-input" data-field="mandarin.goldenVerseText" rows="3" readonly></textarea></div>
@@ -223,7 +231,13 @@
 
 <div id="tab-announcements" class="tab-panel">
   <div class="card">
-    <div class="card-header"><h3>本會消息</h3><div class="card-actions"><span class="source-badge">手動填入</span></div></div>
+    <div class="card-header">
+      <h3>本會消息</h3>
+      <div class="card-actions">
+        <button class="btn btn-primary btn-sm" onclick="App.loadUploadedReports(event)">⬇ 載入上傳消息</button>
+        <span class="source-badge">手動填入</span>
+      </div>
+    </div>
     <div class="card-body">
       <p class="hint" style="margin-bottom:16px">最多 10 則消息，空白欄位不會列入週報。</p>
       <div class="announcement-list">
@@ -244,7 +258,13 @@
 
 <div id="tab-prayer" class="tab-panel">
   <div class="card">
-    <div class="card-header"><h3>關懷代禱</h3><div class="card-actions"><span class="source-badge">手動填入</span></div></div>
+    <div class="card-header">
+      <h3>關懷代禱</h3>
+      <div class="card-actions">
+        <button class="btn btn-primary btn-sm" onclick="App.loadUploadedReports(event)">⬇ 載入上傳代禱</button>
+        <span class="source-badge">手動填入</span>
+      </div>
+    </div>
     <div class="card-body">
       <div class="form-group" style="margin-bottom:16px"><label>在家調養 <span class="manual-tag">手動</span></label><textarea class="form-input" data-field="prayer.homeRest" rows="4"></textarea></div>
       <div class="form-group" style="margin-bottom:16px"><label>住院 <span class="manual-tag">手動</span></label><textarea class="form-input" data-field="prayer.hospital" rows="4"></textarea></div>

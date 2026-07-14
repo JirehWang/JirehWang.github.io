@@ -614,6 +614,88 @@ const App = {
   _updateOffering(i, f, v) { const d = BulletinModel.get(); if (!d.offeringReport.monthlyItems[i]) d.offeringReport.monthlyItems[i]={}; d.offeringReport.monthlyItems[i][f]=v; },
   _removeOffering(i) { const d = BulletinModel.get(); d.offeringReport.monthlyItems.splice(i,1); this.syncOfferingUI(d.offeringReport.monthlyItems); },
 
+  async loadUploadedWorshipSongs(event) {
+    if (event) event.preventDefault();
+    const date = this._els.bulletinDate.value;
+    if (!date) { this.showToast('請先選擇週報日期', 'error'); return; }
+    
+    this.showLoading(true);
+    this.showToast('正在載入上傳的敬拜曲目...', 'info');
+    
+    const key = `praise_songs_${date}`;
+    const url = `${CONFIG.GAS_SYNC_URL}?action=load&key=${encodeURIComponent(key)}`;
+    
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      if (json.success && json.data) {
+        const { leader, songs } = json.data;
+        const songTitles = (songs || []).map(s => s.title).filter(Boolean).join('、');
+        
+        BulletinModel.set('mandarin.worshipSongs', songTitles);
+        if (leader) {
+          BulletinModel.set('ministry.thisWeek.zh.worship', leader);
+        }
+        
+        this.syncFormFromModel();
+        this.showToast('🎉 成功載入上傳的敬拜曲目！', 'success');
+      } else {
+        this.showToast('ℹ️ 該日期雲端尚無敬拜上傳記錄', 'warning');
+      }
+    } catch (err) {
+      console.error(err);
+      this.showToast(`❌ 載入失敗：${err.message}`, 'error');
+    } finally {
+      this.showLoading(false);
+    }
+  },
+
+  async loadUploadedReports(event) {
+    if (event) event.preventDefault();
+    const date = this._els.bulletinDate.value;
+    if (!date) { this.showToast('請先選擇週報日期', 'error'); return; }
+    
+    this.showLoading(true);
+    this.showToast('正在載入上傳的消息與代禱...', 'info');
+    
+    const key = `reports_${date}`;
+    const url = `${CONFIG.GAS_SYNC_URL}?action=load&key=${encodeURIComponent(key)}`;
+    
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      if (json.success && json.data) {
+        const { announcements, prayer } = json.data;
+        
+        if (Array.isArray(announcements)) {
+          announcements.forEach((ann, idx) => {
+            if (idx < 10) {
+              BulletinModel.set(`announcements.${idx}`, ann || '');
+            }
+          });
+        }
+        
+        if (prayer) {
+          if (prayer.homeRest !== undefined) BulletinModel.set('prayer.homeRest', prayer.homeRest || '');
+          if (prayer.hospital !== undefined) BulletinModel.set('prayer.hospital', prayer.hospital || '');
+          if (prayer.other !== undefined) BulletinModel.set('prayer.other', prayer.other || '');
+        }
+        
+        this.syncFormFromModel();
+        this.showToast('🎉 成功載入上傳的消息與代禱事項！', 'success');
+      } else {
+        this.showToast('ℹ️ 該日期雲端尚無消息/代禱上傳記錄', 'warning');
+      }
+    } catch (err) {
+      console.error(err);
+      this.showToast(`❌ 載入失敗：${err.message}`, 'error');
+    } finally {
+      this.showLoading(false);
+    }
+  },
+
   showToast(message, type = 'info') {
     const c = document.getElementById('toastContainer'); if (!c) return;
     const t = document.createElement('div'); t.className = `toast toast-${type}`; t.textContent = message; c.appendChild(t);
