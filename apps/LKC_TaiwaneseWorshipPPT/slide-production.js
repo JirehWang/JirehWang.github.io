@@ -54,11 +54,15 @@
     return pages;
   }
 
-  function composeLibraryPages(item) {
+  function composeLibraryPages(item, sectionId) {
     const pages = (Array.isArray(item && item.pptPages) ? item.pptPages : []).map(page =>
       typeof page === 'string' ? ({ kind: 'liturgical', body: page }) : ({ kind: 'liturgical', ...page })
     );
-    return item && item.includeSectionTitle ? [{ kind: 'section' }, ...pages] : pages;
+    if (item && item.includeSectionTitle) {
+      const sectionPageId = sectionId ? `${sectionId}:section` : undefined;
+      return [{ kind: 'section', id: sectionPageId }, ...pages];
+    }
+    return pages;
   }
 
   function applyFixedLibraryDefaults(model) {

@@ -22,8 +22,8 @@ function renderImportedPptPage(page, item) {
     return `<div class="ppt-object-text" data-ppt-role="${object.role || 'content'}" data-ppt-index="${objectIndex}" data-source-x="${object.x}" data-source-y="${object.y}" data-source-w="${object.w}" data-source-h="${object.h}" data-source-font-size="${object.fontSize || 18}" style="${geometry};text-align:${object.align || 'left'};align-items:${object.verticalAlign || 'start'};font-size:${(object.fontSize || 18) / 9.6}cqw;font-family:${safeAttr(object.fontFamily || 'Microsoft JhengHei')};color:${safeAttr(object.color || '#000000')};font-weight:${object.bold ? 700 : 400}"><span class="ppt-text-runs">${runHtml}</span></div>`;
   }).join('')}</div>`;
 }
-function slidePages(item) {
-  if (Array.isArray(item.pptPages)) return window.TaiwaneseWorshipSlideProduction.composeLibraryPages(item);
+function slidePages(item, sectionId) {
+  if (Array.isArray(item.pptPages)) return window.TaiwaneseWorshipSlideProduction.composeLibraryPages(item, sectionId || active);
   if (item.type === 'fixed') {
     const kind = active === 'creed' || active === 'lord-prayer' ? 'liturgical' : 'content';
     return (item.body || '').split(/\n\s*\n/).filter(Boolean).map(body => ({ kind, body }));

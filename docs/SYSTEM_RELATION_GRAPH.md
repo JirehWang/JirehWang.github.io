@@ -9,6 +9,8 @@ flowchart LR
   Coordinator -->|"2. 最多 2 個並行"| GAS["各 GAS refresh action"]
   GAS --> LocalCache["GAS CacheService 重建／清除"]
   GAS -->|"批次 PATCH；失敗逐筆 DELETE"| RTDB
+  CalendarWrite["行事曆成功寫入"] -->|"自動失效"| WorshipCache["敬拜團 Firebase topics + 跨表 CacheService"]
+  CalendarWrite -->|"clearCalendarLinkCache"| LegacyWorship["正式獨立敬拜團 GAS"]
   Config["config.js / churchAPI"] --> BrowserCache["firebase-cache.js"]
   BrowserCache -->|"同 key single-flight"| GAS
 ```
@@ -17,6 +19,7 @@ flowchart LR
 - 單一與全量維護都採「刪除舊 Firebase topic → 呼叫 GAS refresh」，避免 warm cache 被後續刪除。
 - `firebase/cache-single-flight.mjs` 只合併同一瀏覽器頁面中相同 topic/subkey 的進行中請求；完成或失敗後立即釋放。
 - GAS `firebaseInvalidate(topics)` 使用一次 RTDB root PATCH 清除多個 topic；非 2xx 或例外時保留逐筆刪除 fallback。
+- 行事曆成功寫入會由主 GAS 直接對 Firebase `cache` 根節點批次失效敬拜團相依快取：正式/合併版讀取 topic、合併版跨表快取，以及正式獨立敬拜團 GAS 的跨表快取；Router 僅保留維運救援用途。
 - 事工管理的 `pageFieldConfig` 是前端班表與主 GAS 的設定契約；`scheduleTarget=clusters` 與欄位 `useMemberList` 必須由 GAS 正規化後原樣保存，才能讓小組群清單在重載後繼續提供給班表欄位。
 - `LKC_MinistrySchedule/script.js` 讀取 `pageFieldConfig` 時，以 GAS 已儲存欄位設定覆蓋同名 localStorage 欄位；只保留本機獨有暫存欄位，避免瀏覽器舊快取阻斷新的小組群 datalist。
 - 新家人服事模板同時輸出角色專用 datalist 與完整 `customMembersList`；班表中任何 `useMemberList=true` 的自訂欄位，皆可取得已儲存的同工或小組群名單。

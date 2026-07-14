@@ -69,6 +69,7 @@
 * 寫入 `saveSongs` / `worship_saveSongs`：清除 `getSongs` / `worship_getSongs`、`getSchedule` / `worship_getSchedule` 快取。
 * 寫入 `savePositions` / `worship_savePositions`：清除 `getPositions` / `worship_getPositions`。
 * 寫入 `saveTeamMembers` / `worship_saveTeamMembers`：清除 `getTeamMembers` / `worship_getTeamMembers`。
+* 教會行事曆的成功寫入會由主 GAS 主動清除敬拜團的 Firebase topic 與跨表 `CacheService`（包含正式獨立版），不依賴使用者瀏覽器或管理入口 Router 的人工刷新。
 
 ---
 

@@ -85,7 +85,7 @@
 
   const _LOG_SESSION_ID = _getAnonSessionId();
 
-  if (isLocalEnv && window._GAS_KEY && !window._GAS_KEY.endsWith('_TEST')) {
+  if (isLocalEnv && !window._FORCE_PRODUCTION_GAS && window._GAS_KEY && !window._GAS_KEY.endsWith('_TEST')) {
     const testKey = window._GAS_KEY + '_TEST';
     if (_URL_ROUTER[testKey]) {
       console.warn(`⚠️ [開發環境] 偵測到本地/測試執行，已將 ${window._GAS_KEY} 自動切換為測試版 ${testKey}`);

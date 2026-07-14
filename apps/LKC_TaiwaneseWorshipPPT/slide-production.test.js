@@ -84,7 +84,9 @@ test('turns a scripture query result into two-verses-per-slide pages', () => {
 
 test('keeps source-deck title pages only for sections that actually have them', () => {
   const imported = [{ id: 'hymn-1:1', kind: 'ppt-import' }];
-  assert.deepEqual(composeLibraryPages({ pptPages: imported, includeSectionTitle: true }).map(page => page.kind), ['section', 'ppt-import']);
+  const pages = composeLibraryPages({ pptPages: imported, includeSectionTitle: true }, 'hymn-1');
+  assert.deepEqual(pages.map(page => page.kind), ['section', 'ppt-import']);
+  assert.equal(pages[0].id, 'hymn-1:section');
   assert.deepEqual(composeLibraryPages({ pptPages: imported, includeSectionTitle: false }).map(page => page.kind), ['ppt-import']);
 });
 

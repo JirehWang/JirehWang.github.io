@@ -26,7 +26,7 @@
 
   function sectionDecks() {
     return sections.map(([sectionId, label]) => {
-      const generatedPages = slidePages(model[sectionId]);
+      const generatedPages = slidePages(model[sectionId], sectionId);
       const pages = generatedPages.length ? generatedPages : [{ kind: 'section', body: '' }];
       return { sectionId, label, pages: pages.map((page, index) => ({ ...page, id: page.id || `${sectionId}:${index + 1}` })) };
     });
