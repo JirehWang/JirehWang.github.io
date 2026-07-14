@@ -167,7 +167,9 @@ const App = {
     const tasks = [
       { name: '主日程序', fn: () => this.fetchServiceProgram({ silent: true }) },
       { name: '服事人員', fn: () => this.fetchMinistry      ({ silent: true }) },
-      { name: '聚會人數', fn: () => this.fetchAttendanceTab ({ silent: true }) }
+      { name: '聚會人數', fn: () => this.fetchAttendanceTab ({ silent: true }) },
+      { name: '上傳讚美', fn: () => this.loadUploadedChoirSong({ silent: true }) },
+      { name: '上傳報告', fn: () => this.loadUploadedReports  ({ silent: true }) }
       // 活動預告：fetchServiceProgram 已透過 fetchCalendarForDate 帶入未來活動，無須重複呼叫
     ];
 
@@ -614,13 +616,18 @@ const App = {
   _updateOffering(i, f, v) { const d = BulletinModel.get(); if (!d.offeringReport.monthlyItems[i]) d.offeringReport.monthlyItems[i]={}; d.offeringReport.monthlyItems[i][f]=v; },
   _removeOffering(i) { const d = BulletinModel.get(); d.offeringReport.monthlyItems.splice(i,1); this.syncOfferingUI(d.offeringReport.monthlyItems); },
 
-  async loadUploadedChoirSong(event) {
-    if (event) event.preventDefault();
-    const date = this._els.bulletinDate.value;
-    if (!date) { this.showToast('請先選擇週報日期', 'error'); return; }
+  async loadUploadedChoirSong(opts = {}) {
+    const isEvent = opts && typeof opts.preventDefault === 'function';
+    if (isEvent) opts.preventDefault();
+    const silent = (opts && opts.silent === true);
     
-    this.showLoading(true);
-    this.showToast('正在載入上傳的讚美詩名...', 'info');
+    const date = this._els.bulletinDate.value;
+    if (!date) { if (!silent) this.showToast('請先選擇週報日期', 'error'); return { failed: ['未選擇日期'] }; }
+    
+    if (!silent) {
+      this.showLoading(true);
+      this.showToast('正在載入上傳的讚美詩名...', 'info');
+    }
     
     const key = `praise_songs_${date}`;
     const url = `${CONFIG.GAS_SYNC_URL}?action=load&key=${encodeURIComponent(key)}`;
@@ -634,28 +641,37 @@ const App = {
         if (title) {
           BulletinModel.set('taiwanese.choirSong', title);
           this.syncFormFromModel();
-          this.showToast('🎉 成功載入上傳的讚美詩名！', 'success');
+          if (!silent) this.showToast('🎉 成功載入上傳的讚美詩名！', 'success');
+          return { failed: [] };
         } else {
-          this.showToast('ℹ️ 該日期上傳記錄中無詩歌名稱', 'warning');
+          if (!silent) this.showToast('ℹ️ 該日期上傳記錄中無詩歌名稱', 'warning');
+          return { failed: ['上傳記錄中無詩歌名稱'] };
         }
       } else {
-        this.showToast('ℹ️ 該日期雲端尚無讚美上傳記錄', 'warning');
+        if (!silent) this.showToast('ℹ️ 該日期雲端尚無讚美上傳記錄', 'warning');
+        return { failed: ['雲端無讚美上傳記錄'] };
       }
     } catch (err) {
       console.error(err);
-      this.showToast(`❌ 載入失敗：${err.message}`, 'error');
+      if (!silent) this.showToast(`❌ 載入失敗：${err.message}`, 'error');
+      return { failed: [err.message] };
     } finally {
-      this.showLoading(false);
+      if (!silent) this.showLoading(false);
     }
   },
 
-  async loadUploadedReports(event) {
-    if (event) event.preventDefault();
-    const date = this._els.bulletinDate.value;
-    if (!date) { this.showToast('請先選擇週報日期', 'error'); return; }
+  async loadUploadedReports(opts = {}) {
+    const isEvent = opts && typeof opts.preventDefault === 'function';
+    if (isEvent) opts.preventDefault();
+    const silent = (opts && opts.silent === true);
     
-    this.showLoading(true);
-    this.showToast('正在載入上傳的消息與代禱...', 'info');
+    const date = this._els.bulletinDate.value;
+    if (!date) { if (!silent) this.showToast('請先選擇週報日期', 'error'); return { failed: ['未選擇日期'] }; }
+    
+    if (!silent) {
+      this.showLoading(true);
+      this.showToast('正在載入上傳的消息與代禱...', 'info');
+    }
     
     const key = `reports_${date}`;
     const url = `${CONFIG.GAS_SYNC_URL}?action=load&key=${encodeURIComponent(key)}`;
@@ -682,15 +698,18 @@ const App = {
         }
         
         this.syncFormFromModel();
-        this.showToast('🎉 成功載入上傳的消息與代禱事項！', 'success');
+        if (!silent) this.showToast('🎉 成功載入上傳的消息與代禱事項！', 'success');
+        return { failed: [] };
       } else {
-        this.showToast('ℹ️ 該日期雲端尚無消息/代禱上傳記錄', 'warning');
+        if (!silent) this.showToast('ℹ️ 該日期雲端尚無消息/代禱上傳記錄', 'warning');
+        return { failed: ['雲端無消息/代禱上傳記錄'] };
       }
     } catch (err) {
       console.error(err);
-      this.showToast(`❌ 載入失敗：${err.message}`, 'error');
+      if (!silent) this.showToast(`❌ 載入失敗：${err.message}`, 'error');
+      return { failed: [err.message] };
     } finally {
-      this.showLoading(false);
+      if (!silent) this.showLoading(false);
     }
   },
 
