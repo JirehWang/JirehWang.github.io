@@ -614,13 +614,13 @@ const App = {
   _updateOffering(i, f, v) { const d = BulletinModel.get(); if (!d.offeringReport.monthlyItems[i]) d.offeringReport.monthlyItems[i]={}; d.offeringReport.monthlyItems[i][f]=v; },
   _removeOffering(i) { const d = BulletinModel.get(); d.offeringReport.monthlyItems.splice(i,1); this.syncOfferingUI(d.offeringReport.monthlyItems); },
 
-  async loadUploadedWorshipSongs(event) {
+  async loadUploadedChoirSong(event) {
     if (event) event.preventDefault();
     const date = this._els.bulletinDate.value;
     if (!date) { this.showToast('請先選擇週報日期', 'error'); return; }
     
     this.showLoading(true);
-    this.showToast('正在載入上傳的敬拜曲目...', 'info');
+    this.showToast('正在載入上傳的讚美詩名...', 'info');
     
     const key = `praise_songs_${date}`;
     const url = `${CONFIG.GAS_SYNC_URL}?action=load&key=${encodeURIComponent(key)}`;
@@ -630,18 +630,16 @@ const App = {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json.success && json.data) {
-        const { leader, songs } = json.data;
-        const songTitles = (songs || []).map(s => s.title).filter(Boolean).join('、');
-        
-        BulletinModel.set('mandarin.worshipSongs', songTitles);
-        if (leader) {
-          BulletinModel.set('ministry.thisWeek.zh.worship', leader);
+        const { title } = json.data;
+        if (title) {
+          BulletinModel.set('taiwanese.choirSong', title);
+          this.syncFormFromModel();
+          this.showToast('🎉 成功載入上傳的讚美詩名！', 'success');
+        } else {
+          this.showToast('ℹ️ 該日期上傳記錄中無詩歌名稱', 'warning');
         }
-        
-        this.syncFormFromModel();
-        this.showToast('🎉 成功載入上傳的敬拜曲目！', 'success');
       } else {
-        this.showToast('ℹ️ 該日期雲端尚無敬拜上傳記錄', 'warning');
+        this.showToast('ℹ️ 該日期雲端尚無讚美上傳記錄', 'warning');
       }
     } catch (err) {
       console.error(err);

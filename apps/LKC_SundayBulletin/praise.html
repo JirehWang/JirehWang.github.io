@@ -3,10 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>林口教會 - 敬拜讚美上傳系統</title>
+  <title>林口教會 - 聖歌隊讚美詩名與歌詞上傳</title>
   <link rel="stylesheet" href="css/style.css">
   <style>
-    /* 擴展頁面專屬的優質設計 */
     body {
       background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
       min-height: 100vh;
@@ -14,7 +13,7 @@
       flex-direction: column;
     }
     .container {
-      max-width: 800px;
+      max-width: 700px;
       margin: 40px auto;
       padding: 0 20px;
       flex: 1;
@@ -61,53 +60,6 @@
     .date-section label {
       font-weight: bold;
       color: #1a3f5c;
-    }
-    .song-item {
-      background: #fdfdfd;
-      border: 1px solid #dee2e6;
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 20px;
-      position: relative;
-      transition: all 0.3s ease;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-    }
-    .song-item:hover {
-      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-      border-color: #2c5f8a;
-    }
-    .song-item-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 15px;
-      border-bottom: 1px solid #eee;
-      padding-bottom: 10px;
-    }
-    .song-num {
-      background: #2c5f8a;
-      color: white;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      font-weight: bold;
-    }
-    .btn-delete-song {
-      background: #c0392b;
-      color: white;
-      border: none;
-      padding: 4px 10px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-      transition: background 0.2s;
-    }
-    .btn-delete-song:hover {
-      background: #a93226;
     }
     .action-row {
       display: flex;
@@ -159,12 +111,12 @@
 <body>
 
 <header class="app-header" style="position: static; box-shadow: none;">
-  <div class="header-top" style="max-width: 800px; margin: 0 auto; width: 100%;">
+  <div class="header-top" style="max-width: 700px; margin: 0 auto; width: 100%;">
     <div class="header-brand">
       <span class="church-icon">🎵</span>
       <div>
         <h1>林口教會週報系統</h1>
-        <div class="subtitle">敬拜讚美曲目與歌詞上傳</div>
+        <div class="subtitle">聖歌隊讚美詩名與歌詞上傳</div>
       </div>
     </div>
     <a href="index.html" class="nav-btn">🔙 返回週報主頁</a>
@@ -174,7 +126,7 @@
 <div class="container">
   <div class="upload-card">
     <div class="upload-header">
-      <h2>📋 敬拜資料登記表</h2>
+      <h2>📋 讚美資料登記表</h2>
       <span id="syncStatus" style="font-size: 13px; opacity: 0.8;">狀態：未連線</span>
     </div>
     <div class="upload-body">
@@ -184,18 +136,24 @@
           <label for="bulletinDate">主日日期：</label>
           <input type="date" id="bulletinDate" class="form-input" style="width: auto; display: inline-block;">
         </div>
-        <div>
-          <label for="worshipLeader">敬拜主領：</label>
-          <input type="text" id="worshipLeader" class="form-input" style="width: 150px; display: inline-block;" placeholder="例：陳弟兄">
+        <div style="font-size: 13px; color: #555;">
+          說明：在此上傳聖歌隊獻詩之歌名與歌詞，週報與 PPT 系統將可自動同步。
         </div>
       </div>
 
-      <div id="songsContainer">
-        <!-- 詩歌項目動態生成於此 -->
+      <div class="form-group">
+        <label for="songTitle" style="font-weight: bold;">讚美／聖歌隊詩名：</label>
+        <input type="text" id="songTitle" class="form-input" placeholder="請輸入本週獻詩歌名..." style="font-size: 16px; font-weight: bold;">
       </div>
 
-      <div style="text-align: center; margin-top: 15px;">
-        <button class="btn btn-secondary" id="btnAddSong">➕ 新增一首詩歌</button>
+      <div class="form-group">
+        <label for="songKicker" style="font-weight: bold;">演唱者／團體：</label>
+        <input type="text" id="songKicker" class="form-input" value="聖歌隊" placeholder="例：聖歌隊">
+      </div>
+
+      <div class="form-group">
+        <label for="songLyrics" style="font-weight: bold;">歌詞（段落之間請空一行，以便 PPT 自動分頁）：</label>
+        <textarea id="songLyrics" class="form-input" rows="10" placeholder="請在此貼入讚美詩歌之完整歌詞..."></textarea>
       </div>
 
       <hr style="border: 0; border-top: 1px solid #dee2e6; margin: 25px 0;">
@@ -219,8 +177,9 @@
 <script>
   const state = {
     date: '',
-    leader: '',
-    songs: []
+    title: '',
+    kicker: '聖歌隊',
+    lyrics: ''
   };
 
   document.addEventListener('DOMContentLoaded', () => {
@@ -241,113 +200,62 @@
       loadLocalBackup();
     });
 
-    document.getElementById('worshipLeader').addEventListener('input', (e) => {
-      state.leader = e.target.value;
+    document.getElementById('songTitle').addEventListener('input', (e) => {
+      state.title = e.target.value;
+      saveLocalBackup();
     });
 
-    document.getElementById('btnAddSong').addEventListener('click', () => {
-      addSongRow('', '');
+    document.getElementById('songKicker').addEventListener('input', (e) => {
+      state.kicker = e.target.value;
+      saveLocalBackup();
+    });
+
+    document.getElementById('songLyrics').addEventListener('input', (e) => {
+      state.lyrics = e.target.value;
+      saveLocalBackup();
     });
 
     document.getElementById('btnSaveCloud').addEventListener('click', saveToCloud);
     document.getElementById('btnLoadCloud').addEventListener('click', loadFromCloud);
 
-    // 初始化：預設新增一列
-    addSongRow('', '');
     loadLocalBackup();
   });
 
-  function addSongRow(title = '', lyrics = '') {
-    const container = document.getElementById('songsContainer');
-    const idx = container.children.length;
-    
-    const div = document.createElement('div');
-    div.className = 'song-item';
-    div.dataset.index = idx;
-    
-    div.innerHTML = `
-      <div class="song-item-header">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <span class="song-num">${idx + 1}</span>
-          <input type="text" class="form-input song-title" style="width: 250px; font-weight: bold;" placeholder="請輸入詩歌名稱" value="${title}">
-        </div>
-        <button class="btn-delete-song">❌ 刪除</button>
-      </div>
-      <div class="form-group" style="margin-bottom: 0;">
-        <label>歌詞：</label>
-        <textarea class="form-input song-lyrics" rows="5" placeholder="請在此貼入歌詞。段落之間空一行，可在 PPT 產生時自動分頁。">${lyrics}</textarea>
-      </div>
-    `;
-
-    // 綁定刪除事件
-    div.querySelector('.btn-delete-song').addEventListener('click', () => {
-      div.remove();
-      reindexSongs();
-      saveLocalBackup();
-    });
-
-    // 綁定輸入同步事件
-    div.querySelector('.song-title').addEventListener('input', saveLocalBackup);
-    div.querySelector('.song-lyrics').addEventListener('input', saveLocalBackup);
-
-    container.appendChild(div);
-  }
-
-  function reindexSongs() {
-    const container = document.getElementById('songsContainer');
-    Array.from(container.children).forEach((child, idx) => {
-      child.dataset.index = idx;
-      child.querySelector('.song-num').textContent = idx + 1;
-    });
-  }
-
   function collectState() {
-    state.leader = document.getElementById('worshipLeader').value.trim();
     state.date = document.getElementById('bulletinDate').value;
-    
-    const container = document.getElementById('songsContainer');
-    state.songs = Array.from(container.children).map(child => {
-      return {
-        title: child.querySelector('.song-title').value.trim(),
-        lyrics: child.querySelector('.song-lyrics').value.trim()
-      };
-    }).filter(s => s.title); // 過濾掉空歌名
+    state.title = document.getElementById('songTitle').value.trim();
+    state.kicker = document.getElementById('songKicker').value.trim();
+    state.lyrics = document.getElementById('songLyrics').value.trim();
   }
 
   function renderState() {
-    document.getElementById('worshipLeader').value = state.leader;
-    const container = document.getElementById('songsContainer');
-    container.innerHTML = '';
-    
-    if (state.songs.length === 0) {
-      addSongRow('', '');
-    } else {
-      state.songs.forEach(song => {
-        addSongRow(song.title, song.lyrics);
-      });
-    }
+    document.getElementById('songTitle').value = state.title || '';
+    document.getElementById('songKicker').value = state.kicker || '聖歌隊';
+    document.getElementById('songLyrics').value = state.lyrics || '';
   }
 
-  // 本地快取（避免填寫時不小心關閉頁面丟失）
+  // 本地快取
   function saveLocalBackup() {
     collectState();
     if (state.date) {
-      localStorage.setItem(`praise_local_backup_${state.date}`, JSON.stringify(state));
+      localStorage.setItem(`praise_choir_local_backup_${state.date}`, JSON.stringify(state));
     }
   }
 
   function loadLocalBackup() {
     if (!state.date) return;
-    const raw = localStorage.getItem(`praise_local_backup_${state.date}`);
+    const raw = localStorage.getItem(`praise_choir_local_backup_${state.date}`);
     if (raw) {
       const data = JSON.parse(raw);
-      state.leader = data.leader || '';
-      state.songs = data.songs || [];
+      state.title = data.title || '';
+      state.kicker = data.kicker || '聖歌隊';
+      state.lyrics = data.lyrics || '';
       renderState();
       showToast('載入本地填寫草稿', 'info');
     } else {
-      state.leader = '';
-      state.songs = [];
+      state.title = '';
+      state.kicker = '聖歌隊';
+      state.lyrics = '';
       renderState();
     }
   }
@@ -359,19 +267,20 @@
       showToast('請先選擇日期', 'error');
       return;
     }
-    if (state.songs.length === 0) {
-      showToast('請至少填寫一首詩歌名稱', 'error');
+    if (!state.title) {
+      showToast('請填寫讚美詩歌名稱', 'error');
       return;
     }
 
     document.getElementById('syncStatus').textContent = '狀態：正在上傳...';
     showToast('正在上傳雲端暫存，請稍候...', 'info');
 
-    const key = `praise_songs_${state.date}`;
+    const key = `praise_songs_${state.date}`; // 保持使用 praise_songs_ 前綴，以便其他系統調用
     const payload = {
       date: state.date,
-      leader: state.leader,
-      songs: state.songs,
+      title: state.title,
+      kicker: state.kicker,
+      lyrics: state.lyrics,
       updatedAt: new Date().toISOString()
     };
 
@@ -385,7 +294,7 @@
       const json = await res.json();
       if (json.success) {
         document.getElementById('syncStatus').textContent = '狀態：已儲存至雲端';
-        showToast('🎉 敬拜讚美曲目已成功上傳至雲端！', 'success');
+        showToast('🎉 讚美詩歌與歌詞已成功上傳至雲端！', 'success');
       } else {
         throw new Error(json.error || '後端儲存失敗');
       }
@@ -414,8 +323,9 @@
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json.success && json.data) {
-        state.leader = json.data.leader || '';
-        state.songs = json.data.songs || [];
+        state.title = json.data.title || '';
+        state.kicker = json.data.kicker || '聖歌隊';
+        state.lyrics = json.data.lyrics || '';
         renderState();
         document.getElementById('syncStatus').textContent = '狀態：已載入雲端資料';
         showToast('📂 成功載入雲端暫存資料！', 'success');
