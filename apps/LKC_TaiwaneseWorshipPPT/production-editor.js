@@ -58,6 +58,8 @@
     const syncOpacity = document.getElementById('sync-hymn-opacity');
     if (syncOpacity) syncOpacity.onchange = event => {
       window.setHymnOpacitySyncEnabled(event.target.checked);
+      const globalSync = document.getElementById('sync-hymn-opacity-global');
+      if (globalSync) globalSync.checked = event.target.checked;
       if (event.target.checked) window.TaiwaneseWorshipSlideProduction.applyHymnOpacity(model, window.hymnOpacitySectionIds, active, item.opacity, true);
       preview();
       status(event.target.checked ? '已啟用所有聖詩譜面透明度同步' : '已改為各聖詩分開調整透明度');

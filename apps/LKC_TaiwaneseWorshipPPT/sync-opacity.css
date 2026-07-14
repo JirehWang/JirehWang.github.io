@@ -14,3 +14,20 @@
   margin: 0;
   accent-color: var(--accent);
 }
+
+.sync-toolbar-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink) !important;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.sync-toolbar-option input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
