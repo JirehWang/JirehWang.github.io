@@ -1,7 +1,7 @@
 (function() {
   const previousEditor = editor;
   const generatedIds = new Set(['call', 'scripture', 'verse']);
-  const portIds = new Set(['hymn-1', 'hymn-2', 'response', 'doxology']);
+  const portIds = new Set(['pre-hymn-1', 'pre-hymn-2', 'hymn-1', 'hymn-2', 'response', 'prayer-song', 'offering', 'doxology', 'amen']);
 
   editor = function() {
     if (!generatedIds.has(active) && !portIds.has(active)) return previousEditor();

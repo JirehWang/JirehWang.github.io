@@ -67,3 +67,10 @@ test('decodes a GAS Base64 PPTX response without using Drive fetch', async () =>
   const bytes = library.base64ToArrayBuffer(Buffer.from([80, 75, 3, 4]).toString('base64'));
   assert.deepEqual(Array.from(new Uint8Array(bytes)), [80, 75, 3, 4]);
 });
+
+test('resolves PowerPoint theme text colors so responsive-reading roles stay distinct', () => {
+  const theme = { dk1: '#000000', dk2: '#0E2841' };
+  const colorMap = { tx1: 'dk1', tx2: 'dk2' };
+  assert.equal(library.resolveSchemeColor('tx1', theme, colorMap), '#000000');
+  assert.equal(library.resolveSchemeColor('tx2', theme, colorMap), '#0E2841');
+});

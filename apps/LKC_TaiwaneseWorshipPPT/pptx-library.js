@@ -102,14 +102,47 @@
   }
 
   const presetColors = { black: '#000000', white: '#ffffff', red: '#ff0000', blue: '#0000ff', yellow: '#ffff00', green: '#008000' };
-  function parseRunStyle(runProperties) {
+  const defaultColorMap = { bg1: 'lt1', tx1: 'dk1', bg2: 'lt2', tx2: 'dk2', accent1: 'accent1', accent2: 'accent2', accent3: 'accent3', accent4: 'accent4', accent5: 'accent5', accent6: 'accent6' };
+
+  function resolveSchemeColor(value, themeColors, colorMap) {
+    const mapped = (colorMap && colorMap[value]) || defaultColorMap[value] || value;
+    return (themeColors && themeColors[mapped]) || '';
+  }
+
+  function parseThemeColors(themeDocument) {
+    const scheme = themeDocument && firstDescendant(themeDocument, 'clrScheme');
+    const colors = {};
+    Array.from(scheme ? scheme.childNodes : []).filter(node => node.nodeType === 1).forEach(node => {
+      const valueNode = Array.from(node.childNodes).find(child => child.nodeType === 1);
+      if (!valueNode) return;
+      const value = valueNode.localName === 'sysClr' ? valueNode.getAttribute('lastClr') : valueNode.getAttribute('val');
+      if (value) colors[node.localName] = `#${value}`;
+    });
+    return colors;
+  }
+
+  function parseColorMap(masterDocument) {
+    const colorMap = { ...defaultColorMap };
+    const node = masterDocument && firstDescendant(masterDocument, 'clrMap');
+    if (!node) return colorMap;
+    Object.keys(defaultColorMap).forEach(key => {
+      if (node.getAttribute(key)) colorMap[key] = node.getAttribute(key);
+    });
+    return colorMap;
+  }
+
+  function parseRunStyle(runProperties, colorContext) {
     if (!runProperties) return {};
     const solidFill = directChild(runProperties, 'solidFill');
     const rgb = solidFill && directChild(solidFill, 'srgbClr');
     const preset = solidFill && directChild(solidFill, 'prstClr');
+    const scheme = solidFill && directChild(solidFill, 'schemeClr');
     const eastAsian = directChild(runProperties, 'ea');
     const latin = directChild(runProperties, 'latin');
-    const color = rgb ? `#${rgb.getAttribute('val')}` : presetColors[preset && preset.getAttribute('val')] || '';
+    const color = rgb
+      ? `#${rgb.getAttribute('val')}`
+      : presetColors[preset && preset.getAttribute('val')]
+        || resolveSchemeColor(scheme && scheme.getAttribute('val'), colorContext && colorContext.themeColors, colorContext && colorContext.colorMap);
     return {
       fontSize: intAttr(runProperties, 'sz') ? intAttr(runProperties, 'sz') / 100 : undefined,
       bold: runProperties.getAttribute('b') === '1',
@@ -120,7 +153,7 @@
     };
   }
 
-  function parseTextShape(shape, transform, slideWidth, slideHeight) {
+  function parseTextShape(shape, transform, slideWidth, slideHeight, colorContext) {
     const txBody = directChild(shape, 'txBody');
     const rect = shapeRect(shape, transform);
     if (!txBody || !rect) return null;
@@ -135,7 +168,7 @@
         }
         if (!['r', 'fld'].includes(run.localName)) return;
         const textNode = directChild(run, 't');
-        if (textNode) runs.push({ text: textNode.textContent || '', ...parseRunStyle(directChild(run, 'rPr')) });
+        if (textNode) runs.push({ text: textNode.textContent || '', ...parseRunStyle(directChild(run, 'rPr'), colorContext) });
       });
     });
     const text = runs.map(run => run.text).join('');
@@ -167,14 +200,14 @@
     return { type: 'image', mediaPath, ...rectToPercent(rect, slideWidth, slideHeight) };
   }
 
-  function walkShapes(container, transform, slideWidth, slideHeight, relationships, output) {
+  function walkShapes(container, transform, slideWidth, slideHeight, relationships, output, colorContext) {
     Array.from(container.childNodes).filter(node => node.nodeType === 1).forEach(node => {
       if (node.localName === 'grpSp') {
         const groupProperties = directChild(node, 'grpSpPr');
         const xfrm = groupProperties && directChild(groupProperties, 'xfrm');
-        walkShapes(node, xfrm ? groupTransform(parseTransform(xfrm), transform) : transform, slideWidth, slideHeight, relationships, output);
+        walkShapes(node, xfrm ? groupTransform(parseTransform(xfrm), transform) : transform, slideWidth, slideHeight, relationships, output, colorContext);
       } else if (node.localName === 'sp') {
-        const parsed = parseTextShape(node, transform, slideWidth, slideHeight);
+        const parsed = parseTextShape(node, transform, slideWidth, slideHeight, colorContext);
         if (parsed) output.push(parsed);
       } else if (node.localName === 'pic') {
         const parsed = parsePicture(node, transform, slideWidth, slideHeight, relationships);
@@ -216,6 +249,11 @@
     const slideSize = firstDescendant(presentation, 'sldSz');
     const slideWidth = intAttr(slideSize, 'cx', PPT_WIDTH_EMU);
     const slideHeight = intAttr(slideSize, 'cy', PPT_HEIGHT_EMU);
+    const themePath = Object.keys(zip.files).find(path => /^ppt\/theme\/theme\d+\.xml$/.test(path));
+    const masterPath = Object.keys(zip.files).find(path => /^ppt\/slideMasters\/slideMaster\d+\.xml$/.test(path));
+    const themeColors = themePath ? parseThemeColors(await xml(themePath)) : {};
+    const colorMap = masterPath ? parseColorMap(await xml(masterPath)) : { ...defaultColorMap };
+    const colorContext = { themeColors, colorMap };
     const slidePaths = Object.keys(zip.files).filter(path => /^ppt\/slides\/slide\d+\.xml$/.test(path)).sort((a, b) => Number(a.match(/slide(\d+)/)[1]) - Number(b.match(/slide(\d+)/)[1]));
     const mediaCache = {};
     const pages = [];
@@ -227,7 +265,7 @@
       const slide = await xml(slidePath);
       const shapeTree = firstDescendant(slide, 'spTree');
       const objects = [];
-      if (shapeTree) walkShapes(shapeTree, { sx: 1, sy: 1, tx: 0, ty: 0 }, slideWidth, slideHeight, relationships, objects);
+      if (shapeTree) walkShapes(shapeTree, { sx: 1, sy: 1, tx: 0, ty: 0 }, slideWidth, slideHeight, relationships, objects, colorContext);
       for (const object of objects.filter(item => item.type === 'image')) {
         if (!mediaCache[object.mediaPath]) {
           const media = zip.file(object.mediaPath);
@@ -269,6 +307,7 @@
     groupTransform,
     mapRect,
     rectToPercent,
+    resolveSchemeColor,
     base64ToArrayBuffer,
     parsePptx,
     downloadAndParse

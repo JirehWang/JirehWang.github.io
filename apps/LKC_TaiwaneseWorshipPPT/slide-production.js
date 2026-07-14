@@ -28,6 +28,27 @@
     return pages;
   }
 
+  function composeLibraryPages(item) {
+    const pages = (Array.isArray(item && item.pptPages) ? item.pptPages : []).map(page =>
+      typeof page === 'string' ? ({ kind: 'liturgical', body: page }) : ({ kind: 'liturgical', ...page })
+    );
+    return item && item.includeSectionTitle ? [{ kind: 'section' }, ...pages] : pages;
+  }
+
+  function applyFixedLibraryDefaults(model) {
+    const fixed = [
+      ['prayer-song', '261', false],
+      ['offering', '306B', true],
+      ['amen', '522', false]
+    ];
+    fixed.forEach(([sectionId, sourceValue, includeSectionTitle]) => {
+      if (!model || !model[sectionId]) return;
+      model[sectionId].sourceValue = sourceValue;
+      model[sectionId].includeSectionTitle = includeSectionTitle;
+    });
+    return model;
+  }
+
   function paginateFixedText(value, pageWeights) {
     const paragraphs = String(value || '').split(/\n\s*\n/).map(part => part.trim()).filter(Boolean);
     const weights = (Array.isArray(pageWeights) && pageWeights.length ? pageWeights : [1]).map(weight => Math.max(1, Number(weight) || 1));
@@ -112,6 +133,8 @@
   return {
     normalizeColor,
     buildBiblePages,
+    composeLibraryPages,
+    applyFixedLibraryDefaults,
     buildDeckEntries,
     paginateFixedText,
     createLayoutGroup,

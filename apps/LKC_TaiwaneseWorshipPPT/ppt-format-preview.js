@@ -24,7 +24,7 @@ function renderImportedPptPage(page, item) {
   }).join('')}</div>`;
 }
 function slidePages(item) {
-  if (Array.isArray(item.pptPages)) return item.pptPages.map(page => typeof page === 'string' ? ({ kind:'liturgical', body:page }) : ({ kind:'liturgical', ...page }));
+  if (Array.isArray(item.pptPages)) return window.TaiwaneseWorshipSlideProduction.composeLibraryPages(item);
   if (item.type === 'fixed') {
     const kind = active === 'creed' || active === 'lord-prayer' ? 'liturgical' : 'content';
     return (item.body || '').split(/\n\s*\n/).filter(Boolean).map(body => ({ kind, body }));
@@ -35,10 +35,11 @@ function slidePages(item) {
     return [{ kind:'praise-title' }, ...lyrics];
   }
   if (item.type === 'manual') {
-    return (item.body || '').split(/\n\s*\n/).filter(Boolean).map(body => ({ kind:'content', body }));
+    const pages = (item.body || '').split(/\n\s*\n/).filter(Boolean).map(body => ({ kind:'content', body }));
+    return [{ kind:'section' }, ...pages];
   }
   if (item.type === 'hymn') return [{ kind:'section' }, { kind:'score' }];
-  if (item.type === 'fixed-title') return [{ kind:'section' }, { kind:'score' }];
+  if (item.type === 'fixed-title') return item.includeSectionTitle === false ? [{ kind:'score' }] : [{ kind:'section' }, { kind:'score' }];
   if (item.type === 'title') return [{ kind:'section' }];
   return [{ kind:'content', body:item.body || '' }];
 }

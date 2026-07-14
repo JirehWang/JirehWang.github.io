@@ -41,8 +41,12 @@
     put('scripture', 'sourceValue', getValue(event, aliases.scripture));
     put('verse', 'sourceValue', getValue(event, aliases.verse));
     put('response', 'sourceValue', getValue(event, aliases.responsiveReading));
-    put('hymn-1', 'sourceValue', hymnNumber(getValue(event, aliases.hymn1)));
-    put('hymn-2', 'sourceValue', hymnNumber(getValue(event, aliases.hymn2)));
+    const hymn1 = hymnNumber(getValue(event, aliases.hymn1));
+    const hymn2 = hymnNumber(getValue(event, aliases.hymn2));
+    put('hymn-1', 'sourceValue', hymn1);
+    put('pre-hymn-1', 'sourceValue', hymn1);
+    put('hymn-2', 'sourceValue', hymn2);
+    put('pre-hymn-2', 'sourceValue', hymn2);
     put('doxology', 'sourceValue', hymnNumber(getValue(event, aliases.doxology)));
     return model;
   }

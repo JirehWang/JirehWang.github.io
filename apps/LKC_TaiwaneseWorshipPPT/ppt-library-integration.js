@@ -44,7 +44,24 @@
     item.pptPages = pages.map((page, index) => ({ ...page, id: `${sectionId}:${index + 1}` }));
     item.libraryFileId = entry.fileId;
     item.libraryEntry = { kind: entry.kind, number: entry.number, title: entry.title, fileName: entry.fileName };
-    item.title = kind === 'hymn' ? entry.fileName.replace(/\.pptx$/i, '') : entry.title;
+    if (sectionId === 'offering') {
+      item.title = '奉獻';
+      item.kicker = '';
+    } else if (sectionId === 'amen') {
+      item.title = '阿們頌';
+      item.kicker = '';
+    } else if (sectionId === 'prayer-song') {
+      item.title = entry.fileName.replace(/\.pptx$/i, '');
+      item.kicker = '';
+    } else if (sectionId === 'doxology') {
+      item.title = `頌榮 – 第${entry.number}首`;
+      item.kicker = entry.title || '';
+    } else if (kind === 'hymn') {
+      item.title = `聖詩 – 第 ${entry.number} 首`;
+      item.kicker = entry.title || '';
+    } else {
+      item.title = entry.title;
+    }
     item.libraryError = '';
     return { sectionId, state: 'loaded', pageCount: pages.length, entry };
   }
@@ -52,10 +69,15 @@
   window.loadPptLibraryContent = async function(sectionIds) {
     const entries = await getIndex();
     const targets = [
+      ['pre-hymn-1', 'hymn'],
+      ['pre-hymn-2', 'hymn'],
       ['hymn-1', 'hymn'],
       ['hymn-2', 'hymn'],
       ['doxology', 'hymn'],
-      ['response', 'response']
+      ['response', 'response'],
+      ['prayer-song', 'hymn'],
+      ['offering', 'hymn'],
+      ['amen', 'hymn']
     ].filter(([sectionId]) => !sectionIds || sectionIds.includes(sectionId));
     return Promise.all(targets.map(([sectionId, kind]) => loadSection(sectionId, kind, entries)));
   };
@@ -65,4 +87,10 @@
     render();
     return result[0];
   };
+
+  window.addEventListener('load', () => {
+    window.loadPptLibraryContent(['prayer-song', 'offering', 'amen'])
+      .then(() => render())
+      .catch(error => console.warn('固定聖詩載入失敗：', error));
+  });
 })();

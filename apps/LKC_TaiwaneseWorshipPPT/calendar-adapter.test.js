@@ -8,7 +8,7 @@ const {
 
 test('maps calendar values into Taiwanese worship fields and keeps hymn numbers only', () => {
   const model = {
-    call: {}, sermon: {}, scripture: {}, verse: {}, response: {}, 'hymn-1': {}, 'hymn-2': {}, doxology: {}
+    call: {}, sermon: {}, scripture: {}, verse: {}, response: {}, 'pre-hymn-1': {}, 'pre-hymn-2': {}, 'hymn-1': {}, 'hymn-2': {}, doxology: {}
   };
   applyCalendarEvent({
     values: [
@@ -31,6 +31,8 @@ test('maps calendar values into Taiwanese worship fields and keeps hymn numbers 
   assert.equal(model.response.sourceValue, '第 3 篇');
   assert.equal(model['hymn-1'].sourceValue, '65');
   assert.equal(model['hymn-2'].sourceValue, '474');
+  assert.equal(model['pre-hymn-1'].sourceValue, '65');
+  assert.equal(model['pre-hymn-2'].sourceValue, '474');
   assert.equal(model.doxology.sourceValue, '510');
 });
 

@@ -7,7 +7,9 @@ const {
   createLayoutGroup,
   updateLayoutGroup,
   detachPagesFromLayoutGroup,
-  normalizeColor
+  normalizeColor,
+  composeLibraryPages,
+  applyFixedLibraryDefaults
 } = require('./slide-production.js');
 
 test('normalizes solid background and text colors to safe hex values', () => {
@@ -47,6 +49,23 @@ test('turns a scripture query result into two-verses-per-slide pages', () => {
   assert.equal(pages[0].title, '聖經－馬太福音13:1-5');
   assert.equal(pages[0].body, '1 第一節\n\n2 第二節');
   assert.equal(pages[2].body, '5 第五節');
+});
+
+test('keeps source-deck title pages only for sections that actually have them', () => {
+  const imported = [{ id: 'hymn-1:1', kind: 'ppt-import' }];
+  assert.deepEqual(composeLibraryPages({ pptPages: imported, includeSectionTitle: true }).map(page => page.kind), ['section', 'ppt-import']);
+  assert.deepEqual(composeLibraryPages({ pptPages: imported, includeSectionTitle: false }).map(page => page.kind), ['ppt-import']);
+});
+
+test('sets the three fixed library songs required by the source deck', () => {
+  const model = { 'prayer-song': {}, offering: {}, amen: {} };
+  applyFixedLibraryDefaults(model);
+  assert.equal(model['prayer-song'].sourceValue, '261');
+  assert.equal(model.offering.sourceValue, '306B');
+  assert.equal(model.amen.sourceValue, '522');
+  assert.equal(model.offering.includeSectionTitle, true);
+  assert.equal(model['prayer-song'].includeSectionTitle, false);
+  assert.equal(model.amen.includeSectionTitle, false);
 });
 
 test('remembers named layout groups and keeps different batches independent', () => {
