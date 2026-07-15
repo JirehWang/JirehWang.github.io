@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>台語禮拜 PPT 編輯器</title>
-  <link rel="stylesheet" href="style.css?v=20260714a">
+  <link rel="stylesheet" href="style.css?v=20260715b">
   <link rel="stylesheet" href="format.css">
   <link rel="stylesheet" href="reference-layout.css?v=20260714b">
   <link rel="stylesheet" href="color-controls.css?v=20260713a">
@@ -20,6 +20,11 @@
       <label class="color-field">投影片底色 <input id="background-color" type="color" value="#ffffff" aria-label="投影片底色"></label>
       <label class="upload button quiet">上傳背景圖<input id="background-image-upload" type="file" accept="image/png,image/jpeg,image/webp"></label>
       <label class="sync-toolbar-option"><input id="sync-hymn-opacity-global" type="checkbox" checked><span>聖詩頁白底透明度同步</span></label>
+      <div class="output-scale-toolbar" aria-label="PPT 輸出比例">
+        <label>文字 %<input id="lg-output-text-scale" type="number" min="80" max="120" step="1" value="100"></label>
+        <label>圖片 %<input id="lg-output-image-scale" type="number" min="80" max="120" step="1" value="100"></label>
+        <button class="button quiet" id="layout-save-output-scale" type="button">儲存比例</button>
+      </div>
       <button class="button quiet" id="calendar-load">從行事曆帶入</button>
       <button class="button quiet" id="layout-panel-open">版面參數</button>
       <button class="button quiet layout-lock-button" id="layout-lock-toggle" type="button" aria-pressed="false">版面設定已鎖定</button>
@@ -61,7 +66,7 @@
   <script src="production-editor.js?v=20260714d"></script>
   <script src="bulletin-integration.js?v=20260714b"></script>
   <script src="layout-cloud-store.js?v=20260715d"></script>
-  <script src="layout-groups.js?v=20260715d"></script>
+  <script src="layout-groups.js?v=20260715e"></script>
   <script src="ppt-export.js?v=20260715d"></script>
   <script>
       const globalHymnOpacitySync = document.getElementById('sync-hymn-opacity-global');
