@@ -281,6 +281,122 @@
     return pages;
   }
 
+  function browserCanvas() {
+    if (typeof document === 'undefined') throw new Error('目前環境無法建立投影片圖片');
+    return document.createElement('canvas');
+  }
+
+  function browserImage(src) {
+    if (typeof Image === 'undefined') return Promise.reject(new Error('目前環境無法載入投影片圖片'));
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error('投影片內圖片載入失敗'));
+      image.src = src;
+    });
+  }
+
+  function textLines(runs) {
+    const lines = [[]];
+    (runs || []).forEach(run => {
+      String(run.text == null ? '' : run.text).split('\n').forEach((part, index) => {
+        if (index) lines.push([]);
+        if (part) lines[lines.length - 1].push({ ...run, text: part });
+      });
+    });
+    return lines;
+  }
+
+  function canvasFont(run, object, pixelsPerPoint) {
+    const size = (Number(run.fontSize) || Number(object.fontSize) || 18) * pixelsPerPoint;
+    const family = run.fontFamily || object.fontFamily || 'Microsoft JhengHei';
+    return `${run.italic ? 'italic ' : ''}${run.bold || object.bold ? '700 ' : ''}${size}px "${family}"`;
+  }
+
+  function drawTextObject(context, object, canvasWidth, canvasHeight, pixelsPerPoint) {
+    const x = Number(object.x) / 100 * canvasWidth;
+    const y = Number(object.y) / 100 * canvasHeight;
+    const width = Number(object.w) / 100 * canvasWidth;
+    const height = Number(object.h) / 100 * canvasHeight;
+    const lines = textLines(Array.isArray(object.runs) && object.runs.length ? object.runs : [{ text: object.text || '' }]);
+    const measured = lines.map(line => {
+      const parts = line.map(run => {
+        context.font = canvasFont(run, object, pixelsPerPoint);
+        return {
+          run,
+          width: context.measureText(run.text).width,
+          size: (Number(run.fontSize) || Number(object.fontSize) || 18) * pixelsPerPoint
+        };
+      });
+      const maxSize = Math.max(...parts.map(part => part.size), (Number(object.fontSize) || 18) * pixelsPerPoint);
+      return { parts, width: parts.reduce((sum, part) => sum + part.width, 0), height: maxSize * 1.15, maxSize };
+    });
+    const totalHeight = measured.reduce((sum, line) => sum + line.height, 0);
+    let top = y;
+    if (object.verticalAlign === 'center') top += Math.max(0, (height - totalHeight) / 2);
+    if (object.verticalAlign === 'end') top += Math.max(0, height - totalHeight);
+    context.textBaseline = 'alphabetic';
+    measured.forEach(line => {
+      let cursorX = x;
+      if (object.align === 'center') cursorX += Math.max(0, (width - line.width) / 2);
+      if (object.align === 'right') cursorX += Math.max(0, width - line.width);
+      const baseline = top + line.maxSize;
+      line.parts.forEach(part => {
+        context.font = canvasFont(part.run, object, pixelsPerPoint);
+        context.fillStyle = part.run.color || object.color || '#000000';
+        context.fillText(part.run.text, cursorX, baseline);
+        if (part.run.underline && context.beginPath) {
+          context.beginPath();
+          context.moveTo(cursorX, baseline + Math.max(1, part.size * 0.06));
+          context.lineTo(cursorX + part.width, baseline + Math.max(1, part.size * 0.06));
+          context.strokeStyle = context.fillStyle;
+          context.lineWidth = Math.max(1, part.size * 0.04);
+          context.stroke();
+        }
+        cursorX += part.width;
+      });
+      top += line.height;
+    });
+  }
+
+  async function rasterizeImportedPages(pages, options = {}) {
+    const width = Math.max(640, Number(options.width) || 1600);
+    const createCanvas = options.createCanvas || browserCanvas;
+    const loadImage = options.loadImage || browserImage;
+    const result = [];
+    for (const page of pages || []) {
+      const sourceWidth = Number(page.sourceWidth) || PPT_WIDTH_EMU;
+      const sourceHeight = Number(page.sourceHeight) || PPT_HEIGHT_EMU;
+      const height = Math.round(width * sourceHeight / sourceWidth);
+      const pixelsPerPoint = width / (sourceWidth / 914400) / 72;
+      const canvas = createCanvas();
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d');
+      context.clearRect(0, 0, width, height);
+      for (const object of page.objects || []) {
+        if (object.type === 'image' && object.src) {
+          const image = await loadImage(object.src);
+          context.drawImage(
+            image,
+            Number(object.x) / 100 * width,
+            Number(object.y) / 100 * height,
+            Number(object.w) / 100 * width,
+            Number(object.h) / 100 * height
+          );
+        } else if (object.type === 'text') {
+          drawTextObject(context, object, width, height, pixelsPerPoint);
+        }
+      }
+      result.push({
+        ...page,
+        rasterized: true,
+        objects: [{ type: 'image', src: canvas.toDataURL('image/png'), x: 0, y: 0, w: 100, h: 100 }]
+      });
+    }
+    return result;
+  }
+
   async function downloadAndParse(entry, JSZipImplementation, readApi) {
     if (!entry || !entry.fileId) throw new Error('找不到對應的雲端 PPTX');
     if (typeof readApi === 'function') {
@@ -310,6 +426,7 @@
     resolveSchemeColor,
     base64ToArrayBuffer,
     parsePptx,
+    rasterizeImportedPages,
     downloadAndParse
   };
 });
