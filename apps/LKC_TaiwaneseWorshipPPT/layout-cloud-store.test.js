@@ -44,11 +44,13 @@ test('normalizes shared layout groups and protected score opacity values only', 
     groups: { scripture: { id: 'scripture', pageIds: ['scripture:1'], params: { contentSize: 42 } } },
     pageAssignments: { 'scripture:1': 'scripture' },
     hymnOpacityBySection: { 'hymn-1': 68, offering: 52, invalid: 101 },
+    outputScale: { text: 95, image: 105, ignored: 88 },
     backgroundImage: 'data:image/png;base64,too-large-for-layout-state'
   }), {
     groups: { scripture: { id: 'scripture', pageIds: ['scripture:1'], params: { contentSize: 42 } } },
     pageAssignments: { 'scripture:1': 'scripture' },
-    hymnOpacityBySection: { 'hymn-1': 68, offering: 52 }
+    hymnOpacityBySection: { 'hymn-1': 68, offering: 52 },
+    outputScale: { text: 95, image: 105 }
   });
 });
 
@@ -119,4 +121,7 @@ test('loads the cloud store before the locked layout UI and uses a password fiel
   assert.match(app, /saveSharedHymnOpacity/);
   assert.match(layoutGroups, /isWorshipLayoutUnlocked/);
   assert.match(layoutGroups, /#opacity, #sync-hymn-opacity-global/);
+  assert.match(layoutGroups, /id="lg-output-text-scale"/);
+  assert.match(layoutGroups, /id="lg-output-image-scale"/);
+  assert.match(layoutGroups, /saveOutputScale/);
 });

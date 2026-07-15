@@ -5,14 +5,14 @@
 - Project: LKC1958_June_1.github.io
 - Root: `D:/py/LKC1958_June_1.github.io-worship-cloud`
 - Contract: `project_contract.yml`
-- Current focus: Imported score/response pages are image-based; editable generated pages and protected shared opacity are verified and awaiting deployment acceptance.
+- Current focus: Imported score/response pages are image-based; editable generated pages, protected shared opacity, and separate output scaling are verified and awaiting deployment acceptance.
 - Last updated: 2026-07-15
 
 ## Stable Facts
 
 - App entrypoint: `apps/LKC_TaiwaneseWorshipPPT/index.html`.
 - Existing browser draft key: `lkc-taiwanese-worship-draft`.
-- Layout data shape: `layoutState.groups`, `layoutState.pageAssignments`, and `layoutState.hymnOpacityBySection`.
+- Layout data shape: `layoutState.groups`, `layoutState.pageAssignments`, `layoutState.hymnOpacityBySection`, and `layoutState.outputScale`.
 - Firebase project initialization already exists in `firebase/firebase-config.js` and includes RTDB.
 - Verification: `powershell -ExecutionPolicy Bypass -File scripts/verify.ps1`.
 
@@ -34,8 +34,9 @@
 - Changed: Rasterized imported hymn and responsive-reading pages to one transparent PNG per page while leaving reports, liturgy, scripture, and other generated pages as editable PowerPoint text.
 - Changed: Restored the original `13.333 × 7.5` wide-slide canvas so font point sizes and percentage positions use the same physical dimensions as the source library.
 - Changed: Stored each score-related section's white-overlay opacity in the shared Firebase layout document. The sliders and sync control now use the same Firebase Auth lock as layout editing.
+- Changed: Added password-protected, church-wide output percentages for editable text and rasterized images. Text scaling changes font sizes without moving text boxes; image scaling keeps hymn and responsive-reading pages centered. Both settings accept 80-120% and default to 100%.
 - Learned: The full browser draft combines layout state with content and background image data; only `layoutState.groups` and `layoutState.pageAssignments` belong in the shared RTDB node.
 - Learned: Browser preview CSS supplied implicit defaults, while `ppt-export.js` previously converted missing layout values into `NaN`; PptxGenJS serialized those text boxes with zero-size OOXML bounds.
 - Learned: Applying those same generated-page defaults to an ungrouped `ppt-import` page resized all imported text into the default content rectangle, causing the hymn and score pages to overlap. The export click handler also omitted lexical background state because top-level `let` bindings are not properties of `window`.
-- Verification: `scripts/verify.ps1` passed all 41 app tests, JavaScript syntax checks, and rules JSON validation. A real PptxGenJS export produced a `13.333 × 7.5` deck with a full-slide hymn image and a separate editable report page; both rendered without clipping or overlap.
+- Verification: `scripts/verify.ps1` passed all 42 app tests, JavaScript syntax checks, and rules JSON validation. A real PptxGenJS export at 90%/90% produced a centered rasterized hymn page with even margins and a separate editable report whose font sizes were reduced without moving its text boxes.
 - Next: Enable Email/Password Auth, create the dedicated editor account with the separately agreed password, merge/deploy RTDB rules, then perform desktop/mobile acceptance and first migration.

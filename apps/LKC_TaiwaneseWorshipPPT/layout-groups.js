@@ -1,6 +1,6 @@
 (function() {
   const production = window.TaiwaneseWorshipSlideProduction;
-  const layoutState = { groups: {}, pageAssignments: {}, hymnOpacityBySection: {} };
+  const layoutState = { groups: {}, pageAssignments: {}, hymnOpacityBySection: {}, outputScale: { text: 100, image: 100 } };
   const pendingSelection = new Set();
   const cloudStore = window.TaiwaneseWorshipLayoutCloud.createLayoutCloudStore();
   let liveParams = null;
@@ -33,6 +33,9 @@
         if (model[sectionId]) model[sectionId].opacity = opacity;
       });
     }
+    if (normalized.outputScale) {
+      layoutState.outputScale = { text: 100, image: 100, ...normalized.outputScale };
+    }
   }
 
   function captureHymnOpacity() {
@@ -44,7 +47,9 @@
   function hasLayoutState() {
     return Object.keys(layoutState.groups).length > 0
       || Object.keys(layoutState.pageAssignments).length > 0
-      || Object.keys(layoutState.hymnOpacityBySection || {}).length > 0;
+      || Object.keys(layoutState.hymnOpacityBySection || {}).length > 0
+      || Number(layoutState.outputScale && layoutState.outputScale.text) !== 100
+      || Number(layoutState.outputScale && layoutState.outputScale.image) !== 100;
   }
 
   function persistLocalLayoutState() {
@@ -171,6 +176,33 @@
     };
   }
 
+  function outputScaleFromForm() {
+    const normalize = value => Math.max(80, Math.min(120, Number(value) || 100));
+    return {
+      text: normalize(numberValue('lg-output-text-scale', 100)),
+      image: normalize(numberValue('lg-output-image-scale', 100))
+    };
+  }
+
+  function populateOutputScaleForm() {
+    const scale = { text: 100, image: 100, ...(layoutState.outputScale || {}) };
+    const textInput = document.getElementById('lg-output-text-scale');
+    const imageInput = document.getElementById('lg-output-image-scale');
+    if (textInput) textInput.value = scale.text;
+    if (imageInput) imageInput.value = scale.image;
+  }
+
+  async function saveOutputScale() {
+    if (!layoutUnlocked) return status('輸出比例已鎖定，請先輸入密碼解鎖');
+    layoutState.outputScale = outputScaleFromForm();
+    try {
+      await persistLayoutState();
+      status(`輸出比例已儲存：文字 ${layoutState.outputScale.text}%、圖片 ${layoutState.outputScale.image}%`);
+    } catch (error) {
+      status(`輸出比例雲端儲存失敗：${error.message}`);
+    }
+  }
+
   function computedColor(value, fallback = '#111111') {
     const match = String(value || '').match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
     if (!match) return production.normalizeColor(value, fallback);
@@ -250,9 +282,10 @@
   }
 
   function parameterFields() {
-    return `<div class="layout-parameter-tabs"><button type="button" class="is-active" data-layout-tab="title">標題</button><button type="button" data-layout-tab="content">內文</button></div>
+    return `<div class="layout-parameter-tabs"><button type="button" class="is-active" data-layout-tab="title">標題</button><button type="button" data-layout-tab="content">內文</button><button type="button" data-layout-tab="output">輸出比例</button></div>
       <div class="layout-params" data-layout-pane="title"><label>字級<input id="lg-title-size" type="number" value="60"></label><label>X<input id="lg-title-x" type="number" value="10"></label><label>Y<input id="lg-title-y" type="number" value="6"></label><label>寬<input id="lg-title-w" type="number" value="80"></label><label>高<input id="lg-title-h" type="number" value="16"></label><label>對齊<select id="lg-title-align"><option value="center">置中</option><option value="left">靠左</option><option value="right">靠右</option></select></label><label>文字顏色<input id="lg-title-color" type="color" value="#111111"></label></div>
-      <div class="layout-params is-hidden" data-layout-pane="content"><label>字級<input id="lg-content-size" type="number" value="48"></label><label>X<input id="lg-content-x" type="number" value="8"></label><label>Y<input id="lg-content-y" type="number" value="24"></label><label>寬<input id="lg-content-w" type="number" value="84"></label><label>高<input id="lg-content-h" type="number" value="68"></label><label>對齊<select id="lg-content-align"><option value="left">靠左</option><option value="center">置中</option><option value="right">靠右</option></select></label><label>行距<input id="lg-line-spacing" type="number" value="1.5" step="0.1"></label><label>文字顏色<input id="lg-content-color" type="color" value="#111111"></label></div>`;
+      <div class="layout-params is-hidden" data-layout-pane="content"><label>字級<input id="lg-content-size" type="number" value="48"></label><label>X<input id="lg-content-x" type="number" value="8"></label><label>Y<input id="lg-content-y" type="number" value="24"></label><label>寬<input id="lg-content-w" type="number" value="84"></label><label>高<input id="lg-content-h" type="number" value="68"></label><label>對齊<select id="lg-content-align"><option value="left">靠左</option><option value="center">置中</option><option value="right">靠右</option></select></label><label>行距<input id="lg-line-spacing" type="number" value="1.5" step="0.1"></label><label>文字顏色<input id="lg-content-color" type="color" value="#111111"></label></div>
+      <div class="layout-params is-hidden" data-layout-pane="output"><label>文字比例 (%)<input id="lg-output-text-scale" type="number" min="80" max="120" step="1" value="100"></label><label>圖片比例 (%)<input id="lg-output-image-scale" type="number" min="80" max="120" step="1" value="100"></label><p class="inline-note">文字比例只調整可編輯文字字級；圖片比例從中心縮放樂譜與啟應文。</p><button type="button" class="button primary" id="layout-save-output-scale">儲存輸出比例</button></div>`;
   }
 
   function renderFloatingPanel() {
@@ -264,15 +297,17 @@
       ${parameterFields()}
       <footer><button type="button" class="button quiet" id="layout-detach">解除群組</button><button type="button" class="button primary" id="layout-save-group">儲存參數組</button></footer>`;
 
+    populateOutputScaleForm();
     document.getElementById('layout-panel-close').onclick = () => panel.classList.add('is-hidden');
     enablePanelDragging(panel);
     document.querySelectorAll('[data-layout-tab]').forEach(button => button.onclick = () => {
       document.querySelectorAll('[data-layout-tab]').forEach(item => item.classList.toggle('is-active', item === button));
       document.querySelectorAll('[data-layout-pane]').forEach(pane => pane.classList.toggle('is-hidden', pane.dataset.layoutPane !== button.dataset.layoutTab));
     });
-    document.querySelectorAll('.layout-params input, .layout-params select').forEach(input => input.addEventListener('input', () => { liveParams = paramsFromForm(); preview(); }));
+    document.querySelectorAll('[data-layout-pane="title"] input, [data-layout-pane="title"] select, [data-layout-pane="content"] input, [data-layout-pane="content"] select').forEach(input => input.addEventListener('input', () => { liveParams = paramsFromForm(); preview(); }));
     document.getElementById('layout-group-existing').onchange = event => loadGroup(event.target.value);
     document.getElementById('layout-save-group').onclick = saveGroup;
+    document.getElementById('layout-save-output-scale').onclick = saveOutputScale;
     document.getElementById('layout-detach').onclick = detachSelection;
     applyLayoutLockUI();
   }
@@ -289,7 +324,7 @@
     });
     if (!panel) return;
     panel.classList.toggle('is-layout-locked', !layoutUnlocked);
-    panel.querySelectorAll('.floating-group-fields input, .floating-group-fields select, .layout-params input, .layout-params select, #layout-save-group, #layout-detach').forEach(control => {
+    panel.querySelectorAll('.floating-group-fields input, .floating-group-fields select, .layout-params input, .layout-params select, #layout-save-group, #layout-save-output-scale, #layout-detach').forEach(control => {
       control.disabled = !layoutUnlocked;
     });
     const note = panel.querySelector('[data-layout-lock-note]');

@@ -25,6 +25,12 @@
       }
     });
     if (Object.keys(hymnOpacityBySection).length) normalized.hymnOpacityBySection = hymnOpacityBySection;
+    const outputScale = {};
+    ['text', 'image'].forEach(key => {
+      const scale = Number(source.outputScale && source.outputScale[key]);
+      if (scale >= 80 && scale <= 120) outputScale[key] = scale;
+    });
+    if (Object.keys(outputScale).length) normalized.outputScale = outputScale;
     return normalized;
   }
 
