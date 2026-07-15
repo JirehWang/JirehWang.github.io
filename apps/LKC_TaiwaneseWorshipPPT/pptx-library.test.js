@@ -75,6 +75,11 @@ test('resolves PowerPoint theme text colors so responsive-reading roles stay dis
   assert.equal(library.resolveSchemeColor('tx2', theme, colorMap), '#0E2841');
 });
 
+test('uses an inherited slide-layout font size when a placeholder run omits sz', () => {
+  assert.deepEqual(library.inheritRunStyle({ bold: true }, 60), { bold: true, fontSize: 60 });
+  assert.deepEqual(library.inheritRunStyle({ fontSize: 48 }, 60), { fontSize: 48 });
+});
+
 test('rasterizes an imported library page into one transparent full-slide image', async () => {
   const calls = [];
   const context = {
