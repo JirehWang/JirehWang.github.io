@@ -1,6 +1,6 @@
 (function() {
   const production = window.TaiwaneseWorshipSlideProduction;
-  const layoutState = { groups: {}, pageAssignments: {} };
+  const layoutState = { groups: {}, pageAssignments: {}, hymnOpacityBySection: {} };
   const pendingSelection = new Set();
   const cloudStore = window.TaiwaneseWorshipLayoutCloud.createLayoutCloudStore();
   let liveParams = null;
@@ -8,6 +8,7 @@
   let cloudLayoutFound = false;
   let cloudLayoutLoadPromise = null;
   window.worshipLayoutState = layoutState;
+  window.isWorshipLayoutUnlocked = () => layoutUnlocked;
 
   const html = value => String(value == null ? '' : value).replace(/[&<>"']/g, character => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -26,10 +27,24 @@
     const normalized = window.TaiwaneseWorshipLayoutCloud.normalizeLayoutState(nextState);
     layoutState.groups = normalized.groups;
     layoutState.pageAssignments = normalized.pageAssignments;
+    if (normalized.hymnOpacityBySection) {
+      layoutState.hymnOpacityBySection = normalized.hymnOpacityBySection;
+      Object.entries(normalized.hymnOpacityBySection).forEach(([sectionId, opacity]) => {
+        if (model[sectionId]) model[sectionId].opacity = opacity;
+      });
+    }
+  }
+
+  function captureHymnOpacity() {
+    layoutState.hymnOpacityBySection = Object.fromEntries((window.hymnOpacitySectionIds || [])
+      .filter(sectionId => model[sectionId])
+      .map(sectionId => [sectionId, Math.max(40, Math.min(80, Number(model[sectionId].opacity) || 60))]));
   }
 
   function hasLayoutState() {
-    return Object.keys(layoutState.groups).length > 0 || Object.keys(layoutState.pageAssignments).length > 0;
+    return Object.keys(layoutState.groups).length > 0
+      || Object.keys(layoutState.pageAssignments).length > 0
+      || Object.keys(layoutState.hymnOpacityBySection || {}).length > 0;
   }
 
   function persistLocalLayoutState() {
@@ -42,6 +57,7 @@
   }
 
   async function persistLayoutState() {
+    captureHymnOpacity();
     persistLocalLayoutState();
     if (!layoutUnlocked) throw new Error('版面配置尚未解鎖');
     await cloudStore.save(layoutState);
@@ -268,6 +284,9 @@
       toggle.textContent = layoutUnlocked ? '鎖定版面設定' : '版面設定已鎖定';
       toggle.setAttribute('aria-pressed', String(layoutUnlocked));
     }
+    document.querySelectorAll('#opacity, #sync-hymn-opacity-global').forEach(control => {
+      control.disabled = !layoutUnlocked;
+    });
     if (!panel) return;
     panel.classList.toggle('is-layout-locked', !layoutUnlocked);
     panel.querySelectorAll('.floating-group-fields input, .floating-group-fields select, .layout-params input, .layout-params select, #layout-save-group, #layout-detach').forEach(control => {
@@ -457,6 +476,19 @@
     if (typeof dialog.showModal === 'function') dialog.showModal(); else dialog.setAttribute('open', '');
     setTimeout(() => password.focus(), 0);
   }
+
+  window.saveSharedHymnOpacity = async function() {
+    if (!layoutUnlocked) {
+      applyLayoutLockUI();
+      return status('透明度設定已鎖定，請先輸入密碼解鎖');
+    }
+    try {
+      await persistLayoutState();
+      status('樂譜透明度已儲存為全教會共用參數');
+    } catch (error) {
+      status(`樂譜透明度雲端儲存失敗：${error.message}`);
+    }
+  };
 
   function closeUnlockDialog() {
     const dialog = document.getElementById('layout-unlock-dialog');

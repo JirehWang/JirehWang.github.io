@@ -74,3 +74,44 @@ test('resolves PowerPoint theme text colors so responsive-reading roles stay dis
   assert.equal(library.resolveSchemeColor('tx1', theme, colorMap), '#000000');
   assert.equal(library.resolveSchemeColor('tx2', theme, colorMap), '#0E2841');
 });
+
+test('rasterizes an imported library page into one transparent full-slide image', async () => {
+  const calls = [];
+  const context = {
+    clearRect: (...args) => calls.push(['clearRect', ...args]),
+    drawImage: (...args) => calls.push(['drawImage', ...args]),
+    fillText: (...args) => calls.push(['fillText', ...args]),
+    measureText: text => ({ width: String(text).length * 20 }),
+    save() {}, restore() {},
+    set font(value) { calls.push(['font', value]); },
+    set fillStyle(value) { calls.push(['fillStyle', value]); },
+    set textBaseline(value) { calls.push(['textBaseline', value]); }
+  };
+  const canvas = {
+    width: 0, height: 0,
+    getContext: () => context,
+    toDataURL: type => `data:${type};base64,rasterized`
+  };
+  const pages = [{
+    id: 'imported:1', kind: 'ppt-import', sourceWidth: 12192000, sourceHeight: 6858000,
+    objects: [
+      { type: 'image', src: 'data:image/png;base64,score', x: 5, y: 10, w: 90, h: 35 },
+      { type: 'text', x: 10, y: 50, w: 80, h: 20, align: 'center', verticalAlign: 'center', fontSize: 36, runs: [{ text: '歌詞', fontSize: 36, color: '#ff0000' }] }
+    ]
+  }];
+
+  const result = await library.rasterizeImportedPages(pages, {
+    width: 1600,
+    createCanvas: () => canvas,
+    loadImage: async src => ({ src })
+  });
+
+  assert.equal(canvas.width, 1600);
+  assert.equal(canvas.height, 900);
+  assert.deepEqual(result[0].objects, [{
+    type: 'image', src: 'data:image/png;base64,rasterized', x: 0, y: 0, w: 100, h: 100
+  }]);
+  assert.equal(result[0].rasterized, true);
+  assert.ok(calls.some(call => call[0] === 'drawImage'));
+  assert.ok(calls.some(call => call[0] === 'fillText' && call[1] === '歌詞'));
+});

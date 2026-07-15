@@ -39,14 +39,16 @@ function firebaseFixture(initialValue = null) {
   return { api, writes };
 }
 
-test('normalizes the shared cloud payload to layout groups and assignments only', () => {
+test('normalizes shared layout groups and protected score opacity values only', () => {
   assert.deepEqual(normalizeLayoutState({
     groups: { scripture: { id: 'scripture', pageIds: ['scripture:1'], params: { contentSize: 42 } } },
     pageAssignments: { 'scripture:1': 'scripture' },
+    hymnOpacityBySection: { 'hymn-1': 68, offering: 52, invalid: 101 },
     backgroundImage: 'data:image/png;base64,too-large-for-layout-state'
   }), {
     groups: { scripture: { id: 'scripture', pageIds: ['scripture:1'], params: { contentSize: 42 } } },
-    pageAssignments: { 'scripture:1': 'scripture' }
+    pageAssignments: { 'scripture:1': 'scripture' },
+    hymnOpacityBySection: { 'hymn-1': 68, offering: 52 }
   });
 });
 
@@ -108,7 +110,13 @@ test('allows a Firebase dependency load to be retried after a temporary failure'
 
 test('loads the cloud store before the locked layout UI and uses a password field', () => {
   const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, 'app.js'), 'utf8');
+  const layoutGroups = fs.readFileSync(path.join(__dirname, 'layout-groups.js'), 'utf8');
   assert.ok(html.indexOf('layout-cloud-store.js') < html.indexOf('layout-groups.js'));
   assert.match(html, /id="layout-unlock-password" type="password"/);
   assert.match(html, /id="layout-lock-toggle"/);
+  assert.match(app, /hymnOpacitySectionIds\.includes\(active\)/);
+  assert.match(app, /saveSharedHymnOpacity/);
+  assert.match(layoutGroups, /isWorshipLayoutUnlocked/);
+  assert.match(layoutGroups, /#opacity, #sync-hymn-opacity-global/);
 });

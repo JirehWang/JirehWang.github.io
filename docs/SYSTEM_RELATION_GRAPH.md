@@ -451,7 +451,7 @@ admin.html → apps/LKC_TaiwaneseWorshipPPT/
 台語禮拜 PPT 編輯器（file:// 或 POST 被擋）→ read-api.js JSONP → GAS 唯讀 `cal_getEvents` / `cal_getPptLibraryIndex` / `cal_getPptLibraryFile` / `cal_queryBible`
 LKC_MasterSchedule GAS → Google Drive 聖詩／啟應文資料夾（唯讀檔案索引）
 台語禮拜 PPT 編輯器 → GAS `cal_getPptLibraryFile` → 索引內 PPTX Base64
-台語禮拜 PPT 編輯器 → pptx-library.js（瀏覽器內解析圖片、文字與座標；不整頁轉圖）
+台語禮拜 PPT 編輯器 → pptx-library.js（瀏覽器內解析圖片、文字與座標；樂譜／啟應文點陣化為透明整頁 PNG）
 台語禮拜 PPT 編輯器 → LKC_ppt_generator/bible-service.js（經文代號轉台語全文）
 台語禮拜 PPT 編輯器 → slide-production.js（全文分頁）
 台語禮拜 PPT 編輯器 → layout-groups.js（勾選頁面＋具名參數群組）

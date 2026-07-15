@@ -19,6 +19,10 @@
     contentColor: '#111111',
     lineSpacing: 1.5
   };
+  const SLIDE_WIDTH = 13.333;
+  const SLIDE_HEIGHT = 7.5;
+  const slideX = percent => (Number(percent) / 100) * SLIDE_WIDTH;
+  const slideY = percent => (Number(percent) / 100) * SLIDE_HEIGHT;
 
   function cleanParagraphProperties(xmlString) {
     return xmlString.replace(/<a:p>([\s\S]*?)<\/a:p>/g, (pMatch, pContent) => {
@@ -50,7 +54,7 @@
     if (!layoutState) throw new Error('找不到 layoutState');
 
     const pptx = new PptxGenJSClass();
-    pptx.layout = 'LAYOUT_16x9';
+    pptx.layout = 'LAYOUT_WIDE';
 
     const deck = getDeckEntriesFn();
     if (!deck || !deck.length) {
@@ -87,8 +91,8 @@
         slide.addShape(rectShapeType, {
           x: 0,
           y: 0,
-          w: 10,
-          h: 5.625,
+          w: SLIDE_WIDTH,
+          h: SLIDE_HEIGHT,
           fill: { color: 'FFFFFF', transparency: transparency }
         });
       }
@@ -109,10 +113,10 @@
           if (obj.type === 'image' && obj.src) {
             slide.addImage({
               data: obj.src,
-              x: (obj.x / 100) * 10,
-              y: (obj.y / 100) * 5.625,
-              w: (obj.w / 100) * 10,
-              h: (obj.h / 100) * 5.625
+              x: slideX(obj.x),
+              y: slideY(obj.y),
+              w: slideX(obj.w),
+              h: slideY(obj.h)
             });
           } else if (obj.type === 'text' && Array.isArray(obj.runs)) {
             const runsArray = obj.runs.map(run => ({
@@ -128,10 +132,10 @@
             }));
             const verticalAlignMap = { start: 'top', center: 'middle', end: 'bottom' };
             slide.addText(runsArray, {
-              x: (obj.x / 100) * 10,
-              y: (obj.y / 100) * 5.625,
-              w: (obj.w / 100) * 10,
-              h: (obj.h / 100) * 5.625,
+              x: slideX(obj.x),
+              y: slideY(obj.y),
+              w: slideX(obj.w),
+              h: slideY(obj.h),
               align: obj.align || 'left',
               valign: verticalAlignMap[obj.verticalAlign] || 'top',
               lineSpacing: obj.lineSpacing,
@@ -144,10 +148,10 @@
         const formattedDate = serviceDate ? `主後${year}年${month}月${day}日` : '';
         // Title
         slide.addText('台語主日禮拜', {
-          x: (params.titleX / 100) * 10,
-          y: (params.titleY / 100) * 5.625,
-          w: (params.titleW / 100) * 10,
-          h: (params.titleH / 100) * 5.625,
+          x: slideX(params.titleX),
+          y: slideY(params.titleY),
+          w: slideX(params.titleW),
+          h: slideY(params.titleH),
           fontSize: params.titleSize || 60,
           color: titleColor,
           fontFace: 'Microsoft JhengHei',
@@ -158,10 +162,10 @@
         });
         // Date
         slide.addText(formattedDate, {
-          x: (params.contentX / 100) * 10,
-          y: (params.contentY / 100) * 5.625,
-          w: (params.contentW / 100) * 10,
-          h: (params.contentH / 100) * 5.625,
+          x: slideX(params.contentX),
+          y: slideY(params.contentY),
+          w: slideX(params.contentW),
+          h: slideY(params.contentH),
           fontSize: params.contentSize || 48,
           color: contentColor,
           fontFace: 'Microsoft JhengHei',
@@ -171,10 +175,10 @@
         });
       } else if (entry.kind === 'praise-title') {
         slide.addText('讚美', {
-          x: (params.titleX / 100) * 10,
-          y: (params.titleY / 100) * 5.625,
-          w: (params.titleW / 100) * 10,
-          h: (params.titleH / 100) * 5.625,
+          x: slideX(params.titleX),
+          y: slideY(params.titleY),
+          w: slideX(params.titleW),
+          h: slideY(params.titleH),
           fontSize: params.titleSize || 60,
           color: titleColor,
           fontFace: 'Microsoft JhengHei',
@@ -187,10 +191,10 @@
         const titleText = entry.title || (model && model[entry.sectionId] && model[entry.sectionId].title) || '';
         const praiseContent = [titleText, kicker].filter(Boolean).join('\n\n');
         slide.addText(praiseContent, {
-          x: (params.contentX / 100) * 10,
-          y: (params.contentY / 100) * 5.625,
-          w: (params.contentW / 100) * 10,
-          h: (params.contentH / 100) * 5.625,
+          x: slideX(params.contentX),
+          y: slideY(params.contentY),
+          w: slideX(params.contentW),
+          h: slideY(params.contentH),
           fontSize: params.contentSize || 48,
           color: contentColor,
           fontFace: 'Microsoft JhengHei',
@@ -200,10 +204,10 @@
         });
       } else if (entry.kind === 'praise-lyrics') {
         slide.addText(entry.body || '', {
-          x: (params.contentX / 100) * 10,
-          y: (params.contentY / 100) * 5.625,
-          w: (params.contentW / 100) * 10,
-          h: (params.contentH / 100) * 5.625,
+          x: slideX(params.contentX),
+          y: slideY(params.contentY),
+          w: slideX(params.contentW),
+          h: slideY(params.contentH),
           fontSize: params.contentSize || 48,
           color: contentColor,
           fontFace: 'Microsoft JhengHei',
@@ -217,10 +221,10 @@
         const kicker = entry.kicker || (model && model[entry.sectionId] && model[entry.sectionId].kicker) || '';
         // Title
         slide.addText(titleText, {
-          x: (params.titleX / 100) * 10,
-          y: (params.titleY / 100) * 5.625,
-          w: (params.titleW / 100) * 10,
-          h: (params.titleH / 100) * 5.625,
+          x: slideX(params.titleX),
+          y: slideY(params.titleY),
+          w: slideX(params.titleW),
+          h: slideY(params.titleH),
           fontSize: params.titleSize || 60,
           color: titleColor,
           fontFace: 'Microsoft JhengHei',
@@ -232,10 +236,10 @@
         // Kicker/Sub
         if (kicker) {
           slide.addText(kicker, {
-            x: (params.contentX / 100) * 10,
-            y: ((params.contentY || 24) / 100) * 5.625,
-            w: (params.contentW / 100) * 10,
-            h: 1.0,
+            x: slideX(params.contentX),
+            y: slideY(params.contentY || 24),
+            w: slideX(params.contentW),
+            h: 1.3333,
             fontSize: params.contentSize || 48,
             color: contentColor,
             fontFace: 'Microsoft JhengHei',
@@ -246,10 +250,10 @@
         }
         // Score slot dashed box
         slide.addShape(rectShapeType, {
-          x: 1.0,
-          y: 3.2,
-          w: 8.0,
-          h: 2.0,
+          x: 1.3333,
+          y: 4.2667,
+          w: 10.6664,
+          h: 2.6667,
           fill: { color: 'FFFFFF', transparency: 30 },
           line: { color: '999999', width: 1, dashType: 'dash' }
         });
@@ -260,10 +264,10 @@
         
         if (showTitle && titleText) {
           slide.addText(titleText, {
-            x: (params.titleX / 100) * 10,
-            y: (params.titleY / 100) * 5.625,
-            w: (params.titleW / 100) * 10,
-            h: (params.titleH / 100) * 5.625,
+            x: slideX(params.titleX),
+            y: slideY(params.titleY),
+            w: slideX(params.titleW),
+            h: slideY(params.titleH),
             fontSize: params.titleSize || 60,
             color: titleColor,
             fontFace: 'Microsoft JhengHei',
@@ -281,10 +285,10 @@
 
         if (bodyText) {
           slide.addText(bodyText, {
-            x: (params.contentX / 100) * 10,
-            y: (params.contentY / 100) * 5.625,
-            w: (params.contentW / 100) * 10,
-            h: (params.contentH / 100) * 5.625,
+            x: slideX(params.contentX),
+            y: slideY(params.contentY),
+            w: slideX(params.contentW),
+            h: slideY(params.contentH),
             fontSize: params.contentSize || 48,
             color: contentColor,
             fontFace: 'Microsoft JhengHei',

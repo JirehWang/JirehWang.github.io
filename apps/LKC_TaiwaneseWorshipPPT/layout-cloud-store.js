@@ -13,10 +13,19 @@
 
   function normalizeLayoutState(value) {
     const source = value && typeof value === 'object' ? value : {};
-    return {
+    const normalized = {
       groups: jsonObject(source.groups),
       pageAssignments: jsonObject(source.pageAssignments)
     };
+    const hymnOpacityBySection = {};
+    Object.entries(jsonObject(source.hymnOpacityBySection)).forEach(([sectionId, value]) => {
+      const opacity = Number(value);
+      if (/^[a-z0-9-]+$/i.test(sectionId) && opacity >= 40 && opacity <= 80) {
+        hymnOpacityBySection[sectionId] = opacity;
+      }
+    });
+    if (Object.keys(hymnOpacityBySection).length) normalized.hymnOpacityBySection = hymnOpacityBySection;
+    return normalized;
   }
 
   async function defaultFirebaseLoader() {

@@ -6,8 +6,10 @@ const { exportWorshipPPTX, getImportedSlideObjects, cleanParagraphProperties } =
 
 test('exports slides correctly with mock pptxgenjs', async () => {
   const slides = [];
+  let createdPptx;
   class MockPptx {
     constructor() {
+      createdPptx = this;
       this.layout = '';
     }
     addSlide() {
@@ -75,6 +77,7 @@ test('exports slides correctly with mock pptxgenjs', async () => {
 
   await exportWorshipPPTX(exportOptions);
 
+  assert.equal(createdPptx.layout, 'LAYOUT_WIDE');
   assert.equal(slides.length, 3);
   
   // Verify slide 1: cover
@@ -86,6 +89,8 @@ test('exports slides correctly with mock pptxgenjs', async () => {
   assert.equal(slides[1].shapes.length, 2);
   assert.equal(slides[1].shapes[0].type, 'rect');
   assert.equal(slides[1].shapes[0].opts.fill.transparency, 50); // 100 - opacity(50) = 50
+  assert.equal(slides[1].shapes[0].opts.w, 13.333);
+  assert.equal(slides[1].shapes[0].opts.h, 7.5);
   assert.equal(slides[1].texts[0].text, '聖詩第1首');
 
   // Verify slide 3: ppt-import
@@ -170,10 +175,10 @@ test('preserves source bounds for an ungrouped imported PowerPoint slide', async
   });
 
   const [{ text, opts }] = slides[0].texts;
-  assert.equal(opts.x, 1.5);
-  assert.equal(opts.y, 1.40625);
-  assert.equal(opts.w, 7);
-  assert.equal(opts.h, 2.8125);
+  assert.equal(opts.x, 1.99995);
+  assert.equal(opts.y, 1.875);
+  assert.equal(opts.w, 9.3331);
+  assert.equal(opts.h, 3.75);
   assert.equal(text[0].options.fontSize, 18);
 });
 
