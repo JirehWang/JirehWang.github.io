@@ -28,6 +28,8 @@
 
 - Focus: Shared cloud layout and password-gated editing.
 - Changed: Added cloud-authoritative RTDB layout storage, Firebase Auth password dialog, locked controls, first-use local migration, offline backup behavior, rules template, setup guide, workflow contract, and verification script.
+- Changed: Fixed PPTX export for ungrouped pages by merging safe default bounds before coordinate conversion; added a regression test proving every exported text box has finite, positive dimensions.
 - Learned: The full browser draft combines layout state with content and background image data; only `layoutState.groups` and `layoutState.pageAssignments` belong in the shared RTDB node.
-- Verification: `scripts/verify.ps1` passed all 37 app tests, JavaScript syntax checks, and rules JSON validation. Local HTTP route returned 200 with the expected script order. Browser visual automation was unavailable due a runtime initialization error.
+- Learned: Browser preview CSS supplied implicit defaults, while `ppt-export.js` previously converted missing layout values into `NaN`; PptxGenJS serialized those text boxes with zero-size OOXML bounds.
+- Verification: `scripts/verify.ps1` passed all 38 app tests, JavaScript syntax checks, and rules JSON validation. A real PptxGenJS export with ungrouped cover/section pages rendered with normal bounds; OOXML text boxes had nonzero extents. Local HTTP route returned 200 with the expected script order. Browser visual automation was unavailable due a runtime initialization error.
 - Next: Enable Email/Password Auth, create the dedicated editor account with the separately agreed password, merge/deploy RTDB rules, then perform desktop/mobile acceptance and first migration.
