@@ -110,7 +110,8 @@
 
       // 3. Layout Parameters
       const storedParams = production.layoutForPage(layoutState, entry) || {};
-      const centeredBody = entry.body || entry.kicker || SECTION_SUBTITLES[entry.sectionLabel] || '';
+      const modelEntry = model && model[entry.sectionId];
+      const centeredBody = entry.body || entry.kicker || (modelEntry && modelEntry.kicker) || SECTION_SUBTITLES[entry.sectionLabel] || '';
       const usesCenteredTemplate = entry.kind === 'cover' || entry.kind === 'section';
       const hasCenteredSubtitle = entry.kind === 'cover' || Boolean(centeredBody);
       const centeredTemplateDefaults = usesCenteredTemplate ? {
@@ -123,9 +124,17 @@
         contentAlign: 'center',
         lineSpacing: 1.2
       } : {};
+      const praiseLyricsDefaults = entry.kind === 'praise-lyrics' ? {
+        contentX: 10,
+        contentY: 10,
+        contentW: 80,
+        contentH: 80,
+        contentAlign: 'center',
+        lineSpacing: 1.55
+      } : {};
       const params = entry.kind === 'ppt-import'
         ? storedParams
-        : { ...DEFAULT_LAYOUT_PARAMS, ...centeredTemplateDefaults, ...storedParams };
+        : { ...DEFAULT_LAYOUT_PARAMS, ...centeredTemplateDefaults, ...praiseLyricsDefaults, ...storedParams };
       const hasStoredTitleBounds = ['titleX', 'titleY', 'titleW', 'titleH']
         .some(key => Object.prototype.hasOwnProperty.call(storedParams, key));
       const hasStoredContentBounds = ['contentX', 'contentY', 'contentW', 'contentH']
@@ -317,7 +326,7 @@
         }
 
         // Subtitles mapping
-        const defaultBody = entry.kicker || SECTION_SUBTITLES[entry.sectionLabel] || '';
+        const defaultBody = entry.kicker || (modelEntry && modelEntry.kicker) || SECTION_SUBTITLES[entry.sectionLabel] || '';
         const bodyText = entry.body || defaultBody;
 
         if (bodyText) {
