@@ -75,6 +75,30 @@ test('resolves PowerPoint theme text colors so responsive-reading roles stay dis
   assert.equal(library.resolveSchemeColor('tx2', theme, colorMap), '#0E2841');
 });
 
+test('prefers a Firebase Storage download URL over the GAS Base64 endpoint', async () => {
+  const previousFetch = global.fetch;
+  let fetchedUrl = '';
+  let gasCalls = 0;
+  global.fetch = async url => {
+    fetchedUrl = url;
+    return { ok: true, arrayBuffer: async () => new ArrayBuffer(4) };
+  };
+  const jszip = { loadAsync: async () => { throw new Error('storage payload reached parser'); } };
+  try {
+    await assert.rejects(
+      library.downloadAndParse(
+        { fileId: 'h65', downloadUrl: 'https://firebasestorage.googleapis.com/example.pptx' },
+        jszip,
+        async () => { gasCalls += 1; throw new Error('GAS must not run'); }
+      )
+    );
+    assert.equal(fetchedUrl, 'https://firebasestorage.googleapis.com/example.pptx');
+    assert.equal(gasCalls, 0);
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
 test('uses an inherited slide-layout font size when a placeholder run omits sz', () => {
   assert.deepEqual(library.inheritRunStyle({ bold: true }, 60), { bold: true, fontSize: 60 });
   assert.deepEqual(library.inheritRunStyle({ fontSize: 48 }, 60), { fontSize: 48 });

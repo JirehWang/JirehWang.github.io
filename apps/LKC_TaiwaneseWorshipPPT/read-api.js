@@ -45,6 +45,14 @@
   }
 
   async function read(action, data) {
+    if (root.worshipFirebaseContent && typeof root.worshipFirebaseContent.readAction === 'function') {
+      try {
+        const synchronized = await root.worshipFirebaseContent.readAction(action, data || {});
+        if (synchronized !== null && synchronized !== undefined) return synchronized;
+      } catch (error) {
+        console.warn('[worship-firebase-content] read failed; falling back to GAS:', error);
+      }
+    }
     const useJsonpFirst = root.location && root.location.protocol === 'file:';
     if (!useJsonpFirst) {
       try {

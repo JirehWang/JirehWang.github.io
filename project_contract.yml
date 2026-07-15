@@ -7,7 +7,7 @@ entrypoints:
   main: apps/LKC_TaiwaneseWorshipPPT/app.js
 
 data_dirs:
-  input: Firebase RTDB worshipPpt/layoutConfig/shared and browser form input
+  input: Firebase RTDB worshipPpt/layoutConfig/shared, worshipPpt/content, Firebase Storage worshipPpt/library, and browser form input
   intermediate: browser memory and localStorage fallback cache
   output: generated PPTX downloads
   fixtures: apps/LKC_TaiwaneseWorshipPPT/*.test.js
@@ -28,5 +28,6 @@ risk_notes:
   - Firebase RTDB writes must be protected by Firebase Authentication and database rules; a client-only UI lock is not an authorization boundary.
   - The shared layout is cloud-authoritative; localStorage is retained only as migration input and offline fallback.
   - Background image data URLs remain browser-local and must not be placed in the shared RTDB layout document.
+  - Firebase-first worship content remains incomplete until the existing GAS project synchronizes service, Bible, and library records into the documented paths; the frontend must preserve GAS fallback while nodes are absent.
 
 last_reviewed: 2026-07-15

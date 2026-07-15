@@ -224,6 +224,45 @@ test('centers ungrouped cover and section pages like the browser preview', async
   assert.equal(slides[2].texts[1].opts.valign, 'middle');
 });
 
+test('exports hymn names from the loaded model and centers praise lyrics on the full safe area', async () => {
+  const slides = [];
+  class MockPptx {
+    addSlide() {
+      const slide = {
+        texts: [],
+        addText(text, opts) { this.texts.push({ text, opts }); },
+        addShape() {},
+        addImage() {}
+      };
+      slides.push(slide);
+      return slide;
+    }
+    writeFile() { return Promise.resolve(); }
+  }
+
+  await exportWorshipPPTX({
+    PptxGenJS: MockPptx,
+    getDeckEntries: () => [
+      { kind: 'section', sectionId: 'hymn-1', sectionLabel: '聖詩一' },
+      { kind: 'praise-lyrics', sectionId: 'praise', body: '求你互我之一生\n可奉獻尊主做聖' }
+    ],
+    layoutState: { groups: {}, pageAssignments: {} },
+    production: { layoutForPage: () => ({}) },
+    model: {
+      'hymn-1': { title: '聖詩 – 第 65 首', kicker: '為著美麗的地面' },
+      praise: {}
+    },
+    backgroundColor: '#ffffff',
+    serviceDate: '2026-07-12'
+  });
+
+  assert.equal(slides[0].texts[0].text, '聖詩 – 第 65 首');
+  assert.equal(slides[0].texts[1].text, '為著美麗的地面');
+  assert.equal(slides[1].texts[0].opts.y, 0.75);
+  assert.equal(slides[1].texts[0].opts.h, 6);
+  assert.equal(slides[1].texts[0].opts.valign, 'middle');
+});
+
 test('preserves source bounds for an ungrouped imported PowerPoint slide', async () => {
   const slides = [];
   class MockPptx {
