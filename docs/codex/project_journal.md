@@ -27,6 +27,11 @@
 ### 2026-07-15
 
 - Focus: Shared cloud layout and password-gated editing.
+- Daily summary — Firebase and access control: Moved the church-wide layout, score opacity, and text/image output-scale settings into Firebase RTDB. Editing and saving are locked behind Firebase Email/Password authentication using the dedicated worship layout account; localStorage remains only for first migration and offline fallback.
+- Daily summary — Export behavior: Preserved imported hymn and responsive-reading pages as centered raster images, kept reports and other generated pages editable, restored source slide dimensions, and added independent 80-120% text/image output scaling in the top toolbar.
+- Daily summary — Layout corrections: Fixed invalid default bounds, preserved imported coordinates, aligned title anchors and centered templates with the browser preview, restored the first responsive-reading title size, included hymn/doxology song names, and centered praise lyrics in the full safe area.
+- Daily summary — Data migration preparation: Added Firebase-first reads for calendar, Bible, PPT library, reports, and praise content, with GAS fallback while Firebase records are absent. Added RTDB/Storage rule templates and the Firebase content synchronization contract; no GAS code was changed.
+- Daily summary — Quality and delivery: Expanded automated coverage to 50 tests, added JavaScript/rules validation, and visually verified representative real PPTX exports for score images, editable reports, centered titles, hymn names, and praise lyrics.
 - Changed: Added cloud-authoritative RTDB layout storage, Firebase Auth password dialog, locked controls, first-use local migration, offline backup behavior, rules template, setup guide, workflow contract, and verification script.
 - Changed: Fixed PPTX export for ungrouped pages by merging safe default bounds before coordinate conversion; added a regression test proving every exported text box has finite, positive dimensions.
 - Changed: Kept imported PowerPoint text in its source coordinates unless the page has an explicit stored layout group; generated pages continue to receive safe default bounds.
