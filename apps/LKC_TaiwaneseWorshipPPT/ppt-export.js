@@ -4,6 +4,22 @@
   root.TaiwaneseWorshipPptExport = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function(root) {
 
+  const DEFAULT_LAYOUT_PARAMS = {
+    titleSize: 60,
+    titleX: 10,
+    titleY: 6,
+    titleW: 80,
+    titleH: 16,
+    titleColor: '#111111',
+    contentSize: 48,
+    contentX: 8,
+    contentY: 24,
+    contentW: 84,
+    contentH: 68,
+    contentColor: '#111111',
+    lineSpacing: 1.5
+  };
+
   function cleanParagraphProperties(xmlString) {
     return xmlString.replace(/<a:p>([\s\S]*?)<\/a:p>/g, (pMatch, pContent) => {
       let firstPPr = null;
@@ -78,7 +94,10 @@
       }
 
       // 3. Layout Parameters
-      const params = production.layoutForPage(layoutState, entry);
+      const params = {
+        ...DEFAULT_LAYOUT_PARAMS,
+        ...(production.layoutForPage(layoutState, entry) || {})
+      };
 
       const titleColor = (params.titleColor || '#111111').replace('#', '');
       const contentColor = (params.contentColor || '#111111').replace('#', '');

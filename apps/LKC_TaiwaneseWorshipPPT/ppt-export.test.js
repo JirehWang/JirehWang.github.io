@@ -93,6 +93,40 @@ test('exports slides correctly with mock pptxgenjs', async () => {
   assert.equal(slides[2].texts[0].text[0].text, '歌詞內容');
 });
 
+test('uses safe default bounds when an ungrouped page has no stored layout parameters', async () => {
+  const slides = [];
+  class MockPptx {
+    addSlide() {
+      const slide = {
+        texts: [],
+        addText(text, opts) { this.texts.push({ text, opts }); },
+        addShape() {},
+        addImage() {}
+      };
+      slides.push(slide);
+      return slide;
+    }
+    writeFile() { return Promise.resolve(); }
+  }
+
+  await exportWorshipPPTX({
+    PptxGenJS: MockPptx,
+    getDeckEntries: () => [{ kind: 'cover', sectionId: 'cover', sectionLabel: '台語主日禮拜' }],
+    layoutState: { groups: {}, pageAssignments: {} },
+    production: { layoutForPage: () => ({}) },
+    model: {},
+    backgroundColor: '#ffffff',
+    serviceDate: '2026-07-12'
+  });
+
+  assert.equal(slides[0].texts.length, 2);
+  slides[0].texts.forEach(({ opts }) => {
+    for (const key of ['x', 'y', 'w', 'h']) assert.equal(Number.isFinite(opts[key]), true, `${key} must be finite`);
+    assert.ok(opts.w > 0, 'text width must be positive');
+    assert.ok(opts.h > 0, 'text height must be positive');
+  });
+});
+
 test('cleanParagraphProperties removes duplicate a:pPr tags from a:p paragraphs', () => {
   const originalXml = `
     <a:p>
