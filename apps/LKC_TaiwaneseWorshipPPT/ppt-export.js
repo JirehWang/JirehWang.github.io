@@ -19,6 +19,12 @@
     contentColor: '#111111',
     lineSpacing: 1.5
   };
+  const SECTION_SUBTITLES = {
+    '會前領唱': '請準備心今天的禮拜',
+    '靜默一分鐘': '請將手機關機或靜音',
+    '後奏': '請後奏結束後再起身或交談',
+    '平安禮': '請兄弟姊妹互相行平安禮'
+  };
   const SLIDE_WIDTH = 13.333;
   const SLIDE_HEIGHT = 7.5;
   const slideX = percent => (Number(percent) / 100) * SLIDE_WIDTH;
@@ -104,10 +110,25 @@
 
       // 3. Layout Parameters
       const storedParams = production.layoutForPage(layoutState, entry) || {};
+      const centeredBody = entry.body || entry.kicker || SECTION_SUBTITLES[entry.sectionLabel] || '';
+      const usesCenteredTemplate = entry.kind === 'cover' || entry.kind === 'section';
+      const hasCenteredSubtitle = entry.kind === 'cover' || Boolean(centeredBody);
+      const centeredTemplateDefaults = usesCenteredTemplate ? {
+        titleY: hasCenteredSubtitle ? 33.5 : 41,
+        titleH: hasCenteredSubtitle ? 17.8 : 18,
+        titleAlign: 'center',
+        contentSize: 36,
+        contentY: 55.8,
+        contentH: 10.8,
+        contentAlign: 'center',
+        lineSpacing: 1.2
+      } : {};
       const params = entry.kind === 'ppt-import'
         ? storedParams
-        : { ...DEFAULT_LAYOUT_PARAMS, ...storedParams };
+        : { ...DEFAULT_LAYOUT_PARAMS, ...centeredTemplateDefaults, ...storedParams };
       const hasStoredTitleBounds = ['titleX', 'titleY', 'titleW', 'titleH']
+        .some(key => Object.prototype.hasOwnProperty.call(storedParams, key));
+      const hasStoredContentBounds = ['contentX', 'contentY', 'contentW', 'contentH']
         .some(key => Object.prototype.hasOwnProperty.call(storedParams, key));
 
       const titleColor = (params.titleColor || '#111111').replace('#', '');
@@ -184,7 +205,7 @@
           color: contentColor,
           fontFace: 'Microsoft JhengHei',
           align: params.contentAlign || 'center',
-          valign: 'top',
+          valign: hasStoredContentBounds ? 'top' : 'middle',
           margin: 0
         });
       } else if (entry.kind === 'praise-title') {
@@ -296,8 +317,7 @@
         }
 
         // Subtitles mapping
-        const subtitles = { '會前領唱':'請準備心今天的禮拜', '靜默一分鐘':'請將手機關機或靜音', '後奏':'請後奏結束後再起身或交談', '平安禮':'請兄弟姊妹互相行平安禮' };
-        const defaultBody = entry.kicker || subtitles[entry.sectionLabel] || '';
+        const defaultBody = entry.kicker || SECTION_SUBTITLES[entry.sectionLabel] || '';
         const bodyText = entry.body || defaultBody;
 
         if (bodyText) {
@@ -310,7 +330,7 @@
             color: contentColor,
             fontFace: 'Microsoft JhengHei',
             align: params.contentAlign || (entry.kind === 'section' ? 'center' : 'left'),
-            valign: (entry.kind === 'section' ? 'top' : 'top'),
+            valign: entry.kind === 'section' && !hasStoredContentBounds ? 'middle' : 'top',
             lineSpacing: params.lineSpacing ? Math.round(scaledFont(params.contentSize) * params.lineSpacing) : undefined,
             margin: 0
           });

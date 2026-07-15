@@ -180,6 +180,50 @@ test('anchors standard-page titles to the top of their configured box like the b
   assert.equal(slides[0].texts[0].opts.valign, 'top');
 });
 
+test('centers ungrouped cover and section pages like the browser preview', async () => {
+  const slides = [];
+  class MockPptx {
+    addSlide() {
+      const slide = {
+        texts: [],
+        addText(text, opts) { this.texts.push({ text, opts }); },
+        addShape() {},
+        addImage() {}
+      };
+      slides.push(slide);
+      return slide;
+    }
+    writeFile() { return Promise.resolve(); }
+  }
+
+  await exportWorshipPPTX({
+    PptxGenJS: MockPptx,
+    getDeckEntries: () => [
+      { kind: 'cover', sectionId: 'cover', sectionLabel: '台語主日禮拜' },
+      { kind: 'section', sectionId: 'prelude', sectionLabel: '序樂' },
+      { kind: 'section', sectionId: 'postlude', sectionLabel: '後奏' }
+    ],
+    layoutState: { groups: {}, pageAssignments: {} },
+    production: { layoutForPage: () => ({}) },
+    model: {},
+    backgroundColor: '#ffffff',
+    serviceDate: '2026-07-15'
+  });
+
+  assert.equal(slides[0].texts[0].opts.y, 2.5125);
+  assert.equal(slides[0].texts[1].opts.y, 4.185);
+  assert.equal(slides[0].texts[1].opts.fontSize, 36);
+
+  assert.equal(slides[1].texts[0].text, '序樂');
+  assert.ok(Math.abs(slides[1].texts[0].opts.y - 3.075) < 0.000001);
+
+  assert.equal(slides[2].texts[0].opts.y, 2.5125);
+  assert.equal(slides[2].texts[1].text, '請後奏結束後再起身或交談');
+  assert.equal(slides[2].texts[1].opts.y, 4.185);
+  assert.equal(slides[2].texts[1].opts.fontSize, 36);
+  assert.equal(slides[2].texts[1].opts.valign, 'middle');
+});
+
 test('preserves source bounds for an ungrouped imported PowerPoint slide', async () => {
   const slides = [];
   class MockPptx {
