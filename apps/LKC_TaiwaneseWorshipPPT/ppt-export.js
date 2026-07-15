@@ -94,10 +94,10 @@
       }
 
       // 3. Layout Parameters
-      const params = {
-        ...DEFAULT_LAYOUT_PARAMS,
-        ...(production.layoutForPage(layoutState, entry) || {})
-      };
+      const storedParams = production.layoutForPage(layoutState, entry) || {};
+      const params = entry.kind === 'ppt-import'
+        ? storedParams
+        : { ...DEFAULT_LAYOUT_PARAMS, ...storedParams };
 
       const titleColor = (params.titleColor || '#111111').replace('#', '');
       const contentColor = (params.contentColor || '#111111').replace('#', '');
