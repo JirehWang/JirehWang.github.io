@@ -2,26 +2,50 @@
   const production = window.TaiwaneseWorshipSlideProduction;
   const layoutState = { groups: {}, pageAssignments: {} };
   const pendingSelection = new Set();
+  const cloudStore = window.TaiwaneseWorshipLayoutCloud.createLayoutCloudStore();
   let liveParams = null;
+  let layoutUnlocked = false;
+  let cloudLayoutFound = false;
+  let cloudLayoutLoadPromise = null;
   window.worshipLayoutState = layoutState;
+
+  const html = value => String(value == null ? '' : value).replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[character]));
 
   try {
     const draft = JSON.parse(localStorage.getItem('lkc-taiwanese-worship-draft') || '{}');
     if (draft.layoutState) {
-      layoutState.groups = draft.layoutState.groups || {};
-      layoutState.pageAssignments = draft.layoutState.pageAssignments || {};
+      replaceLayoutState(draft.layoutState);
     }
   } catch (error) {
     console.warn('版面群組草稿讀取失敗', error);
   }
 
-  function persistLayoutState() {
+  function replaceLayoutState(nextState) {
+    const normalized = window.TaiwaneseWorshipLayoutCloud.normalizeLayoutState(nextState);
+    layoutState.groups = normalized.groups;
+    layoutState.pageAssignments = normalized.pageAssignments;
+  }
+
+  function hasLayoutState() {
+    return Object.keys(layoutState.groups).length > 0 || Object.keys(layoutState.pageAssignments).length > 0;
+  }
+
+  function persistLocalLayoutState() {
     try {
       const draft = JSON.parse(localStorage.getItem('lkc-taiwanese-worship-draft') || '{}');
       localStorage.setItem('lkc-taiwanese-worship-draft', JSON.stringify({ ...draft, layoutState }));
     } catch (error) {
       console.warn('版面群組保存失敗', error);
     }
+  }
+
+  async function persistLayoutState() {
+    persistLocalLayoutState();
+    if (!layoutUnlocked) throw new Error('版面配置尚未解鎖');
+    await cloudStore.save(layoutState);
+    cloudLayoutFound = true;
   }
 
   function sectionDecks() {
@@ -71,7 +95,7 @@
     document.getElementById('flow-list').innerHTML = `<div class="deck-chapters">${decks.map((section, sectionIndex) => `
       <details class="deck-chapter" data-deck-section="${section.sectionId}" ${section.sectionId === active ? 'open' : ''}>
         <summary><input type="checkbox" data-layout-section="${section.sectionId}" aria-label="勾選 ${section.label} 全章" ${section.pages.every(page => pendingSelection.has(page.id)) ? 'checked' : ''}><span><b>${String(sectionIndex + 1).padStart(2, '0')}</b>${section.label}</span><small>${section.pages.length} 頁</small></summary>
-        <div class="deck-page-list">${section.pages.map((page, pageIndex) => `<label data-deck-page-row="${page.id}"><input type="checkbox" data-layout-page="${page.id}" ${pendingSelection.has(page.id) ? 'checked' : ''}><button type="button" data-deck-page="${page.id}">第 ${pageIndex + 1} 頁</button><small>${groupLabel(page.id)}</small></label>`).join('')}</div>
+        <div class="deck-page-list">${section.pages.map((page, pageIndex) => `<label data-deck-page-row="${page.id}"><input type="checkbox" data-layout-page="${page.id}" ${pendingSelection.has(page.id) ? 'checked' : ''}><button type="button" data-deck-page="${page.id}">第 ${pageIndex + 1} 頁</button><small>${html(groupLabel(page.id))}</small></label>`).join('')}</div>
       </details>`).join('')}</div>`;
 
     document.querySelectorAll('[data-deck-page]').forEach(button => button.onclick = () => showDeckEntry(deckEntries().find(entry => entry.id === button.dataset.deckPage)));
@@ -219,7 +243,8 @@
     const panel = document.getElementById('layout-floating-panel');
     const groups = Object.values(layoutState.groups);
     panel.innerHTML = `<header><div><small>版面參數</small><strong>調整勾選頁面</strong></div><button type="button" id="layout-panel-close" aria-label="關閉版面參數">×</button></header>
-      <div class="floating-group-fields"><label>群組名稱<input id="layout-group-name" placeholder="例如：經文頁"></label><label>載入群組<select id="layout-group-existing"><option value="">新增群組</option>${groups.map(group => `<option value="${group.id}">${group.name || group.id}</option>`).join('')}</select></label></div>
+      <p class="layout-lock-note" data-layout-lock-note>${layoutUnlocked ? '已解鎖：變更會寫入全教會共用雲端配置。' : '目前已鎖定；解鎖後才能修改全教會共用配置。'}</p>
+      <div class="floating-group-fields"><label>群組名稱<input id="layout-group-name" placeholder="例如：經文頁"></label><label>載入群組<select id="layout-group-existing"><option value="">新增群組</option>${groups.map(group => `<option value="${html(group.id)}">${html(group.name || group.id)}</option>`).join('')}</select></label></div>
       ${parameterFields()}
       <footer><button type="button" class="button quiet" id="layout-detach">解除群組</button><button type="button" class="button primary" id="layout-save-group">儲存參數組</button></footer>`;
 
@@ -233,6 +258,23 @@
     document.getElementById('layout-group-existing').onchange = event => loadGroup(event.target.value);
     document.getElementById('layout-save-group').onclick = saveGroup;
     document.getElementById('layout-detach').onclick = detachSelection;
+    applyLayoutLockUI();
+  }
+
+  function applyLayoutLockUI() {
+    const panel = document.getElementById('layout-floating-panel');
+    const toggle = document.getElementById('layout-lock-toggle');
+    if (toggle) {
+      toggle.textContent = layoutUnlocked ? '鎖定版面設定' : '版面設定已鎖定';
+      toggle.setAttribute('aria-pressed', String(layoutUnlocked));
+    }
+    if (!panel) return;
+    panel.classList.toggle('is-layout-locked', !layoutUnlocked);
+    panel.querySelectorAll('.floating-group-fields input, .floating-group-fields select, .layout-params input, .layout-params select, #layout-save-group, #layout-detach').forEach(control => {
+      control.disabled = !layoutUnlocked;
+    });
+    const note = panel.querySelector('[data-layout-lock-note]');
+    if (note) note.textContent = layoutUnlocked ? '已解鎖：變更會寫入全教會共用雲端配置。' : '目前已鎖定；解鎖後才能修改全教會共用配置。';
   }
 
   function openFloatingPanel(syncWithCanvas = true) {
@@ -285,7 +327,8 @@
     preview();
   }
 
-  function saveGroup() {
+  async function saveGroup() {
+    if (!layoutUnlocked) return status('版面配置已鎖定，請先輸入密碼解鎖');
     const pageIds = selectedIds();
     const existingId = document.getElementById('layout-group-existing').value;
     const name = document.getElementById('layout-group-name').value.trim();
@@ -293,21 +336,34 @@
     const group = production.createLayoutGroup(layoutState, existingId || `layout-${Date.now()}`, pageIds, paramsFromForm());
     group.name = name;
     liveParams = null;
-    persistLayoutState();
+    let cloudSaved = true;
+    try {
+      await persistLayoutState();
+    } catch (error) {
+      cloudSaved = false;
+      console.error('共用版面配置雲端保存失敗', error);
+    }
     renderDeckNavigator();
     renderFloatingPanel();
     openFloatingPanel();
     preview();
-    status(`已儲存版面群組：${name}`);
+    status(cloudSaved ? `已儲存全教會共用版面群組：${name}` : '本機備份已更新，但雲端版面保存失敗');
   }
 
-  function detachSelection() {
+  async function detachSelection() {
+    if (!layoutUnlocked) return status('版面配置已鎖定，請先輸入密碼解鎖');
     production.detachPagesFromLayoutGroup(layoutState, selectedIds());
     liveParams = null;
-    persistLayoutState();
+    let cloudSaved = true;
+    try {
+      await persistLayoutState();
+    } catch (error) {
+      cloudSaved = false;
+      console.error('共用版面配置雲端保存失敗', error);
+    }
     renderDeckNavigator();
     preview();
-    status('已解除所選頁面的版面群組');
+    status(cloudSaved ? '已解除所選頁面的共用版面群組' : '已更新本機備份，但雲端解除群組失敗');
   }
 
   window.applyPageLayoutToPreview = function(content, page) {
@@ -372,9 +428,86 @@
   const basePreview = preview;
   preview = function() { basePreview(); updateDeckNavigator(); };
 
-  document.getElementById('save-draft').onclick = () => {
+  async function initializeCloudLayout() {
+    try {
+      const sharedLayout = await cloudStore.load();
+      if (!sharedLayout) {
+        status(hasLayoutState() ? '已載入本機版面備份；首次解鎖後會遷移至全教會雲端配置' : '雲端尚無共用版面配置');
+        return;
+      }
+      replaceLayoutState(sharedLayout);
+      cloudLayoutFound = true;
+      persistLocalLayoutState();
+      renderDeckNavigator();
+      renderFloatingPanel();
+      preview();
+      status('已載入全教會共用版面配置');
+    } catch (error) {
+      console.warn('全教會共用版面配置載入失敗，改用本機備份', error);
+      status('雲端版面載入失敗，目前使用本機備份');
+    }
+  }
+
+  function openUnlockDialog() {
+    const dialog = document.getElementById('layout-unlock-dialog');
+    const password = document.getElementById('layout-unlock-password');
+    const error = document.getElementById('layout-unlock-error');
+    password.value = '';
+    error.textContent = '';
+    if (typeof dialog.showModal === 'function') dialog.showModal(); else dialog.setAttribute('open', '');
+    setTimeout(() => password.focus(), 0);
+  }
+
+  function closeUnlockDialog() {
+    const dialog = document.getElementById('layout-unlock-dialog');
+    if (typeof dialog.close === 'function') dialog.close(); else dialog.removeAttribute('open');
+  }
+
+  document.getElementById('layout-unlock-form').onsubmit = async event => {
+    event.preventDefault();
+    const password = document.getElementById('layout-unlock-password');
+    const error = document.getElementById('layout-unlock-error');
+    const submit = event.currentTarget.querySelector('[type="submit"]');
+    submit.disabled = true;
+    error.textContent = '';
+    try {
+      if (cloudLayoutLoadPromise) await cloudLayoutLoadPromise;
+      await cloudStore.unlock(password.value);
+      layoutUnlocked = true;
+      if (!cloudLayoutFound && hasLayoutState()) await persistLayoutState();
+      closeUnlockDialog();
+      renderFloatingPanel();
+      status(cloudLayoutFound ? '版面配置已解鎖' : '版面配置已解鎖；雲端尚無共用設定');
+    } catch (unlockError) {
+      console.warn('版面配置解鎖失敗', unlockError);
+      error.textContent = unlockError.message || '解鎖失敗，請稍後再試';
+    } finally {
+      submit.disabled = false;
+    }
+  };
+
+  document.getElementById('layout-unlock-cancel').onclick = closeUnlockDialog;
+  document.getElementById('layout-lock-toggle').onclick = async () => {
+    if (!layoutUnlocked) return openUnlockDialog();
+    try {
+      await cloudStore.lock();
+      layoutUnlocked = false;
+      renderFloatingPanel();
+      status('版面配置已鎖定');
+    } catch (error) {
+      status(`鎖定失敗：${error.message}`);
+    }
+  };
+
+  document.getElementById('save-draft').onclick = async () => {
     localStorage.setItem('lkc-taiwanese-worship-draft', JSON.stringify({ model, backgroundColor, backgroundImage, syncHymnOpacity: window.isHymnOpacitySyncEnabled(), layoutState }));
-    status('已儲存內容與版面群組');
+    if (!layoutUnlocked) return status('內容已儲存至此瀏覽器；共用版面仍為鎖定狀態');
+    try {
+      await persistLayoutState();
+      status('內容已存於此瀏覽器，版面配置已存至全教會雲端');
+    } catch (error) {
+      status(`內容已存於此瀏覽器，但雲端版面保存失敗：${error.message}`);
+    }
   };
 
   document.getElementById('layout-panel-open').onclick = openFloatingPanel;
@@ -383,4 +516,5 @@
   flow = renderDeckNavigator;
   renderFloatingPanel();
   render();
+  cloudLayoutLoadPromise = initializeCloudLayout();
 })();

@@ -6,7 +6,8 @@
 
 ```text
 使用者輸入 → app.js model → 即時預覽
-                    └→ localStorage 草稿
+                    ├→ localStorage 內容草稿／版面離線備份
+                    └→ Firebase RTDB 全教會共用版面配置
 行事曆帶入 → calendar-integration.js → config.js / churchAPI
                                       → LKC_MasterSchedule GAS `cal_getEvents`
                                       → calendar-adapter.js → app.js model
@@ -43,7 +44,7 @@
 - 背景模板由全份 PPT 共用：可使用純色 `backgroundColor`，或從頂端按鈕上傳 PNG／JPG／WebP 背景圖。背景圖以 16:9 畫布滿版裁切並可隨草稿保存；背景層不放置固定頁首或教會名稱。版面參數群組分別保存 `titleColor` 與 `contentColor`，讓真正的標題、內文可獨立選色。
 - 開啟懸浮面板時，起始參數由目前共用畫布的實際 computed layout 換算，包含字級、X/Y、寬高、對齊與行距；因此不同投影片模板不再共用一組與畫布不符的固定起始值。
 - `ppt-format-preview.js` 允許在非輸入欄位使用左右／上下方向鍵依整份 PPT 順序跨章切換；輸入欄位內的方向鍵仍保留游標操作。
-- 版面群組與頁面歸屬存入 `localStorage` 草稿；解除群組後，該頁可保留獨立 `page.layout` 微調值。
+- 版面群組與頁面歸屬以 Firebase RTDB `worshipPpt/layoutConfig/shared` 為全教會共用來源；`localStorage` 只保留首次遷移來源與離線備份。版面編輯預設鎖定，須經 Firebase Email/Password Authentication 解鎖後才可寫入；登入只保存在記憶體，重新整理即恢復鎖定。解除群組後，該頁可保留獨立 `page.layout` 微調值。
 - 本 app 設定 `window._FORCE_PRODUCTION_GAS = true`，因此 localhost 也讀正式 `LKC_MasterSchedule`；其他 app 仍保留原有 localhost 自動切換 `_TEST` 的行為。
 
 ## 2026-07-14 與來源 PPT 對齊

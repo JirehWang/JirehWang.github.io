@@ -1,0 +1,40 @@
+{
+  "rules": {
+    "worshipPpt": {
+      "layoutConfig": {
+        "shared": {
+          ".read": true,
+          ".write": "auth != null && auth.token.email == 'worship-layout@lkc1958.org'",
+          ".validate": "newData.hasChildren(['schemaVersion', 'updatedAt', 'updatedBy'])",
+          "schemaVersion": {
+            ".validate": "newData.isNumber() && newData.val() == 1"
+          },
+          "layoutState": {
+            "groups": {
+              "$groupId": {
+                ".validate": "newData.hasChildren(['id']) && newData.child('id').val() == $groupId"
+              }
+            },
+            "pageAssignments": {
+              "$pageId": {
+                ".validate": "newData.isString()"
+              }
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
+          "updatedAt": {
+            ".validate": "newData.isNumber()"
+          },
+          "updatedBy": {
+            ".validate": "newData.isString()"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    }
+  }
+}

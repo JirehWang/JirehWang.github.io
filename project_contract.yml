@@ -1,0 +1,32 @@
+project: LKC1958_June_1.github.io
+root: D:/py/LKC1958_June_1.github.io-worship-cloud
+
+entrypoints:
+  gui: apps/LKC_TaiwaneseWorshipPPT/index.html
+  cli: not_applicable
+  main: apps/LKC_TaiwaneseWorshipPPT/app.js
+
+data_dirs:
+  input: Firebase RTDB worshipPpt/layoutConfig/shared and browser form input
+  intermediate: browser memory and localStorage fallback cache
+  output: generated PPTX downloads
+  fixtures: apps/LKC_TaiwaneseWorshipPPT/*.test.js
+
+verify_commands:
+  - powershell -ExecutionPolicy Bypass -File scripts/verify.ps1
+
+package_commands:
+  - not_applicable_static_github_pages_site
+
+standard_scripts:
+  verify: scripts/verify.ps1
+  package: not_applicable
+
+project_record: docs/codex/project_journal.md
+
+risk_notes:
+  - Firebase RTDB writes must be protected by Firebase Authentication and database rules; a client-only UI lock is not an authorization boundary.
+  - The shared layout is cloud-authoritative; localStorage is retained only as migration input and offline fallback.
+  - Background image data URLs remain browser-local and must not be placed in the shared RTDB layout document.
+
+last_reviewed: 2026-07-15
