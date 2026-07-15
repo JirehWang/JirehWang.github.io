@@ -153,12 +153,41 @@
     };
   }
 
-  function parseTextShape(shape, transform, slideWidth, slideHeight, colorContext) {
+  function placeholderKey(shape) {
+    const nonVisual = directChild(shape, 'nvSpPr');
+    const properties = nonVisual && directChild(nonVisual, 'nvPr');
+    const placeholder = properties && directChild(properties, 'ph');
+    if (!placeholder) return '';
+    return `${placeholder.getAttribute('type') || 'body'}:${placeholder.getAttribute('idx') || ''}`;
+  }
+
+  function placeholderFontSizes(layoutDocument) {
+    const sizes = {};
+    Array.from(layoutDocument ? layoutDocument.getElementsByTagNameNS('*', 'sp') : []).forEach(shape => {
+      const key = placeholderKey(shape);
+      if (!key) return;
+      const textBody = directChild(shape, 'txBody');
+      const listStyle = textBody && directChild(textBody, 'lstStyle');
+      const level = listStyle && directChild(listStyle, 'lvl1pPr');
+      const defaultRun = level && directChild(level, 'defRPr');
+      const size = intAttr(defaultRun, 'sz') / 100;
+      if (size > 0) sizes[key] = size;
+    });
+    return sizes;
+  }
+
+  function inheritRunStyle(style, inheritedFontSize) {
+    const size = Number(inheritedFontSize);
+    return !style.fontSize && size > 0 ? { ...style, fontSize: size } : style;
+  }
+
+  function parseTextShape(shape, transform, slideWidth, slideHeight, colorContext, inheritedFontSizes) {
     const txBody = directChild(shape, 'txBody');
     const rect = shapeRect(shape, transform);
     if (!txBody || !rect) return null;
     const paragraphs = directChildren(txBody, 'p');
     const runs = [];
+    const inheritedFontSize = inheritedFontSizes && inheritedFontSizes[placeholderKey(shape)];
     paragraphs.forEach((paragraph, paragraphIndex) => {
       if (paragraphIndex) runs.push({ text: '\n' });
       Array.from(paragraph.childNodes).filter(node => node.nodeType === 1).forEach(run => {
@@ -168,7 +197,7 @@
         }
         if (!['r', 'fld'].includes(run.localName)) return;
         const textNode = directChild(run, 't');
-        if (textNode) runs.push({ text: textNode.textContent || '', ...parseRunStyle(directChild(run, 'rPr'), colorContext) });
+        if (textNode) runs.push({ text: textNode.textContent || '', ...inheritRunStyle(parseRunStyle(directChild(run, 'rPr'), colorContext), inheritedFontSize) });
       });
     });
     const text = runs.map(run => run.text).join('');
@@ -200,14 +229,14 @@
     return { type: 'image', mediaPath, ...rectToPercent(rect, slideWidth, slideHeight) };
   }
 
-  function walkShapes(container, transform, slideWidth, slideHeight, relationships, output, colorContext) {
+  function walkShapes(container, transform, slideWidth, slideHeight, relationships, output, colorContext, inheritedFontSizes) {
     Array.from(container.childNodes).filter(node => node.nodeType === 1).forEach(node => {
       if (node.localName === 'grpSp') {
         const groupProperties = directChild(node, 'grpSpPr');
         const xfrm = groupProperties && directChild(groupProperties, 'xfrm');
-        walkShapes(node, xfrm ? groupTransform(parseTransform(xfrm), transform) : transform, slideWidth, slideHeight, relationships, output, colorContext);
+        walkShapes(node, xfrm ? groupTransform(parseTransform(xfrm), transform) : transform, slideWidth, slideHeight, relationships, output, colorContext, inheritedFontSizes);
       } else if (node.localName === 'sp') {
-        const parsed = parseTextShape(node, transform, slideWidth, slideHeight, colorContext);
+        const parsed = parseTextShape(node, transform, slideWidth, slideHeight, colorContext, inheritedFontSizes);
         if (parsed) output.push(parsed);
       } else if (node.localName === 'pic') {
         const parsed = parsePicture(node, transform, slideWidth, slideHeight, relationships);
@@ -256,16 +285,21 @@
     const colorContext = { themeColors, colorMap };
     const slidePaths = Object.keys(zip.files).filter(path => /^ppt\/slides\/slide\d+\.xml$/.test(path)).sort((a, b) => Number(a.match(/slide(\d+)/)[1]) - Number(b.match(/slide(\d+)/)[1]));
     const mediaCache = {};
+    const layoutFontSizeCache = {};
     const pages = [];
     for (let index = 0; index < slidePaths.length; index += 1) {
       const slidePath = slidePaths[index];
       const relationshipPath = slidePath.replace('ppt/slides/', 'ppt/slides/_rels/') + '.rels';
       const relationshipFile = zip.file(relationshipPath);
       const relationships = relationshipFile ? parseRelationships(new DOMParser().parseFromString(await relationshipFile.async('text'), 'application/xml'), slidePath) : {};
+      const layoutPath = Object.values(relationships).find(path => /^ppt\/slideLayouts\/slideLayout\d+\.xml$/.test(path));
+      if (layoutPath && !layoutFontSizeCache[layoutPath]) {
+        layoutFontSizeCache[layoutPath] = placeholderFontSizes(await xml(layoutPath));
+      }
       const slide = await xml(slidePath);
       const shapeTree = firstDescendant(slide, 'spTree');
       const objects = [];
-      if (shapeTree) walkShapes(shapeTree, { sx: 1, sy: 1, tx: 0, ty: 0 }, slideWidth, slideHeight, relationships, objects, colorContext);
+      if (shapeTree) walkShapes(shapeTree, { sx: 1, sy: 1, tx: 0, ty: 0 }, slideWidth, slideHeight, relationships, objects, colorContext, layoutFontSizeCache[layoutPath]);
       for (const object of objects.filter(item => item.type === 'image')) {
         if (!mediaCache[object.mediaPath]) {
           const media = zip.file(object.mediaPath);
@@ -424,6 +458,7 @@
     mapRect,
     rectToPercent,
     resolveSchemeColor,
+    inheritRunStyle,
     base64ToArrayBuffer,
     parsePptx,
     rasterizeImportedPages,

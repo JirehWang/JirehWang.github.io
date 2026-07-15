@@ -182,6 +182,46 @@ test('preserves source bounds for an ungrouped imported PowerPoint slide', async
   assert.equal(text[0].options.fontSize, 18);
 });
 
+test('applies separate centered image and text output percentages', async () => {
+  const slides = [];
+  class MockPptx {
+    addSlide() {
+      const slide = {
+        images: [], texts: [],
+        addImage(opts) { this.images.push(opts); },
+        addText(text, opts) { this.texts.push({ text, opts }); },
+        addShape() {}
+      };
+      slides.push(slide);
+      return slide;
+    }
+    writeFile() { return Promise.resolve(); }
+  }
+
+  await exportWorshipPPTX({
+    PptxGenJS: MockPptx,
+    getDeckEntries: () => [
+      {
+        kind: 'ppt-import', rasterized: true, id: 'hymn-1:1', sectionId: 'hymn-1',
+        objects: [{ type: 'image', src: 'data:image/png;base64,page', x: 0, y: 0, w: 100, h: 100 }]
+      },
+      { kind: 'report', id: 'announcements:1', sectionId: 'announcements', title: '報告', body: '可編輯內容' }
+    ],
+    layoutState: { groups: {}, pageAssignments: {}, outputScale: { text: 90, image: 90 } },
+    production: { layoutForPage: () => ({}) },
+    model: {},
+    backgroundColor: '#ffffff',
+    serviceDate: '2026-07-12'
+  });
+
+  assert.ok(Math.abs(slides[0].images[0].x - 13.333 * 0.05) < 1e-9);
+  assert.ok(Math.abs(slides[0].images[0].y - 7.5 * 0.05) < 1e-9);
+  assert.ok(Math.abs(slides[0].images[0].w - 13.333 * 0.9) < 1e-9);
+  assert.ok(Math.abs(slides[0].images[0].h - 7.5 * 0.9) < 1e-9);
+  assert.equal(slides[1].texts[0].opts.fontSize, 54);
+  assert.equal(slides[1].texts[1].opts.fontSize, 43.2);
+});
+
 test('the export button forwards the active background and model state', () => {
   const appSource = fs.readFileSync(path.join(__dirname, 'app.js'), 'utf8').replace(/\s+/g, '');
   assert.match(

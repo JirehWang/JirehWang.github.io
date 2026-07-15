@@ -48,6 +48,11 @@
     const backgroundColor = options.backgroundColor || root.backgroundColor;
     const backgroundImage = options.backgroundImage || root.backgroundImage;
     const serviceDate = options.serviceDate || (document.getElementById('service-date') && document.getElementById('service-date').value) || '';
+    const outputScale = layoutState && layoutState.outputScale || {};
+    const normalizeScale = value => Math.max(80, Math.min(120, Number(value) || 100));
+    const textScale = normalizeScale(outputScale.text) / 100;
+    const imageScale = normalizeScale(outputScale.image) / 100;
+    const scaledFont = value => Number(value) * textScale;
 
     if (!PptxGenJSClass) throw new Error('找不到 PptxGenJS 簡報庫');
     if (!getDeckEntriesFn) throw new Error('找不到 getDeckEntries 函式');
@@ -111,18 +116,25 @@
         const finalObjects = getImportedSlideObjects(entry, params, production);
         finalObjects.forEach(obj => {
           if (obj.type === 'image' && obj.src) {
+            const scaledObject = entry.rasterized ? {
+              ...obj,
+              x: Number(obj.x) + Number(obj.w) * (1 - imageScale) / 2,
+              y: Number(obj.y) + Number(obj.h) * (1 - imageScale) / 2,
+              w: Number(obj.w) * imageScale,
+              h: Number(obj.h) * imageScale
+            } : obj;
             slide.addImage({
               data: obj.src,
-              x: slideX(obj.x),
-              y: slideY(obj.y),
-              w: slideX(obj.w),
-              h: slideY(obj.h)
+              x: slideX(scaledObject.x),
+              y: slideY(scaledObject.y),
+              w: slideX(scaledObject.w),
+              h: slideY(scaledObject.h)
             });
           } else if (obj.type === 'text' && Array.isArray(obj.runs)) {
             const runsArray = obj.runs.map(run => ({
               text: run.text,
               options: {
-                fontSize: run.fontSize,
+                fontSize: scaledFont(run.fontSize),
                 color: (run.color || obj.color || '#000000').replace('#', ''),
                 bold: run.bold,
                 italic: run.italic,
@@ -138,7 +150,7 @@
               h: slideY(obj.h),
               align: obj.align || 'left',
               valign: verticalAlignMap[obj.verticalAlign] || 'top',
-              lineSpacing: obj.lineSpacing,
+              lineSpacing: obj.lineSpacing ? scaledFont(obj.lineSpacing) : undefined,
               margin: 0
             });
           }
@@ -152,7 +164,7 @@
           y: slideY(params.titleY),
           w: slideX(params.titleW),
           h: slideY(params.titleH),
-          fontSize: params.titleSize || 60,
+          fontSize: scaledFont(params.titleSize || 60),
           color: titleColor,
           fontFace: 'Microsoft JhengHei',
           align: params.titleAlign || 'center',
@@ -166,7 +178,7 @@
           y: slideY(params.contentY),
           w: slideX(params.contentW),
           h: slideY(params.contentH),
-          fontSize: params.contentSize || 48,
+          fontSize: scaledFont(params.contentSize || 48),
           color: contentColor,
           fontFace: 'Microsoft JhengHei',
           align: params.contentAlign || 'center',
@@ -179,7 +191,7 @@
           y: slideY(params.titleY),
           w: slideX(params.titleW),
           h: slideY(params.titleH),
-          fontSize: params.titleSize || 60,
+          fontSize: scaledFont(params.titleSize || 60),
           color: titleColor,
           fontFace: 'Microsoft JhengHei',
           align: params.titleAlign || 'center',
@@ -195,7 +207,7 @@
           y: slideY(params.contentY),
           w: slideX(params.contentW),
           h: slideY(params.contentH),
-          fontSize: params.contentSize || 48,
+          fontSize: scaledFont(params.contentSize || 48),
           color: contentColor,
           fontFace: 'Microsoft JhengHei',
           align: params.contentAlign || 'center',
@@ -208,12 +220,12 @@
           y: slideY(params.contentY),
           w: slideX(params.contentW),
           h: slideY(params.contentH),
-          fontSize: params.contentSize || 48,
+          fontSize: scaledFont(params.contentSize || 48),
           color: contentColor,
           fontFace: 'Microsoft JhengHei',
           align: params.contentAlign || 'center',
           valign: 'middle',
-          lineSpacing: params.lineSpacing ? Math.round(params.contentSize * params.lineSpacing) : undefined,
+          lineSpacing: params.lineSpacing ? Math.round(scaledFont(params.contentSize) * params.lineSpacing) : undefined,
           margin: 0
         });
       } else if (entry.kind === 'score') {
@@ -225,7 +237,7 @@
           y: slideY(params.titleY),
           w: slideX(params.titleW),
           h: slideY(params.titleH),
-          fontSize: params.titleSize || 60,
+          fontSize: scaledFont(params.titleSize || 60),
           color: titleColor,
           fontFace: 'Microsoft JhengHei',
           align: params.titleAlign || 'center',
@@ -240,7 +252,7 @@
             y: slideY(params.contentY || 24),
             w: slideX(params.contentW),
             h: 1.3333,
-            fontSize: params.contentSize || 48,
+            fontSize: scaledFont(params.contentSize || 48),
             color: contentColor,
             fontFace: 'Microsoft JhengHei',
             align: params.contentAlign || 'center',
@@ -268,7 +280,7 @@
             y: slideY(params.titleY),
             w: slideX(params.titleW),
             h: slideY(params.titleH),
-            fontSize: params.titleSize || 60,
+            fontSize: scaledFont(params.titleSize || 60),
             color: titleColor,
             fontFace: 'Microsoft JhengHei',
             align: params.titleAlign || 'center',
@@ -289,12 +301,12 @@
             y: slideY(params.contentY),
             w: slideX(params.contentW),
             h: slideY(params.contentH),
-            fontSize: params.contentSize || 48,
+            fontSize: scaledFont(params.contentSize || 48),
             color: contentColor,
             fontFace: 'Microsoft JhengHei',
             align: params.contentAlign || (entry.kind === 'section' ? 'center' : 'left'),
             valign: (entry.kind === 'section' ? 'top' : 'top'),
-            lineSpacing: params.lineSpacing ? Math.round(params.contentSize * params.lineSpacing) : undefined,
+            lineSpacing: params.lineSpacing ? Math.round(scaledFont(params.contentSize) * params.lineSpacing) : undefined,
             margin: 0
           });
         }
