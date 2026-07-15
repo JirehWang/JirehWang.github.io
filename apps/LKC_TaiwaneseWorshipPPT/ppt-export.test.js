@@ -1,5 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { exportWorshipPPTX, getImportedSlideObjects, cleanParagraphProperties } = require('./ppt-export.js');
 
 test('exports slides correctly with mock pptxgenjs', async () => {
@@ -125,6 +127,63 @@ test('uses safe default bounds when an ungrouped page has no stored layout param
     assert.ok(opts.w > 0, 'text width must be positive');
     assert.ok(opts.h > 0, 'text height must be positive');
   });
+});
+
+test('preserves source bounds for an ungrouped imported PowerPoint slide', async () => {
+  const slides = [];
+  class MockPptx {
+    addSlide() {
+      const slide = {
+        texts: [],
+        addText(text, opts) { this.texts.push({ text, opts }); },
+        addShape() {},
+        addImage() {}
+      };
+      slides.push(slide);
+      return slide;
+    }
+    writeFile() { return Promise.resolve(); }
+  }
+
+  await exportWorshipPPTX({
+    PptxGenJS: MockPptx,
+    getDeckEntries: () => [{
+      kind: 'ppt-import',
+      sectionId: 'hymn-1',
+      objects: [{
+        type: 'text',
+        role: 'content',
+        text: 'source text',
+        x: 15,
+        y: 25,
+        w: 70,
+        h: 50,
+        fontSize: 18,
+        runs: [{ text: 'source text', fontSize: 18 }]
+      }]
+    }],
+    layoutState: { groups: {}, pageAssignments: {} },
+    production: { layoutForPage: () => ({}) },
+    model: {},
+    backgroundColor: '#ffffff',
+    serviceDate: '2026-07-12'
+  });
+
+  const [{ text, opts }] = slides[0].texts;
+  assert.equal(opts.x, 1.5);
+  assert.equal(opts.y, 1.40625);
+  assert.equal(opts.w, 7);
+  assert.equal(opts.h, 2.8125);
+  assert.equal(text[0].options.fontSize, 18);
+});
+
+test('the export button forwards the active background and model state', () => {
+  const appSource = fs.readFileSync(path.join(__dirname, 'app.js'), 'utf8').replace(/\s+/g, '');
+  assert.match(
+    appSource,
+    /exportWorshipPPTX\(\{model,backgroundColor,backgroundImage\}\)/,
+    'app.js must pass its lexical state to the standalone exporter'
+  );
 });
 
 test('cleanParagraphProperties removes duplicate a:pPr tags from a:p paragraphs', () => {
