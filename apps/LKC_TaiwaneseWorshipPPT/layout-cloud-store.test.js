@@ -114,6 +114,7 @@ test('loads the cloud store before the locked layout UI and uses a password fiel
   const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
   const app = fs.readFileSync(path.join(__dirname, 'app.js'), 'utf8');
   const layoutGroups = fs.readFileSync(path.join(__dirname, 'layout-groups.js'), 'utf8');
+  const styles = fs.readFileSync(path.join(__dirname, 'style.css'), 'utf8');
   assert.ok(html.indexOf('layout-cloud-store.js') < html.indexOf('layout-groups.js'));
   assert.match(html, /id="layout-unlock-password" type="password"/);
   assert.match(html, /id="layout-lock-toggle"/);
@@ -121,7 +122,11 @@ test('loads the cloud store before the locked layout UI and uses a password fiel
   assert.match(app, /saveSharedHymnOpacity/);
   assert.match(layoutGroups, /isWorshipLayoutUnlocked/);
   assert.match(layoutGroups, /#opacity, #sync-hymn-opacity-global/);
-  assert.match(layoutGroups, /id="lg-output-text-scale"/);
-  assert.match(layoutGroups, /id="lg-output-image-scale"/);
+  assert.match(html, /class="output-scale-toolbar"/);
+  assert.match(html, /id="lg-output-text-scale"/);
+  assert.match(html, /id="lg-output-image-scale"/);
+  assert.match(html, /id="layout-save-output-scale"/);
+  assert.doesNotMatch(layoutGroups, /data-layout-tab="output"/);
+  assert.match(styles, /\.output-scale-toolbar/);
   assert.match(layoutGroups, /saveOutputScale/);
 });
