@@ -3,9 +3,20 @@
   const endpoint = 'https://script.google.com/macros/s/AKfycbyLLQZsz_XZqhWVwaT_8hcvfQc8fSWztAncEmBUk7lnzGr-TcP33uzS-weUG_cavgEn/exec';
 
   root.loadBulletinPptContent = async function(date) {
+    const loadRecord = async kind => {
+      if (root.worshipFirebaseContent && typeof root.worshipFirebaseContent.readServiceRecord === 'function') {
+        try {
+          const synchronized = await root.worshipFirebaseContent.readServiceRecord(kind, date);
+          if (synchronized !== null && synchronized !== undefined) return { state: 'loaded', data: synchronized };
+        } catch (error) {
+          console.warn(`[worship-firebase-content] ${kind} read failed; falling back to GAS:`, error);
+        }
+      }
+      return api.loadCloudRecord(endpoint, kind, date, root.fetch.bind(root));
+    };
     const [reportsResult, praiseResult] = await Promise.all([
-      api.loadCloudRecord(endpoint, 'reports', date, root.fetch.bind(root)),
-      api.loadCloudRecord(endpoint, 'praise', date, root.fetch.bind(root))
+      loadRecord('reports'),
+      loadRecord('praise')
     ]);
     if (reportsResult.state === 'loaded') api.applyReportsToModel(model, reportsResult.data);
     if (praiseResult.state === 'loaded') api.applyPraiseToModel(model, praiseResult.data);

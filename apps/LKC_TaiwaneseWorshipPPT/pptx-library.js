@@ -433,13 +433,24 @@
 
   async function downloadAndParse(entry, JSZipImplementation, readApi) {
     if (!entry || !entry.fileId) throw new Error('找不到對應的雲端 PPTX');
+    const storageUrl = entry.downloadUrl || entry.storageUrl;
+    if (storageUrl) {
+      let response;
+      try {
+        response = await fetch(storageUrl);
+      } catch (error) {
+        throw new Error(`PPTX 下載失敗：${error && error.message ? error.message : error}`);
+      }
+      if (!response.ok) throw new Error(`PPTX 下載失敗（${response.status}）`);
+      return parsePptx(await response.arrayBuffer(), JSZipImplementation);
+    }
     if (typeof readApi === 'function') {
       const result = await readApi('cal_getPptLibraryFile', { fileId: entry.fileId });
       const payload = result && result.data;
       if (!payload || !payload.base64) throw new Error('PPTX 雲端代理未回傳檔案內容');
       return parsePptx(base64ToArrayBuffer(payload.base64), JSZipImplementation);
     }
-    const url = entry.downloadUrl || `https://drive.usercontent.google.com/download?id=${encodeURIComponent(entry.fileId)}&export=download&confirm=t`;
+    const url = `https://drive.usercontent.google.com/download?id=${encodeURIComponent(entry.fileId)}&export=download&confirm=t`;
     let response;
     try {
       response = await fetch(url);

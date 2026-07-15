@@ -20,6 +20,22 @@
                 ".validate": "newData.isString()"
               }
             },
+            "hymnOpacityBySection": {
+              "$sectionId": {
+                ".validate": "$sectionId.matches(/^[a-zA-Z0-9-]+$/) && newData.isNumber() && newData.val() >= 40 && newData.val() <= 80"
+              }
+            },
+            "outputScale": {
+              "text": {
+                ".validate": "newData.isNumber() && newData.val() >= 80 && newData.val() <= 120"
+              },
+              "image": {
+                ".validate": "newData.isNumber() && newData.val() >= 80 && newData.val() <= 120"
+              },
+              "$other": {
+                ".validate": false
+              }
+            },
             "$other": {
               ".validate": false
             }
@@ -34,6 +50,10 @@
             ".validate": false
           }
         }
+      },
+      "content": {
+        ".read": true,
+        ".write": false
       }
     }
   }
