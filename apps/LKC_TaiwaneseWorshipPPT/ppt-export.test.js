@@ -134,6 +134,52 @@ test('uses safe default bounds when an ungrouped page has no stored layout param
   });
 });
 
+test('anchors standard-page titles to the top of their configured box like the browser preview', async () => {
+  const slides = [];
+  class MockPptx {
+    addSlide() {
+      const slide = {
+        texts: [],
+        addText(text, opts) { this.texts.push({ text, opts }); },
+        addShape() {},
+        addImage() {}
+      };
+      slides.push(slide);
+      return slide;
+    }
+    writeFile() { return Promise.resolve(); }
+  }
+
+  await exportWorshipPPTX({
+    PptxGenJS: MockPptx,
+    getDeckEntries: () => [{
+      kind: 'liturgical',
+      sectionId: 'creed',
+      title: '信仰告白—使徒信經',
+      body: '我信上帝'
+    }],
+    layoutState: { groups: {}, pageAssignments: {} },
+    production: {
+      layoutForPage: () => ({
+        titleX: 8,
+        titleY: 8,
+        titleW: 83,
+        titleH: 39.1,
+        contentX: 5,
+        contentY: 23,
+        contentW: 95,
+        contentH: 73.5
+      })
+    },
+    model: {},
+    backgroundColor: '#ffffff',
+    serviceDate: '2026-07-15'
+  });
+
+  assert.equal(slides[0].texts[0].text, '信仰告白—使徒信經');
+  assert.equal(slides[0].texts[0].opts.valign, 'top');
+});
+
 test('preserves source bounds for an ungrouped imported PowerPoint slide', async () => {
   const slides = [];
   class MockPptx {
