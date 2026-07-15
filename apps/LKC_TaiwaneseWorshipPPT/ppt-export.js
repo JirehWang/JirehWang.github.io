@@ -107,6 +107,8 @@
       const params = entry.kind === 'ppt-import'
         ? storedParams
         : { ...DEFAULT_LAYOUT_PARAMS, ...storedParams };
+      const hasStoredTitleBounds = ['titleX', 'titleY', 'titleW', 'titleH']
+        .some(key => Object.prototype.hasOwnProperty.call(storedParams, key));
 
       const titleColor = (params.titleColor || '#111111').replace('#', '');
       const contentColor = (params.contentColor || '#111111').replace('#', '');
@@ -284,7 +286,10 @@
             color: titleColor,
             fontFace: 'Microsoft JhengHei',
             align: params.titleAlign || 'center',
-            valign: 'middle',
+            // The browser preview anchors text at the top of an explicitly
+            // positioned title box. Centering it vertically in PowerPoint
+            // moves tall shared-layout titles down into the body box.
+            valign: hasStoredTitleBounds ? 'top' : 'middle',
             bold: true,
             margin: 0
           });
