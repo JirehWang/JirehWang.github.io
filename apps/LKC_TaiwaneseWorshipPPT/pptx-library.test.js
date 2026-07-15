@@ -99,6 +99,36 @@ test('prefers a Firebase Storage download URL over the GAS Base64 endpoint', asy
   }
 });
 
+test('routes Google Drive download URLs through the GAS Base64 proxy', async () => {
+  const previousFetch = global.fetch;
+  let directFetchCalls = 0;
+  let gasCalls = 0;
+  global.fetch = async () => {
+    directFetchCalls += 1;
+    throw new TypeError('Drive CORS blocked');
+  };
+  const jszip = { loadAsync: async () => { throw new Error('GAS payload reached parser'); } };
+  try {
+    await assert.rejects(
+      library.downloadAndParse(
+        {
+          fileId: 'h65',
+          downloadUrl: 'https://drive.usercontent.google.com/download?id=h65&export=download&confirm=t'
+        },
+        jszip,
+        async () => {
+          gasCalls += 1;
+          return { data: { base64: Buffer.from([80, 75, 3, 4]).toString('base64') } };
+        }
+      )
+    );
+    assert.equal(directFetchCalls, 0);
+    assert.equal(gasCalls, 1);
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
 test('uses an inherited slide-layout font size when a placeholder run omits sz', () => {
   assert.deepEqual(library.inheritRunStyle({ bold: true }, 60), { bold: true, fontSize: 60 });
   assert.deepEqual(library.inheritRunStyle({ fontSize: 48 }, 60), { fontSize: 48 });

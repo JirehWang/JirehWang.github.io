@@ -431,10 +431,21 @@
     return result;
   }
 
+  function isFirebaseStorageUrl(value) {
+    try {
+      const hostname = new URL(String(value || '')).hostname.toLowerCase();
+      return hostname === 'firebasestorage.googleapis.com'
+        || hostname === 'storage.googleapis.com'
+        || hostname.endsWith('.firebasestorage.app');
+    } catch (_) {
+      return false;
+    }
+  }
+
   async function downloadAndParse(entry, JSZipImplementation, readApi) {
     if (!entry || !entry.fileId) throw new Error('找不到對應的雲端 PPTX');
     const storageUrl = entry.downloadUrl || entry.storageUrl;
-    if (storageUrl) {
+    if (storageUrl && isFirebaseStorageUrl(storageUrl)) {
       let response;
       try {
         response = await fetch(storageUrl);
@@ -473,6 +484,7 @@
     base64ToArrayBuffer,
     parsePptx,
     rasterizeImportedPages,
+    isFirebaseStorageUrl,
     downloadAndParse
   };
 });
