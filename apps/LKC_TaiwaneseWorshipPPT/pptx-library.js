@@ -393,6 +393,13 @@
     });
   }
 
+  function rasterObject(object, options = {}) {
+    if (object && object.type === 'text' && object.role === 'title' && options.titleVerticalAlign) {
+      return { ...object, verticalAlign: options.titleVerticalAlign };
+    }
+    return object;
+  }
+
   async function rasterizeImportedPages(pages, options = {}) {
     const width = Math.max(640, Number(options.width) || 1600);
     const createCanvas = options.createCanvas || browserCanvas;
@@ -408,7 +415,8 @@
       canvas.height = height;
       const context = canvas.getContext('2d');
       context.clearRect(0, 0, width, height);
-      for (const object of page.objects || []) {
+      for (const sourceObject of page.objects || []) {
+        const object = rasterObject(sourceObject, options);
         if (object.type === 'image' && object.src) {
           const image = await loadImage(object.src);
           context.drawImage(
@@ -483,6 +491,7 @@
     inheritRunStyle,
     base64ToArrayBuffer,
     parsePptx,
+    rasterObject,
     rasterizeImportedPages,
     isFirebaseStorageUrl,
     downloadAndParse

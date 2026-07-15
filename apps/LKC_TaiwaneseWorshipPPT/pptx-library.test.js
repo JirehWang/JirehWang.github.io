@@ -174,3 +174,11 @@ test('rasterizes an imported library page into one transparent full-slide image'
   assert.ok(calls.some(call => call[0] === 'drawImage'));
   assert.ok(calls.some(call => call[0] === 'fillText' && call[1] === '歌詞'));
 });
+
+test('normalizes responsive-reading titles to the same centered vertical alignment before rasterizing', () => {
+  const firstPageTitle = { type: 'text', role: 'title', verticalAlign: 'start' };
+  const laterPageTitle = { type: 'text', role: 'title', verticalAlign: 'end' };
+  assert.equal(library.rasterObject(firstPageTitle, { titleVerticalAlign: 'center' }).verticalAlign, 'center');
+  assert.equal(library.rasterObject(laterPageTitle, { titleVerticalAlign: 'center' }).verticalAlign, 'center');
+  assert.equal(library.rasterObject({ type: 'text', role: 'content', verticalAlign: 'end' }, { titleVerticalAlign: 'center' }).verticalAlign, 'end');
+});

@@ -4,6 +4,24 @@
   root.TaiwaneseWorshipSlideProduction = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function() {
   const cleanText = value => String(value == null ? '' : value).replace(/<\/?[a-zA-Z0-9]+[^>]*>/g, '').trim();
+  const DEFAULT_LAYOUT_PARAMS = {
+    titleSize: 60,
+    titleX: 10,
+    titleY: 6,
+    titleW: 80,
+    titleH: 16,
+    titleAlign: 'center',
+    titleColor: '#111111',
+    contentSize: 48,
+    contentX: 8,
+    contentY: 24,
+    contentW: 84,
+    contentH: 68,
+    contentAlign: 'left',
+    contentColor: '#111111',
+    lineSpacing: 1.5
+  };
+  const HYMN_TITLE_SECTIONS = new Set(['pre-hymn-1', 'pre-hymn-2', 'hymn-1', 'hymn-2', 'doxology']);
 
   function normalizeColor(value, fallback = '#111111') {
     const color = String(value || '').trim().toLowerCase();
@@ -36,6 +54,74 @@
       if (model && model[sectionId]) model[sectionId].opacity = opacity;
     });
     return model;
+  }
+
+  function shouldApplyHymnWhiteOverlay(page, sectionIds) {
+    return Boolean(page)
+      && (page.kind === 'ppt-import' || page.kind === 'score')
+      && (sectionIds || []).includes(page.sectionId);
+  }
+
+  function pointsToCanvasCqw(value) {
+    return Number(value) / 9.6;
+  }
+
+  function canvasCqwToPoints(value) {
+    return Number(value) * 9.6;
+  }
+
+  let textMeasureContext;
+  const NATIVE_TEXT_WRAP_SAFETY = 0.92;
+
+  function fallbackTextWidth(value) {
+    return Array.from(String(value || '')).reduce((width, char) => {
+      if (/\s/.test(char)) return width + 0.35;
+      if (/[\u0000-\u00ff]/.test(char)) return width + 0.55;
+      if (/[，。；：、？！）》」』]/.test(char)) return width + 0.55;
+      return width + 1;
+    }, 0);
+  }
+
+  function wrapTextForBox(value, options = {}) {
+    const text = String(value == null ? '' : value);
+    if (!text) return '';
+    const fontSize = Math.max(1, Number(options.fontSize) || 48);
+    const boxWidth = Math.max(1, Number(options.boxWidth) || 84);
+    const fontFamily = String(options.fontFamily || 'Microsoft JhengHei');
+    const bold = options.bold !== false;
+    const browserMaxWidth = 1280 * boxWidth / 100 * NATIVE_TEXT_WRAP_SAFETY;
+    const fallbackMaxWidth = 960 * boxWidth / 100 / fontSize * NATIVE_TEXT_WRAP_SAFETY;
+    if (!textMeasureContext && typeof document !== 'undefined' && document.createElement) {
+      const canvas = document.createElement('canvas');
+      textMeasureContext = canvas.getContext && canvas.getContext('2d');
+    }
+    if (textMeasureContext) {
+      textMeasureContext.font = `${bold ? 700 : 400} ${fontSize * 4 / 3}px "${fontFamily}"`;
+    }
+    const measure = candidate => textMeasureContext
+      ? textMeasureContext.measureText(candidate).width
+      : fallbackTextWidth(candidate);
+    const maxWidth = textMeasureContext ? browserMaxWidth : fallbackMaxWidth;
+    const prohibitedLineStarts = /[，。；：、？！）》」』]/;
+    const lines = [];
+    text.split('\n').forEach(sourceLine => {
+      if (!sourceLine) {
+        lines.push('');
+        return;
+      }
+      let line = '';
+      Array.from(sourceLine).forEach(char => {
+        const candidate = line + char;
+        if (line && measure(candidate) > maxWidth && !prohibitedLineStarts.test(char)) {
+          lines.push(line);
+          line = char;
+        } else {
+          line = candidate;
+        }
+      });
+      lines.push(line);
+    });
+    return lines.join('\n');
   }
 
   function buildBiblePages(sectionId, label, reference, records, versesPerPage = 2) {
@@ -160,12 +246,78 @@
     return { ...groupParams, ...(page.layout || {}) };
   }
 
+  function defaultLayoutForPage(page, item) {
+    if (!page || page.kind === 'ppt-import') return {};
+    const defaults = { ...DEFAULT_LAYOUT_PARAMS };
+    if (page.kind === 'cover') {
+      return {
+        ...defaults,
+        titleY: 33.5,
+        titleH: 17.8,
+        contentSize: 36,
+        contentY: 55.8,
+        contentH: 10.8,
+        contentAlign: 'center',
+        lineSpacing: 1.2
+      };
+    }
+    if (page.kind === 'section') {
+      const subtitle = page.body || page.kicker || (item && item.kicker) || '';
+      if (subtitle && HYMN_TITLE_SECTIONS.has(page.sectionId)) {
+        return {
+          ...defaults,
+          titleX: 4.8,
+          titleY: 24.8,
+          titleW: 86.3,
+          titleH: 12,
+          contentSize: 60,
+          contentX: 4.8,
+          contentY: 47.9,
+          contentW: 86.3,
+          contentH: 12,
+          contentAlign: 'center',
+          lineSpacing: 1.2
+        };
+      }
+      return {
+        ...defaults,
+        titleY: subtitle ? 33.5 : 41,
+        titleH: subtitle ? 17.8 : 18,
+        contentSize: 36,
+        contentY: 55.8,
+        contentH: 10.8,
+        contentAlign: 'center',
+        lineSpacing: 1.2
+      };
+    }
+    if (page.kind === 'praise-lyrics') {
+      return {
+        ...defaults,
+        contentX: 10,
+        contentY: 10,
+        contentW: 80,
+        contentH: 80,
+        contentAlign: 'center',
+        lineSpacing: 1.55
+      };
+    }
+    return defaults;
+  }
+
+  function resolvedLayoutForPage(state, page, item) {
+    return { ...defaultLayoutForPage(page, item), ...layoutForPage(state, page) };
+  }
+
   return {
     normalizeColor,
     isSupportedBackgroundImage,
     normalizeBackgroundImageDataUrl,
     toWhiteOverlayOpacity,
     applyHymnOpacity,
+    shouldApplyHymnWhiteOverlay,
+    pointsToCanvasCqw,
+    canvasCqwToPoints,
+    wrapTextForBox,
     buildBiblePages,
     composeLibraryPages,
     applyFixedLibraryDefaults,
@@ -174,6 +326,8 @@
     createLayoutGroup,
     updateLayoutGroup,
     detachPagesFromLayoutGroup,
-    layoutForPage
+    layoutForPage,
+    defaultLayoutForPage,
+    resolvedLayoutForPage
   };
 });

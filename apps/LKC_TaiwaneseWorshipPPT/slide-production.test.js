@@ -12,6 +12,11 @@ const {
   normalizeBackgroundImageDataUrl,
   toWhiteOverlayOpacity,
   applyHymnOpacity,
+  shouldApplyHymnWhiteOverlay,
+  pointsToCanvasCqw,
+  canvasCqwToPoints,
+  wrapTextForBox,
+  resolvedLayoutForPage,
   composeLibraryPages,
   applyFixedLibraryDefaults
 } = require('./slide-production.js');
@@ -47,6 +52,46 @@ test('synchronizes hymn opacity only when the shared checkbox is enabled', () =>
   applyHymnOpacity(model, sectionIds, 'offering', 52, false);
   assert.equal(model.offering.opacity, 52);
   assert.deepEqual(sectionIds.filter(id => id !== 'offering').map(id => model[id].opacity), [68, 68, 68, 68, 68]);
+});
+
+test('applies the hymn white overlay to score content but never to its title page', () => {
+  const hymnSections = ['pre-hymn-1', 'hymn-1', 'hymn-2', 'doxology'];
+  assert.equal(shouldApplyHymnWhiteOverlay({ sectionId: 'hymn-1', kind: 'section' }, hymnSections), false);
+  assert.equal(shouldApplyHymnWhiteOverlay({ sectionId: 'hymn-1', kind: 'ppt-import' }, hymnSections), true);
+  assert.equal(shouldApplyHymnWhiteOverlay({ sectionId: 'hymn-1', kind: 'score' }, hymnSections), true);
+  assert.equal(shouldApplyHymnWhiteOverlay({ sectionId: 'response', kind: 'ppt-import' }, hymnSections), false);
+});
+
+test('resolves one shared layout for both preview and export', () => {
+  const state = { groups: {}, pageAssignments: {} };
+  const page = { id: 'hymn-1:section', sectionId: 'hymn-1', kind: 'section', sectionLabel: '聖詩一' };
+  const item = { title: '聖詩 – 第 65 首', kicker: '為著美麗的地面' };
+  const params = resolvedLayoutForPage(state, page, item);
+  assert.equal(params.titleSize, 60);
+  assert.equal(params.contentSize, 60);
+  assert.equal(params.titleY, 24.8);
+  assert.equal(params.contentY, 47.9);
+
+  createLayoutGroup(state, 'hymn-title-custom', [page.id], { titleY: 30, contentY: 54 });
+  assert.deepEqual(
+    { titleY: resolvedLayoutForPage(state, page, item).titleY, contentY: resolvedLayoutForPage(state, page, item).contentY },
+    { titleY: 30, contentY: 54 }
+  );
+});
+
+test('converts PowerPoint points to the 16:9 canvas without enlarging text', () => {
+  assert.equal(pointsToCanvasCqw(60), 6.25);
+  assert.equal(pointsToCanvasCqw(48), 5);
+  assert.equal(canvasCqwToPoints(6.25), 60);
+  assert.equal(canvasCqwToPoints(pointsToCanvasCqw(36)), 36);
+});
+
+test('inserts deterministic native-text line breaks for preview and export', () => {
+  assert.equal(
+    wrapTextForBox('甲乙丙丁\n\n戊己', { fontSize: 48, boxWidth: 11 }),
+    '甲乙\n丙丁\n\n戊己'
+  );
+  assert.equal(wrapTextForBox('甲乙丙', { fontSize: 48, boxWidth: 10 }), '甲\n乙\n丙');
 });
 
 test('flattens PPT chapters into one continuous deck order', () => {

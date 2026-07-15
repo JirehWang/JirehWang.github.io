@@ -134,6 +134,42 @@ test('uses safe default bounds when an ungrouped page has no stored layout param
   });
 });
 
+test('does not add the hymn white overlay to a generated hymn title page', async () => {
+  const slides = [];
+  class MockPptx {
+    addSlide() {
+      const slide = {
+        shapes: [], texts: [],
+        addShape(type, opts) { this.shapes.push({ type, opts }); },
+        addText(text, opts) { this.texts.push({ text, opts }); },
+        addImage() {}
+      };
+      slides.push(slide);
+      return slide;
+    }
+    writeFile() { return Promise.resolve(); }
+  }
+  MockPptx.ShapeType = { rect: 'rect' };
+  globalThis.hymnOpacitySectionIds = ['hymn-1'];
+
+  await exportWorshipPPTX({
+    PptxGenJS: MockPptx,
+    getDeckEntries: () => [
+      { id: 'hymn-1:section', kind: 'section', sectionId: 'hymn-1', sectionLabel: '聖詩一' },
+      { id: 'hymn-1:1', kind: 'ppt-import', sectionId: 'hymn-1', objects: [] }
+    ],
+    layoutState: { groups: {}, pageAssignments: {} },
+    production: require('./slide-production.js'),
+    model: { 'hymn-1': { title: '聖詩 – 第 65 首', kicker: '為著美麗的地面', opacity: 60 } },
+    backgroundColor: '#ffffff',
+    serviceDate: '2026-07-12'
+  });
+
+  assert.equal(slides[0].shapes.length, 0);
+  assert.equal(slides[1].shapes.length, 1);
+  assert.equal(slides[1].shapes[0].opts.fill.transparency, 40);
+});
+
 test('anchors standard-page titles to the top of their configured box like the browser preview', async () => {
   const slides = [];
   class MockPptx {
@@ -180,7 +216,7 @@ test('anchors standard-page titles to the top of their configured box like the b
   assert.equal(slides[0].texts[0].opts.valign, 'top');
 });
 
-test('centers ungrouped cover and section pages like the browser preview', async () => {
+test('uses the shared preview bounds for ungrouped cover and section pages', async () => {
   const slides = [];
   class MockPptx {
     addSlide() {
@@ -221,10 +257,10 @@ test('centers ungrouped cover and section pages like the browser preview', async
   assert.equal(slides[2].texts[1].text, '請後奏結束後再起身或交談');
   assert.equal(slides[2].texts[1].opts.y, 4.185);
   assert.equal(slides[2].texts[1].opts.fontSize, 36);
-  assert.equal(slides[2].texts[1].opts.valign, 'middle');
+  assert.equal(slides[2].texts[1].opts.valign, 'top');
 });
 
-test('exports hymn names from the loaded model and centers praise lyrics on the full safe area', async () => {
+test('exports hymn names from the loaded model and uses the preview anchor for praise lyrics', async () => {
   const slides = [];
   class MockPptx {
     addSlide() {
@@ -258,9 +294,47 @@ test('exports hymn names from the loaded model and centers praise lyrics on the 
 
   assert.equal(slides[0].texts[0].text, '聖詩 – 第 65 首');
   assert.equal(slides[0].texts[1].text, '為著美麗的地面');
+  assert.equal(slides[0].texts[0].opts.bold, true);
+  assert.equal(slides[0].texts[1].opts.bold, true);
   assert.equal(slides[1].texts[0].opts.y, 0.75);
   assert.equal(slides[1].texts[0].opts.h, 6);
-  assert.equal(slides[1].texts[0].opts.valign, 'middle');
+  assert.equal(slides[1].texts[0].opts.valign, 'top');
+  assert.equal(slides[1].texts[0].opts.bold, true);
+});
+
+test('exports the same deterministic native-text line breaks used by the preview', async () => {
+  const slides = [];
+  class MockPptx {
+    addSlide() {
+      const slide = {
+        texts: [],
+        addText(text, opts) { this.texts.push({ text, opts }); },
+        addShape() {},
+        addImage() {}
+      };
+      slides.push(slide);
+      return slide;
+    }
+    writeFile() { return Promise.resolve(); }
+  }
+
+  await exportWorshipPPTX({
+    PptxGenJS: MockPptx,
+    getDeckEntries: () => [{
+      kind: 'report',
+      sectionId: 'announcements',
+      title: '報告',
+      body: '甲乙丙丁',
+      layout: { contentSize: 48, contentW: 11 }
+    }],
+    layoutState: { groups: {}, pageAssignments: {} },
+    production: require('./slide-production.js'),
+    model: {},
+    backgroundColor: '#ffffff',
+    serviceDate: '2026-07-12'
+  });
+
+  assert.equal(slides[0].texts[1].text, '甲乙\n丙丁');
 });
 
 test('preserves source bounds for an ungrouped imported PowerPoint slide', async () => {

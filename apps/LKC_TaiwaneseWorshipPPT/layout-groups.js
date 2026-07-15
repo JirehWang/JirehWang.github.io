@@ -229,7 +229,7 @@
       const stableX = Math.max(0, bufferedX);
       const stableW = Math.min(100 - stableX, rawW + edgeBuffer * 2);
       return {
-        [`${prefix}Size`]: Number((fontPx / frameRect.width * 100 * 7.2).toFixed(1)),
+        [`${prefix}Size`]: Number(production.canvasCqwToPoints(fontPx / frameRect.width * 100).toFixed(1)),
         [`${prefix}X`]: Number(stableX.toFixed(1)),
         [`${prefix}Y`]: Number(((rect.top - frameRect.top) / frameRect.height * 100).toFixed(1)),
         [`${prefix}W`]: Number(stableW.toFixed(1)),
@@ -254,7 +254,7 @@
         const style = getComputedStyle(objects[0]);
         const fontPx = parseFloat(style.fontSize) || 0;
         return {
-          [`${prefix}Size`]: Number((fontPx / frameRect.width * 100 * 7.2).toFixed(1)),
+          [`${prefix}Size`]: Number(production.canvasCqwToPoints(fontPx / frameRect.width * 100).toFixed(1)),
           [`${prefix}X`]: Number(((left - frameRect.left) / frameRect.width * 100).toFixed(1)),
           [`${prefix}Y`]: Number(((top - frameRect.top) / frameRect.height * 100).toFixed(1)),
           [`${prefix}W`]: Number(((right - left) / frameRect.width * 100).toFixed(1)),
@@ -420,8 +420,19 @@
 
   window.applyPageLayoutToPreview = function(content, page) {
     if (!page.id) page.id = `${active}:${previewPage + 1}`;
-    const stored = production.layoutForPage(layoutState, page);
+    const entry = { ...page, sectionId: page.sectionId || active, sectionLabel: page.sectionLabel || model[active].label };
+    const stored = production.resolvedLayoutForPage
+      ? production.resolvedLayoutForPage(layoutState, entry, model[active])
+      : production.layoutForPage(layoutState, entry);
     const params = selectedIds().includes(page.id) && liveParams ? { ...stored, ...liveParams } : stored;
+    const outputScale = { text: 100, image: 100, ...(layoutState.outputScale || {}) };
+    const textScale = Math.max(80, Math.min(120, Number(outputScale.text) || 100)) / 100;
+    const imageScale = Math.max(80, Math.min(120, Number(outputScale.image) || 100)) / 100;
+    const importedLayer = content.querySelector('.ppt-import-layer');
+    if (importedLayer && page.rasterized) {
+      importedLayer.style.transformOrigin = 'center center';
+      importedLayer.style.transform = `scale(${imageScale})`;
+    }
     const importedObjects = Array.from(content.querySelectorAll('.ppt-object-text'));
     if (importedObjects.length) {
       const applyImportedRole = (role, prefix) => {
@@ -448,7 +459,7 @@
           rect.element.querySelectorAll('[data-source-font-size]').forEach(run => {
             const sourceBaseSize = Number(rect.element.dataset.sourceFontSize) || 18;
             const relativeSize = (Number(run.dataset.sourceFontSize) || sourceBaseSize) / sourceBaseSize;
-            run.style.fontSize = `${Number(params[`${prefix}Size`]) / 7.2 * relativeSize}cqw`;
+            run.style.fontSize = `${production.pointsToCanvasCqw(Number(params[`${prefix}Size`]) * textScale * relativeSize)}cqw`;
             if (params[`${prefix}Color`]) run.style.color = production.normalizeColor(params[`${prefix}Color`], '#111111');
           });
         });
@@ -459,6 +470,19 @@
     }
     const title = content.querySelector('h1');
     const body = content.querySelector('.body, p');
+    const wrap = (element, prefix) => {
+      if (!element || !production.wrapTextForBox || params[`${prefix}Size`] == null) return;
+      const sourceText = element.dataset.unwrappedText == null ? element.textContent : element.dataset.unwrappedText;
+      element.dataset.unwrappedText = sourceText;
+      element.textContent = production.wrapTextForBox(sourceText, {
+        fontSize: Number(params[`${prefix}Size`]) * textScale,
+        boxWidth: Number(params[`${prefix}W`]),
+        bold: true
+      });
+      element.style.whiteSpace = 'pre-wrap';
+    };
+    wrap(title, 'title');
+    wrap(body, 'content');
     const place = (element, prefix) => {
       if (!element) return;
       if (params[`${prefix}Color`]) element.style.color = production.normalizeColor(params[`${prefix}Color`], '#111111');
@@ -470,7 +494,7 @@
       element.style.height = `${params[`${prefix}H`]}%`;
       element.style.margin = '0';
       element.style.textAlign = params[`${prefix}Align`] || '';
-      if (params[`${prefix}Size`]) element.style.fontSize = `${params[`${prefix}Size`] / 7.2}cqw`;
+      if (params[`${prefix}Size`]) element.style.fontSize = `${production.pointsToCanvasCqw(params[`${prefix}Size`] * textScale)}cqw`;
     };
     place(title, 'title');
     place(body, 'content');

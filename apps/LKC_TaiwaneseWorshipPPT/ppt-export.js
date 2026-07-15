@@ -59,6 +59,13 @@
     const textScale = normalizeScale(outputScale.text) / 100;
     const imageScale = normalizeScale(outputScale.image) / 100;
     const scaledFont = value => Number(value) * textScale;
+    const wrapNativeText = (value, params, prefix) => production.wrapTextForBox
+      ? production.wrapTextForBox(value, {
+          fontSize: scaledFont(params[`${prefix}Size`]),
+          boxWidth: params[`${prefix}W`],
+          bold: true
+        })
+      : value;
 
     if (!PptxGenJSClass) throw new Error('找不到 PptxGenJS 簡報庫');
     if (!getDeckEntriesFn) throw new Error('找不到 getDeckEntries 函式');
@@ -95,7 +102,9 @@
       }
 
       // 2. White Overlay for hymns
-      const hasHymnWhiteOverlay = (root.hymnOpacitySectionIds || []).includes(entry.sectionId);
+      const hasHymnWhiteOverlay = production.shouldApplyHymnWhiteOverlay
+        ? production.shouldApplyHymnWhiteOverlay(entry, root.hymnOpacitySectionIds || [])
+        : (entry.kind === 'ppt-import' || entry.kind === 'score') && (root.hymnOpacitySectionIds || []).includes(entry.sectionId);
       if (hasHymnWhiteOverlay && model && model[entry.sectionId]) {
         const opacityVal = model[entry.sectionId].opacity || 60;
         const transparency = 100 - opacityVal; // 60% opacity -> 40% transparency
@@ -132,9 +141,11 @@
         contentAlign: 'center',
         lineSpacing: 1.55
       } : {};
-      const params = entry.kind === 'ppt-import'
-        ? storedParams
-        : { ...DEFAULT_LAYOUT_PARAMS, ...centeredTemplateDefaults, ...praiseLyricsDefaults, ...storedParams };
+      const params = production.resolvedLayoutForPage
+        ? production.resolvedLayoutForPage(layoutState, entry, modelEntry)
+        : entry.kind === 'ppt-import'
+          ? storedParams
+          : { ...DEFAULT_LAYOUT_PARAMS, ...centeredTemplateDefaults, ...praiseLyricsDefaults, ...storedParams };
       const hasStoredTitleBounds = ['titleX', 'titleY', 'titleW', 'titleH']
         .some(key => Object.prototype.hasOwnProperty.call(storedParams, key));
       const hasStoredContentBounds = ['contentX', 'contentY', 'contentW', 'contentH']
@@ -200,7 +211,7 @@
           color: titleColor,
           fontFace: 'Microsoft JhengHei',
           align: params.titleAlign || 'center',
-          valign: 'middle',
+          valign: 'top',
           bold: true,
           margin: 0
         });
@@ -214,7 +225,8 @@
           color: contentColor,
           fontFace: 'Microsoft JhengHei',
           align: params.contentAlign || 'center',
-          valign: hasStoredContentBounds ? 'top' : 'middle',
+          valign: 'top',
+          bold: true,
           margin: 0
         });
       } else if (entry.kind === 'praise-title') {
@@ -227,14 +239,14 @@
           color: titleColor,
           fontFace: 'Microsoft JhengHei',
           align: params.titleAlign || 'center',
-          valign: 'middle',
+          valign: 'top',
           bold: true,
           margin: 0
         });
         const kicker = entry.kicker || (model && model[entry.sectionId] && model[entry.sectionId].kicker) || '';
         const titleText = entry.title || (model && model[entry.sectionId] && model[entry.sectionId].title) || '';
         const praiseContent = [titleText, kicker].filter(Boolean).join('\n\n');
-        slide.addText(praiseContent, {
+        slide.addText(wrapNativeText(praiseContent, params, 'content'), {
           x: slideX(params.contentX),
           y: slideY(params.contentY),
           w: slideX(params.contentW),
@@ -244,10 +256,11 @@
           fontFace: 'Microsoft JhengHei',
           align: params.contentAlign || 'center',
           valign: 'top',
+          bold: true,
           margin: 0
         });
       } else if (entry.kind === 'praise-lyrics') {
-        slide.addText(entry.body || '', {
+        slide.addText(wrapNativeText(entry.body || '', params, 'content'), {
           x: slideX(params.contentX),
           y: slideY(params.contentY),
           w: slideX(params.contentW),
@@ -256,7 +269,8 @@
           color: contentColor,
           fontFace: 'Microsoft JhengHei',
           align: params.contentAlign || 'center',
-          valign: 'middle',
+          valign: 'top',
+          bold: true,
           lineSpacing: params.lineSpacing ? Math.round(scaledFont(params.contentSize) * params.lineSpacing) : undefined,
           margin: 0
         });
@@ -264,7 +278,7 @@
         const titleText = entry.title || (model && model[entry.sectionId] && model[entry.sectionId].title) || entry.sectionLabel || '';
         const kicker = entry.kicker || (model && model[entry.sectionId] && model[entry.sectionId].kicker) || '';
         // Title
-        slide.addText(titleText, {
+        slide.addText(wrapNativeText(titleText, params, 'title'), {
           x: slideX(params.titleX),
           y: slideY(params.titleY),
           w: slideX(params.titleW),
@@ -273,13 +287,13 @@
           color: titleColor,
           fontFace: 'Microsoft JhengHei',
           align: params.titleAlign || 'center',
-          valign: 'middle',
+          valign: 'top',
           bold: true,
           margin: 0
         });
         // Kicker/Sub
         if (kicker) {
-          slide.addText(kicker, {
+          slide.addText(wrapNativeText(kicker, params, 'content'), {
             x: slideX(params.contentX),
             y: slideY(params.contentY || 24),
             w: slideX(params.contentW),
@@ -289,6 +303,7 @@
             fontFace: 'Microsoft JhengHei',
             align: params.contentAlign || 'center',
             valign: 'top',
+            bold: true,
             margin: 0
           });
         }
@@ -307,7 +322,7 @@
         const titleText = entry.title || (model && model[entry.sectionId] && model[entry.sectionId].title) || entry.sectionLabel || '';
         
         if (showTitle && titleText) {
-          slide.addText(titleText, {
+          slide.addText(wrapNativeText(titleText, params, 'title'), {
             x: slideX(params.titleX),
             y: slideY(params.titleY),
             w: slideX(params.titleW),
@@ -319,7 +334,7 @@
             // The browser preview anchors text at the top of an explicitly
             // positioned title box. Centering it vertically in PowerPoint
             // moves tall shared-layout titles down into the body box.
-            valign: hasStoredTitleBounds ? 'top' : 'middle',
+            valign: 'top',
             bold: true,
             margin: 0
           });
@@ -330,7 +345,7 @@
         const bodyText = entry.body || defaultBody;
 
         if (bodyText) {
-          slide.addText(bodyText, {
+          slide.addText(wrapNativeText(bodyText, params, 'content'), {
             x: slideX(params.contentX),
             y: slideY(params.contentY),
             w: slideX(params.contentW),
@@ -339,7 +354,8 @@
             color: contentColor,
             fontFace: 'Microsoft JhengHei',
             align: params.contentAlign || (entry.kind === 'section' ? 'center' : 'left'),
-            valign: entry.kind === 'section' && !hasStoredContentBounds ? 'middle' : 'top',
+            valign: 'top',
+            bold: true,
             lineSpacing: params.lineSpacing ? Math.round(scaledFont(params.contentSize) * params.lineSpacing) : undefined,
             margin: 0
           });
