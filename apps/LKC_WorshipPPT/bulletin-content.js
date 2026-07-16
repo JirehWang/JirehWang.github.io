@@ -1,9 +1,15 @@
 (function(root, factory) {
-  const api = factory();
+  const production = typeof module === 'object' && module.exports
+    ? require('./slide-production.js')
+    : root.TaiwaneseWorshipSlideProduction;
+  const api = factory(production || {});
   if (typeof module === 'object' && module.exports) module.exports = api;
   root.TaiwaneseWorshipBulletinContent = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function() {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function(production) {
   const clean = value => String(value == null ? '' : value).trim();
+  const REPORT_FONT_SIZE = 48;
+  const REPORT_BOX_WIDTH = 84;
+  const REPORT_MAX_LINES = 5;
 
   function buildBulletinCloudUrl(endpoint, kind, date) {
     const prefix = kind === 'praise' ? 'praise_songs_' : 'reports_';
@@ -25,18 +31,64 @@
     };
   }
 
-  function buildReportPages(data, announcementsPerPage = 2) {
+  function reportLines(value) {
+    const text = clean(value);
+    if (!text) return [];
+    const wrapped = typeof production.wrapTextForBox === 'function'
+      ? production.wrapTextForBox(text, {
+        fontSize: REPORT_FONT_SIZE,
+        boxWidth: REPORT_BOX_WIDTH,
+        bold: true
+      })
+      : text;
+    return String(wrapped).split('\n');
+  }
+
+  function paginateReportEntries(entries, title) {
+    const pages = [];
+    let currentLines = [];
+    const flush = () => {
+      if (!currentLines.length) return;
+      pages.push({ kind: 'report', title, body: currentLines.join('\n') });
+      currentLines = [];
+    };
+
+    (entries || []).forEach(entry => {
+      let lines = reportLines(entry.text);
+      if (!lines.length) return;
+      const gap = currentLines.length ? 1 : 0;
+      if (lines.length + gap <= REPORT_MAX_LINES - currentLines.length) {
+        if (gap) currentLines.push('');
+        currentLines.push(...lines);
+        return;
+      }
+
+      flush();
+      if (lines.length <= REPORT_MAX_LINES) {
+        currentLines.push(...lines);
+        return;
+      }
+
+      currentLines.push(...lines.splice(0, REPORT_MAX_LINES));
+      flush();
+      while (lines.length) {
+        currentLines.push(entry.continuation || '（續）');
+        currentLines.push(...lines.splice(0, REPORT_MAX_LINES - 1));
+        if (lines.length) flush();
+      }
+    });
+    flush();
+    return pages;
+  }
+
+  function buildReportPages(data) {
     const reports = normalizeReports(data);
-    const pageSize = Math.max(1, Number(announcementsPerPage) || 2);
     const pages = [];
     const appendNumberedPages = (items, title) => {
-      for (let index = 0; index < items.length; index += pageSize) {
-        const body = items
-          .slice(index, index + pageSize)
-          .map((text, offset) => `${index + offset + 1}. ${text}`)
-          .join('\n\n');
-        pages.push({ kind: 'report', title, body });
-      }
+      pages.push(...paginateReportEntries(items.map((text, index) => ({
+        text: `${index + 1}. ${text}`,
+        continuation: `${index + 1}.（續）`
+      })), title));
     };
     appendNumberedPages(reports.announcements, '報告－本會消息');
     appendNumberedPages(reports.churchNews, '報告－教界消息');
@@ -46,7 +98,7 @@
       ['其他代禱：', reports.prayer.other]
     ].filter(([, value]) => value).map(([label, value]) => `${label}${value}`);
     if (prayerParts.length) {
-      pages.push({ kind: 'report', title: '報告－關懷代禱', body: prayerParts.join('\n\n') });
+      pages.push(...paginateReportEntries(prayerParts.map(text => ({ text, continuation: '（續）' })), '報告－關懷代禱'));
     }
     return pages;
   }
@@ -82,6 +134,8 @@
   return {
     buildBulletinCloudUrl,
     normalizeReports,
+    reportLines,
+    paginateReportEntries,
     buildReportPages,
     applyReportsToModel,
     applyPraiseToModel,

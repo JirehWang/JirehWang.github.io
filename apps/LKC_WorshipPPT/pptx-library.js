@@ -78,6 +78,21 @@
   const directChildren = (node, localName) => Array.from(node ? node.childNodes : []).filter(child => child.nodeType === 1 && child.localName === localName);
   const directChild = (node, localName) => directChildren(node, localName)[0] || null;
   const firstDescendant = (node, localName) => Array.from(node ? node.getElementsByTagNameNS('*', localName) : [])[0] || null;
+
+  function parseSourceRect(shape) {
+    const sourceRect = firstDescendant(shape, 'srcRect');
+    if (!sourceRect) return null;
+    const value = name => {
+      const parsed = Number(sourceRect.getAttribute(name));
+      return Number.isFinite(parsed) ? parsed / 100000 : 0;
+    };
+    return {
+      left: value('l'),
+      top: value('t'),
+      right: value('r'),
+      bottom: value('b')
+    };
+  }
   const intAttr = (node, name, fallback = 0) => node ? Number(node.getAttribute(name) || fallback) : fallback;
 
   function parseTransform(node) {
@@ -226,7 +241,8 @@
     const relationshipId = blip.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'embed') || blip.getAttribute('r:embed');
     const mediaPath = relationships[relationshipId];
     if (!mediaPath) return null;
-    return { type: 'image', mediaPath, ...rectToPercent(rect, slideWidth, slideHeight) };
+    const crop = parseSourceRect(shape);
+    return { type: 'image', mediaPath, ...rectToPercent(rect, slideWidth, slideHeight), ...(crop ? { crop } : {}) };
   }
 
   function walkShapes(container, transform, slideWidth, slideHeight, relationships, output, colorContext, inheritedFontSizes) {
@@ -400,6 +416,46 @@
     return object;
   }
 
+  function calculateCroppedImageDraw(imageWidth, imageHeight, target, crop) {
+    const sourcePixelWidth = Number(imageWidth);
+    const sourcePixelHeight = Number(imageHeight);
+    const targetX = Number(target && target.x);
+    const targetY = Number(target && target.y);
+    const targetWidth = Number(target && target.w);
+    const targetHeight = Number(target && target.h);
+    if (!(sourcePixelWidth > 0 && sourcePixelHeight > 0 && targetWidth > 0 && targetHeight > 0)) return null;
+
+    const cropValue = name => {
+      const value = Number(crop && crop[name]);
+      return Number.isFinite(value) ? value : 0;
+    };
+    const virtualLeft = cropValue('left');
+    const virtualTop = cropValue('top');
+    const virtualRight = 1 - cropValue('right');
+    const virtualBottom = 1 - cropValue('bottom');
+    const virtualWidth = virtualRight - virtualLeft;
+    const virtualHeight = virtualBottom - virtualTop;
+    if (!(virtualWidth > 0 && virtualHeight > 0)) return null;
+
+    const sourceLeft = Math.max(0, Math.min(1, virtualLeft));
+    const sourceTop = Math.max(0, Math.min(1, virtualTop));
+    const sourceRight = Math.max(0, Math.min(1, virtualRight));
+    const sourceBottom = Math.max(0, Math.min(1, virtualBottom));
+    if (!(sourceRight > sourceLeft && sourceBottom > sourceTop)) return null;
+
+    const clean = value => Number(value.toFixed(6));
+    return {
+      sourceX: clean(sourceLeft * sourcePixelWidth),
+      sourceY: clean(sourceTop * sourcePixelHeight),
+      sourceWidth: clean((sourceRight - sourceLeft) * sourcePixelWidth),
+      sourceHeight: clean((sourceBottom - sourceTop) * sourcePixelHeight),
+      targetX: clean(targetX + (sourceLeft - virtualLeft) / virtualWidth * targetWidth),
+      targetY: clean(targetY + (sourceTop - virtualTop) / virtualHeight * targetHeight),
+      targetWidth: clean((sourceRight - sourceLeft) / virtualWidth * targetWidth),
+      targetHeight: clean((sourceBottom - sourceTop) / virtualHeight * targetHeight)
+    };
+  }
+
   async function rasterizeImportedPages(pages, options = {}) {
     const width = Math.max(640, Number(options.width) || 1600);
     const createCanvas = options.createCanvas || browserCanvas;
@@ -419,13 +475,35 @@
         const object = rasterObject(sourceObject, options);
         if (object.type === 'image' && object.src) {
           const image = await loadImage(object.src);
-          context.drawImage(
-            image,
-            Number(object.x) / 100 * width,
-            Number(object.y) / 100 * height,
-            Number(object.w) / 100 * width,
-            Number(object.h) / 100 * height
-          );
+          const target = {
+            x: Number(object.x) / 100 * width,
+            y: Number(object.y) / 100 * height,
+            w: Number(object.w) / 100 * width,
+            h: Number(object.h) / 100 * height
+          };
+          if (object.crop) {
+            const draw = calculateCroppedImageDraw(
+              Number(image.naturalWidth) || Number(image.width),
+              Number(image.naturalHeight) || Number(image.height),
+              target,
+              object.crop
+            );
+            if (draw) {
+              context.drawImage(
+                image,
+                draw.sourceX,
+                draw.sourceY,
+                draw.sourceWidth,
+                draw.sourceHeight,
+                draw.targetX,
+                draw.targetY,
+                draw.targetWidth,
+                draw.targetHeight
+              );
+            }
+          } else {
+            context.drawImage(image, target.x, target.y, target.w, target.h);
+          }
         } else if (object.type === 'text') {
           drawTextObject(context, object, width, height, pixelsPerPoint);
         }
@@ -487,6 +565,8 @@
     groupTransform,
     mapRect,
     rectToPercent,
+    parseSourceRect,
+    calculateCroppedImageDraw,
     resolveSchemeColor,
     inheritRunStyle,
     base64ToArrayBuffer,

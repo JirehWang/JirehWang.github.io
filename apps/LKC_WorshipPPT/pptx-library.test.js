@@ -50,6 +50,85 @@ test('turns EMU rectangles into stable percentages', () => {
   );
 });
 
+test('parses PowerPoint picture source rectangles without discarding negative crop values', () => {
+  const sourceRect = {
+    getAttribute: name => ({ l: '1147', t: '11473', r: '-1147', b: '48766' })[name] || null
+  };
+  const picture = {
+    getElementsByTagNameNS: (_namespace, localName) => localName === 'srcRect' ? [sourceRect] : []
+  };
+
+  assert.deepEqual(library.parseSourceRect(picture), {
+    left: 0.01147,
+    top: 0.11473,
+    right: -0.01147,
+    bottom: 0.48766
+  });
+});
+
+test('maps hymn 123B positive crop values to the full picture frame', () => {
+  assert.deepEqual(library.calculateCroppedImageDraw(
+    1000,
+    500,
+    { x: 100, y: 200, w: 800, h: 400 },
+    { left: 0, top: 0.03799, right: 0, bottom: 0.584 }
+  ), {
+    sourceX: 0,
+    sourceY: 18.995,
+    sourceWidth: 1000,
+    sourceHeight: 189.005,
+    targetX: 100,
+    targetY: 200,
+    targetWidth: 800,
+    targetHeight: 400
+  });
+});
+
+test('maps hymn 515 mixed positive and negative crop values without stretching blank space', () => {
+  assert.deepEqual(library.calculateCroppedImageDraw(
+    1000,
+    500,
+    { x: 100, y: 200, w: 800, h: 400 },
+    { left: 0.01147, top: 0.11473, right: -0.01147, bottom: 0.48766 }
+  ), {
+    sourceX: 11.47,
+    sourceY: 57.365,
+    sourceWidth: 988.53,
+    sourceHeight: 198.805,
+    targetX: 100,
+    targetY: 200,
+    targetWidth: 790.824,
+    targetHeight: 400
+  });
+});
+
+test('keeps blank frame space when a PowerPoint crop extends beyond the source image', () => {
+  assert.deepEqual(library.calculateCroppedImageDraw(
+    1000,
+    500,
+    { x: 100, y: 200, w: 800, h: 400 },
+    { left: -0.1, top: 0.1, right: 0.1, bottom: 0.5 }
+  ), {
+    sourceX: 0,
+    sourceY: 50,
+    sourceWidth: 900,
+    sourceHeight: 200,
+    targetX: 180,
+    targetY: 200,
+    targetWidth: 720,
+    targetHeight: 400
+  });
+});
+
+test('rejects crop rectangles that leave no drawable source area', () => {
+  assert.equal(library.calculateCroppedImageDraw(
+    1000,
+    500,
+    { x: 0, y: 0, w: 800, h: 400 },
+    { left: 0.6, top: 0, right: 0.4, bottom: 0 }
+  ), null);
+});
+
 test('reports the PPTX download stage when the browser fetch fails', async () => {
   const previousFetch = global.fetch;
   global.fetch = async () => { throw new TypeError('Failed to fetch'); };
@@ -173,6 +252,44 @@ test('rasterizes an imported library page into one transparent full-slide image'
   assert.equal(result[0].rasterized, true);
   assert.ok(calls.some(call => call[0] === 'drawImage'));
   assert.ok(calls.some(call => call[0] === 'fillText' && call[1] === '歌詞'));
+});
+
+test('rasterizes cropped score images with Canvas source and target rectangles', async () => {
+  const calls = [];
+  const context = {
+    clearRect() {},
+    drawImage: (...args) => calls.push(args)
+  };
+  const canvas = {
+    width: 0,
+    height: 0,
+    getContext: () => context,
+    toDataURL: () => 'data:image/png;base64,rasterized'
+  };
+  const pages = [{
+    sourceWidth: 12192000,
+    sourceHeight: 6858000,
+    objects: [{
+      type: 'image',
+      src: 'data:image/png;base64,score',
+      x: 10,
+      y: 20,
+      w: 80,
+      h: 40,
+      crop: { left: -0.1, top: 0.1, right: 0.1, bottom: 0.5 }
+    }]
+  }];
+
+  await library.rasterizeImportedPages(pages, {
+    width: 1000,
+    createCanvas: () => canvas,
+    loadImage: async () => ({ naturalWidth: 1000, naturalHeight: 500 })
+  });
+
+  assert.deepEqual(calls[0].slice(1), [
+    0, 50, 900, 200,
+    180, 112.6, 720, 225.2
+  ]);
 });
 
 test('normalizes responsive-reading titles to the same centered vertical alignment before rasterizing', () => {

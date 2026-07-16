@@ -451,7 +451,8 @@ admin.html → apps/LKC_WorshipPPT/
 禮拜PPT產生器（file:// 或 POST 被擋）→ read-api.js JSONP → GAS 唯讀 `cal_getEvents` / `cal_getPptLibraryIndex` / `cal_getPptLibraryFile` / `cal_queryBible`
 LKC_MasterSchedule GAS → Google Drive 聖詩／啟應文資料夾（唯讀檔案索引）
 禮拜PPT產生器 → GAS `cal_getPptLibraryFile` → 索引內 PPTX Base64
-禮拜PPT產生器 → pptx-library.js（瀏覽器內解析圖片、文字與座標；樂譜／啟應文點陣化為透明整頁 PNG）
+禮拜PPT產生器 → pptx-library.js（瀏覽器內解析圖片、文字、座標與 PowerPoint `srcRect` 正／負裁切；樂譜／啟應文依來源與目的矩形點陣化為透明整頁 PNG）
+禮拜PPT產生器 → bulletin-content.js（本會消息、教界消息、關懷代禱依 48pt 文字實際換行與五行容量動態分頁；超長單項產生續頁）
 禮拜PPT產生器 → LKC_ppt_generator/bible-service.js（經文代號轉台語全文）
 禮拜PPT產生器 → slide-production.js（全文分頁）
 禮拜PPT產生器 → layout-groups.js（勾選頁面＋具名參數群組）
