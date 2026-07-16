@@ -26,6 +26,13 @@
 
 ### 2026-07-16
 
+- Focus: Apply a style-only liturgical visual polish without changing the established workspace layout or PowerPoint canvas geometry.
+- Changed: Added a final `theme.css` layer using deep indigo, warm ivory, cool mist, and muted antique gold. Existing three-column widths, panel order, field order, spacing rules, responsive breakpoints, and slide geometry remain unchanged.
+- Changed: Existing operation messages now expose idle, busy, success, and error visual states through the current status region. Major Firebase, library, calendar, image-read, and export actions announce their active work; desktop busy state uses an embedded animated open-Bible icon with no external asset, while narrow screens use a static topbar Bible indicator to avoid mobile WebView compositing artifacts.
+- Changed: Added `DESIGN.md` as the executable visual contract, including palette tokens, unchanged-layout constraints, responsive rules, and reduced-motion accessibility requirements.
+- Verification: Red-green source coverage locks the original grid and checks the theme, live status semantics, operation announcements, embedded Bible asset, and reduced-motion fallback. Browser visual QA confirmed the desktop theme, the desktop busy indicator, a 600px viewport with no horizontal overflow (`scrollWidth 585`), and the mobile compositor-safe fallback.
+- Verification: The full `scripts/verify.ps1` run passed all 74 tests after the final visual adjustments.
+
 - Focus: Prevent unsynchronized shared-layout edits from disappearing after a browser refresh.
 - Changed: Added a `layoutSyncPending` marker to the existing browser draft. Layout writes now mark the local state pending before Firebase is called and clear the marker only after Firebase confirms the write. A refresh preserves pending local groups instead of replacing them with older cloud data, and the next successful unlock automatically retries the write.
 - Changed: Cloud-save failures now display the Firebase error while confirming that the local layout remains available for retry. Clean local backups still defer to the church-wide Firebase layout as before.

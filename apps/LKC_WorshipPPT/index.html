@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="layout-groups.css?v=20260716a">
   <link rel="stylesheet" href="pptx-library.css?v=20260714c">
   <link rel="stylesheet" href="sync-opacity.css?v=20260714b">
+  <link rel="stylesheet" href="theme.css?v=20260716a">
 </head>
 <body>
   <header class="topbar">
@@ -34,7 +35,7 @@
   </header>
   <main class="workspace">
     <aside class="flow-panel"><div class="flow-heading"><p>台語主日禮拜</p><strong>製作流程</strong><small>點頁面瀏覽 · 勾選頁面調整版面</small></div><nav id="flow-list" aria-label="禮拜流程"></nav></aside>
-    <section class="editor-panel"><div class="panel-heading"><p id="section-kind"></p><h1 id="section-title"></h1></div><form id="editor-form" novalidate></form><p class="save-state" id="save-state">尚未儲存</p></section>
+    <section class="editor-panel"><div class="panel-heading"><p id="section-kind"></p><h1 id="section-title"></h1></div><form id="editor-form" novalidate></form><p class="save-state" id="save-state" role="status" aria-live="polite" aria-atomic="true" data-state="idle">尚未儲存</p></section>
     <aside class="preview-panel"><div class="preview-heading"><div><p>整份 PPT 預覽</p><strong id="preview-name"></strong></div><div class="page-nav"><button id="page-prev">上一頁</button><span id="slide-count">1 / 1</span><button id="page-next">下一頁</button></div></div><div class="slide-frame"><div class="slide-background"></div><div class="slide-content" id="slide-content"></div></div><div class="preview-note">背景可使用純色或自行上傳圖片，不包含固定文字；標題與內文字色可在「版面參數」中分別調整。</div></aside>
   </main>
   <aside id="layout-floating-panel" class="layout-floating-panel is-hidden" aria-label="版面參數設定"></aside>
@@ -58,7 +59,7 @@
   <script src="pptx-library.js?v=20260715j"></script>
   <script src="slide-production.js?v=20260716c"></script>
   <script src="bulletin-content.js?v=20260714b"></script>
-  <script src="app.js?v=20260715c"></script>
+  <script src="app.js?v=20260716f"></script>
   <script src="content-generators.js?v=20260713d"></script>
   <script src="ppt-library-integration.js?v=20260715j"></script>
   <script src="calendar-integration.js?v=20260714b"></script>
@@ -67,7 +68,7 @@
   <script src="production-editor.js?v=20260714d"></script>
   <script src="bulletin-integration.js?v=20260715a"></script>
   <script src="layout-cloud-store.js?v=20260716e"></script>
-  <script src="layout-groups.js?v=20260716e"></script>
+  <script src="layout-groups.js?v=20260716f"></script>
   <script src="ppt-export.js?v=20260716c"></script>
   <script>
       const globalHymnOpacitySync = document.getElementById('sync-hymn-opacity-global');
