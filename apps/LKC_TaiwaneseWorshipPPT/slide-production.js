@@ -291,26 +291,33 @@
       };
     }
     if (page.kind === 'praise-title' || page.kind === 'sermon-title') {
+      const topic = page.title || (item && item.title) || '';
+      const titleText = page.kind === 'sermon-title' ? ['講道', topic].filter(Boolean).join('：') : '讚美';
       const details = page.kind === 'praise-title'
-        ? [page.title || (item && item.title), page.kicker || (item && item.kicker)]
-        : [page.title || (item && item.title), page.kicker || (item && item.kicker), page.body || (item && item.body)];
+        ? [topic, page.kicker || (item && item.kicker)]
+        : [page.kicker || (item && item.kicker), page.body || (item && item.body)];
       const detailText = details.filter(Boolean).join('\n');
+      const wrappedTitle = wrapTextForBox(titleText, {
+        fontSize: defaults.titleSize,
+        boxWidth: defaults.titleW,
+        bold: true
+      });
       const wrappedDetails = wrapTextForBox(detailText, {
         fontSize: 36,
         boxWidth: defaults.contentW,
         bold: true
       });
+      const titleLineCount = Math.max(1, wrappedTitle.split('\n').filter(line => line.trim()).length);
       const lineCount = wrappedDetails ? wrappedDetails.split('\n').filter(line => line.trim()).length : 0;
+      const titleH = 17.8 * titleLineCount;
       const contentH = 10.8 * lineCount;
-      const titleY = lineCount
-        ? Number(((100 - 17.8 - 4.5 - contentH) / 2).toFixed(1))
-        : 41;
+      const titleY = Number(((100 - titleH - (lineCount ? 4.5 + contentH : 0)) / 2).toFixed(1));
       return {
         ...defaults,
         titleY,
-        titleH: lineCount ? 17.8 : 18,
+        titleH,
         contentSize: 36,
-        contentY: lineCount ? Number((titleY + 17.8 + 4.5).toFixed(1)) : 55.8,
+        contentY: lineCount ? Number((titleY + titleH + 4.5).toFixed(1)) : 55.8,
         contentH: lineCount ? contentH : 10.8,
         contentAlign: 'center',
         lineSpacing: 1.2

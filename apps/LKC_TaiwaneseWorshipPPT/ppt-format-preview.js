@@ -92,9 +92,10 @@ preview = function() {
     content.innerHTML = `<h1>讚美</h1><div class="body">${safeHtml(details)}</div>`;
   }
   else if (page.kind === 'sermon-title') {
-    const details = [page.title || item.title, page.kicker || item.kicker, page.body || item.body].filter(Boolean).join('\n');
+    const sermonTitle = ['講道', page.title || item.title].filter(Boolean).join('：');
+    const details = [page.kicker || item.kicker, page.body || item.body].filter(Boolean).join('\n');
     content.className = 'slide-content template-section';
-    content.innerHTML = `<h1>講道</h1><div class="body">${safeHtml(details)}</div>`;
+    content.innerHTML = `<h1>${safeHtml(sermonTitle)}</h1><div class="body">${safeHtml(details)}</div>`;
   }
   else if (page.kind === 'praise-lyrics') content.className = 'slide-content template-praise', content.innerHTML = `<div class="body">${safeHtml(page.body)}</div>`;
   else if (page.kind === 'score') content.className = `slide-content template-score${hasHymnWhiteOverlay ? ' has-hymn-white-overlay' : ''}`, content.innerHTML = `<h1>${title}</h1><p>${kicker}</p><div class="score-slot"></div>`;

@@ -120,10 +120,16 @@
       // 3. Layout Parameters
       const storedParams = production.layoutForPage(layoutState, entry) || {};
       const modelEntry = model && model[entry.sectionId];
-      const titlePageDetails = entry.kind === 'praise-title'
-        ? [entry.title || (modelEntry && modelEntry.title), entry.kicker || (modelEntry && modelEntry.kicker)].filter(Boolean)
+      const titlePageTopic = entry.title || (modelEntry && modelEntry.title) || '';
+      const titlePageTitle = entry.kind === 'praise-title'
+        ? '讚美'
         : entry.kind === 'sermon-title'
-          ? [entry.title || (modelEntry && modelEntry.title), entry.kicker || (modelEntry && modelEntry.kicker), entry.body || (modelEntry && modelEntry.body)].filter(Boolean)
+          ? ['講道', titlePageTopic].filter(Boolean).join('：')
+          : '';
+      const titlePageDetails = entry.kind === 'praise-title'
+        ? [titlePageTopic, entry.kicker || (modelEntry && modelEntry.kicker)].filter(Boolean)
+        : entry.kind === 'sermon-title'
+          ? [entry.kicker || (modelEntry && modelEntry.kicker), entry.body || (modelEntry && modelEntry.body)].filter(Boolean)
           : [];
       const centeredBody = titlePageDetails.join('\n') || entry.body || entry.kicker || (modelEntry && modelEntry.kicker) || SECTION_SUBTITLES[entry.sectionLabel] || '';
       const usesCenteredTemplate = ['cover', 'section', 'praise-title', 'sermon-title'].includes(entry.kind);
@@ -240,7 +246,7 @@
           margin: 0
         });
       } else if (entry.kind === 'praise-title' || entry.kind === 'sermon-title') {
-        slide.addText(entry.kind === 'praise-title' ? '讚美' : '講道', {
+        slide.addText(wrapNativeText(titlePageTitle, params, 'title'), {
           x: slideX(params.titleX),
           y: slideY(params.titleY),
           w: slideX(params.titleW),

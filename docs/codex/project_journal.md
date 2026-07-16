@@ -26,6 +26,7 @@
 
 ### 2026-07-16
 
+- Changed: Updated the sermon title page to render `講道：{講道題目}` as the heading, with only the speaker and scripture in the body box. The shared production geometry now measures wrapped heading lines and vertically centers the complete heading/body group identically in canvas preview and PowerPoint export.
 - Focus: Final alignment of the praise and sermon title pages between the browser canvas and exported PowerPoint.
 - Changed: Made the sermon a dedicated title page and grouped each page's secondary information into the same single `.body` box used by the existing layout measurement and cloud-parameter flow. Praise now keeps song title and performer together; sermon keeps topic, speaker, and scripture together.
 - Changed: Extended the existing centered section calculation by detail-line count. The title/body group stays vertically centered at 50% while two-line praise and three-line sermon content receive proportional body heights in both canvas and export.
