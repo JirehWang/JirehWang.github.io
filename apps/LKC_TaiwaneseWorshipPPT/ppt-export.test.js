@@ -370,7 +370,7 @@ test('keeps praise and sermon title pages vertically centered and identical to t
   });
 
   assert.deepEqual(slides[0].texts.map(item => item.text), ['讚美', '新的事將要成就\n聖歌隊']);
-  assert.deepEqual(slides[1].texts.map(item => item.text), ['講道', '建造百倍成長的生命\n陳志聰牧師\n路加福音八章']);
+  assert.deepEqual(slides[1].texts.map(item => item.text), ['講道：建造百倍成長的生命', '陳志聰牧師\n路加福音八章']);
   slides.forEach(slide => {
     const groupTop = slide.texts[0].opts.y;
     const groupBottom = slide.texts[1].opts.y + slide.texts[1].opts.h;
@@ -378,12 +378,13 @@ test('keeps praise and sermon title pages vertically centered and identical to t
     assert.equal(slide.texts[1].opts.fontSize, 36);
     assert.equal(slide.texts[1].opts.valign, 'top');
   });
-  assert.ok(slides[1].texts[1].opts.h > slides[0].texts[1].opts.h);
+  assert.equal(slides[1].texts[1].opts.h, slides[0].texts[1].opts.h);
 
   const previewSource = fs.readFileSync(path.join(__dirname, 'ppt-format-preview.js'), 'utf8');
   assert.match(previewSource, /item\.type === 'sermon'.*kind:'sermon-title'/s);
   assert.match(previewSource, /page\.kind === 'praise-title'.*template-section.*class="body"/s);
   assert.match(previewSource, /page\.kind === 'sermon-title'.*template-section.*class="body"/s);
+  assert.match(previewSource, /const sermonTitle = \['講道', page\.title \|\| item\.title\][^;]+\.join\('：'\)/);
 });
 
 test('preserves source bounds for an ungrouped imported PowerPoint slide', async () => {

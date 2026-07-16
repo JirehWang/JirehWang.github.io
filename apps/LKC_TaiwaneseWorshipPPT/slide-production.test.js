@@ -99,7 +99,7 @@ test('vertically centers praise and sermon title groups by their detail line cou
     assert.equal(params.contentAlign, 'center');
     assert.equal(params.lineSpacing, 1.2);
   });
-  assert.ok(sermon.contentH > praise.contentH);
+  assert.equal(sermon.contentH, praise.contentH);
 });
 
 test('converts PowerPoint points to the 16:9 canvas without enlarging text', () => {
