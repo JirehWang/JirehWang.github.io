@@ -22,17 +22,25 @@ test('uses a calm liturgical palette without external visual assets', () => {
   assert.doesNotMatch(theme, /url\(['"]?https?:\/\//);
 });
 
-test('announces operation state and shows a New Family-style swaying Bible loader', () => {
+test('announces operation state and blocks editing behind a centered New Family-style Bible loader', () => {
   assert.match(html, /id="save-state"[^>]*role="status"[^>]*aria-live="polite"[^>]*data-state="idle"/);
   assert.match(app, /target\.dataset\.state=state/);
   assert.match(app, /document\.body\.classList\.toggle\('is-busy',state==='busy'\)/);
+  assert.match(html, /<div id="operation-overlay" class="operation-overlay" aria-hidden="true">/);
+  assert.match(html, /class="operation-loader-icon"[^>]*>📖<\/div>/);
+  assert.match(html, /class="operation-loader-text">運作中…<\/div>/);
   assert.match(theme, /@keyframes bible-sway/);
-  assert.match(theme, /body\.is-busy::before/);
-  assert.match(theme, /content:"\\1F4D6"/);
-  assert.doesNotMatch(theme, /content:"正在處理"/);
-  assert.match(theme, /font-size:28px/);
+  assert.match(theme, /body\.is-busy \.operation-overlay\{display:flex/);
+  assert.match(theme, /\.operation-loader\{text-align:center/);
+  assert.match(theme, /\.operation-loader-icon\{[^}]*font-size:42px/);
+  assert.match(theme, /\.operation-loader-text\{[^}]*font-size:14px/);
   assert.doesNotMatch(theme, /data:image\/svg\+xml/);
+  assert.doesNotMatch(theme, /body\.is-busy::before/);
   assert.doesNotMatch(theme, /body\.is-busy::after/);
+  assert.match(theme, /\.operation-overlay\{display:none;position:fixed;z-index:110;inset:0/);
+  assert.match(theme, /background:rgba\(255,253,248,\.58\)/);
+  assert.match(theme, /pointer-events:auto/);
+  assert.match(theme, /body\.is-busy\{cursor:progress\}/);
   assert.match(theme, /@media\(prefers-reduced-motion:reduce\)/);
 });
 

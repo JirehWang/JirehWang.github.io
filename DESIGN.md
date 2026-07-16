@@ -38,7 +38,7 @@ Do not modify workspace grid columns, panel order, panel padding, field spacing,
 
 ## Components and CTA
 
-Primary actions use deep indigo; secondary actions use warm paper with cool borders. Status messages distinguish idle, busy, success, and error. Busy operations show a small open-Bible emoji using the same gentle sway pattern as the New Family system's sprout animation, without shifting page layout.
+Primary actions use deep indigo; secondary actions use warm paper with cool borders. Status messages distinguish idle, busy, success, and error. Busy operations show a warm-white interaction-blocking veil with a centered open-Bible emoji and 「運作中…」, using the same gentle sway pattern as the New Family system's sprout animation without shifting page layout.
 
 ## Responsive Rules
 
