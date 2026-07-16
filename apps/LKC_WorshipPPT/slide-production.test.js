@@ -79,6 +79,19 @@ test('resolves one shared layout for both preview and export', () => {
   );
 });
 
+test('uses the report reflow layout as the default for newly generated report pages', () => {
+  const params = resolvedLayoutForPage(
+    { groups: {}, pageAssignments: {} },
+    { id: 'announcements:2', sectionId: 'announcements', kind: 'report' },
+    { reportLayout: { contentSize: 36, contentW: 92, contentH: 72, lineSpacing: 1.2 } }
+  );
+
+  assert.equal(params.contentSize, 36);
+  assert.equal(params.contentW, 92);
+  assert.equal(params.contentH, 72);
+  assert.equal(params.lineSpacing, 1.2);
+});
+
 test('vertically centers praise and sermon title groups by their detail line count', () => {
   const state = { groups: {}, pageAssignments: {} };
   const praise = resolvedLayoutForPage(

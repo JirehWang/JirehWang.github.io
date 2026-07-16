@@ -53,6 +53,7 @@
     const model = options.model || root.model;
     const backgroundColor = options.backgroundColor || root.backgroundColor;
     const backgroundImage = options.backgroundImage || root.backgroundImage;
+    const reflowReportPagesFn = options.reflowReportPages || root.reflowReportPagesForLayout;
     const serviceDate = options.serviceDate || (document.getElementById('service-date') && document.getElementById('service-date').value) || '';
     const outputScale = layoutState && layoutState.outputScale || {};
     const normalizeScale = value => Math.max(80, Math.min(120, Number(value) || 100));
@@ -74,6 +75,7 @@
     const pptx = new PptxGenJSClass();
     pptx.layout = 'LAYOUT_WIDE';
 
+    if (typeof reflowReportPagesFn === 'function') reflowReportPagesFn();
     const deck = getDeckEntriesFn();
     if (!deck || !deck.length) {
       throw new Error('沒有可匯出的投影片');

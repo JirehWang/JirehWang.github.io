@@ -61,3 +61,12 @@ test('keeps failed cloud saves pending locally and retries them after unlock', (
   assert.match(unlockHandler, /layoutSyncPending && hasLayoutState\(\)/);
   assert.match(unlockHandler, /await persistLayoutState\(\)/);
 });
+
+test('reflows report pagination from effective layout changes and cloud state', () => {
+  assert.match(source, /function reflowReportPagesForLayout\(/);
+  assert.match(source, /window\.reflowReportPagesForLayout = reflowReportPagesForLayout/);
+  assert.match(source, /input\.addEventListener\('input',[\s\S]*reflowReportPagesForLayout\(liveParams\)/);
+  assert.match(sourceBetween('async function saveGroup()', 'async function detachSelection()'), /reflowReportPagesForLayout\(group\.params\)/);
+  assert.match(sourceBetween('async function saveOutputScale()', 'function computedColor('), /reflowReportPagesForLayout\(\)/);
+  assert.match(sourceBetween('async function initializeCloudLayout()', 'function openUnlockDialog()'), /replaceLayoutState\([\s\S]*reflowReportPagesForLayout\(\)/);
+});

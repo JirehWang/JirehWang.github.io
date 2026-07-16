@@ -134,6 +134,32 @@ test('uses safe default bounds when an ungrouped page has no stored layout param
   });
 });
 
+test('reflows report pages before reading the export deck', async () => {
+  const calls = [];
+  class MockPptx {
+    addSlide() {
+      return { addText() {}, addShape() {}, addImage() {} };
+    }
+    writeFile() { return Promise.resolve(); }
+  }
+
+  await exportWorshipPPTX({
+    PptxGenJS: MockPptx,
+    reflowReportPages: () => calls.push('reflow'),
+    getDeckEntries: () => {
+      calls.push('deck');
+      return [{ kind: 'cover', sectionId: 'cover', sectionLabel: '台語主日禮拜' }];
+    },
+    layoutState: { groups: {}, pageAssignments: {} },
+    production: require('./slide-production.js'),
+    model: {},
+    backgroundColor: '#ffffff',
+    serviceDate: '2026-07-12'
+  });
+
+  assert.deepEqual(calls, ['reflow', 'deck']);
+});
+
 test('does not add the hymn white overlay to a generated hymn title page', async () => {
   const slides = [];
   class MockPptx {

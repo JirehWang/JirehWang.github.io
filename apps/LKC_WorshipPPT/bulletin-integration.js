@@ -18,7 +18,10 @@
       loadRecord('reports'),
       loadRecord('praise')
     ]);
-    if (reportsResult.state === 'loaded') api.applyReportsToModel(model, reportsResult.data);
+    if (reportsResult.state === 'loaded') {
+      api.applyReportsToModel(model, reportsResult.data);
+      if (typeof root.reflowReportPagesForLayout === 'function') root.reflowReportPagesForLayout();
+    }
     if (praiseResult.state === 'loaded') api.applyPraiseToModel(model, praiseResult.data);
     return {
       reports: reportsResult,
@@ -65,6 +68,7 @@
             other: form.querySelector('[data-key="prayerOther"]').value
           }
         });
+        if (typeof root.reflowReportPagesForLayout === 'function') root.reflowReportPagesForLayout();
         preview();
         flow();
       };

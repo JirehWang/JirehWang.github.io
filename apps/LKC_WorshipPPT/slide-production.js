@@ -334,6 +334,9 @@
         lineSpacing: 1.55
       };
     }
+    if (page.kind === 'report' && item && item.reportLayout) {
+      return { ...defaults, ...item.reportLayout };
+    }
     return defaults;
   }
 

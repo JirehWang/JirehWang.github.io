@@ -188,6 +188,42 @@
     };
   }
 
+  function reportPageForLayout() {
+    const reportPages = deckEntries().filter(entry => entry.sectionId === 'announcements' && entry.kind === 'report');
+    return reportPages.find(entry => layoutState.pageAssignments[entry.id])
+      || reportPages.find(entry => entry.id === (currentDeckEntry() || {}).id)
+      || reportPages[0];
+  }
+
+  function effectiveReportLayout(override) {
+    const page = reportPageForLayout();
+    const stored = page && production.resolvedLayoutForPage
+      ? production.resolvedLayoutForPage(layoutState, page, model.announcements)
+      : {};
+    const outputScale = { text: 100, ...(layoutState.outputScale || {}) };
+    return {
+      ...stored,
+      ...(override || {}),
+      textScale: Math.max(80, Math.min(120, Number(outputScale.text) || 100)) / 100
+    };
+  }
+
+  function reflowReportPagesForLayout(override) {
+    const api = window.TaiwaneseWorshipBulletinContent;
+    if (!api || typeof api.reflowReportPages !== 'function' || !model.announcements) return;
+    api.reflowReportPages(model, effectiveReportLayout(override));
+    if (active === 'announcements') {
+      const pageCount = slidePages(model.announcements, 'announcements').length;
+      previewPage = Math.min(previewPage, Math.max(0, pageCount - 1));
+    }
+  }
+
+  function selectionAffectsReports() {
+    return active === 'announcements' || selectedIds().some(id => id.startsWith('announcements:'));
+  }
+
+  window.reflowReportPagesForLayout = reflowReportPagesForLayout;
+
   function outputScaleFromForm() {
     const normalize = value => Math.max(80, Math.min(120, Number(value) || 100));
     return {
@@ -207,7 +243,10 @@
   async function saveOutputScale() {
     if (!layoutUnlocked) return status('輸出比例已鎖定，請先輸入密碼解鎖');
     layoutState.outputScale = outputScaleFromForm();
+    reflowReportPagesForLayout();
     populateOutputScaleForm();
+    renderDeckNavigator();
+    preview();
     status('正在儲存輸出比例…');
     try {
       await persistLayoutState();
@@ -316,7 +355,14 @@
       document.querySelectorAll('[data-layout-tab]').forEach(item => item.classList.toggle('is-active', item === button));
       document.querySelectorAll('[data-layout-pane]').forEach(pane => pane.classList.toggle('is-hidden', pane.dataset.layoutPane !== button.dataset.layoutTab));
     });
-    document.querySelectorAll('[data-layout-pane="title"] input, [data-layout-pane="title"] select, [data-layout-pane="content"] input, [data-layout-pane="content"] select').forEach(input => input.addEventListener('input', () => { liveParams = paramsFromForm(); preview(); }));
+    document.querySelectorAll('[data-layout-pane="title"] input, [data-layout-pane="title"] select, [data-layout-pane="content"] input, [data-layout-pane="content"] select').forEach(input => input.addEventListener('input', () => {
+      liveParams = paramsFromForm();
+      if (selectionAffectsReports()) {
+        reflowReportPagesForLayout(liveParams);
+        renderDeckNavigator();
+      }
+      preview();
+    }));
     document.getElementById('layout-group-existing').onchange = event => loadGroup(event.target.value);
     document.getElementById('layout-save-group').onclick = saveGroup;
     document.getElementById('layout-detach').onclick = detachSelection;
@@ -400,6 +446,7 @@
     if (!name || pageIds.length === 0) return status('請輸入群組名稱並勾選至少一頁');
     const group = production.createLayoutGroup(layoutState, existingId || `layout-${Date.now()}`, pageIds, paramsFromForm());
     group.name = name;
+    if (pageIds.some(id => id.startsWith('announcements:'))) reflowReportPagesForLayout(group.params);
     liveParams = null;
     let cloudSaved = true;
     let cloudSaveError = null;
@@ -535,6 +582,7 @@
       if (resolved.source === 'local-pending') {
         cloudLayoutFound = Boolean(sharedLayout);
         replaceLayoutState(resolved.layoutState);
+        reflowReportPagesForLayout();
         populateOutputScaleForm();
         renderDeckNavigator();
         renderFloatingPanel();
@@ -547,6 +595,7 @@
         return;
       }
       replaceLayoutState(resolved.layoutState);
+      reflowReportPagesForLayout();
       cloudLayoutFound = true;
       layoutSyncPending = false;
       persistLocalLayoutState();

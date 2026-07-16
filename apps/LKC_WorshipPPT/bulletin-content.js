@@ -7,9 +7,14 @@
   root.TaiwaneseWorshipBulletinContent = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function(production) {
   const clean = value => String(value == null ? '' : value).trim();
-  const REPORT_FONT_SIZE = 48;
-  const REPORT_BOX_WIDTH = 84;
-  const REPORT_MAX_LINES = 5;
+  const DEFAULT_REPORT_LAYOUT = Object.freeze({
+    contentSize: 48,
+    contentW: 84,
+    contentH: 68,
+    lineSpacing: 1.5,
+    textScale: 1
+  });
+  const SLIDE_HEIGHT_PX = 720;
 
   function buildBulletinCloudUrl(endpoint, kind, date) {
     const prefix = kind === 'praise' ? 'praise_songs_' : 'reports_';
@@ -31,64 +36,139 @@
     };
   }
 
-  function reportLines(value) {
-    const text = clean(value);
-    if (!text) return [];
-    const wrapped = typeof production.wrapTextForBox === 'function'
-      ? production.wrapTextForBox(text, {
-        fontSize: REPORT_FONT_SIZE,
-        boxWidth: REPORT_BOX_WIDTH,
-        bold: true
-      })
-      : text;
-    return String(wrapped).split('\n');
+  function positiveNumber(value, fallback) {
+    const number = Number(value);
+    return Number.isFinite(number) && number > 0 ? number : fallback;
   }
 
-  function paginateReportEntries(entries, title) {
+  function normalizeReportLayout(params) {
+    const source = params && typeof params === 'object' ? params : {};
+    return {
+      contentSize: positiveNumber(source.contentSize, DEFAULT_REPORT_LAYOUT.contentSize),
+      contentW: Math.min(100, positiveNumber(source.contentW, DEFAULT_REPORT_LAYOUT.contentW)),
+      contentH: Math.min(100, positiveNumber(source.contentH, DEFAULT_REPORT_LAYOUT.contentH)),
+      lineSpacing: positiveNumber(source.lineSpacing, DEFAULT_REPORT_LAYOUT.lineSpacing),
+      textScale: positiveNumber(source.textScale, DEFAULT_REPORT_LAYOUT.textScale)
+    };
+  }
+
+  function reportLineCapacity(params) {
+    const layout = normalizeReportLayout(params);
+    const fontHeightPx = layout.contentSize * layout.textScale * 4 / 3;
+    const availableHeightPx = SLIDE_HEIGHT_PX * layout.contentH / 100;
+    return Math.max(1, Math.floor(availableHeightPx / (fontHeightPx * layout.lineSpacing)));
+  }
+
+  function reportLineSegments(value, params) {
+    const text = clean(value);
+    if (!text) return [];
+    const layout = normalizeReportLayout(params);
+    const segments = [];
+    text.split('\n').forEach((sourceLine, sourceIndex) => {
+      const wrapped = typeof production.wrapTextForBox === 'function'
+        ? production.wrapTextForBox(sourceLine, {
+          fontSize: layout.contentSize * layout.textScale,
+          boxWidth: layout.contentW,
+          bold: true
+        })
+        : sourceLine;
+      String(wrapped).split('\n').forEach((line, lineIndex) => {
+        segments.push({ text: line, hardBreakBefore: sourceIndex > 0 && lineIndex === 0 });
+      });
+    });
+    return segments;
+  }
+
+  function segmentsToText(segments) {
+    return (segments || []).reduce((text, segment, index) => {
+      const separator = index && segment.hardBreakBefore ? '\n' : '';
+      return `${text}${separator}${segment.text}`;
+    }, '');
+  }
+
+  function reportLines(value, params) {
+    return reportLineSegments(value, params).map(segment => segment.text);
+  }
+
+  function takeSingleLineContinuation(segments, continuation, layout) {
+    const characters = Array.from(segmentsToText(segments));
+    let consumed = 0;
+    for (let index = 1; index <= characters.length; index += 1) {
+      if (reportLineSegments(`${continuation}${characters.slice(0, index).join('')}`, layout).length > 1) break;
+      consumed = index;
+    }
+    if (!consumed) consumed = 1;
+    const text = `${continuation}${characters.slice(0, consumed).join('')}`;
+    const remainder = characters.slice(consumed).join('');
+    segments.splice(0, segments.length, ...reportLineSegments(remainder, layout));
+    return text;
+  }
+
+  function paginateReportEntries(entries, title, params) {
+    const layout = normalizeReportLayout(params);
+    const lineCapacity = reportLineCapacity(layout);
     const pages = [];
-    let currentLines = [];
+    let currentParts = [];
+    let usedLines = 0;
     const flush = () => {
-      if (!currentLines.length) return;
-      pages.push({ kind: 'report', title, body: currentLines.join('\n') });
-      currentLines = [];
+      if (!currentParts.length) return;
+      pages.push({
+        kind: 'report',
+        title,
+        body: currentParts.join('\n\n'),
+        estimatedLines: usedLines,
+        lineCapacity
+      });
+      currentParts = [];
+      usedLines = 0;
     };
 
     (entries || []).forEach(entry => {
-      let lines = reportLines(entry.text);
-      if (!lines.length) return;
-      const gap = currentLines.length ? 1 : 0;
-      if (lines.length + gap <= REPORT_MAX_LINES - currentLines.length) {
-        if (gap) currentLines.push('');
-        currentLines.push(...lines);
+      let segments = reportLineSegments(entry.text, layout);
+      if (!segments.length) return;
+      const gap = currentParts.length ? 1 : 0;
+      if (segments.length + gap <= lineCapacity - usedLines) {
+        currentParts.push(segmentsToText(segments));
+        usedLines += segments.length + gap;
         return;
       }
 
       flush();
-      if (lines.length <= REPORT_MAX_LINES) {
-        currentLines.push(...lines);
+      if (segments.length <= lineCapacity) {
+        currentParts.push(segmentsToText(segments));
+        usedLines = segments.length;
         return;
       }
 
-      currentLines.push(...lines.splice(0, REPORT_MAX_LINES));
+      currentParts.push(segmentsToText(segments.splice(0, lineCapacity)));
+      usedLines = lineCapacity;
       flush();
-      while (lines.length) {
-        currentLines.push(entry.continuation || '（續）');
-        currentLines.push(...lines.splice(0, REPORT_MAX_LINES - 1));
-        if (lines.length) flush();
+      while (segments.length) {
+        const continuation = entry.continuation || '（續）';
+        if (lineCapacity === 1) {
+          currentParts.push(takeSingleLineContinuation(segments, continuation, layout));
+          usedLines = 1;
+          if (segments.length) flush();
+          continue;
+        }
+        const chunk = segments.splice(0, Math.max(1, lineCapacity - 1));
+        currentParts.push(`${continuation}\n${segmentsToText(chunk)}`);
+        usedLines = 1 + chunk.length;
+        if (segments.length) flush();
       }
     });
     flush();
     return pages;
   }
 
-  function buildReportPages(data) {
+  function buildReportPages(data, params) {
     const reports = normalizeReports(data);
     const pages = [];
     const appendNumberedPages = (items, title) => {
       pages.push(...paginateReportEntries(items.map((text, index) => ({
         text: `${index + 1}. ${text}`,
         continuation: `${index + 1}.（續）`
-      })), title));
+      })), title, params));
     };
     appendNumberedPages(reports.announcements, '報告－本會消息');
     appendNumberedPages(reports.churchNews, '報告－教界消息');
@@ -98,20 +178,28 @@
       ['其他代禱：', reports.prayer.other]
     ].filter(([, value]) => value).map(([label, value]) => `${label}${value}`);
     if (prayerParts.length) {
-      pages.push(...paginateReportEntries(prayerParts.map(text => ({ text, continuation: '（續）' })), '報告－關懷代禱'));
+      pages.push(...paginateReportEntries(prayerParts.map(text => ({ text, continuation: '（續）' })), '報告－關懷代禱', params));
     }
     return pages;
   }
 
-  function applyReportsToModel(model, data) {
+  function reflowReportPages(model, params) {
+    if (!model || !model.announcements) return model;
+    const reports = normalizeReports(model.announcements);
+    const layout = normalizeReportLayout(params || model.announcements.reportLayout);
+    model.announcements.reportLayout = layout;
+    model.announcements.pptPages = buildReportPages(reports, layout);
+    model.announcements.includeSectionTitle = true;
+    return model;
+  }
+
+  function applyReportsToModel(model, data, params) {
     if (!model || !model.announcements) return model;
     const reports = normalizeReports(data);
     model.announcements.announcements = reports.announcements;
     model.announcements.churchNews = reports.churchNews;
     model.announcements.prayer = reports.prayer;
-    model.announcements.pptPages = buildReportPages(reports);
-    model.announcements.includeSectionTitle = true;
-    return model;
+    return reflowReportPages(model, params);
   }
 
   function applyPraiseToModel(model, data) {
@@ -134,9 +222,12 @@
   return {
     buildBulletinCloudUrl,
     normalizeReports,
+    normalizeReportLayout,
+    reportLineCapacity,
     reportLines,
     paginateReportEntries,
     buildReportPages,
+    reflowReportPages,
     applyReportsToModel,
     applyPraiseToModel,
     loadCloudRecord

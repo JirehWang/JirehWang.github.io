@@ -452,11 +452,11 @@ admin.html → apps/LKC_WorshipPPT/
 LKC_MasterSchedule GAS → Google Drive 聖詩／啟應文資料夾（唯讀檔案索引）
 禮拜PPT產生器 → GAS `cal_getPptLibraryFile` → 索引內 PPTX Base64
 禮拜PPT產生器 → pptx-library.js（瀏覽器內解析圖片、文字、座標與 PowerPoint `srcRect` 正／負裁切；樂譜／啟應文依來源與目的矩形點陣化為透明整頁 PNG）
-禮拜PPT產生器 → bulletin-content.js（本會消息、教界消息、關懷代禱依 48pt 文字實際換行與五行容量動態分頁；超長單項產生續頁）
+禮拜PPT產生器 → bulletin-content.js（本會消息、教界消息、關懷代禱依有效字級、內容框寬高、行距及輸出比例動態分頁；不保存估算軟換行，超長單項才產生續頁）
 禮拜PPT產生器 → LKC_ppt_generator/bible-service.js（經文代號轉台語全文）
 禮拜PPT產生器 → slide-production.js（全文分頁）
-禮拜PPT產生器 → layout-groups.js（勾選頁面＋具名參數群組）
-禮拜PPT產生器 → ppt-export.js / PptxGenJS（完整禮拜 PPTX 匯出）
+禮拜PPT產生器 → layout-groups.js（勾選頁面＋具名參數群組；報告版面異動或雲端版面載入時觸發重新分頁）
+禮拜PPT產生器 → ppt-export.js / PptxGenJS（匯出前重新確認報告分頁，再產生完整禮拜 PPTX）
 ```
 
 行事曆帶入沿用既有 `LKC_MasterSchedule` Router 與 `cal_getEvents` 快取讀取，嚴格選取同日期且類型為 `講道資訊 - 台語` 的事項。一般 HTTP(S) 頁面先使用 `churchAPI` POST；由 `file://` 直接開啟或 POST 遭跨來源政策拒絕時，`read-api.js` 改用 GAS 唯讀 JSONP，僅允許 `cal_getEvents`、`cal_getPptLibraryIndex`、`cal_getPptLibraryFile`、`cal_queryBible`。映射結果先成為 `sourceValue`：講題與講員可直接顯示；宣召、經文、金句由瀏覽器解析範圍後交給 GAS 查詢台語聖經全文並分頁；聖詩、頌榮與啟應文先以 `cal_getPptLibraryIndex` 配對 Drive PPTX，再以 `cal_getPptLibraryFile` 讀取限定索引內的檔案 Base64。瀏覽器在記憶體內還原 PPTX binary 並解壓縮，避開 GitHub Pages 直接 fetch Drive 的限制。投影片保留純色背景、譜面圖片與文字物件三層，不使用整頁點陣圖。每張產生後的投影片具有穩定 `pageId`，使用者可將不同勾選批次存成不同具名版面群組；群組參數與頁面歸屬隨草稿保存。

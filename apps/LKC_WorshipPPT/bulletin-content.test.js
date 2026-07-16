@@ -4,9 +4,20 @@ const assert = require('node:assert/strict');
 const {
   buildBulletinCloudUrl,
   buildReportPages,
+  reportLineCapacity,
+  reportLines,
+  reflowReportPages,
   applyReportsToModel,
   applyPraiseToModel
 } = require('./bulletin-content.js');
+
+const june28Announcements = [
+  '謝謝李俊佑牧師的信息分享。',
+  '下午一點召開定期小會，請相關同工預備心參加。',
+  '教會第二屆雙翼門徒訓練畢業名單：出如玉、謝育倫、周倩如、蔡君宜、曾宇璿、劉秀琴、甘淑蘭、林恩予、杜文心、林慧敏、金仕淳、徐聆、陳美如、羅彩珍，共14位。下主日禮拜中舉行畢業典禮，當天為台華語聯合禮拜及聯合成人主日學，會後備有愛餐(芥菜種)，請兄姊自備餐具。',
+  '下主日下午一點召開定期長執會請同工預備心參加。',
+  '有訂購每日讀經釋義的兄姊，請至辦公室領取第三季的讀本。'
+];
 
 test('uses the Sunday bulletin cloud keys for the selected service date', () => {
   assert.match(buildBulletinCloudUrl('https://example.test/exec', 'reports', '2026-07-12'), /key=reports_2026-07-12/);
@@ -36,13 +47,7 @@ test('keeps announcements, church news, and pastoral prayer in report-page order
 
 test('paginates the 2026-06-28 announcements by rendered line capacity', () => {
   const pages = buildReportPages({
-    announcements: [
-      '謝謝李俊佑牧師的信息分享。',
-      '下午一點召開定期小會，請相關同工預備心參加。',
-      '教會第二屆雙翼門徒訓練畢業名單：出如玉、謝育倫、周倩如、蔡君宜、曾宇璿、劉秀琴、甘淑蘭、林恩予、杜文心、林慧敏、金仕淳、徐聆、陳美如、羅彩珍，共14位。下主日禮拜中舉行畢業典禮，當天為台華語聯合禮拜及聯合成人主日學，會後備有愛餐(芥菜種)，請兄姊自備餐具。',
-      '下主日下午一點召開定期長執會請同工預備心參加。',
-      '有訂購每日讀經釋義的兄姊，請至辦公室領取第三季的讀本。'
-    ],
+    announcements: june28Announcements,
     churchNews: [],
     prayer: {}
   });
@@ -58,6 +63,53 @@ test('paginates the 2026-06-28 announcements by rendered line capacity', () => {
   assert.match(pages[3].body, /4\. 下主日/);
   assert.match(pages[3].body, /5\. 有訂購/);
   pages.forEach(page => assert.ok(page.body.split('\n').length <= 5));
+});
+
+test('reflows report pages when the effective font size changes without preserving estimated line breaks', () => {
+  const model = {
+    announcements: {
+      announcements: june28Announcements,
+      churchNews: [],
+      prayer: {}
+    }
+  };
+
+  reflowReportPages(model, { contentSize: 36, contentW: 84, contentH: 68, lineSpacing: 1.5 });
+  assert.equal(model.announcements.pptPages.length, 3);
+  assert.equal(model.announcements.reportLayout.contentSize, 36);
+  assert.ok(model.announcements.pptPages.every(page => page.estimatedLines <= page.lineCapacity));
+  assert.doesNotMatch(model.announcements.pptPages.map(page => page.body).join('\n'), /3\.（續）/);
+  assert.ok(model.announcements.pptPages.some(page => page.body.includes(june28Announcements[2])));
+
+  reflowReportPages(model, { contentSize: 60, contentW: 84, contentH: 68, lineSpacing: 1.5 });
+  assert.ok(model.announcements.pptPages.length > 3);
+  assert.equal(model.announcements.reportLayout.contentSize, 60);
+  assert.match(model.announcements.pptPages.map(page => page.body).join('\n'), /3\.（續）/);
+});
+
+test('recalculates capacity from height, line spacing, width, and output text scale', () => {
+  assert.equal(reportLineCapacity({ contentSize: 48, contentH: 68, lineSpacing: 1.5 }), 5);
+  assert.equal(reportLineCapacity({ contentSize: 36, contentH: 68, lineSpacing: 1.5 }), 6);
+  assert.equal(reportLineCapacity({ contentSize: 48, contentH: 40, lineSpacing: 1.5 }), 3);
+  assert.equal(reportLineCapacity({ contentSize: 48, contentH: 68, lineSpacing: 1.2 }), 6);
+  assert.equal(reportLineCapacity({ contentSize: 48, contentH: 68, lineSpacing: 1.5, textScale: 1.2 }), 4);
+  assert.ok(
+    reportLines(june28Announcements[2], { contentSize: 48, contentW: 60 }).length
+      > reportLines(june28Announcements[2], { contentSize: 48, contentW: 95 }).length
+  );
+});
+
+test('keeps continuation pages inside a one-line-high report box', () => {
+  const pages = buildReportPages({
+    announcements: [june28Announcements[2]],
+    churchNews: [],
+    prayer: {}
+  }, { contentSize: 48, contentW: 95, contentH: 10.8, lineSpacing: 1.1 });
+
+  assert.ok(pages.length > 1);
+  assert.ok(pages.every(page => page.estimatedLines <= page.lineCapacity));
+  assert.ok(pages.every(page => page.body.split('\n').length <= 1));
+  assert.match(pages.map(page => page.body).join('\n'), /1\.（續）/);
 });
 
 test('applies report pages and praise fields without treating cloud values as a single report string', () => {
