@@ -39,6 +39,7 @@
     <button class="tab-btn" data-tab="attendance">聚會統計</button>
     <button class="tab-btn" data-tab="events">活動預告</button>
     <button class="tab-btn" data-tab="announcements">本會消息</button>
+    <button class="tab-btn" data-tab="church-news">教界消息</button>
     <button class="tab-btn" data-tab="prayer">關懷代禱</button>
     <button class="tab-btn" data-tab="offering">奉獻報告</button>
   </nav>
@@ -251,6 +252,33 @@
         <div class="announcement-item"><div class="announcement-num">8</div><textarea class="form-input" data-field="announcements.7" rows="2"></textarea></div>
         <div class="announcement-item"><div class="announcement-num">9</div><textarea class="form-input" data-field="announcements.8" rows="2"></textarea></div>
         <div class="announcement-item"><div class="announcement-num">10</div><textarea class="form-input" data-field="announcements.9" rows="2"></textarea></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="tab-church-news" class="tab-panel">
+  <div class="card">
+    <div class="card-header">
+      <h3>教界消息</h3>
+      <div class="card-actions">
+        <button class="btn btn-primary btn-sm" onclick="App.loadUploadedReports(event)">⬇ 載入上傳消息</button>
+        <span class="source-badge">手動填入</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <p class="hint" style="margin-bottom:16px">最多 10 則消息，空白欄位不會列入週報。</p>
+      <div class="announcement-list">
+        <div class="announcement-item"><div class="announcement-num">1</div><textarea class="form-input" data-field="churchNews.0" rows="2"></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">2</div><textarea class="form-input" data-field="churchNews.1" rows="2"></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">3</div><textarea class="form-input" data-field="churchNews.2" rows="2"></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">4</div><textarea class="form-input" data-field="churchNews.3" rows="2"></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">5</div><textarea class="form-input" data-field="churchNews.4" rows="2"></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">6</div><textarea class="form-input" data-field="churchNews.5" rows="2"></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">7</div><textarea class="form-input" data-field="churchNews.6" rows="2"></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">8</div><textarea class="form-input" data-field="churchNews.7" rows="2"></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">9</div><textarea class="form-input" data-field="churchNews.8" rows="2"></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">10</div><textarea class="form-input" data-field="churchNews.9" rows="2"></textarea></div>
       </div>
     </div>
   </div>

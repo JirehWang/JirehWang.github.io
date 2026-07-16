@@ -52,6 +52,7 @@ const BulletinModel = {
 
       events: [],
       announcements: ['', '', '', '', '', '', '', '', '', ''],
+      churchNews: ['', '', '', '', '', '', '', '', '', ''],
       prayer: { homeRest: '', hospital: '', other: '' },
       offeringReport: { monthlyItems: [], special: '', thanksgiving: '', notes: '' }
     };

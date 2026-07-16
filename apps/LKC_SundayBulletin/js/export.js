@@ -481,6 +481,22 @@ const BulletinExport = {
       children.push(this._para('(尚未填入)', { color: '999999' }));
     }
 
+    children.push(this._para(''));
+
+    // 教界消息
+    children.push(this._heading('教界消息', 2));
+
+    const churchNews = data.churchNews || [];
+    churchNews.forEach((item, idx) => {
+      if (item && item.trim()) {
+        children.push(this._para(`${idx + 1}. ${item}`, { indent: 200 }));
+      }
+    });
+
+    if (!churchNews.some(item => item && item.trim())) {
+      children.push(this._para('(尚未填入)', { color: '999999' }));
+    }
+
     return children;
   },
 

@@ -681,12 +681,20 @@ const App = {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json.success && json.data) {
-        const { announcements, prayer } = json.data;
+        const { announcements, churchNews, prayer } = json.data;
         
         if (Array.isArray(announcements)) {
           announcements.forEach((ann, idx) => {
             if (idx < 10) {
               BulletinModel.set(`announcements.${idx}`, ann || '');
+            }
+          });
+        }
+
+        if (Array.isArray(churchNews)) {
+          churchNews.forEach((item, idx) => {
+            if (idx < 10) {
+              BulletinModel.set(`churchNews.${idx}`, item || '');
             }
           });
         }

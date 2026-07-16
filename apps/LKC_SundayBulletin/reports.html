@@ -183,6 +183,20 @@
         <div class="announcement-item"><div class="announcement-num">10</div><textarea class="form-input ann-input" rows="2" placeholder="第十則消息..."></textarea></div>
       </div>
 
+      <div class="section-title">⛪ 教界消息 (最多 10 則)</div>
+      <div class="announcement-list">
+        <div class="announcement-item"><div class="announcement-num">1</div><textarea class="form-input church-news-input" rows="2" placeholder="第一則教界消息..."></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">2</div><textarea class="form-input church-news-input" rows="2" placeholder="第二則教界消息..."></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">3</div><textarea class="form-input church-news-input" rows="2" placeholder="第三則教界消息..."></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">4</div><textarea class="form-input church-news-input" rows="2" placeholder="第四則教界消息..."></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">5</div><textarea class="form-input church-news-input" rows="2" placeholder="第五則教界消息..."></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">6</div><textarea class="form-input church-news-input" rows="2" placeholder="第六則教界消息..."></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">7</div><textarea class="form-input church-news-input" rows="2" placeholder="第七則教界消息..."></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">8</div><textarea class="form-input church-news-input" rows="2" placeholder="第八則教界消息..."></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">9</div><textarea class="form-input church-news-input" rows="2" placeholder="第九則教界消息..."></textarea></div>
+        <div class="announcement-item"><div class="announcement-num">10</div><textarea class="form-input church-news-input" rows="2" placeholder="第十則教界消息..."></textarea></div>
+      </div>
+
       <div class="section-title">🙏 關懷代禱</div>
       <div class="form-group" style="margin-bottom: 16px;">
         <label>在家調養：</label>
@@ -219,6 +233,7 @@
   const state = {
     date: '',
     announcements: ['', '', '', '', '', '', '', '', '', ''],
+    churchNews: ['', '', '', '', '', '', '', '', '', ''],
     prayer: {
       homeRest: '',
       hospital: '',
@@ -251,6 +266,12 @@
         saveLocalBackup();
       });
     });
+    document.querySelectorAll('.church-news-input').forEach((el, idx) => {
+      el.addEventListener('input', () => {
+        state.churchNews[idx] = el.value;
+        saveLocalBackup();
+      });
+    });
 
     document.getElementById('prayerHome').addEventListener('input', (e) => {
       state.prayer.homeRest = e.target.value;
@@ -276,6 +297,9 @@
     document.querySelectorAll('.ann-input').forEach((el, idx) => {
       state.announcements[idx] = el.value.trim();
     });
+    document.querySelectorAll('.church-news-input').forEach((el, idx) => {
+      state.churchNews[idx] = el.value.trim();
+    });
     state.prayer.homeRest = document.getElementById('prayerHome').value.trim();
     state.prayer.hospital = document.getElementById('prayerHospital').value.trim();
     state.prayer.other = document.getElementById('prayerOther').value.trim();
@@ -284,6 +308,9 @@
   function renderState() {
     document.querySelectorAll('.ann-input').forEach((el, idx) => {
       el.value = state.announcements[idx] || '';
+    });
+    document.querySelectorAll('.church-news-input').forEach((el, idx) => {
+      el.value = state.churchNews[idx] || '';
     });
     document.getElementById('prayerHome').value = state.prayer.homeRest || '';
     document.getElementById('prayerHospital').value = state.prayer.hospital || '';
@@ -304,11 +331,13 @@
     if (raw) {
       const data = JSON.parse(raw);
       state.announcements = data.announcements || ['', '', '', '', '', '', '', '', '', ''];
+      state.churchNews = data.churchNews || ['', '', '', '', '', '', '', '', '', ''];
       state.prayer = data.prayer || { homeRest: '', hospital: '', other: '' };
       renderState();
       showToast('載入本地填寫草稿', 'info');
     } else {
       state.announcements = ['', '', '', '', '', '', '', '', '', ''];
+      state.churchNews = ['', '', '', '', '', '', '', '', '', ''];
       state.prayer = { homeRest: '', hospital: '', other: '' };
       renderState();
     }
@@ -329,6 +358,7 @@
     const payload = {
       date: state.date,
       announcements: state.announcements,
+      churchNews: state.churchNews,
       prayer: state.prayer,
       updatedAt: new Date().toISOString()
     };
@@ -373,6 +403,7 @@
       const json = await res.json();
       if (json.success && json.data) {
         state.announcements = json.data.announcements || ['', '', '', '', '', '', '', '', '', ''];
+        state.churchNews = json.data.churchNews || ['', '', '', '', '', '', '', '', '', ''];
         state.prayer = json.data.prayer || { homeRest: '', hospital: '', other: '' };
         renderState();
         document.getElementById('syncStatus').textContent = '狀態：已載入雲端資料';

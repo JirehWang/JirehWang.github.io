@@ -40,7 +40,7 @@
   * `fetchSmallGroups`：查詢**主日前一週（週日到週六）**之小組聚會統計人數。
   * `queryBible`：透過 API 查詢信望愛聖經經文，供編輯校對參考。
   * `fetchAll`：利用 `Promise.allSettled` 並行執行上述 6 項拉取作業。
-* `js/bulletin.js`：實作前端週報資料模型 `BulletinModel`。維護一個全域的週報 JSON 結構（含程序、同工、人數、消息等欄位），提供屬性 get/set 方法。
+* `js/bulletin.js`：實作前端週報資料模型 `BulletinModel`。維護一個全域的週報 JSON 結構（含程序、同工、人數、本會消息、教界消息等欄位），提供屬性 get/set 方法。
 * `js/draft.js`：實作本地草稿管理。透過 `localStorage` 儲存草稿，支援定時自動儲存（預設 60 秒）與手動儲存/讀取歷史草稿（上限 10 筆）。
 * `js/app.js`：控制器核心。負責處理頁面加載初始化、頁籤切換、UI 元素與 `BulletinModel` 之間的雙向同步、點擊全部帶入時的異步流程協調。
 * `js/export.js`：Word 導出引擎。整合外部 `docx.js` 與 `FileSaver.js` 庫，讀取 `BulletinModel` 資料，動態構建包含表格、單元格邊框、粗體文字與間距設定的 `docx.Document` XML 架構，並導出下載為 Word 檔案。
