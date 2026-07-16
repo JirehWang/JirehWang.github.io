@@ -101,6 +101,7 @@ flowchart LR
 - `calendar-integration.js`：協調行事曆、週報、經文與 PPT Library 的整批載入。
 - `bulletin-content.js`：正規化報告／讚美資料與報告動態分頁。
 - `bulletin-integration.js`：連接 Sunday Bulletin、報告 editor 與 model。
+- `source-reminders.js`：在一次帶入完成後檢查行事曆欄位、經文查詢、PPT Library、週報三分類與讚美來源；只要有空白或找不到素材，就以不阻擋操作的警告視窗逐條提醒製作者。
 
 ### 4.3 內容產生與來源素材層
 
@@ -232,6 +233,8 @@ sequenceDiagram
 ```
 
 行事曆與週報並行讀取，縮短等待時間。若找不到台語講道事項，週報仍可成功載入；Library 會逐項回報 missing，不會因一首找不到而偽裝成全部成功。
+
+帶入完成後，`source-reminders.js` 會彙整一次「資料提醒」警告視窗。它不是錯誤或驗證阻擋：投影片仍會照目前可取得的資料產生，製作者可關閉視窗後在 editor 手動補寫、重新帶入或直接繼續編輯。警告會明確列出，例如：缺少當日「講道資訊－台語」、哪個行事曆欄位空白、哪段台語聖經查無內容、哪一份 Library 素材找不到、以及週報的本會消息／教界消息／關懷代禱／讚美歌名或歌詞何者空白。資料讀取失敗仍由狀態列顯示失敗原因，不誤報為「來源空白」。
 
 ## 8. 統一唯讀資料層與回退順序
 
@@ -620,6 +623,7 @@ PptxGenJS 產生 blob 後，若 JSZip 可用，系統會再次打開輸出 PPTX�
 - 正裁切、負裁切、混合裁切與無效 crop。
 - PptxGenJS 物件、背景、白底、標題錨定、輸出比例及 XML 清理。
 - Firebase Auth lock、pending local layout、cloud load/save。
+- 來源提醒會逐條區分「當日資料尚未建立」、「欄位空白」、「經文查無內容」與「Library 素材找不到」。
 - UI 三欄、色彩、busy overlay 與產品命名。
 
 文件或純資料契約變更至少跑完整 verify；排版、CSS、Canvas 或互動變更還要做桌面瀏覽器 visual QA。只有測試通過不能取代畫面檢查。

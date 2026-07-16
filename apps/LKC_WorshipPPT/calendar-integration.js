@@ -27,6 +27,13 @@
       const librarySummary = event ? `資料庫 ${loadedPages} 頁${missing.length ? `，${missing.length} 項找不到` : ''}` : '未載入聖詩／啟應文';
       const bulletinSummary = window.describeBulletinPptContent(bulletinResult);
       status(`${calendarSummary}；${librarySummary}；${bulletinSummary}`);
+      const reminderApi = window.TaiwaneseWorshipSourceReminders;
+      const reminders = reminderApi && typeof reminderApi.buildMissingSourceReminders === 'function'
+        ? reminderApi.buildMissingSourceReminders({ date, event, model, bulletinResult, libraryResults })
+        : [];
+      if (reminders.length && typeof window.alert === 'function') {
+        window.alert(reminderApi.formatMissingSourceReminder(reminders));
+      }
     } catch (error) {
       status(`行事曆帶入失敗：${error.message}`);
     } finally {

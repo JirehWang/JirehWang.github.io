@@ -456,6 +456,7 @@ LKC_MasterSchedule GAS → Google Drive 聖詩／啟應文資料夾（唯讀檔�
 禮拜PPT產生器 → GAS `cal_getPptLibraryFile` → 索引內 PPTX Base64
 禮拜PPT產生器 → pptx-library.js（瀏覽器內解析圖片、文字、座標與 PowerPoint `srcRect` 正／負裁切；樂譜／啟應文依來源與目的矩形點陣化為透明整頁 PNG）
 禮拜PPT產生器 → bulletin-content.js（本會消息、教界消息、關懷代禱依有效字級、內容框寬高、行距及輸出比例動態分頁；不保存估算軟換行，超長單項才產生續頁）
+禮拜PPT產生器 → source-reminders.js（帶入完成後以一次非阻擋警告視窗，列出空白的行事曆欄位、週報分類／讚美、經文查詢或找不到的 PPT 素材）
 禮拜PPT產生器 → LKC_ppt_generator/bible-service.js（經文代號轉台語全文）
 禮拜PPT產生器 → slide-production.js（全文分頁）
 禮拜PPT產生器 → layout-groups.js（勾選頁面＋具名參數群組；報告版面異動或雲端版面載入時觸發重新分頁）

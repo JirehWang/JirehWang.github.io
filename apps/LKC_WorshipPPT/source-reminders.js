@@ -1,0 +1,95 @@
+(function(root, factory) {
+  const api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  root.TaiwaneseWorshipSourceReminders = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function() {
+  const clean = value => String(value == null ? '' : value).trim();
+  const calendarFields = [
+    ['sermon', 'title', '講題'],
+    ['sermon', 'kicker', '講員'],
+    ['call', 'sourceValue', '宣召'],
+    ['scripture', 'sourceValue', '經文'],
+    ['verse', 'sourceValue', '金句'],
+    ['response', 'sourceValue', '啟應文'],
+    ['hymn-1', 'sourceValue', '聖詩一'],
+    ['hymn-2', 'sourceValue', '聖詩二'],
+    ['doxology', 'sourceValue', '頌榮']
+  ];
+  const bibleSections = [
+    ['call', '宣召'],
+    ['scripture', '聖經'],
+    ['verse', '金句']
+  ];
+  const librarySectionLabels = {
+    'pre-hymn-1': '會前聖詩一',
+    'pre-hymn-2': '會前聖詩二',
+    'hymn-1': '聖詩一',
+    'hymn-2': '聖詩二',
+    response: '啟應文',
+    'prayer-song': '祈禱詩',
+    offering: '奉獻詩',
+    doxology: '頌榮',
+    amen: '阿們頌'
+  };
+
+  function hasPages(item) {
+    return Array.isArray(item && item.pptPages) && item.pptPages.length > 0;
+  }
+
+  function hasPrayerContent(prayer) {
+    const source = prayer && typeof prayer === 'object' ? prayer : {};
+    return ['homeRest', 'hospital', 'other'].some(key => clean(source[key]));
+  }
+
+  function buildMissingSourceReminders({ date, event, model, bulletinResult, libraryResults } = {}) {
+    const items = model && typeof model === 'object' ? model : {};
+    const reminders = [];
+    if (!event) {
+      reminders.push(`行事曆：${clean(date)} 的「講道資訊－台語」尚未建立`);
+    } else {
+      calendarFields.forEach(([sectionId, key, label]) => {
+        if (!clean(items[sectionId] && items[sectionId][key])) reminders.push(`行事曆「${label}」欄位空白`);
+      });
+      bibleSections.forEach(([sectionId, label]) => {
+        const item = items[sectionId];
+        if (clean(item && item.sourceValue) && !hasPages(item)) {
+          reminders.push(`台語聖經「${label}」查無經文：${clean(item.sourceValue)}`);
+        }
+      });
+    }
+
+    (Array.isArray(libraryResults) ? libraryResults : []).forEach(result => {
+      if (result && result.state === 'missing') {
+        reminders.push(`PPT 資料庫找不到「${librarySectionLabels[result.sectionId] || result.sectionId}」素材`);
+      }
+    });
+
+    const reports = bulletinResult && bulletinResult.reports;
+    if (reports && reports.state === 'missing') {
+      reminders.push(`週報：reports_${clean(date)} 尚未建立`);
+    } else if (reports && reports.state === 'loaded') {
+      const reportData = items.announcements || {};
+      if (!Array.isArray(reportData.announcements) || !reportData.announcements.some(clean)) reminders.push('週報「本會消息」空白');
+      if (!Array.isArray(reportData.churchNews) || !reportData.churchNews.some(clean)) reminders.push('週報「教界消息」空白');
+      if (!hasPrayerContent(reportData.prayer)) reminders.push('週報「關懷代禱」空白');
+    }
+
+    const praise = bulletinResult && bulletinResult.praise;
+    if (praise && praise.state === 'missing') {
+      reminders.push(`週報：praise_songs_${clean(date)} 尚未建立`);
+    } else if (praise && praise.state === 'loaded') {
+      const praiseData = praise.data && typeof praise.data === 'object' ? praise.data : null;
+      if (praiseData && !clean(praiseData.title)) reminders.push('週報「讚美歌名」空白');
+      if (!clean(items.praise && items.praise.body)) reminders.push('週報「讚美歌詞」空白');
+    }
+    return reminders;
+  }
+
+  function formatMissingSourceReminder(reminders) {
+    const items = Array.isArray(reminders) ? reminders.filter(clean) : [];
+    if (!items.length) return '';
+    return `提醒：下列來源尚未有資料，請補齊後再確認投影片：\n\n${items.map(item => `• ${item}`).join('\n')}`;
+  }
+
+  return { buildMissingSourceReminders, formatMissingSourceReminder };
+});
