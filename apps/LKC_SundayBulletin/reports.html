@@ -224,6 +224,8 @@
               <button class="btn btn-outline-white" id="btnCancelLoadOther" style="color: #c0392b; border-color: #c0392b; padding: 4px 8px; height: 34px;">取消</button>
             </div>
           </div>
+          <button class="btn btn-outline-white" id="btnSaveLocal" style="color: #2c5f8a; border-color: #2c5f8a;">💾 儲存本地草稿</button>
+          <button class="btn btn-outline-white" id="btnResetAll" style="color: #c0392b; border-color: #c0392b;">🗑️ 一鍵清空</button>
         </div>
         <div style="display: flex; gap: 10px;">
           <button class="btn btn-success" id="btnSaveCloud">☁️ 上傳至雲端</button>
@@ -267,35 +269,16 @@
       loadLocalBackup();
     });
 
-    // 輸入欄位綁定自動備份
-    document.querySelectorAll('.ann-input').forEach((el, idx) => {
-      el.addEventListener('input', () => {
-        state.announcements[idx] = el.value;
-        saveLocalBackup();
-      });
-    });
-    document.querySelectorAll('.church-news-input').forEach((el, idx) => {
-      el.addEventListener('input', () => {
-        state.churchNews[idx] = el.value;
-        saveLocalBackup();
-      });
-    });
-
-    document.getElementById('prayerHome').addEventListener('input', (e) => {
-      state.prayer.homeRest = e.target.value;
-      saveLocalBackup();
-    });
-    document.getElementById('prayerHospital').addEventListener('input', (e) => {
-      state.prayer.hospital = e.target.value;
-      saveLocalBackup();
-    });
-    document.getElementById('prayerOther').addEventListener('input', (e) => {
-      state.prayer.other = e.target.value;
-      saveLocalBackup();
-    });
-
     document.getElementById('btnSaveCloud').addEventListener('click', saveToCloud);
     document.getElementById('btnLoadCloud').addEventListener('click', loadFromCloud);
+
+    // 綁定手動儲存與清空按鈕
+    document.getElementById('btnSaveLocal').addEventListener('click', () => {
+      saveLocalBackup();
+      showToast('💾 本地草稿已儲存！', 'success');
+    });
+
+    document.getElementById('btnResetAll').addEventListener('click', resetAll);
 
     // 套用其他日期資料按鈕監聽
     const btnShowLoadOther = document.getElementById('btnShowLoadOther');
@@ -331,6 +314,17 @@
 
     loadLocalBackup();
   });
+
+  function resetAll() {
+    if (!confirm('確定要清空目前頁面上的所有輸入內容嗎？\n(此操作僅清除畫面欄位，不會直接刪除雲端或已儲存的本地草稿)')) {
+      return;
+    }
+    state.announcements = ['', '', '', '', '', '', '', '', '', ''];
+    state.churchNews = ['', '', '', '', '', '', '', '', '', ''];
+    state.prayer = { homeRest: '', hospital: '', other: '' };
+    renderState();
+    showToast('🗑️ 所有欄位已清空！', 'success');
+  }
 
   function collectState() {
     state.date = document.getElementById('bulletinDate').value;
@@ -448,7 +442,6 @@
         renderState();
         document.getElementById('syncStatus').textContent = '狀態：已載入雲端資料';
         showToast('📂 成功載入雲端暫存資料！', 'success');
-        saveLocalBackup();
       } else {
         document.getElementById('syncStatus').textContent = '狀態：雲端無資料';
         showToast('ℹ️ 該日期雲端尚無填寫記錄', 'info');
@@ -512,9 +505,6 @@
         // 隱藏日期選擇區
         document.getElementById('otherDaySelectWrap').style.display = 'none';
         document.getElementById('btnShowLoadOther').style.display = 'inline-block';
-        
-        // 自動備份至目前選定日期的本機草稿
-        saveLocalBackup();
       } else {
         document.getElementById('syncStatus').textContent = `狀態：無資料`;
         showToast(`ℹ️ 該日期（${targetDate}）雲端與本機皆無暫存資料`, 'info');
@@ -535,7 +525,6 @@
         
         document.getElementById('otherDaySelectWrap').style.display = 'none';
         document.getElementById('btnShowLoadOther').style.display = 'inline-block';
-        saveLocalBackup();
       } else {
         document.getElementById('syncStatus').textContent = '狀態：載入失敗';
         showToast(`❌ 載入失敗：${err.message}`, 'error');
