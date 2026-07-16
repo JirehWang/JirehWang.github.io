@@ -46,3 +46,18 @@ test('chapter names stay inside the native summary toggle while its checkbox is 
   );
   assert.match(sectionSelectionHandler, /box\.onclick = event => event\.stopPropagation\(\)/);
 });
+
+test('keeps failed cloud saves pending locally and retries them after unlock', () => {
+  const persistence = sourceBetween(
+    'async function persistLayoutState()',
+    'function sectionDecks()'
+  );
+  assert.match(persistence, /layoutSyncPending = true;[\s\S]*persistLocalLayoutState\(\);[\s\S]*await cloudStore\.save\(layoutState\);[\s\S]*layoutSyncPending = false;[\s\S]*persistLocalLayoutState\(\);/);
+
+  const unlockHandler = sourceBetween(
+    "document.getElementById('layout-unlock-form').onsubmit",
+    "document.getElementById('layout-unlock-cancel')"
+  );
+  assert.match(unlockHandler, /layoutSyncPending && hasLayoutState\(\)/);
+  assert.match(unlockHandler, /await persistLayoutState\(\)/);
+});

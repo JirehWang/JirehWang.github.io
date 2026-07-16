@@ -34,6 +34,25 @@
     return normalized;
   }
 
+  function chooseLayoutStateForLoad(localLayoutState, cloudLayoutState, localSyncPending) {
+    if (localSyncPending) {
+      return {
+        layoutState: normalizeLayoutState(localLayoutState),
+        source: 'local-pending'
+      };
+    }
+    if (cloudLayoutState) {
+      return {
+        layoutState: normalizeLayoutState(cloudLayoutState),
+        source: 'cloud'
+      };
+    }
+    return {
+      layoutState: normalizeLayoutState(localLayoutState),
+      source: 'local'
+    };
+  }
+
   async function defaultFirebaseLoader() {
     const [config, authSdk, databaseSdk] = await Promise.all([
       import('../../firebase/firebase-config.js'),
@@ -119,6 +138,7 @@
   return {
     AUTH_EMAIL,
     SHARED_LAYOUT_PATH,
+    chooseLayoutStateForLoad,
     normalizeLayoutState,
     createLayoutCloudStore
   };
