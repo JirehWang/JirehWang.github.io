@@ -6,7 +6,7 @@
 - Root: `D:/py/LKC1958_June_1.github.io-worship-cloud`
 - Contract: `project_contract.yml`
 - Current focus: The Taiwanese worship PPT frontend is Firebase-first for synchronized content and retains GAS fallback until the GAS project begins populating the new RTDB/Storage paths.
-- Last updated: 2026-07-15
+- Last updated: 2026-07-16
 
 ## Stable Facts
 
@@ -23,6 +23,13 @@
 - In-app browser automation could not initialize in this environment (`Cannot redefine property: process`), so desktop/mobile visual acceptance remains manual.
 
 ## Recent Entries
+
+### 2026-07-16
+
+- Focus: Final alignment of the praise and sermon title pages between the browser canvas and exported PowerPoint.
+- Changed: Made the sermon a dedicated title page and grouped each page's secondary information into the same single `.body` box used by the existing layout measurement and cloud-parameter flow. Praise now keeps song title and performer together; sermon keeps topic, speaker, and scripture together.
+- Changed: Extended the existing centered section calculation by detail-line count. The title/body group stays vertically centered at 50% while two-line praise and three-line sermon content receive proportional body heights in both canvas and export.
+- Verification: Browser visual QA measured a 50.0% group center for both pages and confirmed the sermon speaker remains inside the canvas. The focused export regression test verifies the exported text groups use the same center and increasing body height for additional lines.
 
 ### 2026-07-15
 

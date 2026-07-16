@@ -111,16 +111,26 @@
       // 3. Layout Parameters
       const storedParams = production.layoutForPage(layoutState, entry) || {};
       const modelEntry = model && model[entry.sectionId];
-      const centeredBody = entry.body || entry.kicker || (modelEntry && modelEntry.kicker) || SECTION_SUBTITLES[entry.sectionLabel] || '';
-      const usesCenteredTemplate = entry.kind === 'cover' || entry.kind === 'section';
+      const titlePageDetails = entry.kind === 'praise-title'
+        ? [entry.title || (modelEntry && modelEntry.title), entry.kicker || (modelEntry && modelEntry.kicker)].filter(Boolean)
+        : entry.kind === 'sermon-title'
+          ? [entry.title || (modelEntry && modelEntry.title), entry.kicker || (modelEntry && modelEntry.kicker), entry.body || (modelEntry && modelEntry.body)].filter(Boolean)
+          : [];
+      const centeredBody = titlePageDetails.join('\n') || entry.body || entry.kicker || (modelEntry && modelEntry.kicker) || SECTION_SUBTITLES[entry.sectionLabel] || '';
+      const usesCenteredTemplate = ['cover', 'section', 'praise-title', 'sermon-title'].includes(entry.kind);
       const hasCenteredSubtitle = entry.kind === 'cover' || Boolean(centeredBody);
+      const centeredLineCount = hasCenteredSubtitle
+        ? Math.max(1, String(centeredBody).split('\n').filter(line => line.trim()).length)
+        : 0;
+      const centeredContentH = 10.8 * centeredLineCount;
+      const centeredTitleY = Number(((100 - 17.8 - 4.5 - centeredContentH) / 2).toFixed(1));
       const centeredTemplateDefaults = usesCenteredTemplate ? {
-        titleY: hasCenteredSubtitle ? 33.5 : 41,
+        titleY: hasCenteredSubtitle ? centeredTitleY : 41,
         titleH: hasCenteredSubtitle ? 17.8 : 18,
         titleAlign: 'center',
         contentSize: 36,
-        contentY: 55.8,
-        contentH: 10.8,
+        contentY: hasCenteredSubtitle ? Number((centeredTitleY + 17.8 + 4.5).toFixed(1)) : 55.8,
+        contentH: hasCenteredSubtitle ? centeredContentH : 10.8,
         contentAlign: 'center',
         lineSpacing: 1.2
       } : {};
@@ -217,8 +227,8 @@
           valign: hasStoredContentBounds ? 'top' : 'middle',
           margin: 0
         });
-      } else if (entry.kind === 'praise-title') {
-        slide.addText('讚美', {
+      } else if (entry.kind === 'praise-title' || entry.kind === 'sermon-title') {
+        slide.addText(entry.kind === 'praise-title' ? '讚美' : '講道', {
           x: slideX(params.titleX),
           y: slideY(params.titleY),
           w: slideX(params.titleW),
@@ -231,10 +241,8 @@
           bold: true,
           margin: 0
         });
-        const kicker = entry.kicker || (model && model[entry.sectionId] && model[entry.sectionId].kicker) || '';
-        const titleText = entry.title || (model && model[entry.sectionId] && model[entry.sectionId].title) || '';
-        const praiseContent = [titleText, kicker].filter(Boolean).join('\n\n');
-        slide.addText(praiseContent, {
+        const titlePageContent = titlePageDetails.join('\n');
+        if (titlePageContent) slide.addText(titlePageContent, {
           x: slideX(params.contentX),
           y: slideY(params.contentY),
           w: slideX(params.contentW),
@@ -243,7 +251,8 @@
           color: contentColor,
           fontFace: 'Microsoft JhengHei',
           align: params.contentAlign || 'center',
-          valign: 'top',
+          valign: hasStoredContentBounds ? 'top' : 'middle',
+          lineSpacing: params.lineSpacing ? Math.round(scaledFont(params.contentSize) * params.lineSpacing) : undefined,
           margin: 0
         });
       } else if (entry.kind === 'praise-lyrics') {
