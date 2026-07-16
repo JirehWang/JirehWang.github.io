@@ -2,15 +2,15 @@ project: LKC1958_June_1.github.io
 root: D:/py/LKC1958_June_1.github.io-worship-cloud
 
 entrypoints:
-  gui: apps/LKC_TaiwaneseWorshipPPT/index.html
+  gui: apps/LKC_WorshipPPT/index.html
   cli: not_applicable
-  main: apps/LKC_TaiwaneseWorshipPPT/app.js
+  main: apps/LKC_WorshipPPT/app.js
 
 data_dirs:
   input: Firebase RTDB worshipPpt/layoutConfig/shared, worshipPpt/content, Firebase Storage worshipPpt/library, and browser form input
   intermediate: browser memory and localStorage fallback cache
   output: generated PPTX downloads
-  fixtures: apps/LKC_TaiwaneseWorshipPPT/*.test.js
+  fixtures: apps/LKC_WorshipPPT/*.test.js
 
 verify_commands:
   - powershell -ExecutionPolicy Bypass -File scripts/verify.ps1

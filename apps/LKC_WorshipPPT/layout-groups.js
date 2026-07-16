@@ -116,29 +116,36 @@
     document.getElementById('flow-list').innerHTML = `<div class="deck-chapters">${decks.map((section, sectionIndex) => `
       <details class="deck-chapter" data-deck-section="${section.sectionId}" ${section.sectionId === active ? 'open' : ''}>
         <summary><input type="checkbox" data-layout-section="${section.sectionId}" aria-label="勾選 ${section.label} 全章" ${section.pages.every(page => pendingSelection.has(page.id)) ? 'checked' : ''}><span><b>${String(sectionIndex + 1).padStart(2, '0')}</b>${section.label}</span><small>${section.pages.length} 頁</small></summary>
-        <div class="deck-page-list">${section.pages.map((page, pageIndex) => `<label data-deck-page-row="${page.id}"><input type="checkbox" data-layout-page="${page.id}" ${pendingSelection.has(page.id) ? 'checked' : ''}><button type="button" data-deck-page="${page.id}">第 ${pageIndex + 1} 頁</button><small>${html(groupLabel(page.id))}</small></label>`).join('')}</div>
+        <div class="deck-page-list">${section.pages.map((page, pageIndex) => `<div class="deck-page-row${pendingSelection.has(page.id) ? ' is-selected' : ''}" data-deck-page-row="${page.id}"><input type="checkbox" data-layout-page="${page.id}" aria-label="選取 ${html(section.label)}第 ${pageIndex + 1} 頁進行版面調整" ${pendingSelection.has(page.id) ? 'checked' : ''}><button type="button" data-deck-page="${page.id}" aria-label="預覽 ${html(section.label)}第 ${pageIndex + 1} 頁">第 ${pageIndex + 1} 頁</button><small>${html(groupLabel(page.id))}</small></div>`).join('')}</div>
       </details>`).join('')}</div>`;
 
-    document.querySelectorAll('[data-deck-page]').forEach(button => button.onclick = () => showDeckEntry(deckEntries().find(entry => entry.id === button.dataset.deckPage)));
+    document.querySelectorAll('[data-deck-page-row]').forEach(row => row.onclick = event => {
+      if (event.target.closest('input')) return;
+      showDeckEntry(deckEntries().find(entry => entry.id === row.dataset.deckPageRow));
+    });
     document.querySelectorAll('[data-layout-page]').forEach(box => box.onchange = () => {
       if (box.checked) pendingSelection.add(box.dataset.layoutPage); else pendingSelection.delete(box.dataset.layoutPage);
+      box.closest('[data-deck-page-row]').classList.toggle('is-selected', box.checked);
       syncSectionCheckbox(box.closest('[data-deck-section]'));
       if (box.checked) {
         showDeckEntry(deckEntries().find(entry => entry.id === box.dataset.layoutPage));
       }
     });
-    document.querySelectorAll('[data-layout-section]').forEach(box => box.onchange = event => {
-      event.stopPropagation();
-      const chapter = box.closest('[data-deck-section]');
-      chapter.querySelectorAll('[data-layout-page]').forEach(pageBox => {
-        pageBox.checked = box.checked;
-        if (box.checked) pendingSelection.add(pageBox.dataset.layoutPage); else pendingSelection.delete(pageBox.dataset.layoutPage);
-      });
-      if (box.checked) {
-        chapter.open = true;
-        const first = chapter.querySelector('[data-deck-page]');
-        if (first) showDeckEntry(deckEntries().find(entry => entry.id === first.dataset.deckPage));
-      }
+    document.querySelectorAll('[data-layout-section]').forEach(box => {
+      box.onclick = event => event.stopPropagation();
+      box.onchange = () => {
+        const chapter = box.closest('[data-deck-section]');
+        chapter.querySelectorAll('[data-layout-page]').forEach(pageBox => {
+          pageBox.checked = box.checked;
+          pageBox.closest('[data-deck-page-row]').classList.toggle('is-selected', box.checked);
+          if (box.checked) pendingSelection.add(pageBox.dataset.layoutPage); else pendingSelection.delete(pageBox.dataset.layoutPage);
+        });
+        if (box.checked) {
+          chapter.open = true;
+          const first = chapter.querySelector('[data-deck-page]');
+          if (first) showDeckEntry(deckEntries().find(entry => entry.id === first.dataset.deckPage));
+        }
+      };
     });
     document.querySelectorAll('[data-deck-section]').forEach(syncSectionCheckbox);
     updateDeckNavigator();

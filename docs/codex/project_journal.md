@@ -10,7 +10,7 @@
 
 ## Stable Facts
 
-- App entrypoint: `apps/LKC_TaiwaneseWorshipPPT/index.html`.
+- App entrypoint: `apps/LKC_WorshipPPT/index.html`.
 - Existing browser draft key: `lkc-taiwanese-worship-draft`.
 - Layout data shape: `layoutState.groups`, `layoutState.pageAssignments`, `layoutState.hymnOpacityBySection`, and `layoutState.outputScale`.
 - Firebase project initialization already exists in `firebase/firebase-config.js` and includes RTDB.
@@ -26,6 +26,8 @@
 
 ### 2026-07-16
 
+- Changed: Renamed the application from `LKC_TaiwaneseWorshipPPT` to `LKC_WorshipPPT` and the user-facing product to `禮拜PPT產生器`, updating the admin entry, workflow contract, verification path, architecture, and Firebase documentation. The longer brand is kept on one line at desktop and narrow widths. The current Taiwanese worship flow and its existing Firebase/local draft keys remain unchanged so weekly content and shared settings keep working.
+- Changed: Separated page browsing from layout-page selection in the worship flow navigator. Clicking a page row now previews it without changing its checkbox; checking a page still selects it for layout editing and jumps to that page, while checking a chapter retains bulk selection and first-page preview. Chapter names remain native expand/collapse controls, with distinct current-page and selected-page styling plus a short usage hint.
 - Changed: Updated the sermon title page to render `講道：{講道題目}` as the heading, with only the speaker and scripture in the body box. The shared production geometry now measures wrapped heading lines and vertically centers the complete heading/body group identically in canvas preview and PowerPoint export.
 - Focus: Final alignment of the praise and sermon title pages between the browser canvas and exported PowerPoint.
 - Changed: Made the sermon a dedicated title page and grouped each page's secondary information into the same single `.body` box used by the existing layout measurement and cloud-parameter flow. Praise now keeps song title and performer together; sermon keeps topic, speaker, and scripture together.

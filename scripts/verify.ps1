@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 Set-Location -LiteralPath "$PSScriptRoot\.."
 
-$javascriptFiles = Get-ChildItem -LiteralPath ".\apps\LKC_TaiwaneseWorshipPPT" -Filter "*.js" | Where-Object Name -NotLike "vendor-*" | Sort-Object Name
+$javascriptFiles = Get-ChildItem -LiteralPath ".\apps\LKC_WorshipPPT" -Filter "*.js" | Where-Object Name -NotLike "vendor-*" | Sort-Object Name
 foreach ($javascriptFile in $javascriptFiles) {
     & node --check $javascriptFile.FullName
     if ($LASTEXITCODE -ne 0) {
@@ -9,7 +9,7 @@ foreach ($javascriptFile in $javascriptFiles) {
     }
 }
 
-$testFiles = Get-ChildItem -LiteralPath ".\apps\LKC_TaiwaneseWorshipPPT" -Filter "*.test.js" | Sort-Object Name
+$testFiles = Get-ChildItem -LiteralPath ".\apps\LKC_WorshipPPT" -Filter "*.test.js" | Sort-Object Name
 foreach ($testFile in $testFiles) {
     Write-Host "Running $($testFile.Name)..."
     & node $testFile.FullName
@@ -23,4 +23,4 @@ if (-not $rules.rules.worshipPpt.layoutConfig.shared) {
     throw "Worship layout RTDB rule is missing."
 }
 
-Write-Host "All Taiwanese Worship PPT tests passed."
+Write-Host "All Worship PPT generator tests passed."
