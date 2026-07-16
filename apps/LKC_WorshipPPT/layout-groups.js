@@ -7,6 +7,7 @@
   let layoutUnlocked = false;
   let cloudLayoutFound = false;
   let cloudLayoutLoadPromise = null;
+  let layoutSyncPending = false;
   window.worshipLayoutState = layoutState;
   window.isWorshipLayoutUnlocked = () => layoutUnlocked;
 
@@ -16,6 +17,7 @@
 
   try {
     const draft = JSON.parse(localStorage.getItem('lkc-taiwanese-worship-draft') || '{}');
+    layoutSyncPending = draft.layoutSyncPending === true;
     if (draft.layoutState) {
       replaceLayoutState(draft.layoutState);
     }
@@ -55,7 +57,7 @@
   function persistLocalLayoutState() {
     try {
       const draft = JSON.parse(localStorage.getItem('lkc-taiwanese-worship-draft') || '{}');
-      localStorage.setItem('lkc-taiwanese-worship-draft', JSON.stringify({ ...draft, layoutState }));
+      localStorage.setItem('lkc-taiwanese-worship-draft', JSON.stringify({ ...draft, layoutState, layoutSyncPending }));
     } catch (error) {
       console.warn('版面群組保存失敗', error);
     }
@@ -63,10 +65,13 @@
 
   async function persistLayoutState() {
     captureHymnOpacity();
+    layoutSyncPending = true;
     persistLocalLayoutState();
     if (!layoutUnlocked) throw new Error('版面配置尚未解鎖');
     await cloudStore.save(layoutState);
     cloudLayoutFound = true;
+    layoutSyncPending = false;
+    persistLocalLayoutState();
   }
 
   function sectionDecks() {
@@ -396,17 +401,19 @@
     group.name = name;
     liveParams = null;
     let cloudSaved = true;
+    let cloudSaveError = null;
     try {
       await persistLayoutState();
     } catch (error) {
       cloudSaved = false;
+      cloudSaveError = error;
       console.error('共用版面配置雲端保存失敗', error);
     }
     renderDeckNavigator();
     renderFloatingPanel();
     openFloatingPanel();
     preview();
-    status(cloudSaved ? `已儲存全教會共用版面群組：${name}` : '本機備份已更新，但雲端版面保存失敗');
+    status(cloudSaved ? `已儲存全教會共用版面群組：${name}` : `雲端保存失敗：${cloudSaveError.message}；本機版面已保留，重新解鎖後會自動重試`);
   }
 
   async function detachSelection() {
@@ -414,15 +421,17 @@
     production.detachPagesFromLayoutGroup(layoutState, selectedIds());
     liveParams = null;
     let cloudSaved = true;
+    let cloudSaveError = null;
     try {
       await persistLayoutState();
     } catch (error) {
       cloudSaved = false;
+      cloudSaveError = error;
       console.error('共用版面配置雲端保存失敗', error);
     }
     renderDeckNavigator();
     preview();
-    status(cloudSaved ? '已解除所選頁面的共用版面群組' : '已更新本機備份，但雲端解除群組失敗');
+    status(cloudSaved ? '已解除所選頁面的共用版面群組' : `雲端解除群組失敗：${cloudSaveError.message}；本機變更已保留，重新解鎖後會自動重試`);
   }
 
   window.applyPageLayoutToPreview = function(content, page) {
@@ -514,12 +523,28 @@
   async function initializeCloudLayout() {
     try {
       const sharedLayout = await cloudStore.load();
+      const resolved = window.TaiwaneseWorshipLayoutCloud.chooseLayoutStateForLoad(
+        layoutState,
+        sharedLayout,
+        layoutSyncPending && hasLayoutState()
+      );
+      if (resolved.source === 'local-pending') {
+        cloudLayoutFound = Boolean(sharedLayout);
+        replaceLayoutState(resolved.layoutState);
+        populateOutputScaleForm();
+        renderDeckNavigator();
+        renderFloatingPanel();
+        preview();
+        status('偵測到尚未同步的本機版面；解鎖後會自動重試 Firebase 儲存');
+        return;
+      }
       if (!sharedLayout) {
         status(hasLayoutState() ? '已載入本機版面備份；首次解鎖後會遷移至全教會雲端配置' : '雲端尚無共用版面配置');
         return;
       }
-      replaceLayoutState(sharedLayout);
+      replaceLayoutState(resolved.layoutState);
       cloudLayoutFound = true;
+      layoutSyncPending = false;
       persistLocalLayoutState();
       populateOutputScaleForm();
       renderDeckNavigator();
@@ -571,7 +596,8 @@
       if (cloudLayoutLoadPromise) await cloudLayoutLoadPromise;
       await cloudStore.unlock(password.value);
       layoutUnlocked = true;
-      if (!cloudLayoutFound && hasLayoutState()) await persistLayoutState();
+      if (layoutSyncPending && hasLayoutState()) await persistLayoutState();
+      else if (!cloudLayoutFound && hasLayoutState()) await persistLayoutState();
       closeUnlockDialog();
       renderFloatingPanel();
       status(cloudLayoutFound ? '版面配置已解鎖' : '版面配置已解鎖；雲端尚無共用設定');
@@ -597,7 +623,7 @@
   };
 
   document.getElementById('save-draft').onclick = async () => {
-    localStorage.setItem('lkc-taiwanese-worship-draft', JSON.stringify({ model, backgroundColor, backgroundImage, syncHymnOpacity: window.isHymnOpacitySyncEnabled(), layoutState }));
+    localStorage.setItem('lkc-taiwanese-worship-draft', JSON.stringify({ model, backgroundColor, backgroundImage, syncHymnOpacity: window.isHymnOpacitySyncEnabled(), layoutState, layoutSyncPending }));
     if (!layoutUnlocked) return status('內容已儲存至此瀏覽器；共用版面仍為鎖定狀態');
     try {
       await persistLayoutState();

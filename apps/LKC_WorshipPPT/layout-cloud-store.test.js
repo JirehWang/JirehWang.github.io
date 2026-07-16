@@ -6,6 +6,7 @@ const path = require('node:path');
 const {
   AUTH_EMAIL,
   SHARED_LAYOUT_PATH,
+  chooseLayoutStateForLoad,
   createLayoutCloudStore,
   normalizeLayoutState
 } = require('./layout-cloud-store.js');
@@ -61,6 +62,38 @@ test('loads the one church-wide layout from the dedicated RTDB path', async () =
 
   assert.deepEqual(await store.load(), state);
   assert.equal(SHARED_LAYOUT_PATH, 'worshipPpt/layoutConfig/shared');
+});
+
+test('keeps a pending local layout instead of replacing it with older cloud data', () => {
+  const local = {
+    groups: { pending: { id: 'pending', name: '尚未同步' } },
+    pageAssignments: { 'scripture:1': 'pending' }
+  };
+  const cloud = {
+    groups: { existing: { id: 'existing', name: '雲端舊資料' } },
+    pageAssignments: { 'creed:1': 'existing' }
+  };
+
+  assert.deepEqual(chooseLayoutStateForLoad(local, cloud, true), {
+    layoutState: local,
+    source: 'local-pending'
+  });
+});
+
+test('uses the shared cloud layout when the local backup has no pending changes', () => {
+  const local = {
+    groups: { local: { id: 'local' } },
+    pageAssignments: {}
+  };
+  const cloud = {
+    groups: { shared: { id: 'shared' } },
+    pageAssignments: {}
+  };
+
+  assert.deepEqual(chooseLayoutStateForLoad(local, cloud, false), {
+    layoutState: cloud,
+    source: 'cloud'
+  });
 });
 
 test('refuses cloud writes while the layout editor is locked', async () => {

@@ -26,6 +26,12 @@
 
 ### 2026-07-16
 
+- Focus: Prevent unsynchronized shared-layout edits from disappearing after a browser refresh.
+- Changed: Added a `layoutSyncPending` marker to the existing browser draft. Layout writes now mark the local state pending before Firebase is called and clear the marker only after Firebase confirms the write. A refresh preserves pending local groups instead of replacing them with older cloud data, and the next successful unlock automatically retries the write.
+- Changed: Cloud-save failures now display the Firebase error while confirming that the local layout remains available for retry. Clean local backups still defer to the church-wide Firebase layout as before.
+- Learned: The live `worshipPpt/layoutConfig/shared` node still contained only the three groups last written on 2026-07-15; the previous frontend saved locally before Firebase and then silently replaced that local backup with the older cloud document during the next load.
+- Verification: Added red-green regression coverage for pending-local versus clean-cloud selection and automatic retry after unlock. The full `scripts/verify.ps1` run passed all 70 tests.
+
 - Changed: Renamed the application from `LKC_TaiwaneseWorshipPPT` to `LKC_WorshipPPT` and the user-facing product to `禮拜PPT產生器`, updating the admin entry, workflow contract, verification path, architecture, and Firebase documentation. The longer brand is kept on one line at desktop and narrow widths. The current Taiwanese worship flow and its existing Firebase/local draft keys remain unchanged so weekly content and shared settings keep working.
 - Changed: Separated page browsing from layout-page selection in the worship flow navigator. Clicking a page row now previews it without changing its checkbox; checking a page still selects it for layout editing and jumps to that page, while checking a chapter retains bulk selection and first-page preview. Chapter names remain native expand/collapse controls, with distinct current-page and selected-page styling plus a short usage hint.
 - Changed: Updated the sermon title page to render `講道：{講道題目}` as the heading, with only the speaker and scripture in the body box. The shared production geometry now measures wrapped heading lines and vertically centers the complete heading/body group identically in canvas preview and PowerPoint export.
