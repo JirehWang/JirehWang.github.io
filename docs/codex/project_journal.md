@@ -29,6 +29,7 @@
 - Focus: Final alignment of the praise and sermon title pages between the browser canvas and exported PowerPoint.
 - Changed: Made the sermon a dedicated title page and grouped each page's secondary information into the same single `.body` box used by the existing layout measurement and cloud-parameter flow. Praise now keeps song title and performer together; sermon keeps topic, speaker, and scripture together.
 - Changed: Extended the existing centered section calculation by detail-line count. The title/body group stays vertically centered at 50% while two-line praise and three-line sermon content receive proportional body heights in both canvas and export.
+- Changed: Resolved the subsequent `main` merge conflicts by moving that line-count calculation into `slide-production.js`'s shared `resolvedLayoutForPage()` path. This preserves `main`'s deterministic wrapping, title anchoring, hymn-overlay, and preview-entry fixes while keeping praise and sermon centered in both preview and export.
 - Verification: Browser visual QA measured a 50.0% group center for both pages and confirmed the sermon speaker remains inside the canvas. The focused export regression test verifies the exported text groups use the same center and increasing body height for additional lines.
 
 ### 2026-07-15

@@ -393,6 +393,13 @@
     });
   }
 
+  function rasterObject(object, options = {}) {
+    if (object && object.type === 'text' && object.role === 'title' && options.titleVerticalAlign) {
+      return { ...object, verticalAlign: options.titleVerticalAlign };
+    }
+    return object;
+  }
+
   async function rasterizeImportedPages(pages, options = {}) {
     const width = Math.max(640, Number(options.width) || 1600);
     const createCanvas = options.createCanvas || browserCanvas;
@@ -408,7 +415,8 @@
       canvas.height = height;
       const context = canvas.getContext('2d');
       context.clearRect(0, 0, width, height);
-      for (const object of page.objects || []) {
+      for (const sourceObject of page.objects || []) {
+        const object = rasterObject(sourceObject, options);
         if (object.type === 'image' && object.src) {
           const image = await loadImage(object.src);
           context.drawImage(
@@ -431,10 +439,21 @@
     return result;
   }
 
+  function isFirebaseStorageUrl(value) {
+    try {
+      const hostname = new URL(String(value || '')).hostname.toLowerCase();
+      return hostname === 'firebasestorage.googleapis.com'
+        || hostname === 'storage.googleapis.com'
+        || hostname.endsWith('.firebasestorage.app');
+    } catch (_) {
+      return false;
+    }
+  }
+
   async function downloadAndParse(entry, JSZipImplementation, readApi) {
     if (!entry || !entry.fileId) throw new Error('找不到對應的雲端 PPTX');
     const storageUrl = entry.downloadUrl || entry.storageUrl;
-    if (storageUrl) {
+    if (storageUrl && isFirebaseStorageUrl(storageUrl)) {
       let response;
       try {
         response = await fetch(storageUrl);
@@ -472,7 +491,9 @@
     inheritRunStyle,
     base64ToArrayBuffer,
     parsePptx,
+    rasterObject,
     rasterizeImportedPages,
+    isFirebaseStorageUrl,
     downloadAndParse
   };
 });

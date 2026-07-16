@@ -56,7 +56,11 @@ preview = function() {
   background.style.backgroundColor = backgroundColor;
   background.style.opacity = 1;
   const content = document.getElementById('slide-content');
-  const hasHymnWhiteOverlay = (window.hymnOpacitySectionIds || []).includes(active);
+  const previewEntry = { ...page, sectionId: active, sectionLabel: item.label };
+  const hasHymnWhiteOverlay = window.TaiwaneseWorshipSlideProduction.shouldApplyHymnWhiteOverlay(
+    previewEntry,
+    window.hymnOpacitySectionIds || []
+  );
   const whiteOverlayOpacity = hasHymnWhiteOverlay
     ? window.TaiwaneseWorshipSlideProduction.toWhiteOverlayOpacity(item.opacity)
     : 0;
@@ -99,7 +103,7 @@ preview = function() {
     content.className = 'slide-content template-section';
     content.innerHTML = `<h1>${title}</h1><p>${kicker || subtitles[item.label] || ''}</p>`;
   }
-  if (window.applyPageLayoutToPreview) window.applyPageLayoutToPreview(content, page);
+  if (window.applyPageLayoutToPreview) window.applyPageLayoutToPreview(content, previewEntry);
 };
 document.getElementById('page-prev').onclick = () => window.navigateDeck ? window.navigateDeck(-1) : (previewPage = Math.max(0, previewPage - 1), preview());
 document.getElementById('page-next').onclick = () => window.navigateDeck ? window.navigateDeck(1) : (previewPage += 1, preview());
