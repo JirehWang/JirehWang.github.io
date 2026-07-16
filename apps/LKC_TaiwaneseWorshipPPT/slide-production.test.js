@@ -79,6 +79,29 @@ test('resolves one shared layout for both preview and export', () => {
   );
 });
 
+test('vertically centers praise and sermon title groups by their detail line count', () => {
+  const state = { groups: {}, pageAssignments: {} };
+  const praise = resolvedLayoutForPage(
+    state,
+    { id: 'praise:1', sectionId: 'praise', kind: 'praise-title' },
+    { title: '新的事將要成就', kicker: '聖歌隊' }
+  );
+  const sermon = resolvedLayoutForPage(
+    state,
+    { id: 'sermon:1', sectionId: 'sermon', kind: 'sermon-title' },
+    { title: '建造百倍成長的生命', kicker: '陳志聰牧師', body: '路加福音八章' }
+  );
+
+  [praise, sermon].forEach(params => {
+    const groupCenter = (params.titleY + params.contentY + params.contentH) / 2;
+    assert.ok(Math.abs(groupCenter - 50) < 0.1);
+    assert.equal(params.contentSize, 36);
+    assert.equal(params.contentAlign, 'center');
+    assert.equal(params.lineSpacing, 1.2);
+  });
+  assert.ok(sermon.contentH > praise.contentH);
+});
+
 test('converts PowerPoint points to the 16:9 canvas without enlarging text', () => {
   assert.equal(pointsToCanvasCqw(60), 6.25);
   assert.equal(pointsToCanvasCqw(48), 5);

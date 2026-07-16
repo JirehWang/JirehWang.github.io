@@ -290,6 +290,32 @@
         lineSpacing: 1.2
       };
     }
+    if (page.kind === 'praise-title' || page.kind === 'sermon-title') {
+      const details = page.kind === 'praise-title'
+        ? [page.title || (item && item.title), page.kicker || (item && item.kicker)]
+        : [page.title || (item && item.title), page.kicker || (item && item.kicker), page.body || (item && item.body)];
+      const detailText = details.filter(Boolean).join('\n');
+      const wrappedDetails = wrapTextForBox(detailText, {
+        fontSize: 36,
+        boxWidth: defaults.contentW,
+        bold: true
+      });
+      const lineCount = wrappedDetails ? wrappedDetails.split('\n').filter(line => line.trim()).length : 0;
+      const contentH = 10.8 * lineCount;
+      const titleY = lineCount
+        ? Number(((100 - 17.8 - 4.5 - contentH) / 2).toFixed(1))
+        : 41;
+      return {
+        ...defaults,
+        titleY,
+        titleH: lineCount ? 17.8 : 18,
+        contentSize: 36,
+        contentY: lineCount ? Number((titleY + 17.8 + 4.5).toFixed(1)) : 55.8,
+        contentH: lineCount ? contentH : 10.8,
+        contentAlign: 'center',
+        lineSpacing: 1.2
+      };
+    }
     if (page.kind === 'praise-lyrics') {
       return {
         ...defaults,

@@ -33,6 +33,7 @@ function slidePages(item, sectionId) {
     const lyrics = (item.body || '').split(/\n\s*\n/).filter(Boolean).map(body => ({ kind:'praise-lyrics', body }));
     return [{ kind:'praise-title' }, ...lyrics];
   }
+  if (item.type === 'sermon') return [{ kind:'sermon-title' }];
   if (item.type === 'manual') {
     const pages = (item.body || '').split(/\n\s*\n/).filter(Boolean).map(body => ({ kind:'content', body }));
     return [{ kind:'section' }, ...pages];
@@ -85,7 +86,16 @@ preview = function() {
     content.className = `slide-content template-liturgical${alignment}${page.showTitle === false ? ' no-title' : ''}`;
     content.innerHTML = `${page.showTitle === false ? '' : `<h1>${title}</h1>`}<div class="body">${safeHtml(page.body)}</div>`;
   }
-  else if (page.kind === 'praise-title') content.className = 'slide-content template-section', content.innerHTML = `<h1>讚美</h1><p>${safeHtml([title, kicker].filter(Boolean).join('\n\n'))}</p>`;
+  else if (page.kind === 'praise-title') {
+    const details = [page.title || item.title, page.kicker || item.kicker].filter(Boolean).join('\n');
+    content.className = 'slide-content template-section';
+    content.innerHTML = `<h1>讚美</h1><div class="body">${safeHtml(details)}</div>`;
+  }
+  else if (page.kind === 'sermon-title') {
+    const details = [page.title || item.title, page.kicker || item.kicker, page.body || item.body].filter(Boolean).join('\n');
+    content.className = 'slide-content template-section';
+    content.innerHTML = `<h1>講道</h1><div class="body">${safeHtml(details)}</div>`;
+  }
   else if (page.kind === 'praise-lyrics') content.className = 'slide-content template-praise', content.innerHTML = `<div class="body">${safeHtml(page.body)}</div>`;
   else if (page.kind === 'score') content.className = `slide-content template-score${hasHymnWhiteOverlay ? ' has-hymn-white-overlay' : ''}`, content.innerHTML = `<h1>${title}</h1><p>${kicker}</p><div class="score-slot"></div>`;
   else {

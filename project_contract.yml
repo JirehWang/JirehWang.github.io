@@ -30,4 +30,4 @@ risk_notes:
   - Background image data URLs remain browser-local and must not be placed in the shared RTDB layout document.
   - Firebase-first worship content remains incomplete until the existing GAS project synchronizes service, Bible, and library records into the documented paths; the frontend must preserve GAS fallback while nodes are absent.
 
-last_reviewed: 2026-07-15
+last_reviewed: 2026-07-16

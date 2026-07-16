@@ -120,7 +120,7 @@ test('uses safe default bounds when an ungrouped page has no stored layout param
     PptxGenJS: MockPptx,
     getDeckEntries: () => [{ kind: 'cover', sectionId: 'cover', sectionLabel: '台語主日禮拜' }],
     layoutState: { groups: {}, pageAssignments: {} },
-    production: { layoutForPage: () => ({}) },
+    production: require('./slide-production.js'),
     model: {},
     backgroundColor: '#ffffff',
     serviceDate: '2026-07-12'
@@ -335,6 +335,55 @@ test('exports the same deterministic native-text line breaks used by the preview
   });
 
   assert.equal(slides[0].texts[1].text, '甲乙\n丙丁');
+});
+
+test('keeps praise and sermon title pages vertically centered and identical to the canvas geometry', async () => {
+  const slides = [];
+  class MockPptx {
+    addSlide() {
+      const slide = {
+        texts: [],
+        addText(text, opts) { this.texts.push({ text, opts }); },
+        addShape() {},
+        addImage() {}
+      };
+      slides.push(slide);
+      return slide;
+    }
+    writeFile() { return Promise.resolve(); }
+  }
+
+  await exportWorshipPPTX({
+    PptxGenJS: MockPptx,
+    getDeckEntries: () => [
+      { kind: 'praise-title', sectionId: 'praise', sectionLabel: '讚美' },
+      { kind: 'sermon-title', sectionId: 'sermon', sectionLabel: '講道' }
+    ],
+    layoutState: { groups: {}, pageAssignments: {} },
+    production: require('./slide-production.js'),
+    model: {
+      praise: { title: '新的事將要成就', kicker: '聖歌隊' },
+      sermon: { title: '建造百倍成長的生命', kicker: '陳志聰牧師', body: '路加福音八章' }
+    },
+    backgroundColor: '#ffffff',
+    serviceDate: '2026-07-19'
+  });
+
+  assert.deepEqual(slides[0].texts.map(item => item.text), ['讚美', '新的事將要成就\n聖歌隊']);
+  assert.deepEqual(slides[1].texts.map(item => item.text), ['講道', '建造百倍成長的生命\n陳志聰牧師\n路加福音八章']);
+  slides.forEach(slide => {
+    const groupTop = slide.texts[0].opts.y;
+    const groupBottom = slide.texts[1].opts.y + slide.texts[1].opts.h;
+    assert.ok(Math.abs((groupTop + groupBottom) / 2 - 3.75) < 0.01);
+    assert.equal(slide.texts[1].opts.fontSize, 36);
+    assert.equal(slide.texts[1].opts.valign, 'top');
+  });
+  assert.ok(slides[1].texts[1].opts.h > slides[0].texts[1].opts.h);
+
+  const previewSource = fs.readFileSync(path.join(__dirname, 'ppt-format-preview.js'), 'utf8');
+  assert.match(previewSource, /item\.type === 'sermon'.*kind:'sermon-title'/s);
+  assert.match(previewSource, /page\.kind === 'praise-title'.*template-section.*class="body"/s);
+  assert.match(previewSource, /page\.kind === 'sermon-title'.*template-section.*class="body"/s);
 });
 
 test('preserves source bounds for an ungrouped imported PowerPoint slide', async () => {
