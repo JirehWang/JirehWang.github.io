@@ -208,6 +208,7 @@
     if (!layoutUnlocked) return status('輸出比例已鎖定，請先輸入密碼解鎖');
     layoutState.outputScale = outputScaleFromForm();
     populateOutputScaleForm();
+    status('正在儲存輸出比例…');
     try {
       await persistLayoutState();
       status(`輸出比例已儲存：文字 ${layoutState.outputScale.text}%、圖片 ${layoutState.outputScale.image}%`);
@@ -402,6 +403,7 @@
     liveParams = null;
     let cloudSaved = true;
     let cloudSaveError = null;
+    status(`正在儲存全教會共用版面群組：${name}…`);
     try {
       await persistLayoutState();
     } catch (error) {
@@ -422,6 +424,7 @@
     liveParams = null;
     let cloudSaved = true;
     let cloudSaveError = null;
+    status('正在更新全教會共用版面群組…');
     try {
       await persistLayoutState();
     } catch (error) {
@@ -521,6 +524,7 @@
   preview = function() { basePreview(); updateDeckNavigator(); };
 
   async function initializeCloudLayout() {
+    status('正在載入全教會共用版面配置…');
     try {
       const sharedLayout = await cloudStore.load();
       const resolved = window.TaiwaneseWorshipLayoutCloud.chooseLayoutStateForLoad(
@@ -572,6 +576,7 @@
       applyLayoutLockUI();
       return status('透明度設定已鎖定，請先輸入密碼解鎖');
     }
+    status('正在儲存樂譜透明度…');
     try {
       await persistLayoutState();
       status('樂譜透明度已儲存為全教會共用參數');
@@ -592,6 +597,7 @@
     const submit = event.currentTarget.querySelector('[type="submit"]');
     submit.disabled = true;
     error.textContent = '';
+    status('正在驗證版面設定密碼…');
     try {
       if (cloudLayoutLoadPromise) await cloudLayoutLoadPromise;
       await cloudStore.unlock(password.value);
@@ -604,6 +610,7 @@
     } catch (unlockError) {
       console.warn('版面配置解鎖失敗', unlockError);
       error.textContent = unlockError.message || '解鎖失敗，請稍後再試';
+      status(`版面配置解鎖失敗：${error.textContent}`);
     } finally {
       submit.disabled = false;
     }
@@ -612,6 +619,7 @@
   document.getElementById('layout-unlock-cancel').onclick = closeUnlockDialog;
   document.getElementById('layout-lock-toggle').onclick = async () => {
     if (!layoutUnlocked) return openUnlockDialog();
+    status('正在鎖定版面設定…');
     try {
       await cloudStore.lock();
       layoutUnlocked = false;
@@ -625,6 +633,7 @@
   document.getElementById('save-draft').onclick = async () => {
     localStorage.setItem('lkc-taiwanese-worship-draft', JSON.stringify({ model, backgroundColor, backgroundImage, syncHymnOpacity: window.isHymnOpacitySyncEnabled(), layoutState, layoutSyncPending }));
     if (!layoutUnlocked) return status('內容已儲存至此瀏覽器；共用版面仍為鎖定狀態');
+    status('正在儲存內容與全教會共用版面…');
     try {
       await persistLayoutState();
       status('內容已存於此瀏覽器，版面配置已存至全教會雲端');
