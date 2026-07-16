@@ -214,8 +214,16 @@
       <hr style="border: 0; border-top: 1px solid #dee2e6; margin: 25px 0;">
 
       <div class="action-row">
-        <div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
           <button class="btn btn-outline-white" id="btnLoadCloud" style="color: #2c5f8a; border-color: #2c5f8a;">📂 載入該日雲端暫存</button>
+          <div id="loadOtherDayContainer" style="display: inline-flex; gap: 5px; align-items: center; flex-wrap: wrap;">
+            <button class="btn btn-outline-white" id="btnShowLoadOther" style="color: #2c5f8a; border-color: #2c5f8a;">📅 套用其他日期資料</button>
+            <div id="otherDaySelectWrap" style="display: none; align-items: center; gap: 5px; flex-wrap: wrap;">
+              <input type="date" id="otherBulletinDate" class="form-input" style="width: auto; padding: 4px 8px; height: 34px; border: 1px solid #ced4da; border-radius: 6px;">
+              <button class="btn btn-primary" id="btnConfirmLoadOther" style="padding: 4px 12px; height: 34px; background-color: #2c5f8a; border-color: #2c5f8a; color: white;">確認載入</button>
+              <button class="btn btn-outline-white" id="btnCancelLoadOther" style="color: #c0392b; border-color: #c0392b; padding: 4px 8px; height: 34px;">取消</button>
+            </div>
+          </div>
         </div>
         <div style="display: flex; gap: 10px;">
           <button class="btn btn-success" id="btnSaveCloud">☁️ 上傳至雲端</button>
@@ -288,6 +296,38 @@
 
     document.getElementById('btnSaveCloud').addEventListener('click', saveToCloud);
     document.getElementById('btnLoadCloud').addEventListener('click', loadFromCloud);
+
+    // 套用其他日期資料按鈕監聽
+    const btnShowLoadOther = document.getElementById('btnShowLoadOther');
+    const otherDaySelectWrap = document.getElementById('otherDaySelectWrap');
+    const otherBulletinDate = document.getElementById('otherBulletinDate');
+    const btnConfirmLoadOther = document.getElementById('btnConfirmLoadOther');
+    const btnCancelLoadOther = document.getElementById('btnCancelLoadOther');
+
+    btnShowLoadOther.addEventListener('click', () => {
+      btnShowLoadOther.style.display = 'none';
+      otherDaySelectWrap.style.display = 'inline-flex';
+      
+      const currentVal = document.getElementById('bulletinDate').value;
+      if (currentVal) {
+        const currDate = new Date(currentVal + 'T00:00:00');
+        currDate.setDate(currDate.getDate() - 7);
+        otherBulletinDate.value = formatYMD(currDate);
+      } else {
+        const today = new Date();
+        const daysToSunday = today.getDay() === 0 ? 0 : 7 - today.getDay();
+        const nextSunday = new Date(today);
+        nextSunday.setDate(today.getDate() + daysToSunday - 7);
+        otherBulletinDate.value = formatYMD(nextSunday);
+      }
+    });
+
+    btnCancelLoadOther.addEventListener('click', () => {
+      otherDaySelectWrap.style.display = 'none';
+      btnShowLoadOther.style.display = 'inline-block';
+    });
+
+    btnConfirmLoadOther.addEventListener('click', loadOtherFromCloud);
 
     loadLocalBackup();
   });
@@ -417,6 +457,89 @@
       console.error(err);
       document.getElementById('syncStatus').textContent = '狀態：載入失敗';
       showToast(`❌ 載入失敗：${err.message}`, 'error');
+    }
+  }
+
+  async function loadOtherFromCloud() {
+    const otherBulletinDate = document.getElementById('otherBulletinDate');
+    const targetDate = otherBulletinDate.value;
+    if (!targetDate) {
+      showToast('請先選擇要套用的日期', 'error');
+      return;
+    }
+
+    if (!confirm(`確定要載入 ${targetDate} 的報告與代禱事項，並覆蓋目前的輸入內容嗎？\n(此操作不會改變目前的週報主日日期，僅套用內容)`)) {
+      return;
+    }
+
+    document.getElementById('syncStatus').textContent = `狀態：載入 ${targetDate}...`;
+    showToast(`正在下載 ${targetDate} 雲端暫存...`, 'info');
+
+    const key = `reports_${targetDate}`;
+    const url = `${CONFIG.GAS_SYNC_URL}?action=load&key=${encodeURIComponent(key)}`;
+
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      
+      let dataLoaded = false;
+      let fromSource = '雲端';
+
+      if (json.success && json.data) {
+        state.announcements = json.data.announcements || ['', '', '', '', '', '', '', '', '', ''];
+        state.churchNews = json.data.churchNews || ['', '', '', '', '', '', '', '', '', ''];
+        state.prayer = json.data.prayer || { homeRest: '', hospital: '', other: '' };
+        dataLoaded = true;
+      } else {
+        // 如果雲端無資料，試試看有沒有本地該日期的暫存
+        const localRaw = localStorage.getItem(`reports_local_backup_${targetDate}`);
+        if (localRaw) {
+          const localData = JSON.parse(localRaw);
+          state.announcements = localData.announcements || ['', '', '', '', '', '', '', '', '', ''];
+          state.churchNews = localData.churchNews || ['', '', '', '', '', '', '', '', '', ''];
+          state.prayer = localData.prayer || { homeRest: '', hospital: '', other: '' };
+          dataLoaded = true;
+          fromSource = '本機草稿';
+        }
+      }
+
+      if (dataLoaded) {
+        renderState();
+        document.getElementById('syncStatus').textContent = `狀態：已套用 ${targetDate} 資料`;
+        showToast(`🎉 成功套用 ${targetDate} 的${fromSource}資料！`, 'success');
+        
+        // 隱藏日期選擇區
+        document.getElementById('otherDaySelectWrap').style.display = 'none';
+        document.getElementById('btnShowLoadOther').style.display = 'inline-block';
+        
+        // 自動備份至目前選定日期的本機草稿
+        saveLocalBackup();
+      } else {
+        document.getElementById('syncStatus').textContent = `狀態：無資料`;
+        showToast(`ℹ️ 該日期（${targetDate}）雲端與本機皆無暫存資料`, 'info');
+      }
+    } catch (err) {
+      console.error(err);
+      
+      // 網路失敗時，嘗試載入本地暫存
+      const localRaw = localStorage.getItem(`reports_local_backup_${targetDate}`);
+      if (localRaw) {
+        const localData = JSON.parse(localRaw);
+        state.announcements = localData.announcements || ['', '', '', '', '', '', '', '', '', ''];
+        state.churchNews = localData.churchNews || ['', '', '', '', '', '', '', '', '', ''];
+        state.prayer = localData.prayer || { homeRest: '', hospital: '', other: '' };
+        renderState();
+        document.getElementById('syncStatus').textContent = `狀態：已載入 ${targetDate} 本地暫存`;
+        showToast(`⚠️ 連線失敗，但已載入 ${targetDate} 的本機草稿！`, 'warning');
+        
+        document.getElementById('otherDaySelectWrap').style.display = 'none';
+        document.getElementById('btnShowLoadOther').style.display = 'inline-block';
+        saveLocalBackup();
+      } else {
+        document.getElementById('syncStatus').textContent = '狀態：載入失敗';
+        showToast(`❌ 載入失敗：${err.message}`, 'error');
+      }
     }
   }
 
