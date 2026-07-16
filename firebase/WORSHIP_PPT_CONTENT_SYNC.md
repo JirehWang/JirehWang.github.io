@@ -1,4 +1,4 @@
-# 台語禮拜 PPT Firebase 內容同步契約
+# 禮拜PPT產生器 Firebase 內容同步契約
 
 前端已改為 Firebase-first；節點不存在或讀取失敗時，才回退既有 GAS。這份變更不修改或部署 GAS。
 

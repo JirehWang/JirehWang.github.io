@@ -1,4 +1,4 @@
-# 台語禮拜 PPT 共用版面 Firebase 設定
+# 禮拜PPT產生器共用版面 Firebase 設定
 
 版面群組的雲端來源為 Realtime Database：
 
