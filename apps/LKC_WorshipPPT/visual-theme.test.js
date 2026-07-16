@@ -22,7 +22,7 @@ test('uses a calm liturgical palette without external visual assets', () => {
   assert.doesNotMatch(theme, /url\(['"]?https?:\/\//);
 });
 
-test('announces operation state and shows a New Family-style swaying Bible loader', () => {
+test('announces operation state and blocks editing behind a New Family-style swaying Bible loader', () => {
   assert.match(html, /id="save-state"[^>]*role="status"[^>]*aria-live="polite"[^>]*data-state="idle"/);
   assert.match(app, /target\.dataset\.state=state/);
   assert.match(app, /document\.body\.classList\.toggle\('is-busy',state==='busy'\)/);
@@ -32,7 +32,10 @@ test('announces operation state and shows a New Family-style swaying Bible loade
   assert.doesNotMatch(theme, /content:"正在處理"/);
   assert.match(theme, /font-size:28px/);
   assert.doesNotMatch(theme, /data:image\/svg\+xml/);
-  assert.doesNotMatch(theme, /body\.is-busy::after/);
+  assert.match(theme, /body\.is-busy::after\{content:"";position:fixed;z-index:110;inset:0/);
+  assert.match(theme, /background:rgba\(255,253,248,\.58\)/);
+  assert.match(theme, /pointer-events:auto/);
+  assert.match(theme, /body\.is-busy\{cursor:progress\}/);
   assert.match(theme, /@media\(prefers-reduced-motion:reduce\)/);
 });
 
