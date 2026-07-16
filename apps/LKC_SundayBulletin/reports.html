@@ -224,7 +224,6 @@
               <button class="btn btn-outline-white" id="btnCancelLoadOther" style="color: #c0392b; border-color: #c0392b; padding: 4px 8px; height: 34px;">取消</button>
             </div>
           </div>
-          <button class="btn btn-outline-white" id="btnSaveLocal" style="color: #2c5f8a; border-color: #2c5f8a;">💾 儲存本地草稿</button>
           <button class="btn btn-outline-white" id="btnResetAll" style="color: #c0392b; border-color: #c0392b;">🗑️ 一鍵清空</button>
         </div>
         <div style="display: flex; gap: 10px;">
@@ -266,18 +265,13 @@
     // 事件監聽
     dateInput.addEventListener('change', (e) => {
       state.date = e.target.value;
-      loadLocalBackup();
+      clearFormWithoutConfirm();
     });
 
     document.getElementById('btnSaveCloud').addEventListener('click', saveToCloud);
     document.getElementById('btnLoadCloud').addEventListener('click', loadFromCloud);
 
-    // 綁定手動儲存與清空按鈕
-    document.getElementById('btnSaveLocal').addEventListener('click', () => {
-      saveLocalBackup();
-      showToast('💾 本地草稿已儲存！', 'success');
-    });
-
+    // 綁定清空按鈕
     document.getElementById('btnResetAll').addEventListener('click', resetAll);
 
     // 套用其他日期資料按鈕監聽
@@ -312,17 +306,21 @@
 
     btnConfirmLoadOther.addEventListener('click', loadOtherFromCloud);
 
-    loadLocalBackup();
+    clearFormWithoutConfirm();
   });
 
-  function resetAll() {
-    if (!confirm('確定要清空目前頁面上的所有輸入內容嗎？\n(此操作僅清除畫面欄位，不會直接刪除雲端或已儲存的本地草稿)')) {
-      return;
-    }
+  function clearFormWithoutConfirm() {
     state.announcements = ['', '', '', '', '', '', '', '', '', ''];
     state.churchNews = ['', '', '', '', '', '', '', '', '', ''];
     state.prayer = { homeRest: '', hospital: '', other: '' };
     renderState();
+  }
+
+  function resetAll() {
+    if (!confirm('確定要清空目前頁面上的所有輸入內容嗎？\n(此操作僅清除畫面欄位，不會影響雲端儲存的資料)')) {
+      return;
+    }
+    clearFormWithoutConfirm();
     showToast('🗑️ 所有欄位已清空！', 'success');
   }
 
@@ -351,31 +349,7 @@
     document.getElementById('prayerOther').value = state.prayer.other || '';
   }
 
-  // 本地快取
-  function saveLocalBackup() {
-    collectState();
-    if (state.date) {
-      localStorage.setItem(`reports_local_backup_${state.date}`, JSON.stringify(state));
-    }
-  }
 
-  function loadLocalBackup() {
-    if (!state.date) return;
-    const raw = localStorage.getItem(`reports_local_backup_${state.date}`);
-    if (raw) {
-      const data = JSON.parse(raw);
-      state.announcements = data.announcements || ['', '', '', '', '', '', '', '', '', ''];
-      state.churchNews = data.churchNews || ['', '', '', '', '', '', '', '', '', ''];
-      state.prayer = data.prayer || { homeRest: '', hospital: '', other: '' };
-      renderState();
-      showToast('載入本地填寫草稿', 'info');
-    } else {
-      state.announcements = ['', '', '', '', '', '', '', '', '', ''];
-      state.churchNews = ['', '', '', '', '', '', '', '', '', ''];
-      state.prayer = { homeRest: '', hospital: '', other: '' };
-      renderState();
-    }
-  }
 
   // 雲端同步
   async function saveToCloud() {
@@ -476,59 +450,25 @@
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       
-      let dataLoaded = false;
-      let fromSource = '雲端';
-
       if (json.success && json.data) {
         state.announcements = json.data.announcements || ['', '', '', '', '', '', '', '', '', ''];
         state.churchNews = json.data.churchNews || ['', '', '', '', '', '', '', '', '', ''];
         state.prayer = json.data.prayer || { homeRest: '', hospital: '', other: '' };
-        dataLoaded = true;
-      } else {
-        // 如果雲端無資料，試試看有沒有本地該日期的暫存
-        const localRaw = localStorage.getItem(`reports_local_backup_${targetDate}`);
-        if (localRaw) {
-          const localData = JSON.parse(localRaw);
-          state.announcements = localData.announcements || ['', '', '', '', '', '', '', '', '', ''];
-          state.churchNews = localData.churchNews || ['', '', '', '', '', '', '', '', '', ''];
-          state.prayer = localData.prayer || { homeRest: '', hospital: '', other: '' };
-          dataLoaded = true;
-          fromSource = '本機草稿';
-        }
-      }
-
-      if (dataLoaded) {
         renderState();
         document.getElementById('syncStatus').textContent = `狀態：已套用 ${targetDate} 資料`;
-        showToast(`🎉 成功套用 ${targetDate} 的${fromSource}資料！`, 'success');
+        showToast(`🎉 成功套用 ${targetDate} 的雲端資料！`, 'success');
         
         // 隱藏日期選擇區
         document.getElementById('otherDaySelectWrap').style.display = 'none';
         document.getElementById('btnShowLoadOther').style.display = 'inline-block';
       } else {
         document.getElementById('syncStatus').textContent = `狀態：無資料`;
-        showToast(`ℹ️ 該日期（${targetDate}）雲端與本機皆無暫存資料`, 'info');
+        showToast(`ℹ️ 該日期（${targetDate}）雲端無暫存資料`, 'info');
       }
     } catch (err) {
       console.error(err);
-      
-      // 網路失敗時，嘗試載入本地暫存
-      const localRaw = localStorage.getItem(`reports_local_backup_${targetDate}`);
-      if (localRaw) {
-        const localData = JSON.parse(localRaw);
-        state.announcements = localData.announcements || ['', '', '', '', '', '', '', '', '', ''];
-        state.churchNews = localData.churchNews || ['', '', '', '', '', '', '', '', '', ''];
-        state.prayer = localData.prayer || { homeRest: '', hospital: '', other: '' };
-        renderState();
-        document.getElementById('syncStatus').textContent = `狀態：已載入 ${targetDate} 本地暫存`;
-        showToast(`⚠️ 連線失敗，但已載入 ${targetDate} 的本機草稿！`, 'warning');
-        
-        document.getElementById('otherDaySelectWrap').style.display = 'none';
-        document.getElementById('btnShowLoadOther').style.display = 'inline-block';
-      } else {
-        document.getElementById('syncStatus').textContent = '狀態：載入失敗';
-        showToast(`❌ 載入失敗：${err.message}`, 'error');
-      }
+      document.getElementById('syncStatus').textContent = '狀態：載入失敗';
+      showToast(`❌ 載入失敗：${err.message}`, 'error');
     }
   }
 
