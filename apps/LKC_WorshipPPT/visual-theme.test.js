@@ -19,19 +19,20 @@ test('uses a calm liturgical palette without external visual assets', () => {
   assert.match(theme, /--accent:#243b63/);
   assert.match(theme, /--gold:#a88b50/);
   assert.match(theme, /--surface:#fffdf8/);
-  assert.match(theme, /data:image\/svg\+xml/);
   assert.doesNotMatch(theme, /url\(['"]?https?:\/\//);
 });
 
-test('announces operation state and shows a reduced-motion-safe turning Bible loader', () => {
+test('announces operation state and shows a New Family-style swaying Bible loader', () => {
   assert.match(html, /id="save-state"[^>]*role="status"[^>]*aria-live="polite"[^>]*data-state="idle"/);
   assert.match(app, /target\.dataset\.state=state/);
   assert.match(app, /document\.body\.classList\.toggle\('is-busy',state==='busy'\)/);
-  assert.match(theme, /@keyframes bible-page-turn/);
+  assert.match(theme, /@keyframes bible-sway/);
   assert.match(theme, /body\.is-busy::before/);
-  assert.match(theme, /body\.is-busy::after/);
+  assert.match(theme, /content:"\\1F4D6"/);
   assert.doesNotMatch(theme, /content:"正在處理"/);
-  assert.match(theme, /width:36px;height:36px/);
+  assert.match(theme, /font-size:28px/);
+  assert.doesNotMatch(theme, /data:image\/svg\+xml/);
+  assert.doesNotMatch(theme, /body\.is-busy::after/);
   assert.match(theme, /@media\(prefers-reduced-motion:reduce\)/);
 });
 
