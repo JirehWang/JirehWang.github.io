@@ -441,9 +441,12 @@ flowchart TD
 
 ## 禮拜PPT產生器（目前台語流程）
 
+子系統的完整技術架構、模組責任、資料契約、失敗回退與多模板擴充原則，統一維護於 [`apps/LKC_WorshipPPT/ARCHITECTURE.md`](../apps/LKC_WorshipPPT/ARCHITECTURE.md)。本節只保留跨系統關係摘要。
+
 ```text
 admin.html → apps/LKC_WorshipPPT/
 禮拜PPT產生器 → localStorage 草稿 + 16:9 即時預覽
+禮拜PPT產生器 → Firebase RTDB `worshipPpt/content/...`（行事曆／報告／讚美／Library 索引／聖經的唯讀內容鏡像）
 禮拜PPT產生器 → config.js / churchAPI → LKC_MasterSchedule GAS `cal_getEvents`
 禮拜PPT產生器 → config.js / churchAPI → LKC_MasterSchedule GAS `cal_getPptLibraryIndex`
 禮拜PPT產生器 → 週報管理系統 GAS `load` → `reports_YYYY-MM-DD`（本會消息／教界消息／關懷代禱，依序產生報告頁）
@@ -456,7 +459,12 @@ LKC_MasterSchedule GAS → Google Drive 聖詩／啟應文資料夾（唯讀檔�
 禮拜PPT產生器 → LKC_ppt_generator/bible-service.js（經文代號轉台語全文）
 禮拜PPT產生器 → slide-production.js（全文分頁）
 禮拜PPT產生器 → layout-groups.js（勾選頁面＋具名參數群組；報告版面異動或雲端版面載入時觸發重新分頁）
+禮拜PPT產生器 → Firebase RTDB `worshipPpt/layoutConfig/shared`（需 Auth 解鎖寫入的共用版面；localStorage 保存離線備份與待同步狀態）
 禮拜PPT產生器 → ppt-export.js / PptxGenJS（匯出前重新確認報告分頁，再產生完整禮拜 PPTX）
 ```
 
-行事曆帶入沿用既有 `LKC_MasterSchedule` Router 與 `cal_getEvents` 快取讀取，嚴格選取同日期且類型為 `講道資訊 - 台語` 的事項。一般 HTTP(S) 頁面先使用 `churchAPI` POST；由 `file://` 直接開啟或 POST 遭跨來源政策拒絕時，`read-api.js` 改用 GAS 唯讀 JSONP，僅允許 `cal_getEvents`、`cal_getPptLibraryIndex`、`cal_getPptLibraryFile`、`cal_queryBible`。映射結果先成為 `sourceValue`：講題與講員可直接顯示；宣召、經文、金句由瀏覽器解析範圍後交給 GAS 查詢台語聖經全文並分頁；聖詩、頌榮與啟應文先以 `cal_getPptLibraryIndex` 配對 Drive PPTX，再以 `cal_getPptLibraryFile` 讀取限定索引內的檔案 Base64。瀏覽器在記憶體內還原 PPTX binary 並解壓縮，避開 GitHub Pages 直接 fetch Drive 的限制。投影片保留純色背景、譜面圖片與文字物件三層，不使用整頁點陣圖。每張產生後的投影片具有穩定 `pageId`，使用者可將不同勾選批次存成不同具名版面群組；群組參數與頁面歸屬隨草稿保存。
+行事曆帶入沿用既有 `LKC_MasterSchedule` Router 與 `cal_getEvents` 快取讀取，嚴格選取同日期且類型為 `講道資訊 - 台語` 的事項。內容讀取以 Firebase 鏡像為優先，沒有鏡像或讀取失敗時才回退 `churchAPI` POST；由 `file://` 直接開啟或 POST 遭跨來源政策拒絕時，`read-api.js` 改用 GAS 唯讀 JSONP，僅允許 `cal_getEvents`、`cal_getPptLibraryIndex`、`cal_getPptLibraryFile`、`cal_queryBible`。映射結果先成為 `sourceValue`：講題與講員可直接顯示；宣召、經文、金句由瀏覽器解析範圍後交給 Firebase／GAS 查詢台語聖經全文並分頁；聖詩、頌榮與啟應文先以 `cal_getPptLibraryIndex` 配對 Drive PPTX，再以 Storage URL 或 `cal_getPptLibraryFile` 讀取 binary／Base64。瀏覽器在記憶體內解壓縮 PPTX 並解析 OOXML，避開 GitHub Pages 直接 fetch Drive 的限制。Library 樂譜與啟應文會保真點陣化為透明整頁 PNG，背景與樂譜白底仍是獨立圖層；首頁、標題、經文、固定禮文、讚美、講道與報告等產生頁則保留 PowerPoint 原生文字。每張產生後的投影片具有穩定 `pageId`，使用者可將不同勾選批次存成不同具名版面群組；群組參數與頁面歸屬同步到 Firebase，並以 localStorage 保存草稿與待同步狀態。
+
+### 多模板擴充邊界（規劃，尚未實作）
+
+未來「台語」、「聯合－台語」、「聯合－華語」、「華語」四種模板應共用資料回退、PPTX／OOXML 解析、Canvas 點陣化、報告動態分頁、deck/page ID、版面群組與 PptxGenJS 匯出核心；流程段落、行事曆 selector、欄位別名、聖經版本、固定禮文、固定素材、預設版面與輸出檔名由 declarative template profile 提供。模板版面與同日內容不得繼續共用未隔離的 page IDs，建議分別演進為 `worshipPpt/layoutConfig/templates/{templateId}` 與 `worshipPpt/content/services/{date}/{templateId}/...`。這兩個 namespace 是後續架構方向，不代表目前 RTDB schema 已經遷移。
