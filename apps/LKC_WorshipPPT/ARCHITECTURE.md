@@ -18,7 +18,7 @@
 ```
 
 - 固定禮文：使徒信經與主禱文各以單一全文欄位編輯，再依原 PPT 三頁的文字量比例與空白行即時重排；奉獻詩與阿們頌以預設內容建立。
-- 週報雲端內容：依禮拜日期向週報 GAS 讀取 `reports_YYYY-MM-DD` 與 `praise_songs_YYYY-MM-DD`。報告依來源 PPT 分為「本會消息」（每頁兩則）與「關懷代禱」，並保留「報告」標題頁；讚美帶入詩名、演唱者與歌詞，歌詞仍以空白行分頁。兩者載入後都可手動修改；雲端無資料時不清除現有內容。
+- 週報雲端內容：依禮拜日期向週報 GAS 讀取 `reports_YYYY-MM-DD` 與 `praise_songs_YYYY-MM-DD`。報告依序分為「本會消息」（每頁兩則）、「教界消息」（每頁兩則）與「關懷代禱」，並保留「報告」標題頁；三類報告都取自 Sunday Bulletin `reports.html` 儲存的同一筆資料。讚美帶入詩名、演唱者與歌詞，歌詞仍以空白行分頁。兩者載入後都可手動修改；雲端無資料時不清除現有內容。
 - 行事曆：以日期呼叫 `cal_getEvents`，精準選取 `講道資訊 - 台語`。行事曆值先保存為 `sourceValue`，不直接視為投影片內文。
 - 雲端資料庫：聖詩以 `第{編號}首 {名稱}.pptx`、啟應文以 `{編號}.pptx` 配對。GAS 先列出 Drive 檔案索引；只有真正的 Firebase Storage／Google Cloud Storage URL 才由瀏覽器直接下載，Drive `downloadUrl` 則固定改走 `cal_getPptLibraryFile`，由 GAS 只讀回傳索引內 PPTX 的 Base64，避免瀏覽器 CORS 阻擋。瀏覽器在記憶體內還原並解析 OOXML；只有樂譜與啟應文頁會點陣化成透明整頁 PNG，避免不同 PowerPoint 環境重新排字。首頁、標題、報告、禮文、經文、讚美與其餘產生頁在匯出檔中仍是 PowerPoint 原生文字物件。
 - 樂譜白底透明度按流程段落存入共用 `layoutState.hymnOpacityBySection`，與版面群組共用 Firebase Auth 解鎖權限；鎖定時不可調整，變更後寫入全教會共用 RTDB 文件。

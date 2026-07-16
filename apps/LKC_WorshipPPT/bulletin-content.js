@@ -16,6 +16,7 @@
     const prayer = source.prayer && typeof source.prayer === 'object' ? source.prayer : {};
     return {
       announcements: (Array.isArray(source.announcements) ? source.announcements : []).map(clean).filter(Boolean),
+      churchNews: (Array.isArray(source.churchNews) ? source.churchNews : []).map(clean).filter(Boolean),
       prayer: {
         homeRest: clean(prayer.homeRest),
         hospital: clean(prayer.hospital),
@@ -28,13 +29,17 @@
     const reports = normalizeReports(data);
     const pageSize = Math.max(1, Number(announcementsPerPage) || 2);
     const pages = [];
-    for (let index = 0; index < reports.announcements.length; index += pageSize) {
-      const body = reports.announcements
-        .slice(index, index + pageSize)
-        .map((text, offset) => `${index + offset + 1}. ${text}`)
-        .join('\n\n');
-      pages.push({ kind: 'report', title: '報告－本會消息', body });
-    }
+    const appendNumberedPages = (items, title) => {
+      for (let index = 0; index < items.length; index += pageSize) {
+        const body = items
+          .slice(index, index + pageSize)
+          .map((text, offset) => `${index + offset + 1}. ${text}`)
+          .join('\n\n');
+        pages.push({ kind: 'report', title, body });
+      }
+    };
+    appendNumberedPages(reports.announcements, '報告－本會消息');
+    appendNumberedPages(reports.churchNews, '報告－教界消息');
     const prayerParts = [
       ['在家調養兄姐：', reports.prayer.homeRest],
       ['住院：', reports.prayer.hospital],
@@ -50,6 +55,7 @@
     if (!model || !model.announcements) return model;
     const reports = normalizeReports(data);
     model.announcements.announcements = reports.announcements;
+    model.announcements.churchNews = reports.churchNews;
     model.announcements.prayer = reports.prayer;
     model.announcements.pptPages = buildReportPages(reports);
     model.announcements.includeSectionTitle = true;

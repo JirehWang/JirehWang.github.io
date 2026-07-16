@@ -43,10 +43,11 @@
     if (active !== 'announcements') return previousEditor();
     const item = model.announcements;
     const form = document.getElementById('editor-form');
-    const reports = api.normalizeReports({ announcements: item.announcements, prayer: item.prayer });
+    const reports = api.normalizeReports({ announcements: item.announcements, churchNews: item.churchNews, prayer: item.prayer });
     form.innerHTML = [
-      '<div class="inline-note">依禮拜日期從週報系統帶入，並依原 PPT 分成「本會消息」與「關懷代禱」。仍可在此手動修改。</div>',
+      '<div class="inline-note">依禮拜日期從週報系統帶入，並依序分成「本會消息」、「教界消息」與「關懷代禱」。仍可在此手動修改。</div>',
       field('本會消息（每則消息之間空一行）', 'reportAnnouncements', reports.announcements.join('\n\n'), 'textarea'),
+      field('教界消息（每則消息之間空一行）', 'reportChurchNews', reports.churchNews.join('\n\n'), 'textarea'),
       '<div class="inline-note">關懷代禱</div>',
       field('在家調養兄姐', 'prayerHomeRest', reports.prayer.homeRest, 'textarea'),
       field('住院', 'prayerHospital', reports.prayer.hospital, 'textarea'),
@@ -57,6 +58,7 @@
       element.oninput = () => {
         api.applyReportsToModel(model, {
           announcements: form.querySelector('[data-key="reportAnnouncements"]').value.split(/\n\s*\n/),
+          churchNews: form.querySelector('[data-key="reportChurchNews"]').value.split(/\n\s*\n/),
           prayer: {
             homeRest: form.querySelector('[data-key="prayerHomeRest"]').value,
             hospital: form.querySelector('[data-key="prayerHospital"]').value,

@@ -446,7 +446,7 @@ admin.html → apps/LKC_WorshipPPT/
 禮拜PPT產生器 → localStorage 草稿 + 16:9 即時預覽
 禮拜PPT產生器 → config.js / churchAPI → LKC_MasterSchedule GAS `cal_getEvents`
 禮拜PPT產生器 → config.js / churchAPI → LKC_MasterSchedule GAS `cal_getPptLibraryIndex`
-禮拜PPT產生器 → 週報管理系統 GAS `load` → `reports_YYYY-MM-DD`（本會消息／關懷代禱）
+禮拜PPT產生器 → 週報管理系統 GAS `load` → `reports_YYYY-MM-DD`（本會消息／教界消息／關懷代禱，依序產生報告頁）
 禮拜PPT產生器 → 週報管理系統 GAS `load` → `praise_songs_YYYY-MM-DD`（聖歌隊讚美）
 禮拜PPT產生器（file:// 或 POST 被擋）→ read-api.js JSONP → GAS 唯讀 `cal_getEvents` / `cal_getPptLibraryIndex` / `cal_getPptLibraryFile` / `cal_queryBible`
 LKC_MasterSchedule GAS → Google Drive 聖詩／啟應文資料夾（唯讀檔案索引）
