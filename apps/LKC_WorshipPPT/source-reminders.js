@@ -41,19 +41,24 @@
     return ['homeRest', 'hospital', 'other'].some(key => clean(source[key]));
   }
 
-  function buildMissingSourceReminders({ date, event, model, bulletinResult, libraryResults } = {}) {
+  function buildMissingSourceReminders({ date, event, model, bulletinResult, libraryResults, profile } = {}) {
     const items = model && typeof model === 'object' ? model : {};
+    const requirements = profile && profile.sourceRequirements || {};
+    const requiredCalendarFields = requirements.calendarFields || calendarFields;
+    const requiredBibleSections = requirements.bibleSections || bibleSections;
+    const eventLabel = profile && profile.calendarSelector && profile.calendarSelector.typeFullName || '講道資訊－台語';
+    const bibleLabel = profile && Array.isArray(profile.bibleVersions) && profile.bibleVersions.length > 1 ? '台語／華語聖經' : '台語聖經';
     const reminders = [];
     if (!event) {
-      reminders.push(`行事曆：${clean(date)} 的「講道資訊－台語」尚未建立`);
+      reminders.push(`行事曆：${clean(date)} 的「${eventLabel}」尚未建立`);
     } else {
-      calendarFields.forEach(([sectionId, key, label]) => {
+      requiredCalendarFields.forEach(([sectionId, key, label]) => {
         if (!clean(items[sectionId] && items[sectionId][key])) reminders.push(`行事曆「${label}」欄位空白`);
       });
-      bibleSections.forEach(([sectionId, label]) => {
+      requiredBibleSections.forEach(([sectionId, label]) => {
         const item = items[sectionId];
         if (clean(item && item.sourceValue) && !hasPages(item)) {
-          reminders.push(`台語聖經「${label}」查無經文：${clean(item.sourceValue)}`);
+          reminders.push(`${bibleLabel}「${label}」查無經文：${clean(item.sourceValue)}`);
         }
       });
     }
@@ -64,23 +69,27 @@
       }
     });
 
-    const reports = bulletinResult && bulletinResult.reports;
-    if (reports && reports.state === 'missing') {
-      reminders.push(`週報：reports_${clean(date)} 尚未建立`);
-    } else if (reports && reports.state === 'loaded') {
-      const reportData = items.announcements || {};
-      if (!Array.isArray(reportData.announcements) || !reportData.announcements.some(clean)) reminders.push('週報「本會消息」空白');
-      if (!Array.isArray(reportData.churchNews) || !reportData.churchNews.some(clean)) reminders.push('週報「教界消息」空白');
-      if (!hasPrayerContent(reportData.prayer)) reminders.push('週報「關懷代禱」空白');
+    if (requirements.reports !== false) {
+      const reports = bulletinResult && bulletinResult.reports;
+      if (reports && reports.state === 'missing') {
+        reminders.push(`週報：reports_${clean(date)} 尚未建立`);
+      } else if (reports && reports.state === 'loaded') {
+        const reportData = items.announcements || {};
+        if (!Array.isArray(reportData.announcements) || !reportData.announcements.some(clean)) reminders.push('週報「本會消息」空白');
+        if (!Array.isArray(reportData.churchNews) || !reportData.churchNews.some(clean)) reminders.push('週報「教界消息」空白');
+        if (!hasPrayerContent(reportData.prayer)) reminders.push('週報「關懷代禱」空白');
+      }
     }
 
-    const praise = bulletinResult && bulletinResult.praise;
-    if (praise && praise.state === 'missing') {
-      reminders.push(`週報：praise_songs_${clean(date)} 尚未建立`);
-    } else if (praise && praise.state === 'loaded') {
-      const praiseData = praise.data && typeof praise.data === 'object' ? praise.data : null;
-      if (praiseData && !clean(praiseData.title)) reminders.push('週報「讚美歌名」空白');
-      if (!clean(items.praise && items.praise.body)) reminders.push('週報「讚美歌詞」空白');
+    if (requirements.praise !== false) {
+      const praise = bulletinResult && bulletinResult.praise;
+      if (praise && praise.state === 'missing') {
+        reminders.push(`週報：praise_songs_${clean(date)} 尚未建立`);
+      } else if (praise && praise.state === 'loaded') {
+        const praiseData = praise.data && typeof praise.data === 'object' ? praise.data : null;
+        if (praiseData && !clean(praiseData.title)) reminders.push('週報「讚美歌名」空白');
+        if (!clean(items.praise && items.praise.body)) reminders.push('週報「讚美歌詞」空白');
+      }
     }
     return reminders;
   }

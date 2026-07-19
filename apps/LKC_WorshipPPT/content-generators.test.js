@@ -20,3 +20,15 @@ test('queries parsed Taiwanese Bible references through the GAS read API', async
   }]);
   assert.deepEqual(records, [{ chap: 13, sec: 1, text: '測試經文', bible_text: '測試經文' }]);
 });
+
+test('uses the template Bible version for Mandarin scripture', async () => {
+  const calls = [];
+  const bibleService = { parseQuery: () => [{ short: '太', chap: 13, sec: '47-50' }] };
+  const readApi = async (action, data) => {
+    calls.push({ action, data });
+    return { records: [{ sec: 47, bible_text: '天國又好像網撒在海裏' }] };
+  };
+  const records = await queryBibleViaReadApi('馬太福音13:47-50', bibleService, readApi, 'unv');
+  assert.equal(calls[0].data.version, 'unv');
+  assert.equal(records[0].bible_text, '天國又好像網撒在海裏');
+});

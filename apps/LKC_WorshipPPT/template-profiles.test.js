@@ -1,0 +1,85 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const {
+  DEFAULT_TEMPLATE_ID,
+  getTemplateProfile,
+  resolveTemplateId,
+  createTemplateModel
+} = require('./template-profiles.js');
+
+test('keeps Taiwanese as the default and resolves the joint Mandarin query value', () => {
+  assert.equal(DEFAULT_TEMPLATE_ID, 'taiwanese');
+  assert.equal(resolveTemplateId('?template=joint-mandarin'), 'joint-mandarin');
+  assert.equal(resolveTemplateId('?template=unknown'), 'taiwanese');
+});
+
+test('defines the joint Mandarin flow from the supplied 33-slide template', () => {
+  const profile = getTemplateProfile('joint-mandarin');
+  assert.equal(profile.label, '聯合－華語');
+  assert.equal(profile.eventTypeName, '聯合-華語');
+  assert.deepEqual(profile.bibleVersions, ['tghg', 'unv']);
+  assert.equal(profile.coverTitle, '台 華 語 聯 合 禮 拜');
+  assert.equal(profile.filenamePrefix, '聯合-華語禮拜');
+  assert.match(profile.assets.background, /joint-mandarin-background\.jpeg$/);
+  assert.match(profile.assets.worshipMoment, /joint-mandarin-worship-moment\.png$/);
+  assert.match(profile.assets.offering, /joint-mandarin-offering\.png$/);
+  assert.match(profile.assets.thanksgiving, /joint-mandarin-thanksgiving\.png$/);
+  assert.deepEqual(profile.externalPresentations || [], []);
+
+  const sectionIds = profile.sections.map(([id]) => id);
+  assert.deepEqual(sectionIds, [
+    'cover', 'silence', 'prelude', 'call', 'worship-moment', 'creed',
+    'scripture', 'prayer-1', 'lord-prayer', 'sermon', 'response-song',
+    'announcements', 'offering', 'thanksgiving', 'blessing', 'peace'
+  ]);
+
+  const sourceImageSections = [
+    ['worship-moment', 'worshipMoment'],
+    ['offering', 'offering'],
+    ['thanksgiving', 'thanksgiving']
+  ];
+  for (const [sectionId, assetKey] of sourceImageSections) {
+    const section = profile.sections.find(([id]) => id === sectionId);
+    assert.equal(section[2], 'static');
+    assert.equal(section[3].pptPages[0].kind, 'full-image');
+    assert.equal(section[3].pptPages[0].assetKey, assetKey);
+    assert.equal(section[3].pptPages[0].title, undefined);
+    assert.equal(section[3].pptPages[0].body, undefined);
+    assert.ok(fs.statSync(path.join(__dirname, profile.assets[assetKey])).size > 10000);
+  }
+});
+
+test('creates separate Taiwanese and Mandarin text frames for creed and Lord Prayer pages', () => {
+  const model = createTemplateModel(getTemplateProfile('joint-mandarin'));
+  assert.equal(model.creed.pptPages.length, 5);
+  assert.equal(model['lord-prayer'].pptPages.length, 4);
+
+  for (const page of [...model.creed.pptPages, ...model['lord-prayer'].pptPages]) {
+    assert.equal(page.kind, 'dual-liturgical');
+    assert.ok(page.primaryBody.trim());
+    assert.ok(page.secondaryBody.trim());
+    assert.notEqual(page.primaryBody, page.secondaryBody);
+  }
+  assert.equal(model.creed.pptPages[0].primaryLabel, '台');
+  assert.equal(model.creed.pptPages[0].secondaryLabel, '華');
+  assert.equal(model.creed.pptPages[0].secondaryColor, '#0070C0');
+  assert.equal(model.creed.pptPages[1].primaryLabel, '');
+  assert.equal(model['lord-prayer'].pptPages[1].secondaryLabel, '');
+  assert.equal(model.creed.pptPages[1].layout.lineSpacing, 1.25);
+});
+
+test('loads template profiles before app initialization and renders a template selector', () => {
+  const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+  assert.match(html, /id="template-selector"/);
+  assert.match(html, /value="taiwanese"/);
+  assert.match(html, /value="joint-mandarin"/);
+  assert.ok(html.indexOf('template-profiles.js') < html.indexOf('app.js'));
+
+  const preview = fs.readFileSync(path.join(__dirname, 'ppt-format-preview.js'), 'utf8');
+  const fullImageBlock = preview.match(/else if \(page\.kind === 'full-image'\)[\s\S]*?else if/)[0];
+  assert.match(fullImageBlock, /<img/);
+  assert.doesNotMatch(fullImageBlock, /<h1>/);
+});

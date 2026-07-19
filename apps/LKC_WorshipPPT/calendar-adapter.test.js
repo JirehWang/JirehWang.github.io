@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   applyCalendarEvent,
+  selectSermonEvent,
   selectTaiwaneseSermonEvent,
   getCalendarValue
 } = require('./calendar-adapter.js');
@@ -43,6 +44,15 @@ test('selects only the same-date 講道資訊 - 台語 event', () => {
     { date: '2026-07-12', typeName: '台語', typeFullName: '講道資訊 - 台語', eventId: 'target' },
     { date: '2026-07-19', typeName: '台語', typeFullName: '講道資訊 - 台語', eventId: 'wrong-date' }
   ], '2026-07-12');
+  assert.equal(selected.eventId, 'target');
+});
+
+test('selects the same-date 聯合-華語 event from a template selector', () => {
+  const selected = selectSermonEvent([
+    { date: '2026-07-19', typeName: '華語', typeFullName: '講道資訊 - 華語', eventId: 'wrong-language' },
+    { date: '2026-07-19', typeName: '聯合-台語', typeFullName: '講道資訊 - 聯合-台語', eventId: 'wrong-joint' },
+    { date: '2026-07-19', typeName: '聯合-華語', typeFullName: '講道資訊 - 聯合-華語', eventId: 'target' }
+  ], '2026-07-19', { typeName: '聯合-華語', typeFullName: '講道資訊-聯合-華語' });
   assert.equal(selected.eventId, 'target');
 });
 

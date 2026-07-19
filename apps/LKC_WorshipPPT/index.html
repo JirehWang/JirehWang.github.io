@@ -12,12 +12,14 @@
   <link rel="stylesheet" href="pptx-library.css?v=20260714c">
   <link rel="stylesheet" href="sync-opacity.css?v=20260714b">
   <link rel="stylesheet" href="theme.css?v=20260716c">
+  <link rel="stylesheet" href="template-switch.css?v=20260719a">
 </head>
 <body>
   <div id="operation-overlay" class="operation-overlay" aria-hidden="true"><div class="operation-loader"><div class="operation-loader-icon" aria-hidden="true">📖</div><div class="operation-loader-text">運作中…</div></div></div>
   <header class="topbar">
     <div class="brand" style="white-space:nowrap" aria-label="林口教會 禮拜PPT產生器">林口教會 <span>/ 禮拜PPT產生器</span></div>
     <div class="topbar-actions">
+      <label>製作模板 <select id="template-selector" aria-label="選擇禮拜 PPT 模板"><option value="taiwanese">台語</option><option value="joint-mandarin">聯合－華語</option></select></label>
       <label>禮拜日期 <input id="service-date" type="date"></label>
       <label class="color-field">投影片底色 <input id="background-color" type="color" value="#ffffff" aria-label="投影片底色"></label>
       <label class="upload button quiet">上傳背景圖<input id="background-image-upload" type="file" accept="image/png,image/jpeg,image/webp"></label>
@@ -35,7 +37,7 @@
     </div>
   </header>
   <main class="workspace">
-    <aside class="flow-panel"><div class="flow-heading"><p>台語主日禮拜</p><strong>製作流程</strong><small>點頁面瀏覽 · 勾選頁面調整版面</small></div><nav id="flow-list" aria-label="禮拜流程"></nav></aside>
+    <aside class="flow-panel"><div class="flow-heading"><p id="template-name">台語主日禮拜</p><strong>製作流程</strong><small>點頁面瀏覽 · 勾選頁面調整版面</small></div><nav id="flow-list" aria-label="禮拜流程"></nav></aside>
     <section class="editor-panel"><div class="panel-heading"><p id="section-kind"></p><h1 id="section-title"></h1></div><form id="editor-form" novalidate></form><p class="save-state" id="save-state" role="status" aria-live="polite" aria-atomic="true" data-state="idle">尚未儲存</p></section>
     <aside class="preview-panel"><div class="preview-heading"><div><p>整份 PPT 預覽</p><strong id="preview-name"></strong></div><div class="page-nav"><button id="page-prev">上一頁</button><span id="slide-count">1 / 1</span><button id="page-next">下一頁</button></div></div><div class="slide-frame"><div class="slide-background"></div><div class="slide-content" id="slide-content"></div></div><div class="preview-note">背景可使用純色或自行上傳圖片，不包含固定文字；標題與內文字色可在「版面參數」中分別調整。</div></aside>
   </main>
@@ -51,27 +53,29 @@
   </dialog>
   <script>window._GAS_KEY = 'LKC_MasterSchedule'; window._FORCE_PRODUCTION_GAS = true;</script>
   <script src="../../config.js"></script>
-  <script src="firebase-content-store.js?v=20260715a"></script>
+  <script src="../../firebase/firebase-config-values.js?v=20260719a"></script>
+  <script src="firebase-content-store.js?v=20260719b"></script>
   <script src="read-api.js?v=20260715a"></script>
   <script src="vendor-jszip.min.js?v=3.10.1"></script>
   <script src="https://cdn.jsdelivr.net/gh/gitbrent/PptxGenJS@3.12.0/dist/pptxgen.bundle.js"></script>
   <script src="../LKC_ppt_generator/bible-service.js"></script>
-  <script src="calendar-adapter.js?v=20260714a"></script>
+  <script src="calendar-adapter.js?v=20260719a"></script>
   <script src="pptx-library.js?v=20260716a"></script>
-  <script src="slide-production.js?v=20260716d"></script>
+  <script src="slide-production.js?v=20260719a"></script>
+  <script src="template-profiles.js?v=20260719c"></script>
   <script src="bulletin-content.js?v=20260716c"></script>
-  <script src="source-reminders.js?v=20260716a"></script>
-  <script src="app.js?v=20260716f"></script>
-  <script src="content-generators.js?v=20260713d"></script>
-  <script src="ppt-library-integration.js?v=20260715j"></script>
-  <script src="calendar-integration.js?v=20260714b"></script>
-  <script src="ppt-format-preview.js?v=20260716c"></script>
-  <script src="fixed-page-editor.js?v=20260712c"></script>
-  <script src="production-editor.js?v=20260714d"></script>
-  <script src="bulletin-integration.js?v=20260716b"></script>
-  <script src="layout-cloud-store.js?v=20260716e"></script>
-  <script src="layout-groups.js?v=20260716g"></script>
-  <script src="ppt-export.js?v=20260716d"></script>
+  <script src="source-reminders.js?v=20260719a"></script>
+  <script src="app.js?v=20260719c"></script>
+  <script src="content-generators.js?v=20260719a"></script>
+  <script src="ppt-library-integration.js?v=20260719c"></script>
+  <script src="calendar-integration.js?v=20260719a"></script>
+  <script src="ppt-format-preview.js?v=20260719a"></script>
+  <script src="fixed-page-editor.js?v=20260719a"></script>
+  <script src="production-editor.js?v=20260719a"></script>
+  <script src="bulletin-integration.js?v=20260719a"></script>
+  <script src="layout-cloud-store.js?v=20260719b"></script>
+  <script src="layout-groups.js?v=20260719a"></script>
+  <script src="ppt-export.js?v=20260719a"></script>
   <script>
       const globalHymnOpacitySync = document.getElementById('sync-hymn-opacity-global');
       if (globalHymnOpacitySync) globalHymnOpacitySync.onchange = event => {

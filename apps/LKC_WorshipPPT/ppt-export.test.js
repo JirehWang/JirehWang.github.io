@@ -134,6 +134,40 @@ test('uses safe default bounds when an ungrouped page has no stored layout param
   });
 });
 
+test('exports a fixed full-image page without adding any rebuilt title text', async () => {
+  const slides = [];
+  class MockPptx {
+    addSlide() {
+      const slide = {
+        images: [], texts: [],
+        addImage(opts) { this.images.push(opts); },
+        addText(text, opts) { this.texts.push({ text, opts }); },
+        addShape() {}
+      };
+      slides.push(slide);
+      return slide;
+    }
+    writeFile() { return Promise.resolve(); }
+  }
+
+  await exportWorshipPPTX({
+    PptxGenJS: MockPptx,
+    getDeckEntries: () => [{
+      kind: 'full-image', sectionId: 'offering', assetKey: 'offering', title: '奉獻'
+    }],
+    layoutState: { groups: {}, pageAssignments: {} },
+    production: require('./slide-production.js'),
+    model: {},
+    backgroundColor: '#ffffff',
+    templateAssets: { offering: 'data:image/png;base64,ORIGINAL' },
+    serviceDate: '2026-07-19'
+  });
+
+  assert.equal(slides[0].images.length, 1);
+  assert.equal(slides[0].images[0].data, 'data:image/png;base64,ORIGINAL');
+  assert.equal(slides[0].texts.length, 0);
+});
+
 test('reflows report pages before reading the export deck', async () => {
   const calls = [];
   class MockPptx {
@@ -240,6 +274,76 @@ test('anchors standard-page titles to the top of their configured box like the b
 
   assert.equal(slides[0].texts[0].text, '信仰告白—使徒信經');
   assert.equal(slides[0].texts[0].opts.valign, 'top');
+});
+
+test('exports bilingual liturgy as two independent content text boxes', async () => {
+  const slides = [];
+  class MockPptx {
+    addSlide() {
+      const slide = {
+        texts: [],
+        addText(text, opts) { this.texts.push({ text, opts }); },
+        addShape() {},
+        addImage() {}
+      };
+      slides.push(slide);
+      return slide;
+    }
+    writeFile() { return Promise.resolve(); }
+  }
+
+  await exportWorshipPPTX({
+    PptxGenJS: MockPptx,
+    getDeckEntries: () => [{
+      kind: 'dual-liturgical', sectionId: 'creed', title: '信仰告白 – 使徒信經',
+      primaryLabel: '台', primaryBody: '我信上帝，全能的父。',
+      secondaryLabel: '華', secondaryBody: '我信上帝，全能的父。'
+    }],
+    layoutState: { groups: {}, pageAssignments: {} },
+    production: require('./slide-production.js'),
+    model: {},
+    backgroundColor: '#ffffff',
+    serviceDate: '2026-07-19'
+  });
+
+  assert.equal(slides[0].texts.length, 3);
+  assert.equal(slides[0].texts[1].text.replace(/\n/g, ''), '(台)我信上帝，全能的父。');
+  assert.equal(slides[0].texts[2].text.replace(/\n/g, ''), '(華)我信上帝，全能的父。');
+  assert.equal(slides[0].texts[1].opts.color, '000000');
+  assert.equal(slides[0].texts[2].opts.color, '0070C0');
+  assert.ok(slides[0].texts[1].opts.x + slides[0].texts[1].opts.w <= slides[0].texts[2].opts.x);
+});
+
+test('keeps the language marker on exported joint Mandarin scripture pages', async () => {
+  const slides = [];
+  class MockPptx {
+    addSlide() {
+      const slide = {
+        texts: [],
+        addText(text, opts) { this.texts.push({ text, opts }); },
+        addShape() {},
+        addImage() {}
+      };
+      slides.push(slide);
+      return slide;
+    }
+    writeFile() { return Promise.resolve(); }
+  }
+
+  await exportWorshipPPTX({
+    PptxGenJS: MockPptx,
+    getDeckEntries: () => [{
+      kind: 'scripture', sectionId: 'scripture', title: '聖經－約翰福音 3:16',
+      languageLabel: '華', body: '16 神愛世人'
+    }],
+    layoutState: { groups: {}, pageAssignments: {} },
+    production: require('./slide-production.js'),
+    model: {},
+    backgroundColor: '#ffffff',
+    serviceDate: '2026-07-19'
+  });
+
+  assert.equal(slides[0].texts[1].text.replace(/\n+/g, '\n'), '(華)\n16 神愛世人');
 });
 
 test('uses the shared preview bounds for ungrouped cover and section pages', async () => {
@@ -503,6 +607,11 @@ test('applies separate centered image and text output percentages', async () => 
 
 test('the export button forwards the active background and model state', () => {
   const appSource = fs.readFileSync(path.join(__dirname, 'app.js'), 'utf8').replace(/\s+/g, '');
+  assert.match(
+    appSource,
+    /await\(window\.worshipExternalPresentationsReady\|\|Promise\.resolve\(\[\]\)\)/,
+    'export must wait for the fixed Google presentations before composing the deck'
+  );
   assert.match(
     appSource,
     /exportWorshipPPTX\(\{model,backgroundColor,backgroundImage\}\)/,

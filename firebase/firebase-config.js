@@ -7,22 +7,16 @@
 //  - Firestore 主要做 cache 層（cacheGet/cacheSet）
 //  - Realtime DB 預留給未來即時推播 / 多裝置即時同步用
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import "./firebase-config-values.js";
+import { initializeApp, getApp, getApps } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { getDatabase } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
-const firebaseConfig = {
-  apiKey:            "AIzaSyCyi5nWpuNpFcUmNY6WmpmGpf6J1Bi06UY",
-  authDomain:        "lkc1958june1.firebaseapp.com",
-  databaseURL:       "https://lkc1958june1-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId:         "lkc1958june1",
-  storageBucket:     "lkc1958june1.firebasestorage.app",
-  messagingSenderId: "245519602141",
-  appId:             "1:245519602141:web:73537df7c2dc6485e5a634",
-  measurementId:     "G-Y26JGTG9WH"
-};
+const bootstrap = globalThis.LKCFirebaseBootstrap;
+if (!bootstrap) throw new Error('Firebase 共用設定尚未載入');
+const firebaseConfig = bootstrap.config;
 
-const app = initializeApp(firebaseConfig);
+const app = bootstrap.getOrInitializeApp({ initializeApp, getApp, getApps });
 export const db  = getFirestore(app);   // Firestore 實例（cache 用）
 export const rtdb = getDatabase(app);    // Realtime DB 實例（預留）
-export { app };
+export { app, firebaseConfig };

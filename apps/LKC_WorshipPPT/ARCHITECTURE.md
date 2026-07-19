@@ -1,8 +1,8 @@
 # 禮拜PPT產生器：系統架構與多模板擴充指南
 
-本文件是 `apps/LKC_WorshipPPT/` 的主要技術說明，也是未來開發「聯合－台語」、「聯合－華語」與「華語」PPT 模板時的起點。它說明目前台語主日禮拜產生器的執行架構、資料來源、模組責任、技術選擇、問題解法、故障回退、驗證方式，以及哪些邏輯應抽成共用核心、哪些內容必須留在模板設定層。
+本文件是 `apps/LKC_WorshipPPT/` 的主要技術說明，也是維護「台語」與「聯合－華語」、以及未來開發「聯合－台語」與「華語」PPT 模板時的起點。它說明目前產生器的執行架構、資料來源、模組責任、技術選擇、問題解法、故障回退、驗證方式，以及哪些邏輯屬於共用核心、哪些內容留在模板設定層。
 
-目前程式已完整實作「台語主日禮拜」流程；多模板共用核心與模板設定層是下一階段的建議架構，尚未全部抽離。開發新模板時不要直接複製整個資料夾後各自修改，否則 PPTX 解析、分頁、Firebase、版面與匯出修正會迅速分岔。
+目前程式已實作「台語主日禮拜」與依 `聯合華語模板.ppt` 建立的「聯合－華語」流程。`template-profiles.js` 是兩者共用的 declarative 模板設定層；開發其他模板時不要複製整個資料夾，以免 PPTX 解析、分頁、Firebase、版面與匯出修正分岔。
 
 ## 1. 系統目標與邊界
 
@@ -10,9 +10,9 @@
 
 目前負責的範圍：
 
-- 依禮拜日期讀取「講道資訊－台語」、報告與讚美資料。
+- 依模板與禮拜日期讀取「講道資訊-台語」或「講道資訊-聯合-華語」、報告，以及模板需要的讚美資料。
 - 將行事曆欄位轉成講題、講員、經文查詢、聖詩編號及啟應文編號。
-- 查詢台語聖經全文並分頁。
+- 依模板查詢台語 `tghg`，或依序查詢台語 `tghg` 與華語 `unv` 聖經全文並分頁。
 - 從雲端索引配對聖詩／啟應文 PPTX，在瀏覽器解析 OOXML。
 - 將來源樂譜與啟應文保真地轉成透明 PNG，保留背景的可替換性。
 - 產生固定禮文、標題頁、讚美歌詞、講道頁、報告頁及其他原生文字頁。
@@ -33,13 +33,14 @@
 ```mermaid
 flowchart LR
     User[使用者] --> UI[index.html / app.js]
-    UI --> Model[sections + model]
+    UI --> Profile[template-profiles.js]
+    Profile --> Model[sections + model]
 
     Calendar[Master Schedule] --> Read[read-api.js]
     Bulletin[Sunday Bulletin] --> BulletinAdapter[bulletin-integration.js]
     Firebase[(Firebase RTDB)] --> FirebaseRead[firebase-content-store.js]
     Drive[(Google Drive / Storage PPTX)] --> Library[pptx-library.js]
-    Bible[台語聖經查詢] --> Generator[content-generators.js]
+    Bible[台語／華語聖經查詢] --> Generator[content-generators.js]
 
     FirebaseRead --> Read
     Read --> CalendarAdapter[calendar-adapter.js]
@@ -58,7 +59,7 @@ flowchart LR
     LayoutUI --> Preview
     PageComposer --> Export[ppt-export.js / PptxGenJS]
     LayoutUI --> Export
-    Export --> PPTX[台語主日禮拜_日期.pptx]
+    Export --> PPTX[模板名稱_日期.pptx]
 ```
 
 核心原則是「資料先進入統一 model，再轉成 page，再由預覽與匯出共同解析 page 與 layout」。資料來源不直接產生 PowerPoint；預覽也不自行維護另一份排版規則。
@@ -69,7 +70,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | GitHub Pages + Vanilla JavaScript | 整個 app | 無建置伺服器也能部署；教會工作站直接用瀏覽器操作 | 依賴全域載入順序，新增模組時必須維護 `index.html` |
 | IIFE／UMD 風格模組 | `slide-production.js`、`pptx-library.js` 等 | 同一份純函式可在瀏覽器及 Node 測試中使用 | UI 整合檔仍使用全域 `model`、`active`、`render` |
-| Firebase Realtime Database | 內容鏡像、共用版面 | 低延遲讀取、跨工作站共用設定、降低 GAS 依賴 | 內容節點前端唯讀；版面寫入需 Auth |
+| Firebase Realtime Database | 內容鏡像、共用版面 | `index.html` 先以傳統 script 載入共用 bootstrap，再由 store 載入絕對網址 SDK | 內容節點前端唯讀；版面寫入需 Auth |
 | Firebase Auth Email/Password + in-memory persistence | `layout-cloud-store.js` | 只有知道版面密碼者能改全教會設定；重新整理自動鎖回 | 密碼不得寫入程式或 Git |
 | GAS Router／`churchAPI` | 行事曆、PPT 索引、PPT 檔案、聖經 | 沿用既有後端與 Google Workspace 權限 | POST 可能受 `file://`／CORS 影響 |
 | JSONP 唯讀回退 | `read-api.js` | 無法 POST 時仍能讀取必要資料 | 只允許明確的唯讀 action；60 秒逾時清理 callback |
@@ -87,6 +88,8 @@ flowchart LR
 
 - `index.html`：工作台 DOM、工具列、三欄式版面、Firebase 解鎖對話框及腳本載入順序。
 - `app.js`：建立 `sections` 與 `model`，提供基礎 editor、preview、狀態訊息、背景、草稿及匯出按鈕。
+- `template-profiles.js`：定義模板下拉選單背後的流程、資料來源、固定頁、母片資產、草稿 key、封面與檔名前綴。
+- `template-switch.css`：模板選單、雙欄禮文 editor／preview、聯合華語固定圖片及黑底頁樣式。
 - `style.css`：三欄工作區及基本表單。
 - `theme.css`：色彩、表面層次、忙碌遮罩、可及性與 reduced-motion。
 - `format.css`、`reference-layout.css`：投影片模板的基礎視覺與來源 PPT 對齊。
@@ -95,7 +98,7 @@ flowchart LR
 
 ### 4.2 資料來源與轉接層
 
-- `firebase-content-store.js`：把 action／日期映射到穩定 RTDB 路徑，提供 Firebase-first 唯讀內容。
+- `firebase-content-store.js`：把 action／日期映射到穩定 RTDB 路徑，提供 Firebase-first 唯讀內容；Firebase SDK 一律使用 `https://www.gstatic.com/...` 絕對網址，App 設定取自 `firebase-config-values.js`。
 - `read-api.js`：依序嘗試 Firebase、`churchAPI` POST、JSONP。
 - `calendar-adapter.js`：將 Master Schedule 的 `values[]` 映射到 model，隔離欄位別名與台語事件條件。
 - `calendar-integration.js`：協調行事曆、週報、經文與 PPT Library 的整批載入。
@@ -108,14 +111,14 @@ flowchart LR
 - `content-generators.js`：解析經文範圍並呼叫 `cal_queryBible`，產生宣召、聖經與金句頁。
 - `ppt-library-integration.js`：取得索引、依編號配對、快取檔案、呼叫 PPTX 解析器並寫回 model。
 - `pptx-library.js`：PPTX ZIP／OOXML 解析、座標轉換、主題色、字型繼承、圖片裁切與 Canvas 點陣化。
-- `fixed-page-editor.js`：使徒信經與主禱文單一全文編輯，再按來源頁面文字權重重排。
+- `fixed-page-editor.js`：台語使徒信經與主禱文使用單一全文；聯合華語的台語與華語全文各自分頁，維持兩個獨立內文框。
 - `production-editor.js`：替經文產生頁與 PPT Library 端口提供專用 editor。
 
 ### 4.4 頁面、版面、預覽與匯出層
 
 - `slide-production.js`：純函式核心；頁面組合、固定文字分頁、版面預設、具名群組解析、字級換算及共用換行。
 - `ppt-format-preview.js`：把 model 轉成 page kinds，依 kind 產生預覽 DOM。
-- `layout-cloud-store.js`：共用版面 schema、Firebase load/save/unlock/lock。
+- `layout-cloud-store.js`：模板版面 schema、Firebase load/save/unlock/lock；台語保留 `shared`，其他模板依 template ID 隔離。與內容 store 共用 Firebase bootstrap，不使用會受 `about:blank` 基準網址影響的相對動態 import。
 - `layout-groups.js`：整份 deck、穩定 page ID、章節導覽、勾選群組、即時版面、輸出比例、報告重排與本機／雲端同步。
 - `ppt-export.js`：使用與預覽相同的 deck、page kind 與 resolved layout，建立並下載 PPTX。
 
@@ -124,16 +127,17 @@ flowchart LR
 目前沒有 bundler，腳本順序就是模組初始化順序：
 
 1. `config.js` 建立 `GAS_URL`、`churchAPI`、API readiness 與 action routing。
-2. `firebase-content-store.js` 建立 Firebase-first 內容讀取器。
-3. `read-api.js` 建立統一唯讀 API。
-4. `vendor-jszip.min.js` 與 PptxGenJS 提供 ZIP、OOXML 與 PPTX 匯出能力。
-5. `bible-service.js` 提供經文範圍解析。
-6. 純資料模組：`calendar-adapter.js`、`pptx-library.js`、`slide-production.js`、`bulletin-content.js`。
-7. `app.js` 建立全域 `sections`、`model`、`editor`、`preview`、`render`。
-8. 整合模組依序包裝或替換 editor／preview：內容產生、Library、行事曆、格式預覽、固定頁 editor、production editor、週報 editor。
-9. `layout-cloud-store.js` 建立版面雲端介面。
-10. `layout-groups.js` 將單章 preview 升級為整份 deck 與共用版面。
-11. `ppt-export.js` 最後載入，使用已完成的 deck 與 layout API。
+2. `../../firebase/firebase-config-values.js` 以傳統 script 建立跨 classic script／ES module 共用的 Firebase 設定與 App bootstrap。
+3. `firebase-content-store.js` 建立 Firebase-first 內容讀取器；動態載入 Firebase SDK 時只使用絕對 CDN URL。
+4. `read-api.js` 建立統一唯讀 API。
+5. `vendor-jszip.min.js` 與 PptxGenJS 提供 ZIP、OOXML 與 PPTX 匯出能力。
+6. `bible-service.js` 提供經文範圍解析。
+7. 純資料模組：`calendar-adapter.js`、`pptx-library.js`、`slide-production.js`、`template-profiles.js`、`bulletin-content.js`。
+8. `app.js` 解析 `?template=`，由 profile 建立全域 `sections`、`model`、`editor`、`preview`、`render`。
+9. 整合模組依序包裝或替換 editor／preview：內容產生、Library、行事曆、格式預覽、固定頁 editor、production editor、週報 editor。
+10. `layout-cloud-store.js` 建立版面雲端介面。
+11. `layout-groups.js` 將單章 preview 升級為整份 deck 與共用版面。
+12. `ppt-export.js` 最後載入，使用已完成的 deck 與 layout API。
 
 因此，若未來改為 ES modules 或 bundler，必須保留這些依賴關係；不能只按字母排序載入。
 
@@ -141,13 +145,13 @@ flowchart LR
 
 ### 6.1 `sections`
 
-`app.js` 的 `sections` 是目前台語模板的流程定義，每筆為：
+`template-profiles.js` 的 `sections` 是各模板流程定義，每筆為：
 
 ```js
 [sectionId, userFacingLabel, editorType]
 ```
 
-目前 27 個流程段落包括兩張首頁、會前領唱、會前聖詩、宣召、信經、啟應文、主禱文、經文、讚美、講道、正式聖詩、報告、金句、奉獻、頌榮、祝禱、阿們頌、後奏與平安禮。
+台語 profile 有 27 個流程段落；聯合華語 profile 有 16 個段落，對應來源母片的封面、靜默、序樂、雙語宣召、全心敬拜時刻、雙欄信經、雙語聖經、祈禱、雙欄主禱文、講道、回應詩、報告、奉獻、獻上感恩、祝禱與平安禮。奉獻來源頁已包含標題與說明，因此不再另生一張文字頁。
 
 `sectionId` 是資料映射、Library 載入、版面保存及測試的穩定識別，不應直接用可翻譯的標籤替代。
 
@@ -162,6 +166,7 @@ flowchart LR
   title,
   kicker,
   body,
+  secondaryBody?,
   opacity,
   sourceValue?,
   pptPages?,
@@ -176,6 +181,7 @@ flowchart LR
 - `title`／`kicker`／`body` 是使用者可理解的內容。
 - `sourceValue` 是查詢條件或資料庫索引，不能直接當投影片全文。
 - `pptPages` 是已產生或已匯入的 page 清單；存在時優先於 type 的一般規則。
+- `secondaryBody` 只用於需要第二個獨立文字來源的聯合華語固定禮文。
 - `opacity` 是樂譜頁白色色塊的不透明度，限制 40–80。
 - `reportLayout` 保存報告分頁時使用的有效內容框參數。
 
@@ -186,8 +192,10 @@ flowchart LR
 | `cover` | 禮拜首頁 | 產生禮拜名稱與日期原生文字 |
 | `section` | 段落標題頁 | 置中的標題／副標題原生文字 |
 | `content` | 一般內容 | 標題＋內文原生文字 |
-| `scripture` | 經文 | 標題＋每頁兩節台語經文 |
+| `scripture` | 經文 | 標題＋每頁兩節經文；雙語模板保留 `(台)`／`(華)` 標記並依語言順序排列 |
 | `liturgical` | 信經／主禱文 | 保留對齊與標題設定的原生文字 |
+| `dual-liturgical` | 聯合華語信經／主禱文 | 標題＋左右兩個獨立原生文字框；台語黑字、華語藍字，分別保存座標、字級、行距與對齊 |
+| `full-image` | 全心敬拜、奉獻、獻上感恩 | 直接使用專案內的三張 16:9 PNG 原圖；圖片已包含完整文字排版、背景與視覺效果，預覽與匯出不再重建文字 |
 | `praise-title` | 讚美標題 | 「讚美」＋歌名／團體，自動垂直置中 |
 | `praise-lyrics` | 讚美歌詞 | 只顯示置中內文 |
 | `sermon-title` | 講道標題 | 「講道：題目」＋講員／經文，自動垂直置中 |
@@ -216,14 +224,14 @@ sequenceDiagram
     par 行事曆
         UI->>Read: cal_getEvents
         Read-->>UI: Firebase 或 GAS 結果
-        UI->>Calendar: 選取同日「講道資訊－台語」
+        UI->>Calendar: 依 profile 選取同日講道資訊
         Calendar->>Model: 寫入講題／講員／sourceValue
-        UI->>Bible: 產生宣召／經文／金句
+        UI->>Bible: 依 profile 產生宣召／經文／金句
         Bible->>Model: scripture pages
-        UI->>Library: 載入聖詩／啟應文
+        UI->>Library: 台語模板載入聖詩／啟應文
         Library->>Model: ppt-import pages
     and 週報
-        UI->>Bulletin: reports + praise
+        UI->>Bulletin: reports + profile 所需的 praise
         Bulletin->>Model: report pages + praise fields
     end
     UI->>Deck: render / rebuild deck
@@ -232,9 +240,9 @@ sequenceDiagram
     Export-->>Operator: .pptx
 ```
 
-行事曆與週報並行讀取，縮短等待時間。若找不到台語講道事項，週報仍可成功載入；Library 會逐項回報 missing，不會因一首找不到而偽裝成全部成功。
+行事曆與週報並行讀取，縮短等待時間。若找不到模板對應的講道事項，週報仍可成功載入；只有宣告 `librarySections` 的模板才讀取 Library，且逐項回報 missing。
 
-帶入完成後，`source-reminders.js` 會彙整一次「資料提醒」警告視窗。它不是錯誤或驗證阻擋：投影片仍會照目前可取得的資料產生，製作者可關閉視窗後在 editor 手動補寫、重新帶入或直接繼續編輯。警告會明確列出，例如：缺少當日「講道資訊－台語」、哪個行事曆欄位空白、哪段台語聖經查無內容、哪一份 Library 素材找不到、以及週報的本會消息／教界消息／關懷代禱／讚美歌名或歌詞何者空白。資料讀取失敗仍由狀態列顯示失敗原因，不誤報為「來源空白」。
+帶入完成後，`source-reminders.js` 會依 profile 的 `sourceRequirements` 彙整一次「資料提醒」警告視窗。它不是錯誤或驗證阻擋：投影片仍會照目前可取得的資料產生。警告會列出模板對應行事曆事件、必要欄位、台語／華語經文、Library 素材、週報分類或讚美資料中尚未建立的項目；聯合華語不要求讚美或 Library 時不會誤報。
 
 ## 8. 統一唯讀資料層與回退順序
 
@@ -276,8 +284,7 @@ JSONP 只應開放：
 ### 9.1 事件選取
 
 - 日期必須等於所選禮拜日期。
-- `typeName === "台語"`。
-- 移除空白後 `typeFullName === "講道資訊-台語"`。
+- `typeName` 與 `typeFullName` 必須同時符合 active profile 的 `calendarSelector`；目前分別支援台語與聯合華語。
 - 找不到時回傳 `null`，不退回同日第一筆事項，避免帶錯語言或錯場次。
 
 ### 9.2 欄位別名
@@ -299,17 +306,17 @@ JSONP 只應開放：
 `content-generators.js` 不直接解析任意文字；它使用共用 `LKC_ppt_generator/bible-service.js` 的 `parseQuery()` 將行事曆值拆成一個或多個標準查詢，再呼叫：
 
 ```js
-cal_queryBible({ book, chap, sec, version: 'tghg' })
+cal_queryBible({ book, chap, sec, version })
 ```
 
-結果統一成 `bible_text`，交給 `buildBiblePages()` 每頁兩節。宣召、聖經與金句都使用同一產生器；金句在經文頁前額外插入 `verse:title` 標題頁。
+結果統一成 `bible_text`，並為每筆經節保留 `queryBookName`、`queryChap`、`querySec` 與 `queryGroupKey`，再交給 `buildBiblePages()` 每頁兩節。分頁規則與 `LKC_ppt_generator` 一致：不同 `queryGroupKey` 絕不放在同一頁，每頁標題依該頁第一節與最後一節重建成實際範圍（例如 `聖經－以弗所書 5:1-2`），不重複顯示整串原始查詢。台語模板使用 `tghg`；聯合華語依序使用 `tghg`、`unv`，頁面保留語言標記。台語金句在經文頁前額外插入 `verse:title` 標題頁。
 
 這個設計解決兩個問題：
 
 - `sourceValue` 可以保留原始經文範圍供人檢查，不會與產生後全文混在一起。
 - `file://` 不必直接呼叫外部聖經 API；GAS／Firebase 仍是統一資料邊界。
 
-未來華語模板應把 `version: 'tghg'` 移到模板設定，而不是複製整個 generator。
+版本、段落與語言標記均由 profile 提供，不在 generator 內寫死。
 
 ## 11. 聖詩／啟應文 PPTX 資料庫
 
@@ -322,10 +329,12 @@ cal_queryBible({ book, chap, sec, version: 'tghg' })
 
 `ppt-library-integration.js` 對索引使用單一 `indexPromise`，對檔案使用以 `fileId` 為 key 的 `Map`。失敗時刪除 cache entry，使下次可以重試，不會永久快取 rejection。
 
+聯合華語的三張固定成品頁不走 PPT Library 或 GAS。來源資料夾中的 `全心敬拜時刻.png`、`華語奉獻.PNG`、`獻上感恩.PNG` 已納入 `templates/`，由 profile 的 `assets` 與 `assetKey` 直接對應 `worship-moment`、`offering`、`thanksgiving`。奉獻原圖已包含標題與說明，因此不另生奉獻標題頁或文字頁。
+
 ### 11.2 下載策略
 
 1. `downloadUrl`／`storageUrl` 是 Firebase Storage 或 Google Cloud Storage URL：瀏覽器直接下載 binary。
-2. 否則呼叫 `cal_getPptLibraryFile({ fileId })`，由 GAS 只讀回傳 Base64。
+2. 聯合華語三張固定成品頁直接載入同站 `templates/` PNG，不呼叫 GAS。
 3. 只有沒有 read API 時才嘗試 Drive usercontent URL。
 
 Drive URL不直接優先 fetch，因為 GitHub Pages 瀏覽器常受 CORS 或確認頁阻擋。
@@ -420,9 +429,9 @@ lineCapacity = floor(availableHeightPx / (fontHeightPx × lineSpacing))
 
 ## 13. 固定禮文與一般文字分頁
 
-使徒信經與主禱文在 model 中保留單一全文，避免使用者需要逐頁維護。`fixed-page-editor.js` 取來源三頁的文字量作為權重，`paginateFixedText()` 以空白行為優先切點，把修改後全文重排回原頁數與每頁模板屬性。
+台語使徒信經與主禱文在 model 中保留單一全文，避免使用者逐頁維護。`fixed-page-editor.js` 取來源三頁的文字量作為權重，`paginateFixedText()` 以空白行為優先切點，把修改後全文重排回原頁數與每頁模板屬性。
 
-這不是精密排版引擎，而是「保留原始分頁比例」的可預期策略。若未來華語禮文的段落結構不同，應由模板提供全文、來源頁模板與權重，而不是把華語文字塞入台語權重。
+聯合華語的信經為五頁、主禱文為四頁。每頁都是 `dual-liturgical`：`primaryBody` 與 `secondaryBody` 分別對應左右文字框，並各自使用來源頁的文字量權重重排；絕不把兩種語言串入單一文字框。每頁 `layout` 保存從母片換算的左右框座標、字級、顏色與行距。
 
 ## 14. 預覽與匯出的單一版面來源
 
@@ -432,7 +441,10 @@ lineCapacity = floor(availableHeightPx / (fontHeightPx × lineSpacing))
 {
   titleSize, titleX, titleY, titleW, titleH, titleAlign, titleColor,
   contentSize, contentX, contentY, contentW, contentH, contentAlign,
-  contentColor, lineSpacing
+  contentColor, lineSpacing,
+  secondaryContentSize?, secondaryContentX?, secondaryContentY?,
+  secondaryContentW?, secondaryContentH?, secondaryContentAlign?,
+  secondaryContentColor?, secondaryLineSpacing?
 }
 ```
 
@@ -444,8 +456,8 @@ lineCapacity = floor(availableHeightPx / (fontHeightPx × lineSpacing))
 
 ```text
 page kind 預設值
-  < 具名 layout group
   < page.layout 個別值
+  < 具名 layout group
 ```
 
 後者覆蓋前者。預覽與匯出都必須呼叫這個函式，不能各自另寫 default。
@@ -456,6 +468,7 @@ page kind 預設值
 - `praise-title`／`sermon-title` 依實際行數垂直置中整組文字。
 - `praise-lyrics` 使用較大的置中內容框。
 - `report` 以最近一次重排用的 `reportLayout` 作為新頁預設。
+- `dual-liturgical` 同時解析台語與華語兩組內容框參數。
 - `ppt-import` 無一般文字預設，保留來源物件座標。
 
 ### 14.3 字級與畫布換算
@@ -500,11 +513,14 @@ canvasCqwToPoints(cqw) = cqw × 9.6
 
 ## 16. Firebase 共用版面、權限與離線一致性
 
-共用版面位於：
+模板版面位於：
 
 ```text
 worshipPpt/layoutConfig/shared
+worshipPpt/layoutConfig/templates/{templateId}
 ```
+
+台語沿用 `shared`；聯合華語使用 `templates/joint-mandarin`。兩種模板也使用不同 localStorage 草稿 key，避免內容與 page assignments 互相覆蓋。
 
 文件 schema：
 
@@ -562,13 +578,12 @@ y or height = percent / 100 × 7.5
 
 PptxGenJS 產生 blob 後，若 JSZip 可用，系統會再次打開輸出 PPTX，清理同一 `<a:p>` 中重複的 `<a:pPr>`，再重打包下載，避免 PowerPoint XML 中出現多個 paragraph properties。
 
-檔名目前為：
+檔名由 profile 的 `filenamePrefix` 產生，目前為：
 
 ```text
 台語主日禮拜_YYYY-MM-DD.pptx
+聯合-華語禮拜_YYYY-MM-DD.pptx
 ```
-
-這個名稱必須在多模板化時移到 template profile。
 
 ## 18. 背景、視覺與可及性
 
@@ -628,7 +643,7 @@ PptxGenJS 產生 blob 後，若 JSZip 可用，系統會再次打開輸出 PPTX�
 
 文件或純資料契約變更至少跑完整 verify；排版、CSS、Canvas 或互動變更還要做桌面瀏覽器 visual QA。只有測試通過不能取代畫面檢查。
 
-## 21. 未來四種模板的正確拆分
+## 21. 四種模板的擴充邊界
 
 目標模板：
 
@@ -651,14 +666,16 @@ PptxGenJS 產生 blob 後，若 JSZip 可用，系統會再次打開輸出 PPTX�
 - 固定全文按權重分頁的工具。
 - Node tests 與 visual QA 流程。
 
+目前已啟用 `taiwanese` 與 `joint-mandarin`；`joint-taiwanese`、`mandarin` 是保留的下一階段 template ID。
+
 ### 21.2 必須由模板設定提供的差異
 
-| 差異 | 台語 | 未來模板應提供 |
+| 差異 | 台語 | 其他模板提供 |
 | --- | --- | --- |
-| template ID | 目前隱含在程式 | `taiwanese`、`joint-taiwanese`、`joint-mandarin`、`mandarin` |
+| template ID | `taiwanese` | `joint-mandarin` 已實作；`joint-taiwanese`、`mandarin` 保留 |
 | 顯示名稱 | 台語主日禮拜 | 聯合／華語對應名稱 |
 | 流程 sections | 27 段固定陣列 | 每模板自己的順序、label、type |
-| 行事曆事件條件 | `講道資訊－台語` | typeName/typeFullName selector |
+| 行事曆事件條件 | `講道資訊-台語` | typeName/typeFullName selector |
 | 欄位 aliases | 台語現行欄位 | 模板自己的欄位或共用 aliases |
 | 聖經版本 | `tghg` | 華語版本代號與顯示格式 |
 | 固定禮文 | 台語信經／主禱文 | 聯合或華語全文、頁模板與權重 |
@@ -667,12 +684,12 @@ PptxGenJS 產生 blob 後，若 JSZip 可用，系統會再次打開輸出 PPTX�
 | cover 文案 | 台語主日禮拜 | 模板名稱與日期格式 |
 | section subtitles | 台語文案 | 模板自己的提示文案 |
 | 預設 layout | 現行台語來源 PPT | 各模板的版型 defaults／layout profile |
-| Firebase layout path | 現為單一 shared | 應依 template ID 隔離，或明確共享共用群組 |
+| Firebase layout path | `layoutConfig/shared` | `layoutConfig/templates/{templateId}` |
 | 匯出檔名 | 台語主日禮拜_日期 | 由模板提供 filename prefix |
 
-### 21.3 建議的 template profile
+### 21.3 現行 template profile
 
-下一階段建議新增單一 declarative profile，而不是在各模組散落 `if (language === ...)`：
+現行程式以單一 declarative profile 契約提供模板差異，避免在各模組散落 `if (language === ...)`：
 
 ```js
 {
@@ -683,7 +700,7 @@ PptxGenJS 產生 blob 後，若 JSZip 可用，系統會再次打開輸出 PPTX�
     typeName: '台語',
     typeFullName: '講道資訊 - 台語'
   },
-  bibleVersion: 'tghg',
+  bibleVersions: ['tghg'],
   sections: [...],
   fieldAliases: {...},
   fixedTexts: {
@@ -700,23 +717,18 @@ PptxGenJS 產生 blob 後，若 JSZip 可用，系統會再次打開輸出 PPTX�
 }
 ```
 
-這個結構只是建議契約，尚未實作。實作時應先讓目前台語流程完全由 profile 產生，確認輸出不變，再新增其他模板。
+實際欄位以 `template-profiles.js` 為準。聯合華語另外提供 `assets`、`sourceRequirements`、兩組固定禮文全文與每頁 `dual-liturgical` 版面。
 
 ### 21.4 Layout namespace
 
-目前共用版面只有：
+目前台語相容路徑與模板隔離路徑為：
 
 ```text
 worshipPpt/layoutConfig/shared
-```
-
-四模板不能在同一路徑共用相同 page IDs，否則 `cover:1`、`sermon:1` 等 assignment 會互相覆蓋。建議演進成：
-
-```text
 worshipPpt/layoutConfig/templates/{templateId}
 ```
 
-若有真正跨模板共用的輸出比例或背景，可以另設 global defaults，但模板版面與 page assignments 必須隔離。這會影響 RTDB schema、Rules、migration、`layout-cloud-store.js` 與文件，實作時要視為正式架構變更。
+`layout-cloud-store.js` 已依 template ID 選路徑，Firebase Rules 也允許安全格式的 `$templateId`。若有真正跨模板共用的輸出比例或背景，可以另設 global defaults，但模板版面與 page assignments 必須繼續隔離。
 
 ### 21.5 內容 namespace
 
@@ -740,14 +752,12 @@ worshipPpt/content/services/{date}/{templateId}/praise
 
 ### 21.6 建議實作順序
 
-1. 建立 `template-profiles.js`，先只放現有台語 profile。
-2. 讓 `app.js` 的 sections、固定文字、首頁名稱與固定 Library references 由 profile 建立。
-3. 把 `calendar-adapter.js` 的 selector、aliases 與 `content-generators.js` 的 Bible version 參數化。
-4. 把 `ppt-export.js` 的首頁文字與檔名前綴參數化。
-5. 把 layout/content Firebase path 加上 template namespace，提供 schema migration。
-6. 完整比對台語模板改造前後的 deck 順序、頁數、畫面與匯出。
-7. 新增華語 profile，再新增兩個聯合 profile。
-8. 對四模板各建立代表日期 fixture、視覺基準與匯出 smoke test。
+1. 以現有 `template-profiles.js` 新增 profile 與選單 option。
+2. 提供流程、行事曆 selector、Bible versions、固定禮文／素材、來源需求與檔名前綴。
+3. 需要雙欄禮文時建立 `dual-liturgical` pages，不把兩種語言合成一個 `body`。
+4. 以 `layoutConfig/templates/{templateId}` 隔離新版面，並同步 Rules。
+5. 完整比對既有模板改造前後的 deck 順序、頁數、畫面與匯出。
+6. 對每個模板建立代表日期 fixture、視覺基準與匯出 smoke test。
 
 ### 21.7 新模板驗收清單
 

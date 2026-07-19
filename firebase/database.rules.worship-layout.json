@@ -49,6 +49,56 @@
           "$other": {
             ".validate": false
           }
+        },
+        "templates": {
+          "$templateId": {
+            ".read": true,
+            ".write": "auth != null && auth.token.email == 'worship-layout@lkc1958.org'",
+            ".validate": "$templateId.matches(/^[a-zA-Z0-9-]+$/) && newData.hasChildren(['schemaVersion', 'updatedAt', 'updatedBy'])",
+            "schemaVersion": {
+              ".validate": "newData.isNumber() && newData.val() == 1"
+            },
+            "layoutState": {
+              "groups": {
+                "$groupId": {
+                  ".validate": "newData.hasChildren(['id']) && newData.child('id').val() == $groupId"
+                }
+              },
+              "pageAssignments": {
+                "$pageId": {
+                  ".validate": "newData.isString()"
+                }
+              },
+              "hymnOpacityBySection": {
+                "$sectionId": {
+                  ".validate": "$sectionId.matches(/^[a-zA-Z0-9-]+$/) && newData.isNumber() && newData.val() >= 40 && newData.val() <= 80"
+                }
+              },
+              "outputScale": {
+                "text": {
+                  ".validate": "newData.isNumber() && newData.val() >= 80 && newData.val() <= 120"
+                },
+                "image": {
+                  ".validate": "newData.isNumber() && newData.val() >= 80 && newData.val() <= 120"
+                },
+                "$other": {
+                  ".validate": false
+                }
+              },
+              "$other": {
+                ".validate": false
+              }
+            },
+            "updatedAt": {
+              ".validate": "newData.isNumber()"
+            },
+            "updatedBy": {
+              ".validate": "newData.isString()"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
         }
       },
       "content": {

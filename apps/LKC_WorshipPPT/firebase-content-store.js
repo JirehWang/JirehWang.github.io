@@ -1,9 +1,9 @@
 (function(root, factory) {
-  const api = factory();
+  const api = factory(root);
   if (typeof module === 'object' && module.exports) module.exports = api;
   root.TaiwaneseWorshipFirebaseContent = api;
   if (typeof document !== 'undefined') root.worshipFirebaseContent = api.createFirebaseContentStore();
-})(typeof globalThis !== 'undefined' ? globalThis : this, function() {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function(root) {
   const CONTENT_ROOT = 'worshipPpt/content';
 
   const safeKey = value => String(value == null ? '' : value)
@@ -32,12 +32,15 @@
   }
 
   async function defaultFirebaseLoader() {
-    const [config, databaseSdk] = await Promise.all([
-      import('../../firebase/firebase-config.js'),
+    const [appSdk, databaseSdk] = await Promise.all([
+      import('https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js'),
       import('https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js')
     ]);
+    const bootstrap = root.LKCFirebaseBootstrap;
+    if (!bootstrap) throw new Error('Firebase 共用設定尚未載入');
+    const app = bootstrap.getOrInitializeApp(appSdk);
     return {
-      database: config.rtdb,
+      database: databaseSdk.getDatabase(app),
       ref: databaseSdk.ref,
       get: databaseSdk.get
     };

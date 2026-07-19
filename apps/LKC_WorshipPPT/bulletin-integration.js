@@ -3,6 +3,8 @@
   const endpoint = 'https://script.google.com/macros/s/AKfycbyLLQZsz_XZqhWVwaT_8hcvfQc8fSWztAncEmBUk7lnzGr-TcP33uzS-weUG_cavgEn/exec';
 
   root.loadBulletinPptContent = async function(date) {
+    const profile = root.activeWorshipTemplateProfile || {};
+    const requirements = profile.sourceRequirements || {};
     const loadRecord = async kind => {
       if (root.worshipFirebaseContent && typeof root.worshipFirebaseContent.readServiceRecord === 'function') {
         try {
@@ -14,20 +16,25 @@
       }
       return api.loadCloudRecord(endpoint, kind, date, root.fetch.bind(root));
     };
-    const [reportsResult, praiseResult] = await Promise.all([
-      loadRecord('reports'),
-      loadRecord('praise')
-    ]);
-    if (reportsResult.state === 'loaded') {
+    const reportsPromise = requirements.reports === false
+      ? Promise.resolve({ state: 'skipped' })
+      : loadRecord('reports');
+    const praisePromise = requirements.praise === false
+      ? Promise.resolve({ state: 'skipped' })
+      : loadRecord('praise');
+    const [reportsResult, praiseResult] = await Promise.all([reportsPromise, praisePromise]);
+    if (reportsResult.state === 'loaded' && model.announcements) {
       api.applyReportsToModel(model, reportsResult.data);
       if (typeof root.reflowReportPagesForLayout === 'function') root.reflowReportPagesForLayout();
     }
-    if (praiseResult.state === 'loaded') api.applyPraiseToModel(model, praiseResult.data);
+    if (praiseResult.state === 'loaded' && model.praise) api.applyPraiseToModel(model, praiseResult.data);
     return {
       reports: reportsResult,
       praise: praiseResult,
-      reportPageCount: reportsResult.state === 'loaded' ? model.announcements.pptPages.length + 1 : 0,
-      praisePageCount: praiseResult.state === 'loaded'
+      reportPageCount: reportsResult.state === 'loaded' && model.announcements
+        ? (Array.isArray(model.announcements.pptPages) ? model.announcements.pptPages.length : 0) + 1
+        : 0,
+      praisePageCount: praiseResult.state === 'loaded' && model.praise
         ? 1 + String(model.praise.body || '').split(/\n\s*\n/).filter(Boolean).length
         : 0
     };
@@ -36,8 +43,12 @@
   root.describeBulletinPptContent = function(result) {
     if (!result || result.error) return `週報資料讀取失敗：${result && result.error ? result.error : '未知錯誤'}`;
     const parts = [];
-    parts.push(result.reports.state === 'loaded' ? `報告 ${result.reportPageCount} 頁` : '報告無資料');
-    parts.push(result.praise.state === 'loaded' ? `讚美 ${result.praisePageCount} 頁` : '讚美無資料');
+    if (result.reports && result.reports.state !== 'skipped') {
+      parts.push(result.reports.state === 'loaded' ? `報告 ${result.reportPageCount} 頁` : '報告無資料');
+    }
+    if (result.praise && result.praise.state !== 'skipped') {
+      parts.push(result.praise.state === 'loaded' ? `讚美 ${result.praisePageCount} 頁` : '讚美無資料');
+    }
     return parts.join('、');
   };
 

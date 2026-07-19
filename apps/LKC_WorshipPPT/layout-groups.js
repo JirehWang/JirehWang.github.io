@@ -2,7 +2,9 @@
   const production = window.TaiwaneseWorshipSlideProduction;
   const layoutState = { groups: {}, pageAssignments: {}, hymnOpacityBySection: {}, outputScale: { text: 100, image: 100 } };
   const pendingSelection = new Set();
-  const cloudStore = window.TaiwaneseWorshipLayoutCloud.createLayoutCloudStore();
+  const templateId = window.activeWorshipTemplateId || 'taiwanese';
+  const draftKey = window.worshipDraftKey || 'lkc-taiwanese-worship-draft';
+  const cloudStore = window.TaiwaneseWorshipLayoutCloud.createLayoutCloudStore({ templateId });
   let liveParams = null;
   let layoutUnlocked = false;
   let cloudLayoutFound = false;
@@ -16,7 +18,7 @@
   }[character]));
 
   try {
-    const draft = JSON.parse(localStorage.getItem('lkc-taiwanese-worship-draft') || '{}');
+    const draft = JSON.parse(localStorage.getItem(draftKey) || '{}');
     layoutSyncPending = draft.layoutSyncPending === true;
     if (draft.layoutState) {
       replaceLayoutState(draft.layoutState);
@@ -56,8 +58,8 @@
 
   function persistLocalLayoutState() {
     try {
-      const draft = JSON.parse(localStorage.getItem('lkc-taiwanese-worship-draft') || '{}');
-      localStorage.setItem('lkc-taiwanese-worship-draft', JSON.stringify({ ...draft, layoutState, layoutSyncPending }));
+      const draft = JSON.parse(localStorage.getItem(draftKey) || '{}');
+      localStorage.setItem(draftKey, JSON.stringify({ ...draft, layoutState, layoutSyncPending }));
     } catch (error) {
       console.warn('版面群組保存失敗', error);
     }
@@ -182,10 +184,23 @@
   }
 
   function paramsFromForm() {
-    return {
+    const params = {
       titleSize: numberValue('lg-title-size', 60), titleX: numberValue('lg-title-x', 10), titleY: numberValue('lg-title-y', 6), titleW: numberValue('lg-title-w', 80), titleH: numberValue('lg-title-h', 16), titleAlign: document.getElementById('lg-title-align').value, titleColor: production.normalizeColor(document.getElementById('lg-title-color').value, '#111111'),
       contentSize: numberValue('lg-content-size', 48), contentX: numberValue('lg-content-x', 8), contentY: numberValue('lg-content-y', 24), contentW: numberValue('lg-content-w', 84), contentH: numberValue('lg-content-h', 68), contentAlign: document.getElementById('lg-content-align').value, contentColor: production.normalizeColor(document.getElementById('lg-content-color').value, '#111111'), lineSpacing: numberValue('lg-line-spacing', 1.5)
     };
+    if (document.getElementById('lg-secondary-content-size')) {
+      Object.assign(params, {
+        secondaryContentSize: numberValue('lg-secondary-content-size', 48),
+        secondaryContentX: numberValue('lg-secondary-content-x', 51.1),
+        secondaryContentY: numberValue('lg-secondary-content-y', 23.3),
+        secondaryContentW: numberValue('lg-secondary-content-w', 43),
+        secondaryContentH: numberValue('lg-secondary-content-h', 66.5),
+        secondaryContentAlign: document.getElementById('lg-secondary-content-align').value,
+        secondaryContentColor: production.normalizeColor(document.getElementById('lg-secondary-content-color').value, '#0070C0'),
+        secondaryLineSpacing: numberValue('lg-secondary-line-spacing', 1.5)
+      });
+    }
+    return params;
   }
 
   function reportPageForLayout() {
@@ -288,7 +303,11 @@
         [`${prefix}H`]: Number((rect.height / frameRect.height * 100).toFixed(1)),
         [`${prefix}Align`]: style.textAlign || fallback[`${prefix}Align`],
         [`${prefix}Color`]: computedColor(style.color, fallback[`${prefix}Color`]),
-        ...(prefix === 'content' ? { lineSpacing: Number((linePx / Math.max(fontPx, 1)).toFixed(2)) } : {})
+        ...(prefix === 'content'
+          ? { lineSpacing: Number((linePx / Math.max(fontPx, 1)).toFixed(2)) }
+          : prefix === 'secondaryContent'
+            ? { secondaryLineSpacing: Number((linePx / Math.max(fontPx, 1)).toFixed(2)) }
+            : {})
       };
     };
     const titleFallback = { titleSize: 60, titleX: 10, titleY: 6, titleW: 80, titleH: 16, titleAlign: 'center', titleColor: '#111111' };
@@ -321,9 +340,17 @@
         ...measureImported('content', 'content', contentFallback)
       };
     }
+    const primaryBody = content.querySelector('.body-primary, .body, p');
+    const secondaryBody = content.querySelector('.body-secondary');
+    const secondaryFallback = {
+      secondaryContentSize: 48, secondaryContentX: 51.1, secondaryContentY: 23.3,
+      secondaryContentW: 43, secondaryContentH: 66.5, secondaryContentAlign: 'left',
+      secondaryContentColor: '#0070C0', secondaryLineSpacing: 1.5
+    };
     return {
       ...measure(content.querySelector('h1'), 'title', titleFallback),
-      ...measure(content.querySelector('.body, p'), 'content', contentFallback)
+      ...measure(primaryBody, 'content', contentFallback),
+      ...(secondaryBody ? measure(secondaryBody, 'secondaryContent', secondaryFallback) : {})
     };
   }
 
@@ -335,9 +362,10 @@
   }
 
   function parameterFields() {
-    return `<div class="layout-parameter-tabs"><button type="button" class="is-active" data-layout-tab="title">標題</button><button type="button" data-layout-tab="content">內文</button></div>
+    const supportsSecondary = templateId === 'joint-mandarin';
+    return `<div class="layout-parameter-tabs"><button type="button" class="is-active" data-layout-tab="title">標題</button><button type="button" data-layout-tab="content">${supportsSecondary ? '台語內文' : '內文'}</button>${supportsSecondary ? '<button type="button" data-layout-tab="secondary-content">華語內文</button>' : ''}</div>
       <div class="layout-params" data-layout-pane="title"><label>字級<input id="lg-title-size" type="number" value="60"></label><label>X<input id="lg-title-x" type="number" value="10"></label><label>Y<input id="lg-title-y" type="number" value="6"></label><label>寬<input id="lg-title-w" type="number" value="80"></label><label>高<input id="lg-title-h" type="number" value="16"></label><label>對齊<select id="lg-title-align"><option value="center">置中</option><option value="left">靠左</option><option value="right">靠右</option></select></label><label>文字顏色<input id="lg-title-color" type="color" value="#111111"></label></div>
-      <div class="layout-params is-hidden" data-layout-pane="content"><label>字級<input id="lg-content-size" type="number" value="48"></label><label>X<input id="lg-content-x" type="number" value="8"></label><label>Y<input id="lg-content-y" type="number" value="24"></label><label>寬<input id="lg-content-w" type="number" value="84"></label><label>高<input id="lg-content-h" type="number" value="68"></label><label>對齊<select id="lg-content-align"><option value="left">靠左</option><option value="center">置中</option><option value="right">靠右</option></select></label><label>行距<input id="lg-line-spacing" type="number" value="1.5" step="0.1"></label><label>文字顏色<input id="lg-content-color" type="color" value="#111111"></label></div>`;
+      <div class="layout-params is-hidden" data-layout-pane="content"><label>字級<input id="lg-content-size" type="number" value="48"></label><label>X<input id="lg-content-x" type="number" value="8"></label><label>Y<input id="lg-content-y" type="number" value="24"></label><label>寬<input id="lg-content-w" type="number" value="84"></label><label>高<input id="lg-content-h" type="number" value="68"></label><label>對齊<select id="lg-content-align"><option value="left">靠左</option><option value="center">置中</option><option value="right">靠右</option></select></label><label>行距<input id="lg-line-spacing" type="number" value="1.5" step="0.1"></label><label>文字顏色<input id="lg-content-color" type="color" value="#111111"></label></div>${supportsSecondary ? '<div class="layout-params is-hidden" data-layout-pane="secondary-content"><label>字級<input id="lg-secondary-content-size" type="number" value="48"></label><label>X<input id="lg-secondary-content-x" type="number" value="51.1"></label><label>Y<input id="lg-secondary-content-y" type="number" value="23.3"></label><label>寬<input id="lg-secondary-content-w" type="number" value="43"></label><label>高<input id="lg-secondary-content-h" type="number" value="66.5"></label><label>對齊<select id="lg-secondary-content-align"><option value="left">靠左</option><option value="center">置中</option><option value="right">靠右</option></select></label><label>行距<input id="lg-secondary-line-spacing" type="number" value="1.5" step="0.1"></label><label>文字顏色<input id="lg-secondary-content-color" type="color" value="#0070c0"></label></div>' : ''}`;
   }
 
   function renderFloatingPanel() {
@@ -355,7 +383,7 @@
       document.querySelectorAll('[data-layout-tab]').forEach(item => item.classList.toggle('is-active', item === button));
       document.querySelectorAll('[data-layout-pane]').forEach(pane => pane.classList.toggle('is-hidden', pane.dataset.layoutPane !== button.dataset.layoutTab));
     });
-    document.querySelectorAll('[data-layout-pane="title"] input, [data-layout-pane="title"] select, [data-layout-pane="content"] input, [data-layout-pane="content"] select').forEach(input => input.addEventListener('input', () => {
+    document.querySelectorAll('.layout-params input, .layout-params select').forEach(input => input.addEventListener('input', () => {
       liveParams = paramsFromForm();
       if (selectionAffectsReports()) {
         reflowReportPagesForLayout(liveParams);
@@ -535,20 +563,23 @@
       return;
     }
     const title = content.querySelector('h1');
-    const body = content.querySelector('.body, p');
-    const wrap = (element, prefix) => {
+    const body = content.querySelector('.body-primary, .body, p');
+    const secondaryBody = content.querySelector('.body-secondary');
+    const wrap = (element, prefix, boxWidthMultiplier = 1) => {
       if (!element || !production.wrapTextForBox || params[`${prefix}Size`] == null) return;
       const sourceText = element.dataset.unwrappedText == null ? element.textContent : element.dataset.unwrappedText;
       element.dataset.unwrappedText = sourceText;
       element.textContent = production.wrapTextForBox(sourceText, {
         fontSize: Number(params[`${prefix}Size`]) * textScale,
-        boxWidth: Number(params[`${prefix}W`]),
+        boxWidth: Number(params[`${prefix}W`]) * boxWidthMultiplier,
         bold: true
       });
       element.style.whiteSpace = 'pre-wrap';
     };
     wrap(title, 'title');
-    wrap(body, 'content');
+    const dualWidthMultiplier = content.classList.contains('template-dual-liturgical') ? 1 / 0.92 : 1;
+    wrap(body, 'content', dualWidthMultiplier);
+    wrap(secondaryBody, 'secondaryContent', dualWidthMultiplier);
     const place = (element, prefix) => {
       if (!element) return;
       if (params[`${prefix}Color`]) element.style.color = production.normalizeColor(params[`${prefix}Color`], '#111111');
@@ -564,7 +595,9 @@
     };
     place(title, 'title');
     place(body, 'content');
+    place(secondaryBody, 'secondaryContent');
     if (body && params.lineSpacing) body.style.lineHeight = params.lineSpacing;
+    if (secondaryBody && params.secondaryLineSpacing) secondaryBody.style.lineHeight = params.secondaryLineSpacing;
   };
 
   const basePreview = preview;
@@ -680,7 +713,7 @@
   };
 
   document.getElementById('save-draft').onclick = async () => {
-    localStorage.setItem('lkc-taiwanese-worship-draft', JSON.stringify({ model, backgroundColor, backgroundImage, syncHymnOpacity: window.isHymnOpacitySyncEnabled(), layoutState, layoutSyncPending }));
+    localStorage.setItem(draftKey, JSON.stringify({ model, backgroundColor, backgroundImage, syncHymnOpacity: window.isHymnOpacitySyncEnabled(), layoutState, layoutSyncPending }));
     if (!layoutUnlocked) return status('內容已儲存至此瀏覽器；共用版面仍為鎖定狀態');
     status('正在儲存內容與全教會共用版面…');
     try {

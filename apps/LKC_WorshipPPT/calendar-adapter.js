@@ -10,6 +10,7 @@
     scripture: ['經文', '講道經文'],
     verse: ['金句'],
     responsiveReading: ['啟應文', '啟應'],
+    responseSong: ['詩歌', '回應詩', '回應詩歌'],
     hymn1: ['聖詩第一首', '聖詩一', '聖詩1'],
     hymn2: ['聖詩第二首', '聖詩二', '聖2'],
     doxology: ['頌榮']
@@ -24,13 +25,19 @@
     const match = clean(value).toUpperCase().match(/0*(\d+)\s*([A-Z])?/);
     return match ? `${Number(match[1])}${match[2] || ''}` : '';
   };
-  function selectTaiwaneseSermonEvent(events, date) {
+  function selectSermonEvent(events, date, selector) {
+    const expected = selector || { typeName: '台語', typeFullName: '講道資訊-台語' };
+    const expectedTypeName = clean(expected.typeName);
+    const expectedFullName = clean(expected.typeFullName).replace(/\s+/g, '');
     return (Array.isArray(events) ? events : []).find(event => {
       const eventDate = clean(event && event.date);
       const typeName = clean(event && event.typeName);
       const typeFullName = clean(event && event.typeFullName).replace(/\s+/g, '');
-      return (!date || eventDate === date) && typeName === '台語' && typeFullName === '講道資訊-台語';
+      return (!date || eventDate === date) && typeName === expectedTypeName && typeFullName === expectedFullName;
     }) || null;
+  }
+  function selectTaiwaneseSermonEvent(events, date) {
+    return selectSermonEvent(events, date, { typeName: '台語', typeFullName: '講道資訊-台語' });
   }
   const getCalendarValue = (event, key) => getValue(event, aliases[key] || []);
   function applyCalendarEvent(event, model) {
@@ -41,6 +48,7 @@
     put('scripture', 'sourceValue', getValue(event, aliases.scripture));
     put('verse', 'sourceValue', getValue(event, aliases.verse));
     put('response', 'sourceValue', getValue(event, aliases.responsiveReading));
+    put('response-song', 'title', getValue(event, aliases.responseSong));
     const hymn1 = hymnNumber(getValue(event, aliases.hymn1));
     const hymn2 = hymnNumber(getValue(event, aliases.hymn2));
     put('hymn-1', 'sourceValue', hymn1);
@@ -50,5 +58,5 @@
     put('doxology', 'sourceValue', hymnNumber(getValue(event, aliases.doxology)));
     return model;
   }
-  return { applyCalendarEvent, selectTaiwaneseSermonEvent, getCalendarValue };
+  return { applyCalendarEvent, selectSermonEvent, selectTaiwaneseSermonEvent, getCalendarValue };
 });

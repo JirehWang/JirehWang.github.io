@@ -35,7 +35,7 @@ test('project workflow and architecture references use the renamed path', () => 
   assert.match(architecture, /^# 禮拜PPT產生器/m);
 });
 
-test('architecture documents the shared core and future template boundaries', () => {
+test('architecture documents the shared core and active template boundaries', () => {
   const architecture = fs.readFileSync(path.join(newApp, 'ARCHITECTURE.md'), 'utf8');
   const relation = fs.readFileSync(path.join(root, 'docs', 'SYSTEM_RELATION_GRAPH.md'), 'utf8');
 
@@ -46,7 +46,7 @@ test('architecture documents the shared core and future template boundaries', ()
   assert.match(architecture, /worshipPpt\/layoutConfig\/templates\/\{templateId\}/);
   assert.match(architecture, /worshipPpt\/content\/services\/\{date\}\/\{templateId\}/);
   assert.match(architecture, /共用的核心/);
-  assert.match(architecture, /建議的 template profile/);
+  assert.match(architecture, /現行 template profile/);
   assert.match(relation, /ARCHITECTURE\.md/);
-  assert.match(relation, /多模板擴充邊界（規劃，尚未實作）/);
+  assert.match(relation, /多模板擴充邊界（台語與聯合華語已實作）/);
 });

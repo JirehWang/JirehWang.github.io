@@ -1,49 +1,240 @@
-const apostleCreed=`我信上帝，全能的父，創造天地的主宰。我信耶穌基督，上帝的獨生子，咱的主。祂由聖神投胎，由在室女馬利亞出世；佇本丟彼拉多任內受苦，\n\n釘十字架，死，埋葬，落陰府；第三日由死人中復活，升天，今坐佇全能的父上帝的大傍；祂要自彼再來審判活人及死人。\n\n我信聖神，聖閣公同的教會，聖徒的相通，罪的赦免；肉體的復活；永遠的活命。阿們。`;
-const lordPrayer=`阮在天裡的父。願祢的名聖；祢的國臨到，祢的旨意得成，在地裡親像在天裡。\n\n阮的日食，今仔日給阮。赦免阮的辜負，親像阮亦有赦免辜負阮的人。\n\n勿得導阮入於試，著救阮脫離彼個惡的。因為國、權能、榮光攏是祢所有，代代無盡。阿們。`;
-const creedPptPages=[
-  {title:'信仰告白—使徒信經',body:`我信上帝，全能的父，創造天地的主宰。我信耶穌基督，上帝的獨生子，咱的主。祂由聖神投胎，由在室女馬利亞出世；佇本丟彼拉多任內受苦，`,align:'left',showTitle:true},
-  {title:'信仰告白—使徒信經',body:`釘十字架，死，埋葬，落陰府；\n第三日由死人中復活，升天，\n今坐佇全能的父上帝的大傍；\n祂要自彼再來審判活人及死人。`,align:'left',showTitle:true},
-  {title:'信仰告白—使徒信經',body:`我信聖神，聖閣公同的教會，\n聖徒的相通，罪的赦免；肉體的復活；\n永遠的活命。阿們。`,align:'left',showTitle:true}
-];
-const lordPrayerPptPages=[
-  {title:'主禱文',body:`阮在天裡的父。願祢的名聖；\n祢的國臨到，祢的旨意得成，\n在地裡親像在天裡。`,align:'center',showTitle:true},
-  {title:'主禱文',body:`阮的日食，今仔日給阮。\n赦免阮的辜負，\n親像阮亦有赦免辜負阮的人。`,align:'center',showTitle:true},
-  {title:'主禱文',body:`勿得導阮入於試，著救阮脫離彼個惡的。\n因為國、權能、榮光攏是祢所有，\n代代無盡。阿們。`,align:'center',showTitle:true}
-];
-const sections=[
-  ['cover','台語主日禮拜','cover'],['prelude-singing','會前領唱','title'],['pre-hymn-1','會前聖詩一','hymn'],['pre-hymn-2','會前聖詩二','hymn'],['service-cover','台語主日禮拜','cover'],['silence','靜默一分鐘','title'],['prelude','序樂','title'],['call','宣召','calendar'],['hymn-1','聖詩一','hymn'],['creed','信仰告白—使徒信經','fixed'],['response','啟應文','port'],['prayer-1','祈禱','title'],['lord-prayer','主禱文','fixed'],['prayer-song','祈禱詩','fixed-title'],['scripture','聖經','calendar'],['praise','讚美','praise'],['sermon','講道','sermon'],['prayer-2','祈禱','title'],['hymn-2','聖詩二','hymn'],['announcements','報告','manual'],['verse','金句','calendar'],['offering','奉獻','fixed-title'],['doxology','頌榮','calendar'],['blessing','祝禱','title'],['amen','阿們頌','fixed-title'],['postlude','後奏','title'],['peace','平安禮','title']
-];
-const model=Object.fromEntries(sections.map(([id,label,type])=>[id,{label,type,title:label,kicker:'',body:'',opacity:60}]));
-const hymnOpacitySectionIds=['pre-hymn-1','pre-hymn-2','hymn-1','prayer-song','hymn-2','offering','doxology','amen'];
-model.creed.body=apostleCreed;model.creed.pptPages=creedPptPages;model['lord-prayer'].body=lordPrayer;model['lord-prayer'].pptPages=lordPrayerPptPages;window.TaiwaneseWorshipSlideProduction.applyFixedLibraryDefaults(model);['pre-hymn-1','pre-hymn-2','hymn-1','hymn-2','doxology'].forEach(id=>{model[id].includeSectionTitle=true});let active='prelude-singing';let backgroundColor='#ffffff';let backgroundImage='';let syncHymnOpacity=true;try{const draft=JSON.parse(localStorage.getItem('lkc-taiwanese-worship-draft')||'{}');backgroundColor=window.TaiwaneseWorshipSlideProduction?.normalizeColor(draft.backgroundColor,'#ffffff')||'#ffffff';backgroundImage=window.TaiwaneseWorshipSlideProduction?.normalizeBackgroundImageDataUrl(draft.backgroundImage)||'';syncHymnOpacity=draft.syncHymnOpacity!==false;hymnOpacitySectionIds.forEach(id=>{const saved=Number(draft.model&&draft.model[id]&&draft.model[id].opacity);if(saved>=40&&saved<=80)model[id].opacity=saved})}catch(error){console.warn('背景與透明度草稿讀取失敗',error)}if(syncHymnOpacity)window.TaiwaneseWorshipSlideProduction.applyHymnOpacity(model,hymnOpacitySectionIds,'hymn-1',model['hymn-1'].opacity,true);window.hymnOpacitySectionIds=hymnOpacitySectionIds;window.isHymnOpacitySyncEnabled=()=>syncHymnOpacity;window.setHymnOpacitySyncEnabled=value=>{syncHymnOpacity=Boolean(value)};const $=s=>document.querySelector(s);const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-function field(label,key,value='',type='text',hint=''){return `<label class="field"><span>${label}</span>${type==='textarea'?`<textarea data-key="${key}">${esc(value)}</textarea>`:`<input data-key="${key}" value="${esc(value)}">`}${hint?`<small>${hint}</small>`:''}</label>`}
-function flow(){ $('#flow-list').innerHTML=sections.map(([id,label],i)=>`<button class="flow-item ${id===active?'active':''}" data-id="${id}"><span class="flow-number">${String(i+1).padStart(2,'0')}</span>${label}</button>`).join('');document.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>{active=b.dataset.id;render()})}
-function editor(){
-  const x=model[active],f=$('#editor-form');
-  let html='';
-  if(x.type==='fixed')html=`<div class="inline-note">內容依提供的台語禮拜 PPT 固定保留。</div>${field('內容','body',x.body,'textarea')}`;
-  else if(x.type==='fixed-title')html=`<div class="inline-note">此段落在提供的 PPT 中為固定格式。歌詞或樂譜不在此頁自行產生。</div>`;
-  else if(x.type==='port')html=`<div class="inline-note">保留啟應文資料庫端口。資料庫尚未串接前，請依本週資料手動貼入。</div>${field('標題','title',x.title)}${field('內容','body',x.body,'textarea')}`;
-  else if(x.type==='hymn')html=`${field('聖詩編號與名稱','title',x.title,'text','聖詩資料庫端口保留。')}${field('樂譜／歌詞內容','body',x.body,'textarea')}`;
-  else if(x.type==='calendar')html=`<div class="inline-note">保留行事曆帶入端口；未串接前不預填任何文字。</div>${field('標題','title',x.title)}${field('內容','body',x.body,'textarea')}`;
-  else if(x.type==='praise')html=`${field('詩歌名稱','title',x.title)}${field('演唱者／團體（選填）','kicker',x.kicker)}${field('歌詞（以空白行分頁）','body',x.body,'textarea','依你貼入的歌詞分頁，不自動生成歌詞。')}`;
-  else if(x.type==='sermon')html=`${field('講道題目','title',x.title)}<div class="form-row">${field('講員','kicker',x.kicker)}${field('經文','body',x.body)}</div><label class="field"><span>牧師講道 PPT（選填）</span><input type="file" accept=".ppt,.pptx"></label>`;
-  else if(x.type==='manual')html=`${field('標題','title',x.title)}${field('報告內容','body',x.body,'textarea','請直接貼入報告內容。')}`;
-  else html=`${field('標題','title',x.title)}${field('副標題（選填）','kicker',x.kicker)}${field('內容（選填）','body',x.body,'textarea')}`;
-  if(hymnOpacitySectionIds.includes(active)){
-    const unlocked=Boolean(window.isWorshipLayoutUnlocked&&window.isWorshipLayoutUnlocked());
-    html+=`<label class="field"><span>樂譜白底透明度（全教會共用）</span><div class="range-wrap"><input id="opacity" type="range" min="40" max="80" value="${x.opacity}" ${unlocked?'':'disabled'}><output class="range-value">${x.opacity}%</output></div><small>${unlocked?'放開滑桿後自動儲存至雲端':'需先以版面設定密碼解鎖'}</small></label>`;
+const templateProfiles = window.WorshipTemplateProfiles;
+const activeTemplateId = templateProfiles.resolveTemplateId(window.location.search);
+const activeWorshipTemplateProfile = templateProfiles.getTemplateProfile(activeTemplateId);
+const sections = activeWorshipTemplateProfile.sections;
+const model = templateProfiles.createTemplateModel(activeWorshipTemplateProfile);
+const hymnOpacitySectionIds = activeWorshipTemplateProfile.hymnOpacitySectionIds || [];
+const draftKey = activeWorshipTemplateProfile.draftKey;
+
+window.activeWorshipTemplateId = activeTemplateId;
+window.activeWorshipTemplateProfile = activeWorshipTemplateProfile;
+window.worshipDraftKey = draftKey;
+window.hymnOpacitySectionIds = hymnOpacitySectionIds;
+window.worshipTemplateAssets = {};
+document.body.dataset.template = activeTemplateId;
+
+let active = activeWorshipTemplateProfile.activeSectionId || sections[0][0];
+let backgroundColor = activeWorshipTemplateProfile.defaultBackgroundColor || '#ffffff';
+let backgroundImage = '';
+let syncHymnOpacity = true;
+let hasSavedBackground = false;
+
+try {
+  const draft = JSON.parse(localStorage.getItem(draftKey) || '{}');
+  backgroundColor = window.TaiwaneseWorshipSlideProduction.normalizeColor(draft.backgroundColor, backgroundColor);
+  backgroundImage = window.TaiwaneseWorshipSlideProduction.normalizeBackgroundImageDataUrl(draft.backgroundImage);
+  hasSavedBackground = Boolean(backgroundImage);
+  syncHymnOpacity = draft.syncHymnOpacity !== false;
+  hymnOpacitySectionIds.forEach(id => {
+    const saved = Number(draft.model && draft.model[id] && draft.model[id].opacity);
+    if (saved >= 40 && saved <= 80 && model[id]) model[id].opacity = saved;
+  });
+  Object.entries(draft.model || {}).forEach(([id, saved]) => {
+    if (!model[id] || !saved || typeof saved !== 'object') return;
+    ['title', 'kicker', 'body', 'secondaryBody', 'sourceValue'].forEach(key => {
+      if (typeof saved[key] === 'string') model[id][key] = saved[key];
+    });
+  });
+} catch (error) {
+  console.warn('背景、內容與透明度草稿讀取失敗', error);
+}
+
+if (syncHymnOpacity && hymnOpacitySectionIds.length) {
+  const sourceId = hymnOpacitySectionIds.find(id => model[id]);
+  if (sourceId) window.TaiwaneseWorshipSlideProduction.applyHymnOpacity(model, hymnOpacitySectionIds, sourceId, model[sourceId].opacity, true);
+}
+
+const blobToDataUrl = blob => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result);
+  reader.onerror = () => reject(reader.error || new Error('資產讀取失敗'));
+  reader.readAsDataURL(blob);
+});
+
+window.worshipTemplateAssetsReady = Promise.all(Object.entries(activeWorshipTemplateProfile.assets || {}).map(async ([key, url]) => {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`HTTP ${response.status}: ${url}`);
+  window.worshipTemplateAssets[key] = await blobToDataUrl(await response.blob());
+})).then(() => {
+  if (!hasSavedBackground && window.worshipTemplateAssets.background) {
+    backgroundImage = window.worshipTemplateAssets.background;
   }
-  f.innerHTML=html;
-  f.querySelectorAll('[data-key]').forEach(el=>el.oninput=e=>{x[e.target.dataset.key]=e.target.value;preview()});
-  const opacity=$('#opacity');
-  if(opacity){
-    opacity.oninput=e=>{window.TaiwaneseWorshipSlideProduction.applyHymnOpacity(model,hymnOpacitySectionIds,active,e.target.value,syncHymnOpacity);$('.range-value').textContent=e.target.value+'%';preview()};
-    opacity.onchange=()=>{if(window.saveSharedHymnOpacity)window.saveSharedHymnOpacity()};
+  if (typeof render === 'function') render();
+  return window.worshipTemplateAssets;
+}).catch(error => {
+  console.warn('模板資產載入失敗', error);
+  return window.worshipTemplateAssets;
+});
+
+window.isHymnOpacitySyncEnabled = () => syncHymnOpacity;
+window.setHymnOpacitySyncEnabled = value => { syncHymnOpacity = Boolean(value); };
+
+const $ = selector => document.querySelector(selector);
+const esc = value => String(value == null ? '' : value).replace(/[&<>]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[character]));
+
+function field(label, key, value = '', type = 'text', hint = '') {
+  return `<label class="field"><span>${label}</span>${type === 'textarea'
+    ? `<textarea data-key="${key}">${esc(value)}</textarea>`
+    : `<input data-key="${key}" value="${esc(value)}">`}${hint ? `<small>${hint}</small>` : ''}</label>`;
+}
+
+function flow() {
+  $('#flow-list').innerHTML = sections.map(([id, label], index) => `<button class="flow-item ${id === active ? 'active' : ''}" data-id="${id}"><span class="flow-number">${String(index + 1).padStart(2, '0')}</span>${label}</button>`).join('');
+  document.querySelectorAll('[data-id]').forEach(button => {
+    button.onclick = () => { active = button.dataset.id; render(); };
+  });
+}
+
+function editor() {
+  const item = model[active];
+  const form = $('#editor-form');
+  let html = '';
+  if (item.type === 'fixed') {
+    html = `<div class="inline-note">內容依提供的台語禮拜 PPT 固定保留。</div>${field('內容', 'body', item.body, 'textarea')}`;
+  } else if (item.type === 'dual-fixed') {
+    html = '<div class="inline-note">台語與華語使用兩個獨立內文框，系統會分別排版。</div>';
+  } else if (item.type === 'static') {
+    html = '<div class="inline-note">此頁沿用來源模板的固定版面與內容。</div>';
+  } else if (item.type === 'fixed-title') {
+    html = '<div class="inline-note">此段落在提供的 PPT 中為固定格式。歌詞或樂譜不在此頁自行產生。</div>';
+  } else if (item.type === 'port') {
+    html = `<div class="inline-note">保留啟應文資料庫端口。資料庫尚未串接前，請依本週資料手動貼入。</div>${field('標題', 'title', item.title)}${field('內容', 'body', item.body, 'textarea')}`;
+  } else if (item.type === 'hymn') {
+    html = `${field('聖詩編號與名稱', 'title', item.title, 'text', '聖詩資料庫端口保留。')}${field('樂譜／歌詞內容', 'body', item.body, 'textarea')}`;
+  } else if (item.type === 'calendar') {
+    html = `<div class="inline-note">此值會作為經文查詢條件，再依目前模板的聖經版本產生投影片。</div>${field('標題', 'title', item.title)}${field('內容', 'body', item.body, 'textarea')}`;
+  } else if (item.type === 'praise') {
+    html = `${field('詩歌名稱', 'title', item.title)}${field('演唱者／團體（選填）', 'kicker', item.kicker)}${field('歌詞（以空白行分頁）', 'body', item.body, 'textarea', '依你貼入的歌詞分頁，不自動生成歌詞。')}`;
+  } else if (item.type === 'sermon') {
+    html = `${field('講道題目', 'title', item.title)}<div class="form-row">${field('講員', 'kicker', item.kicker)}${field('經文', 'body', item.body)}</div><label class="field"><span>牧師講道 PPT（選填）</span><input type="file" accept=".ppt,.pptx"></label>`;
+  } else if (item.type === 'manual') {
+    html = `${field('標題', 'title', item.title)}${field('報告內容', 'body', item.body, 'textarea', '請直接貼入報告內容。')}`;
+  } else {
+    html = `${field('標題', 'title', item.title)}${field('副標題（選填）', 'kicker', item.kicker)}${field('內容（選填）', 'body', item.body, 'textarea')}`;
+  }
+
+  if (hymnOpacitySectionIds.includes(active)) {
+    const unlocked = Boolean(window.isWorshipLayoutUnlocked && window.isWorshipLayoutUnlocked());
+    html += `<label class="field"><span>樂譜白底透明度（全教會共用）</span><div class="range-wrap"><input id="opacity" type="range" min="40" max="80" value="${item.opacity}" ${unlocked ? '' : 'disabled'}><output class="range-value">${item.opacity}%</output></div><small>${unlocked ? '放開滑桿後自動儲存至雲端' : '需先以版面設定密碼解鎖'}</small></label>`;
+  }
+
+  form.innerHTML = html;
+  form.querySelectorAll('[data-key]').forEach(element => {
+    element.oninput = event => { item[event.target.dataset.key] = event.target.value; preview(); };
+  });
+  const opacity = $('#opacity');
+  if (opacity) {
+    opacity.oninput = event => {
+      window.TaiwaneseWorshipSlideProduction.applyHymnOpacity(model, hymnOpacitySectionIds, active, event.target.value, syncHymnOpacity);
+      $('.range-value').textContent = `${event.target.value}%`;
+      preview();
+    };
+    opacity.onchange = () => { if (window.saveSharedHymnOpacity) window.saveSharedHymnOpacity(); };
   }
 }
-function preview(){const x=model[active];const pages=x.type==='praise'&&x.body?x.body.split(/\n\s*\n/).filter(Boolean).length:1;const setText=(selector,value)=>{const element=$(selector);if(element)element.textContent=value};setText('#preview-name',x.label);setText('#preview-kicker',x.kicker);setText('#preview-title',x.title);setText('#preview-body',x.body);setText('#slide-count',`${pages} 頁`);const bg=$('.slide-background');if(bg){bg.style.backgroundImage=backgroundImage?`url("${backgroundImage}")`:'none';bg.style.backgroundColor=backgroundColor;bg.style.opacity=x.type==='hymn'?(100-Number(x.opacity))/100:1}}
-function render(){flow();editor();preview();$('#section-kind').textContent=model[active].type==='fixed'||model[active].type==='fixed-title'?'固定內容':model[active].type==='calendar'?'行事曆帶入端口':'流程內容';$('#section-title').textContent=model[active].label}function status(t){const target=$('#save-state'),text=String(t||'');const state=/正在|讀取中|載入中|下載中|解析中|產生中|儲存中|驗證中|更新中/.test(text)?'busy':/失敗|錯誤|無法|PERMISSION_DENIED|找不到/.test(text)?'error':/已|成功/.test(text)?'success':'idle';target.textContent=text;target.dataset.state=state;target.setAttribute('aria-busy',String(state==='busy'));document.body.classList.toggle('is-busy',state==='busy');document.body.setAttribute('aria-busy',String(state==='busy'))}
-const backgroundInput=$('#background-color');backgroundInput.value=backgroundColor;backgroundInput.oninput=e=>{backgroundColor=window.TaiwaneseWorshipSlideProduction.normalizeColor(e.target.value,'#ffffff');preview();status(`已套用純色背景：${backgroundColor}`)};
-const backgroundImageUpload=$('#background-image-upload');backgroundImageUpload.onchange=e=>{const file=e.target.files&&e.target.files[0];if(!file)return;if(!window.TaiwaneseWorshipSlideProduction.isSupportedBackgroundImage(file)){status('背景圖僅支援 PNG、JPG 或 WebP');e.target.value='';return}const reader=new FileReader();status('正在讀取背景圖片…');reader.onload=()=>{backgroundImage=window.TaiwaneseWorshipSlideProduction.normalizeBackgroundImageDataUrl(reader.result);preview();status(`已套用背景圖：${file.name}`);e.target.value=''};reader.onerror=()=>status('背景圖讀取失敗，請重新選擇');reader.readAsDataURL(file)};
-$('#save-draft').onclick=()=>{localStorage.setItem('lkc-taiwanese-worship-draft',JSON.stringify({model,backgroundColor,backgroundImage,syncHymnOpacity}));status('已儲存至此瀏覽器')};$('#calendar-load').onclick=()=>status('行事曆端口已保留，等待資料欄位映射後帶入');$('#export-ppt').onclick=async()=>{try{status('正在匯出 PPTX 簡報檔…');await window.TaiwaneseWorshipPptExport.exportWorshipPPTX({model,backgroundColor,backgroundImage});status('PPTX 簡報檔已成功下載！')}catch(err){status(`簡報匯出失敗：${err.message}`);console.error(err)}};const localIsoDate=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());$('#service-date').value=localIsoDate();$('#service-date').addEventListener('input',()=>{if(model[active].type==='cover')preview()});$('#service-date').addEventListener('change',()=>{if(model[active].type==='cover')preview()});render();
+
+function preview() {
+  const item = model[active];
+  const pages = item.type === 'praise' && item.body ? item.body.split(/\n\s*\n/).filter(Boolean).length : 1;
+  const setText = (selector, value) => { const element = $(selector); if (element) element.textContent = value; };
+  setText('#preview-name', item.label);
+  setText('#preview-kicker', item.kicker);
+  setText('#preview-title', item.title);
+  setText('#preview-body', item.body);
+  setText('#slide-count', `${pages} 頁`);
+  const background = $('.slide-background');
+  if (background) {
+    background.style.backgroundImage = backgroundImage ? `url("${backgroundImage}")` : 'none';
+    background.style.backgroundColor = backgroundColor;
+    background.style.opacity = item.type === 'hymn' ? (100 - Number(item.opacity)) / 100 : 1;
+  }
+}
+
+function render() {
+  flow();
+  editor();
+  preview();
+  const item = model[active];
+  $('#section-kind').textContent = ['fixed', 'fixed-title', 'dual-fixed', 'static'].includes(item.type)
+    ? '固定內容'
+    : item.type === 'calendar' ? '行事曆帶入端口' : '流程內容';
+  $('#section-title').textContent = item.label;
+}
+
+function status(message) {
+  const target = $('#save-state');
+  const text = String(message || '');
+  const state = /正在|讀取中|載入中|下載中|解析中|產生中|儲存中|驗證中|更新中/.test(text)
+    ? 'busy'
+    : /失敗|錯誤|無法|PERMISSION_DENIED|找不到/.test(text) ? 'error' : /已|成功/.test(text) ? 'success' : 'idle';
+  target.textContent = text;
+  target.dataset.state=state;
+  target.setAttribute('aria-busy', String(state === 'busy'));
+  document.body.classList.toggle('is-busy',state==='busy');
+  document.body.setAttribute('aria-busy', String(state === 'busy'));
+}
+
+const templateSelector = $('#template-selector');
+templateSelector.value = activeTemplateId;
+templateSelector.onchange = event => {
+  const url = new URL(window.location.href);
+  url.searchParams.set('template', event.target.value);
+  window.location.assign(url.toString());
+};
+$('#template-name').textContent = activeWorshipTemplateProfile.label;
+
+const backgroundInput = $('#background-color');
+backgroundInput.value = backgroundColor;
+backgroundInput.oninput = event => {
+  backgroundColor = window.TaiwaneseWorshipSlideProduction.normalizeColor(event.target.value, '#ffffff');
+  preview();
+  status(`已套用純色背景：${backgroundColor}`);
+};
+
+const backgroundImageUpload = $('#background-image-upload');
+backgroundImageUpload.onchange = event => {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  if (!window.TaiwaneseWorshipSlideProduction.isSupportedBackgroundImage(file)) {
+    status('背景圖僅支援 PNG、JPG 或 WebP');
+    event.target.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  status('正在讀取背景圖片…');
+  reader.onload = () => {
+    backgroundImage = window.TaiwaneseWorshipSlideProduction.normalizeBackgroundImageDataUrl(reader.result);
+    hasSavedBackground = true;
+    preview();
+    status(`已套用背景圖：${file.name}`);
+    event.target.value = '';
+  };
+  reader.onerror = () => status('背景圖讀取失敗，請重新選擇');
+  reader.readAsDataURL(file);
+};
+
+$('#save-draft').onclick = () => {
+  localStorage.setItem(draftKey, JSON.stringify({ model, backgroundColor, backgroundImage, syncHymnOpacity }));
+  status('已儲存至此瀏覽器');
+};
+$('#calendar-load').onclick = () => status('行事曆端口已保留，等待資料欄位映射後帶入');
+$('#export-ppt').onclick = async () => {
+  try {
+    status('正在匯出 PPTX 簡報檔…');
+    await window.worshipTemplateAssetsReady;
+    await (window.worshipExternalPresentationsReady || Promise.resolve([]));
+    await window.TaiwaneseWorshipPptExport.exportWorshipPPTX({model,backgroundColor,backgroundImage});
+    status('PPTX 簡報檔已成功下載！');
+  } catch (error) {
+    status(`簡報匯出失敗：${error.message}`);
+    console.error(error);
+  }
+};
+
+const localIsoDate = () => new Intl.DateTimeFormat('sv-SE', {
+  timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit'
+}).format(new Date());
+$('#service-date').value = localIsoDate();
+$('#service-date').addEventListener('input', () => { if (model[active].type === 'cover') preview(); });
+$('#service-date').addEventListener('change', () => { if (model[active].type === 'cover') preview(); });
+render();

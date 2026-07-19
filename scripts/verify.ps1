@@ -22,5 +22,8 @@ $rules = Get-Content -Raw -LiteralPath ".\firebase\database.rules.worship-layout
 if (-not $rules.rules.worshipPpt.layoutConfig.shared) {
     throw "Worship layout RTDB rule is missing."
 }
+if (-not $rules.rules.worshipPpt.layoutConfig.templates.'$templateId') {
+    throw "Template-specific Worship layout RTDB rule is missing."
+}
 
 Write-Host "All Worship PPT generator tests passed."

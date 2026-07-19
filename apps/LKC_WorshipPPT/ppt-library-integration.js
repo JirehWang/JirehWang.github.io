@@ -30,6 +30,44 @@
     return fileCache.get(entry.fileId);
   }
 
+  async function loadExternalPresentationSource(source) {
+    if (!source || !source.id || !source.fileId) throw new Error('固定簡報來源設定不完整');
+    const pages = await pagesForEntry({
+      id: source.id,
+      kind: 'external-presentation',
+      title: source.title || '',
+      fileId: source.fileId,
+      sourceUrl: source.sourceUrl || ''
+    });
+    const mappings = Array.isArray(source.mappings) ? source.mappings : [];
+    const prepared = mappings.map(mapping => {
+      const item = model[mapping.sectionId];
+      if (!item) throw new Error(`固定簡報找不到流程段落：${mapping.sectionId}`);
+      const pageIndexes = Array.isArray(mapping.pageIndexes) ? mapping.pageIndexes : [];
+      const selectedPages = pageIndexes.map(index => pages[index]);
+      if (!selectedPages.length || selectedPages.some(page => !page)) {
+        throw new Error(`${source.title || source.id} 的投影片頁碼設定不正確`);
+      }
+      return { mapping, item, selectedPages };
+    });
+
+    prepared.forEach(({ mapping, item, selectedPages }) => {
+      item.pptPages = selectedPages.map((page, index) => ({
+        ...page,
+        id: `${mapping.sectionId}:${index + 1}`
+      }));
+      item.externalSourceId = source.id;
+      item.externalSourceFileId = source.fileId;
+      item.externalSourceUrl = source.sourceUrl || '';
+      item.libraryError = '';
+    });
+    return {
+      sourceId: source.id,
+      fileId: source.fileId,
+      sectionIds: prepared.map(({ mapping }) => mapping.sectionId)
+    };
+  }
+
   async function loadSection(sectionId, kind, entries) {
     const item = model[sectionId];
     const number = library.normalizeLibraryNumber(item && item.sourceValue);
@@ -70,8 +108,8 @@
   }
 
   window.loadPptLibraryContent = async function(sectionIds) {
-    const entries = await getIndex();
-    const targets = [
+    const profile = window.activeWorshipTemplateProfile || {};
+    const defaultTargets = [
       ['pre-hymn-1', 'hymn'],
       ['pre-hymn-2', 'hymn'],
       ['hymn-1', 'hymn'],
@@ -81,9 +119,22 @@
       ['prayer-song', 'hymn'],
       ['offering', 'hymn'],
       ['amen', 'hymn']
-    ].filter(([sectionId]) => !sectionIds || sectionIds.includes(sectionId));
+    ];
+    const targets = (Array.isArray(profile.librarySections) ? profile.librarySections : defaultTargets)
+      .filter(([sectionId]) => !sectionIds || sectionIds.includes(sectionId));
+    if (!targets.length) return [];
+    const entries = await getIndex();
     return Promise.all(targets.map(([sectionId, kind]) => loadSection(sectionId, kind, entries)));
   };
+
+  window.loadExternalPresentationSources = async function(sourceIds) {
+    const profile = window.activeWorshipTemplateProfile || {};
+    const sources = (Array.isArray(profile.externalPresentations) ? profile.externalPresentations : [])
+      .filter(source => !sourceIds || sourceIds.includes(source.id));
+    return Promise.all(sources.map(loadExternalPresentationSource));
+  };
+
+  window.worshipExternalPresentationsReady = Promise.resolve([]);
 
   window.reloadCurrentPptLibrarySection = async function() {
     const result = await window.loadPptLibraryContent([active]);
@@ -92,8 +143,27 @@
   };
 
   window.addEventListener('load', () => {
-    window.loadPptLibraryContent(['prayer-song', 'offering', 'amen'])
+    const profile = window.activeWorshipTemplateProfile || {};
+    const fixedSections = Array.isArray(profile.fixedLibrary)
+      ? profile.fixedLibrary.map(item => item.sectionId)
+      : ['prayer-song', 'offering', 'amen'];
+    if (!fixedSections.length) return;
+    window.loadPptLibraryContent(fixedSections)
       .then(() => render())
       .catch(error => console.warn('固定聖詩載入失敗：', error));
+  });
+
+  window.addEventListener('load', () => {
+    const profile = window.activeWorshipTemplateProfile || {};
+    if (!Array.isArray(profile.externalPresentations) || !profile.externalPresentations.length) return;
+    window.worshipExternalPresentationsReady = window.loadExternalPresentationSources()
+      .then(result => {
+        render();
+        return result;
+      })
+      .catch(error => {
+        console.warn('固定 Google 簡報載入失敗，保留內建備援頁面：', error);
+        return [];
+      });
   });
 })();

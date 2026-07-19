@@ -16,6 +16,7 @@ const {
   pointsToCanvasCqw,
   canvasCqwToPoints,
   wrapTextForBox,
+  defaultLayoutForPage,
   resolvedLayoutForPage,
   composeLibraryPages,
   applyFixedLibraryDefaults
@@ -90,6 +91,39 @@ test('uses the report reflow layout as the default for newly generated report pa
   assert.equal(params.contentW, 92);
   assert.equal(params.contentH, 72);
   assert.equal(params.lineSpacing, 1.2);
+});
+
+test('keeps independent bounds and colors for the two liturgical content frames', () => {
+  const params = resolvedLayoutForPage(
+    { groups: {}, pageAssignments: {} },
+    { id: 'creed:1', sectionId: 'creed', kind: 'dual-liturgical' },
+    {}
+  );
+  assert.ok(params.contentX < params.secondaryContentX);
+  assert.ok(params.contentX + params.contentW <= params.secondaryContentX);
+  assert.equal(params.contentColor, '#000000');
+  assert.equal(params.secondaryContentColor, '#0070C0');
+  assert.equal(params.contentSize, 48);
+  assert.equal(params.secondaryContentSize, 48);
+});
+
+test('uses supplied per-page template geometry before shared layout overrides', () => {
+  const page = {
+    id: 'creed:1',
+    kind: 'dual-liturgical',
+    layout: { contentX: 6.25, secondaryContentX: 52.5, titleY: 4.75 }
+  };
+  assert.deepEqual(
+    resolvedLayoutForPage({ groups: {}, pageAssignments: {} }, page, {}),
+    {
+      ...defaultLayoutForPage(page, {}),
+      ...page.layout
+    }
+  );
+  assert.equal(resolvedLayoutForPage({
+    groups: { adjusted: { id: 'adjusted', params: { contentX: 9 } } },
+    pageAssignments: { 'creed:1': 'adjusted' }
+  }, page, {}).contentX, 9);
 });
 
 test('vertically centers praise and sermon title groups by their detail line count', () => {

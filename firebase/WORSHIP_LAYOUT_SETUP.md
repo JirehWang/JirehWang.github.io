@@ -1,10 +1,13 @@
-# 禮拜PPT產生器共用版面 Firebase 設定
+# 禮拜PPT產生器版面 Firebase 設定
 
-版面群組的雲端來源為 Realtime Database：
+版面群組的雲端來源為 Realtime Database。台語模板保留既有共用路徑，其他模板使用獨立路徑，避免相同頁面 ID 互相覆寫：
 
 ```text
 worshipPpt/layoutConfig/shared
+worshipPpt/layoutConfig/templates/{templateId}
 ```
+
+目前「聯合－華語」使用 `worshipPpt/layoutConfig/templates/joint-mandarin`。
 
 瀏覽器的 `localStorage` 只作首次遷移來源與離線備份。背景圖片及每週內容不會寫進此 RTDB 節點。
 
@@ -23,7 +26,7 @@ worshipPpt/layoutConfig/shared
 
 規則效果：
 
-- 所有人可讀取共用版面，因此投影工作站不必先登入。
+- 所有人可讀取台語共用版面與各模板版面，因此投影工作站不必先登入。
 - 只有 Firebase Auth email 為 `worship-layout@lkc1958.org` 的使用者可以寫入。
 - 寫入內容限制為 schema version、layout state、更新時間與更新者 UID。
 

@@ -6,6 +6,7 @@ const path = require('node:path');
 const {
   AUTH_EMAIL,
   SHARED_LAYOUT_PATH,
+  layoutPathForTemplate,
   chooseLayoutStateForLoad,
   createLayoutCloudStore,
   normalizeLayoutState
@@ -62,6 +63,23 @@ test('loads the one church-wide layout from the dedicated RTDB path', async () =
 
   assert.deepEqual(await store.load(), state);
   assert.equal(SHARED_LAYOUT_PATH, 'worshipPpt/layoutConfig/shared');
+});
+
+test('isolates the joint Mandarin layout from Taiwanese page assignments', async () => {
+  const fixture = firebaseFixture({ schemaVersion: 1, layoutState: { groups: {}, pageAssignments: {} } });
+  const store = createLayoutCloudStore({ loadFirebase: async () => fixture.api, templateId: 'joint-mandarin' });
+  await store.load();
+  assert.equal(layoutPathForTemplate('joint-mandarin'), 'worshipPpt/layoutConfig/templates/joint-mandarin');
+  assert.equal(layoutPathForTemplate('taiwanese'), SHARED_LAYOUT_PATH);
+});
+
+test('declares matching Firebase rules for template-specific layout paths', () => {
+  const rulesPath = path.resolve(__dirname, '..', '..', 'firebase', 'database.rules.worship-layout.json');
+  const rules = JSON.parse(fs.readFileSync(rulesPath, 'utf8'));
+  const templates = rules.rules.worshipPpt.layoutConfig.templates;
+  assert.ok(templates.$templateId);
+  assert.equal(templates.$templateId['.read'], true);
+  assert.match(templates.$templateId['.write'], /worship-layout@lkc1958\.org/);
 });
 
 test('keeps a pending local layout instead of replacing it with older cloud data', () => {

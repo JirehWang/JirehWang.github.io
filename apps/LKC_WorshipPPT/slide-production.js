@@ -124,19 +124,45 @@
     return lines.join('\n');
   }
 
-  function buildBiblePages(sectionId, label, reference, records, versesPerPage = 2) {
+  function buildBiblePages(sectionId, label, reference, records, versesPerPage = 2, options = {}) {
     const safeRecords = Array.isArray(records) ? records : [];
+    const pageSize = Math.max(1, Number(versesPerPage) || 2);
+    const recordPages = [];
+    let currentPage = [];
+    safeRecords.forEach(record => {
+      const crossesQueryGroup = currentPage.length > 0
+        && currentPage[0].queryGroupKey
+        && record.queryGroupKey
+        && currentPage[0].queryGroupKey !== record.queryGroupKey;
+      if (crossesQueryGroup || currentPage.length >= pageSize) {
+        recordPages.push(currentPage);
+        currentPage = [];
+      }
+      currentPage.push(record);
+    });
+    if (currentPage.length) recordPages.push(currentPage);
+
     const pages = [];
-    for (let index = 0; index < safeRecords.length; index += versesPerPage) {
-      const pageRecords = safeRecords.slice(index, index + versesPerPage);
+    recordPages.forEach(pageRecords => {
+      const firstRecord = pageRecords[0];
+      const hasQueryContext = firstRecord && firstRecord.queryBookName && firstRecord.queryChap != null;
+      let titleReference = reference;
+      if (hasQueryContext) {
+        const firstSec = firstRecord.sec;
+        const lastSec = pageRecords[pageRecords.length - 1].sec;
+        const verseRange = pageRecords.length === 1 ? firstSec : `${firstSec}-${lastSec}`;
+        titleReference = `${firstRecord.queryBookName} ${firstRecord.queryChap}:${verseRange}`;
+      }
       pages.push({
         id: `${sectionId}:${pages.length + 1}`,
         kind: 'scripture',
-        title: `${label}－${reference}`,
+        title: `${label}－${titleReference}`,
         body: pageRecords.map(record => `${record.sec} ${cleanText(record.bible_text || record.text)}`).join('\n\n'),
+        languageLabel: options.languageLabel || '',
+        bibleVersion: options.bibleVersion || '',
         layout: {}
       });
-    }
+    });
     return pages;
   }
 
@@ -243,12 +269,40 @@
     ensureLayoutState(state);
     const groupId = state.pageAssignments[page.id];
     const groupParams = groupId && state.groups[groupId] ? state.groups[groupId].params : {};
-    return { ...groupParams, ...(page.layout || {}) };
+    return { ...(page.layout || {}), ...groupParams };
   }
 
   function defaultLayoutForPage(page, item) {
     if (!page || page.kind === 'ppt-import') return {};
     const defaults = { ...DEFAULT_LAYOUT_PARAMS };
+    if (page.kind === 'dual-liturgical') {
+      return {
+        ...defaults,
+        titleSize: 60,
+        titleX: 6.9,
+        titleY: 5.3,
+        titleW: 86.2,
+        titleH: 19.4,
+        titleAlign: 'center',
+        titleColor: '#000000',
+        contentSize: 48,
+        contentX: 5.9,
+        contentY: 23.3,
+        contentW: 42,
+        contentH: 66.5,
+        contentAlign: 'left',
+        contentColor: '#000000',
+        lineSpacing: 1.5,
+        secondaryContentSize: 48,
+        secondaryContentX: 51.1,
+        secondaryContentY: 23.3,
+        secondaryContentW: 43,
+        secondaryContentH: 66.5,
+        secondaryContentAlign: 'left',
+        secondaryContentColor: '#0070C0',
+        secondaryLineSpacing: 1.5
+      };
+    }
     if (page.kind === 'cover') {
       return {
         ...defaults,

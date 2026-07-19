@@ -29,7 +29,7 @@
    };
    ```
 
-6. 把這六個欄位的值複製到 `firebase/firebase-config.js`，覆蓋 `TODO_*` 的部分
+6. 把這六個欄位的值複製到 `firebase/firebase-config-values.js`，覆蓋現有的公開 Web 設定值
 
 > ⚠️ Web 端的 `apiKey` 不是機密金鑰，可以公開。真正的權限控制要設定下面的 Firestore Security Rules。
 
@@ -91,6 +91,7 @@ service cloud.firestore {
 
 | 檔案 | 用途 |
 |------|------|
-| `firebase-config.js` | 初始化 Firebase App + Firestore（**請填入你的設定值**） |
+| `firebase-config-values.js` | 共用的 Firebase Web 設定與 App bootstrap；可由傳統 `<script>` 或 ES module 載入 |
+| `firebase-config.js` | 從共用 bootstrap 取得 Firebase App，並初始化 Firestore 與 RTDB |
 | `firebase-cache.js` | 快取 API：`cacheGet` / `cacheSet` / `cacheDelete` / `cacheGetOrFetch` |
 | `example.html` | 手動測試頁，含三個按鈕 |

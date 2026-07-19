@@ -1,7 +1,12 @@
 (function() {
   const previousEditor = editor;
-  const generatedIds = new Set(['call', 'scripture', 'verse']);
-  const portIds = new Set(['pre-hymn-1', 'pre-hymn-2', 'hymn-1', 'hymn-2', 'response', 'prayer-song', 'offering', 'doxology', 'amen']);
+  const profile = window.activeWorshipTemplateProfile || {};
+  const generatedIds = new Set(Array.isArray(profile.bibleSections)
+    ? profile.bibleSections.map(item => item.sectionId)
+    : ['call', 'scripture', 'verse']);
+  const portIds = new Set(Array.isArray(profile.librarySections)
+    ? profile.librarySections.map(item => item[0])
+    : ['pre-hymn-1', 'pre-hymn-2', 'hymn-1', 'hymn-2', 'response', 'prayer-song', 'offering', 'doxology', 'amen']);
   const hymnOpacityIds = new Set(window.hymnOpacitySectionIds || []);
 
   editor = function() {
@@ -10,7 +15,7 @@
     const form = document.getElementById('editor-form');
     const sourceLabel = generatedIds.has(active) ? '行事曆輸入值（經文範圍）' : '行事曆輸入值（資料庫索引）';
     const note = generatedIds.has(active)
-      ? '此值只作為經文查詢條件；投影片內容由台語聖經資料產生器建立。'
+      ? `此值只作為經文查詢條件；投影片內容由${Array.isArray(profile.bibleVersions) && profile.bibleVersions.length > 1 ? '台語／華語' : '台語'}聖經資料產生器建立。`
       : '此值只作為資料庫索引；按下方按鈕後會從雲端下載並解析原始 PPTX。';
     form.innerHTML = `<div class="inline-note">${note}</div>${field(sourceLabel, 'sourceValue', item.sourceValue || '')}`;
     if (generatedIds.has(active)) {

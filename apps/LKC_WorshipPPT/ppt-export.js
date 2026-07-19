@@ -53,6 +53,8 @@
     const model = options.model || root.model;
     const backgroundColor = options.backgroundColor || root.backgroundColor;
     const backgroundImage = options.backgroundImage || root.backgroundImage;
+    const templateProfile = options.templateProfile || root.activeWorshipTemplateProfile || {};
+    const templateAssets = options.templateAssets || root.worshipTemplateAssets || {};
     const reflowReportPagesFn = options.reflowReportPages || root.reflowReportPagesForLayout;
     const serviceDate = options.serviceDate || (document.getElementById('service-date') && document.getElementById('service-date').value) || '';
     const outputScale = layoutState && layoutState.outputScale || {};
@@ -60,10 +62,10 @@
     const textScale = normalizeScale(outputScale.text) / 100;
     const imageScale = normalizeScale(outputScale.image) / 100;
     const scaledFont = value => Number(value) * textScale;
-    const wrapNativeText = (value, params, prefix) => production.wrapTextForBox
+    const wrapNativeText = (value, params, prefix, boxWidthMultiplier = 1) => production.wrapTextForBox
       ? production.wrapTextForBox(value, {
           fontSize: scaledFont(params[`${prefix}Size`]),
-          boxWidth: params[`${prefix}W`],
+          boxWidth: Number(params[`${prefix}W`]) * boxWidthMultiplier,
           bold: true
         })
       : value;
@@ -97,8 +99,12 @@
       const slide = pptx.addSlide();
 
       // 1. Background
-      if (backgroundImage) {
-        slide.background = { data: backgroundImage };
+      const isDarkTemplatePage = entry.kind === 'offering-guide' || entry.kind === 'thanksgiving';
+      const standardBackground = backgroundImage || templateAssets.background;
+      if (isDarkTemplatePage) {
+        slide.background = { fill: '000000' };
+      } else if (standardBackground) {
+        slide.background = { data: standardBackground };
       } else {
         slide.background = { fill: bgFill };
       }
@@ -220,7 +226,7 @@
         const [year, month, day] = serviceDate ? serviceDate.split('-') : [];
         const formattedDate = serviceDate ? `主後${year}年${month}月${day}日` : '';
         // Title
-        slide.addText('台語主日禮拜', {
+        slide.addText(templateProfile.coverTitle || '台語主日禮拜', {
           x: slideX(params.titleX),
           y: slideY(params.titleY),
           w: slideX(params.titleW),
@@ -246,6 +252,69 @@
           valign: 'top',
           bold: true,
           margin: 0
+        });
+      } else if (entry.kind === 'dual-liturgical') {
+        const primaryText = [entry.primaryLabel ? `(${entry.primaryLabel})` : '', entry.primaryBody || ''].filter(Boolean).join('\n');
+        const secondaryText = [entry.secondaryLabel ? `(${entry.secondaryLabel})` : '', entry.secondaryBody || ''].filter(Boolean).join('\n');
+        const showTitle = entry.showTitle !== false;
+        if (showTitle && (entry.title || entry.sectionLabel)) {
+          slide.addText(wrapNativeText(entry.title || entry.sectionLabel, params, 'title'), {
+            x: slideX(params.titleX), y: slideY(params.titleY),
+            w: slideX(params.titleW), h: slideY(params.titleH),
+            fontSize: scaledFont(params.titleSize || 60),
+            color: (params.titleColor || '#000000').replace('#', ''),
+            fontFace: 'Microsoft JhengHei', align: params.titleAlign || 'center',
+            valign: 'top', bold: true, margin: 0
+          });
+        }
+        slide.addText(wrapNativeText(primaryText, params, 'content', 1 / 0.92), {
+          x: slideX(params.contentX), y: slideY(params.contentY),
+          w: slideX(params.contentW), h: slideY(params.contentH),
+          fontSize: scaledFont(params.contentSize || 48),
+          color: (params.contentColor || entry.primaryColor || '#000000').replace('#', ''),
+          fontFace: 'Microsoft JhengHei', align: params.contentAlign || 'left',
+          valign: 'top', bold: true,
+          lineSpacing: Math.round(scaledFont(params.contentSize || 48) * (params.lineSpacing || 1.5)),
+          margin: 0
+        });
+        slide.addText(wrapNativeText(secondaryText, params, 'secondaryContent', 1 / 0.92), {
+          x: slideX(params.secondaryContentX), y: slideY(params.secondaryContentY),
+          w: slideX(params.secondaryContentW), h: slideY(params.secondaryContentH),
+          fontSize: scaledFont(params.secondaryContentSize || 48),
+          color: (params.secondaryContentColor || entry.secondaryColor || '#0070C0').replace('#', ''),
+          fontFace: 'Microsoft JhengHei', align: params.secondaryContentAlign || 'left',
+          valign: 'top', bold: true,
+          lineSpacing: Math.round(scaledFont(params.secondaryContentSize || 48) * (params.secondaryLineSpacing || 1.5)),
+          margin: 0
+        });
+      } else if (entry.kind === 'full-image') {
+        const imageData = templateAssets[entry.assetKey] || entry.src;
+        if (imageData) slide.addImage({ data: imageData, x: 0, y: 0, w: SLIDE_WIDTH, h: SLIDE_HEIGHT });
+      } else if (entry.kind === 'offering-guide') {
+        slide.addText(entry.title || '【奉獻】', {
+          x: 0, y: 0.35, w: SLIDE_WIDTH, h: 0.85,
+          fontSize: scaledFont(66.7), color: 'FFFFFF', fontFace: 'Microsoft JhengHei',
+          align: 'center', valign: 'middle', bold: true, margin: 0
+        });
+        const lines = String(entry.body || '').split('\n');
+        lines.forEach((line, index) => {
+          const color = index === 2 || index === 3 ? 'FF6699' : 'FFFFFF';
+          slide.addText(line, {
+            x: 0.6, y: 1.45 + index * 0.78, w: 12.1, h: 0.72,
+            fontSize: scaledFont(50.7), color, fontFace: 'Microsoft JhengHei',
+            align: 'center', valign: 'middle', bold: index === 2 || index === 3, margin: 0
+          });
+        });
+      } else if (entry.kind === 'thanksgiving') {
+        slide.addText(entry.body || '', {
+          x: 0.25, y: 0.12, w: 12.83, h: 6.35,
+          fontSize: scaledFont(50.7), color: 'FFFFFF', fontFace: 'Microsoft JhengHei',
+          align: 'center', valign: 'top', bold: true, lineSpacing: scaledFont(58), margin: 0
+        });
+        slide.addText(entry.title || '獻上感恩', {
+          x: 4.22, y: 6.45, w: 4.89, h: 0.7,
+          fontSize: scaledFont(58.7), color: 'FFFFFF', fontFace: 'Microsoft JhengHei',
+          align: 'center', valign: 'middle', bold: true, underline: true, margin: 0
         });
       } else if (entry.kind === 'praise-title' || entry.kind === 'sermon-title') {
         slide.addText(wrapNativeText(titlePageTitle, params, 'title'), {
@@ -359,7 +428,9 @@
 
         // Subtitles mapping
         const defaultBody = entry.kicker || (modelEntry && modelEntry.kicker) || SECTION_SUBTITLES[entry.sectionLabel] || '';
-        const bodyText = entry.body || defaultBody;
+        const bodyText = entry.kind === 'scripture' && entry.languageLabel
+          ? [`(${entry.languageLabel})`, entry.body || defaultBody].filter(Boolean).join('\n')
+          : entry.body || defaultBody;
 
         if (bodyText) {
           slide.addText(wrapNativeText(bodyText, params, 'content'), {
@@ -381,7 +452,7 @@
     });
 
     const fileDate = serviceDate || new Date().toISOString().split('T')[0];
-    const fileName = `台語主日禮拜_${fileDate}.pptx`;
+    const fileName = `${templateProfile.filenamePrefix || '台語主日禮拜'}_${fileDate}.pptx`;
 
     if (typeof pptx.write === 'function' && typeof document !== 'undefined') {
       return pptx.write('blob').then(async (blob) => {

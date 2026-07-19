@@ -2,6 +2,8 @@
   const button = document.getElementById('calendar-load');
   button.onclick = async function() {
     const date = document.getElementById('service-date').value;
+    const profile = window.activeWorshipTemplateProfile || {};
+    const eventLabel = profile.calendarSelector && profile.calendarSelector.typeFullName || '講道資訊-台語';
     if (!date) return status('請先選擇禮拜日期');
     try {
       button.disabled = true;
@@ -11,25 +13,30 @@
         : Promise.resolve({ error: '週報讀取模組未載入' });
       const result = await window.worshipReadAPI('cal_getEvents', { startDate: date, endDate: date });
       const events = Array.isArray(result && result.data) ? result.data : [];
-      const event = window.TaiwaneseWorshipCalendarAdapter.selectTaiwaneseSermonEvent(events, date);
-      let calendarSummary = `找不到 ${date} 的「講道資訊－台語」資料`;
+      const event = window.TaiwaneseWorshipCalendarAdapter.selectSermonEvent(events, date, profile.calendarSelector);
+      let calendarSummary = `找不到 ${date} 的「${eventLabel}」資料`;
       let libraryResults = [];
       if (event) {
         window.TaiwaneseWorshipCalendarAdapter.applyCalendarEvent(event, model);
         await window.generateCalendarContent();
-        libraryResults = await window.loadPptLibraryContent();
-        calendarSummary = `已帶入「講道資訊－台語」：${event.title || date}`;
+        libraryResults = Array.isArray(profile.librarySections) && profile.librarySections.length
+          ? await window.loadPptLibraryContent()
+          : [];
+        calendarSummary = `已帶入「${eventLabel}」：${event.title || date}`;
       }
       const bulletinResult = await bulletinPromise;
       render();
       const loadedPages = libraryResults.reduce((total, item) => total + (item.pageCount || 0), 0);
       const missing = libraryResults.filter(item => item.state === 'missing');
-      const librarySummary = event ? `資料庫 ${loadedPages} 頁${missing.length ? `，${missing.length} 項找不到` : ''}` : '未載入聖詩／啟應文';
+      const usesLibrary = Array.isArray(profile.librarySections) && profile.librarySections.length > 0;
+      const librarySummary = usesLibrary
+        ? (event ? `資料庫 ${loadedPages} 頁${missing.length ? `，${missing.length} 項找不到` : ''}` : '未載入聖詩／啟應文')
+        : '此模板不使用聖詩／啟應文資料庫';
       const bulletinSummary = window.describeBulletinPptContent(bulletinResult);
       status(`${calendarSummary}；${librarySummary}；${bulletinSummary}`);
       const reminderApi = window.TaiwaneseWorshipSourceReminders;
       const reminders = reminderApi && typeof reminderApi.buildMissingSourceReminders === 'function'
-        ? reminderApi.buildMissingSourceReminders({ date, event, model, bulletinResult, libraryResults })
+        ? reminderApi.buildMissingSourceReminders({ date, event, model, bulletinResult, libraryResults, profile })
         : [];
       if (reminders.length && typeof window.alert === 'function') {
         window.alert(reminderApi.formatMissingSourceReminder(reminders));

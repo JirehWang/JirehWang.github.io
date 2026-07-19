@@ -52,8 +52,9 @@ preview = function() {
   const background = document.querySelector('.slide-background');
   document.getElementById('preview-name').textContent = item.label;
   document.getElementById('slide-count').textContent = `${previewPage + 1} / ${pages.length}`;
-  background.style.backgroundImage = backgroundImage ? `url("${backgroundImage}")` : 'none';
-  background.style.backgroundColor = backgroundColor;
+  const isDarkTemplatePage = page.kind === 'offering-guide' || page.kind === 'thanksgiving';
+  background.style.backgroundImage = !isDarkTemplatePage && backgroundImage ? `url("${backgroundImage}")` : 'none';
+  background.style.backgroundColor = isDarkTemplatePage ? '#000000' : backgroundColor;
   background.style.opacity = 1;
   const content = document.getElementById('slide-content');
   const previewEntry = { ...page, sectionId: active, sectionLabel: item.label };
@@ -76,15 +77,34 @@ preview = function() {
     const [year, month, day] = date ? date.split('-') : [];
     const formatted = date ? `主後${year}年${month}月${day}日` : '';
     content.className = 'slide-content template-cover';
-    content.innerHTML = `<h1>台語主日禮拜</h1><p>${formatted}</p>`;
+    content.innerHTML = `<h1>${safeHtml((window.activeWorshipTemplateProfile && window.activeWorshipTemplateProfile.coverTitle) || '台語主日禮拜')}</h1><p>${formatted}</p>`;
   }
   else if (page.kind === 'content') content.className = 'slide-content template-content', content.innerHTML = `<h1>${title}</h1><div class="body">${safeHtml(page.body)}</div>`;
   else if (page.kind === 'report') content.className = 'slide-content template-report', content.innerHTML = `<h1>${title}</h1><div class="body">${safeHtml(page.body)}</div>`;
-  else if (page.kind === 'scripture') content.className = 'slide-content template-content template-scripture', content.innerHTML = `<h1>${title}</h1><div class="body">${safeHtml(page.body)}</div>`;
+  else if (page.kind === 'scripture') content.className = 'slide-content template-content template-scripture', content.innerHTML = `<h1>${title}</h1><div class="body">${safeHtml([page.languageLabel ? `(${page.languageLabel})` : '', page.body].filter(Boolean).join('\n'))}</div>`;
   else if (page.kind === 'liturgical') {
     const alignment = page.align === 'center' ? ' is-centered' : ' is-left';
     content.className = `slide-content template-liturgical${alignment}${page.showTitle === false ? ' no-title' : ''}`;
     content.innerHTML = `${page.showTitle === false ? '' : `<h1>${title}</h1>`}<div class="body">${safeHtml(page.body)}</div>`;
+  }
+  else if (page.kind === 'dual-liturgical') {
+    content.className = 'slide-content template-dual-liturgical';
+    content.innerHTML = `${page.showTitle === false ? '' : `<h1>${title}</h1>`}<div class="body body-primary">${safeHtml([page.primaryLabel ? `(${page.primaryLabel})` : '', page.primaryBody].filter(Boolean).join('\n'))}</div><div class="body body-secondary">${safeHtml([page.secondaryLabel ? `(${page.secondaryLabel})` : '', page.secondaryBody].filter(Boolean).join('\n'))}</div>`;
+  }
+  else if (page.kind === 'full-image') {
+    const profileAssets = window.activeWorshipTemplateProfile && window.activeWorshipTemplateProfile.assets || {};
+    const src = window.worshipTemplateAssets && window.worshipTemplateAssets[page.assetKey] || profileAssets[page.assetKey] || '';
+    content.className = 'slide-content template-full-image';
+    content.innerHTML = `<img src="${safeAttr(src)}" alt="">`;
+  }
+  else if (page.kind === 'offering-guide') {
+    const lines = String(page.body || '').split('\n');
+    content.className = 'slide-content template-offering-guide';
+    content.innerHTML = `<h1>${title}</h1><div class="body">${lines.map((line, index) => `<span class="offering-line offering-line-${index + 1}">${safeHtml(line)}</span>`).join('')}</div>`;
+  }
+  else if (page.kind === 'thanksgiving') {
+    content.className = 'slide-content template-thanksgiving';
+    content.innerHTML = `<div class="body">${safeHtml(page.body)}</div><h1>${title}</h1>`;
   }
   else if (page.kind === 'praise-title') {
     const details = [page.title || item.title, page.kicker || item.kicker].filter(Boolean).join('\n');
