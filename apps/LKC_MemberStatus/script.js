@@ -2,7 +2,8 @@ const state = {
   members: [],
   filters: { groups: [], ministries: [] },
   unresolved: [],
-  selectedUid: ''
+  selectedUid: '',
+  participationExpanded: false
 };
 
 window.addEventListener('load', init);
@@ -23,6 +24,10 @@ function bindEvents() {
   document.getElementById('sundaySchoolFilter').addEventListener('change', renderMemberList);
   document.getElementById('groupAttendanceFilter').addEventListener('change', renderMemberList);
   document.getElementById('participationFilter').addEventListener('change', renderMemberList);
+  document.getElementById('participationToggle').addEventListener('click', () => {
+    state.participationExpanded = !state.participationExpanded;
+    renderMemberList();
+  });
 }
 
 async function loadMembers() {
@@ -37,9 +42,6 @@ async function loadMembers() {
     populateFilters();
     renderMetrics();
     renderMemberList();
-    if (state.members.length && !state.selectedUid) {
-      await selectMember(state.members[0].uid);
-    }
   } catch (error) {
     renderError(error);
   } finally {
@@ -185,10 +187,14 @@ function matchesParticipation(participation, filter) {
 
 function renderParticipationMap(rows) {
   const container = document.getElementById('participationMap');
+  const toggle = document.getElementById('participationToggle');
   document.getElementById('visibleCount').textContent = `${rows.length} 人`;
-  const sorted = rows.slice()
-    .sort((a, b) => getParticipationCount(b) - getParticipationCount(a) || String(a.name || '').localeCompare(String(b.name || ''), 'zh-Hant'))
-    .slice(0, 24);
+  const sorted = getVisibleParticipationRows(rows, state.participationExpanded);
+  const canExpand = rows.length > 24;
+  toggle.hidden = !canExpand;
+  toggle.setAttribute('aria-expanded', String(canExpand && state.participationExpanded));
+  toggle.textContent = state.participationExpanded ? '收起名單' : `顯示完整 ${rows.length} 人`;
+  container.classList.toggle('expanded', canExpand && state.participationExpanded);
   if (!sorted.length) {
     container.innerHTML = '<p class="muted">沒有符合條件的會友</p>';
     return;
@@ -211,6 +217,12 @@ function renderParticipationMap(rows) {
   container.querySelectorAll('.participation-row').forEach(row => {
     row.addEventListener('click', () => selectMember(row.dataset.uid));
   });
+}
+
+function getVisibleParticipationRows(rows, expanded) {
+  const sorted = (rows || []).slice()
+    .sort((a, b) => getParticipationCount(b) - getParticipationCount(a) || String(a.name || '').localeCompare(String(b.name || ''), 'zh-Hant'));
+  return expanded ? sorted : sorted.slice(0, 24);
 }
 
 function getParticipationCount(member) {

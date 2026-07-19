@@ -135,6 +135,29 @@ h1 {
   font-size: 18px;
 }
 
+.participation-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.text-btn {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 11px;
+}
+
+.text-btn:hover,
+.text-btn:focus-visible {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
 .participation-map {
   display: grid;
   gap: 8px;
@@ -533,6 +556,17 @@ h1 {
 
   .participation-row {
     grid-template-columns: 92px minmax(0, 1fr) 42px;
+  }
+
+  .panel-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .participation-actions {
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
   }
 
   .dot-track {

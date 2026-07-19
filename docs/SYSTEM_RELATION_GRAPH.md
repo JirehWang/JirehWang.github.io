@@ -435,7 +435,8 @@ flowchart TD
 | 事工系統：非小組聚會模板 + `scheduleMode=schedule` 或舊資料未設定 | 讀名單 + 近一年班表，統計教會事工服事；`姓名` / `成員` 等名單欄位不當作服事欄位 |
 | 事工系統：非小組聚會模板 + `scheduleMode=membersOnly` | 只讀名單，判斷是否屬於該教會事工；不讀班表 |
 | 敬拜團 | 讀近一年 `getScheduleByDateRange` 服事紀錄；前端經 `worship_getScheduleByDateRange` 讀取，會友狀態後端在合併主 GAS 內直接呼叫同一組函式 |
-| 事工參與量 | `groupMinistries + churchMinistries + worship.positions` 產生 `participation`，前端以點陣圖呈現高低 |
+| 事工參與量 | `groupMinistries + churchMinistries + worship.positions` 產生 `participation`；前端點陣圖預設顯示排序前 24 位，點擊「顯示完整 N 人」後呈現目前篩選結果的完整名單 |
+| 前端請求時機 | 首次載入只呼叫 `memberStatus_getMembers`；使用者點選會友後才呼叫 `memberStatus_getProfile`，避免首屏額外等待一次 GAS 往返 |
 | 門訓 | 保留 `discipleship` 欄位，第一版回 `unknown` |
 | 無法配對姓名 | 放入 `unresolvedParticipants`，不硬配 UID |
 

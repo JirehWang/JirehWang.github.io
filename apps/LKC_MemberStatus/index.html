@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>同工服事狀態管理系統</title>
-  <link rel="stylesheet" href="style.css?v=20260702_1">
+  <link rel="stylesheet" href="style.css?v=20260719_1">
   <link rel="manifest" href="../../manifest.json">
   <script>window._GAS_KEY = 'LKC_MemberStatus';</script>
   <script src="../../config.js?v=20260702_member_status"></script>
@@ -57,7 +57,12 @@
     <section class="participation-panel" aria-label="事工參與分布">
       <div class="panel-heading">
         <h2>事工參與分布</h2>
-        <span id="visibleCount" class="muted">0 人</span>
+        <div class="participation-actions">
+          <span id="visibleCount" class="muted">0 人</span>
+          <button id="participationToggle" class="text-btn" type="button" hidden aria-expanded="false">
+            顯示完整名單
+          </button>
+        </div>
       </div>
       <div id="participationMap" class="participation-map"></div>
     </section>
@@ -125,6 +130,6 @@
     </button>
   </template>
 
-  <script src="script.js?v=20260702_1"></script>
+  <script src="script.js?v=20260719_1"></script>
 </body>
 </html>
