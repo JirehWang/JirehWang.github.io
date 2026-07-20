@@ -24,6 +24,38 @@ flowchart LR
 - `LKC_MinistrySchedule/script.js` 讀取 `pageFieldConfig` 時，以 GAS 已儲存欄位設定覆蓋同名 localStorage 欄位；只保留本機獨有暫存欄位，避免瀏覽器舊快取阻斷新的小組群 datalist。
 - 新家人服事模板同時輸出角色專用 datalist 與完整 `customMembersList`；班表中任何 `useMemberList=true` 的自訂欄位，皆可取得已儲存的同工或小組群名單。
 - 聚會型模板的 `members`（核心＋一般）與 `coreMembers`（核心＋陪伴）由主 GAS 依小組角色提供；前端不得以事工自訂名單覆蓋前者，分別供破冰／敬拜與話語分享等欄位使用。
+- 事工頁面的正式索引位於事工管理 Google Sheet 的 `Config` 工作表；Firebase `ministry_getPageConfig` 只是成功讀取結果的快取，不參與分頁身分判定或鎖定。
+- `ministry_createGroup` 與 `ministry_autoSyncSmallGroups` 必須在合併主 GAS 內共用 ScriptLock。鎖內重新讀 Config，依小組 UUID、正規化 ID、名稱比對並修復缺少的 Config／工作表，避免多手機或定時同步重複建立同名 Sheet。
+
+### 事工分頁並行建立／修復
+
+```mermaid
+sequenceDiagram
+    participant Client as 多台手機／小組入口
+    participant GAS as 合併主 GAS
+    participant Lock as ScriptLock
+    participant MinistrySheet as 事工 Sheet：Config + 分頁
+    participant Firebase as Firebase RTDB cache
+
+    Client->>GAS: ministry_getPageConfig(id, autoCreate=true)
+    GAS->>Lock: waitLock
+    Lock-->>GAS: 依序進入
+    GAS->>MinistrySheet: 重新讀 Config（UUID／正規化 ID／名稱）
+    alt Config 與工作表皆存在
+        GAS->>MinistrySheet: 不建立，直接沿用
+    else 工作表存在但 Config 缺失
+        GAS->>MinistrySheet: 只補 Config
+    else Config 存在但工作表缺失
+        GAS->>MinistrySheet: 只補工作表
+    else 兩者皆不存在
+        GAS->>MinistrySheet: 建立工作表後寫入 Config
+    end
+    GAS->>Lock: releaseLock
+    GAS->>Firebase: 失效 ministry_getPageConfig 等 topics
+    GAS-->>Client: 所有請求讀取同一分頁
+```
+
+- ScriptLock 只保護同一個 GAS 專案；因此事工 Sheet 的寫入責任必須集中在合併主 GAS。舊獨立事工 GAS 若仍有寫入 trigger，應停用或改成只讀；若未來確實需要跨 GAS 專案共同寫入，才評估以 Firebase transaction 實作有租期的分散式鎖。
 
 > 產生方式：使用 codebase MCP 對前端 `D:\program\Github\LKC1958_June_1.github.io` 與後端 `D:\program\LKC` 建立索引後，搭配實際入口檔案核對整理。
 >
@@ -296,6 +328,7 @@ flowchart TB
 |---|---|---|
 | 事工管理 | 非 `小組聚會表模板` / `團契聚會表模板` 的事工頁面增加 `pageFieldConfig.scheduleMode`，可在 `schedule` 與 `membersOnly` 間切換 | `schedule` 沿用既有班表資料流；`membersOnly` 只維護 `ministry_saveGroupMembers` 成員名單，不讀班表。舊資料未設定時視為 `schedule`，保留既有行為 |
 | 事工管理 | `ministry_savePageFieldConfig` 會保存 `scheduleMode` | 需要同步失效 `ministry_getPageConfig`、`ministry_getAggregatedReport` 與 `memberStatus_*`，避免會友狀態仍讀到舊模式 |
+| 事工管理 | 小組入口自動建立改為鎖內冪等 ensure；定時同步共用同一 ScriptLock，並沿用小組 UUID | 多手機與定時 trigger 同時進入時只建立一份；工作表／Config 任一缺失時自動補齊，Firebase 仍只負責讀取快取與失效 |
 | 敬拜團 | 管理端補強年度/季度排班、位置設定、團員名單、歌曲庫、行事曆連結快取操作 | `LKC_worship_TEST` 透過 `config.js` 加 `worship_` 前綴後進入合併主 GAS；位置/團員/歌曲各自對應 `worship_savePositions`、`worship_saveTeamMembers`、`worship_saveSongs` 與相關 cache topic |
 | 敬拜團 | 會友狀態監控讀取敬拜團近一年服事 | `MemberStatusCore.js` 直接讀 `getScheduleByDateRange` 聚合敬拜團欄位；敬拜團班表或團員異動需失效 `memberStatus_getMembers`、`memberStatus_getProfile`、`memberStatus_getServiceIndex` |
 

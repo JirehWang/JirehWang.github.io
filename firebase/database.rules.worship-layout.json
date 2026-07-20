@@ -105,6 +105,20 @@
         ".read": true,
         ".write": false
       }
+    },
+    "cache": {
+      ".read": true,
+      ".write": true
+    },
+    "logs": {
+      "$system": {
+        "$date": {
+          ".read": true,
+          "$logId": {
+            ".write": true
+          }
+        }
+      }
     }
   }
 }

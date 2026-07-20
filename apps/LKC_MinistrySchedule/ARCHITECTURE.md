@@ -51,10 +51,14 @@
 
 ### 1. 二維網格載入與欄位配置
 當管理員點擊分頁進入編輯區時：
-1. 呼叫 `getPageConfig` 獲取分頁名稱、表格模板、所有行資料（`currentEventData`）以及自訂欄位設定。
-2. 呼叫 `buildPageFieldConfig()` 整理出啟用的欄位陣列 `currentTableHeaders`。
-3. 根據 `currentTableHeaders` 動態在表格頂部繪製 `<th>` 標籤，並在下方逐行產生輸入框。
-4. 前端提供「季度快速產生日期」功能（`generateQuarterRows`），小組長選取年度與季度後，前端自動計算出該季每個週六或主日的日期並插入表格中。
+1. 從小組點名跳轉時，網址帶有 `from=group`，前端照既有規則傳送 `autoCreate=true`；這只代表允許後端確保分頁存在，不代表一定建立新工作表。
+2. 後端以事工管理試算表的 `Config` 工作表為正式索引，使用小組 UUID 與正規化 ID 辨識同一小組。所有建立者共用主 GAS 的 ScriptLock，取得鎖後重新讀取 Config；同名工作表已存在時只修復 Config，不再複製模板。
+3. 呼叫 `getPageConfig` 獲取分頁名稱、表格模板、所有行資料（`currentEventData`）以及自訂欄位設定。Firebase RTDB 只快取成功回應，不取代 Sheets Config。
+4. 呼叫 `buildPageFieldConfig()` 整理出啟用的欄位陣列 `currentTableHeaders`。
+5. 根據 `currentTableHeaders` 動態在表格頂部繪製 `<th>` 標籤，並在下方逐行產生輸入框。
+6. 前端提供「季度快速產生日期」功能（`generateQuarterRows`），小組長選取年度與季度後，前端自動計算出該季每個週六或主日的日期並插入表格中。
+
+多人同時開啟同一個尚未完成註冊的分頁時，第一個取得鎖的請求負責建立或修復，其餘請求等待後重新讀取同一筆 Config。入口、權限、網址與自動建立的使用規則不變。
 
 ### 2. Gemini AI 排班解析
 1. 管理員點擊「貼上排班內容」，彈出 AI 解析 Modal。

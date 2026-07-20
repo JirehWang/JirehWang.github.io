@@ -306,8 +306,48 @@
 
     btnConfirmLoadOther.addEventListener('click', loadOtherFromCloud);
 
+    // 初始化所有字數統計
+    initCharCounters();
+
     clearFormWithoutConfirm();
   });
+
+  function initCharCounters() {
+    document.querySelectorAll('textarea.form-input').forEach((textarea) => {
+      if (textarea._updateCharCount) return;
+
+      const wrapper = document.createElement('div');
+      wrapper.style.display = 'flex';
+      wrapper.style.flexDirection = 'column';
+      wrapper.style.flex = '1';
+      wrapper.style.gap = '2px';
+      
+      textarea.parentNode.insertBefore(wrapper, textarea);
+      wrapper.appendChild(textarea);
+      
+      const counter = document.createElement('div');
+      counter.className = 'char-counter';
+      counter.style.textAlign = 'right';
+      counter.style.fontSize = '11px';
+      counter.style.color = '#64748b';
+      counter.style.marginTop = '2px';
+      counter.style.fontFamily = 'system-ui, -apple-system, sans-serif';
+      counter.innerHTML = `<span style="color: #94a3b8;">0</span> 字`;
+      wrapper.appendChild(counter);
+      
+      const updateCount = () => {
+        const len = textarea.value.length;
+        if (len > 0) {
+          counter.innerHTML = `<span style="color: #2c5f8a; font-weight: bold;">${len}</span> 字`;
+        } else {
+          counter.innerHTML = `<span style="color: #94a3b8;">0</span> 字`;
+        }
+      };
+      
+      textarea.addEventListener('input', updateCount);
+      textarea._updateCharCount = updateCount;
+    });
+  }
 
   function clearFormWithoutConfirm() {
     state.announcements = ['', '', '', '', '', '', '', '', '', ''];
@@ -347,6 +387,11 @@
     document.getElementById('prayerHome').value = state.prayer.homeRest || '';
     document.getElementById('prayerHospital').value = state.prayer.hospital || '';
     document.getElementById('prayerOther').value = state.prayer.other || '';
+
+    // 更新所有字數統計
+    document.querySelectorAll('textarea.form-input').forEach(el => {
+      if (el._updateCharCount) el._updateCharCount();
+    });
   }
 
 
