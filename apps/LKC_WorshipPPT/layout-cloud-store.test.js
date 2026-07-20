@@ -78,10 +78,21 @@ test('isolates the joint Mandarin layout from Taiwanese page assignments', async
   assert.equal(layoutPathForTemplate('taiwanese'), SHARED_LAYOUT_PATH);
 });
 
-test('loads Taiwanese layout as the initial joint Taiwanese layout but saves to its own namespace', async () => {
+test('loads Taiwanese layout for joint Taiwanese while preserving joint bilingual liturgy parameters', async () => {
   const sharedState = {
-    groups: { scripture: { id: 'scripture', pageIds: ['scripture:1'], params: { contentSize: 42 } } },
-    pageAssignments: { 'scripture:1': 'scripture' }
+    groups: {
+      scripture: { id: 'scripture', pageIds: ['scripture:1'], params: { contentSize: 42 } },
+      taiwaneseLiturgy: {
+        id: 'taiwaneseLiturgy',
+        pageIds: ['creed:1', 'lord-prayer:1'],
+        params: { contentX: 20, contentW: 60 }
+      }
+    },
+    pageAssignments: {
+      'scripture:1': 'scripture',
+      'creed:1': 'taiwaneseLiturgy',
+      'lord-prayer:1': 'taiwaneseLiturgy'
+    }
   };
   const fixture = firebaseFixture(path => path === SHARED_LAYOUT_PATH
     ? { schemaVersion: 1, layoutState: sharedState }
@@ -89,17 +100,22 @@ test('loads Taiwanese layout as the initial joint Taiwanese layout but saves to 
   const store = createLayoutCloudStore({
     loadFirebase: async () => fixture.api,
     templateId: 'joint-taiwanese',
-    fallbackTemplateId: 'taiwanese'
+    fallbackTemplateId: 'taiwanese',
+    fallbackExcludedSectionIds: ['creed', 'lord-prayer']
   });
 
-  assert.deepEqual(await store.load(), sharedState);
+  const expectedInitialState = {
+    groups: { scripture: sharedState.groups.scripture },
+    pageAssignments: { 'scripture:1': 'scripture' }
+  };
+  assert.deepEqual(await store.load(), expectedInitialState);
   assert.deepEqual(fixture.reads.map(reference => reference.path), [
     'worshipPpt/layoutConfig/templates/joint-taiwanese',
     SHARED_LAYOUT_PATH
   ]);
 
   await store.unlock('test-secret');
-  await store.save(sharedState);
+  await store.save(expectedInitialState);
   assert.equal(fixture.writes[0].reference.path, 'worshipPpt/layoutConfig/templates/joint-taiwanese');
 });
 

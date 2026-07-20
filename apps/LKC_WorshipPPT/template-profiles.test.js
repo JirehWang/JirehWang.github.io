@@ -28,6 +28,7 @@ test('clones the Taiwanese flow into a bilingual joint Taiwanese template', () =
   assert.equal(profile.draftKey, 'lkc-worship-draft-joint-taiwanese');
   assert.deepEqual(profile.calendarSelector, { typeName: '聯合-台語', typeFullName: '講道資訊-聯合-台語' });
   assert.equal(profile.layoutFallbackTemplateId, 'taiwanese');
+  assert.deepEqual(profile.layoutFallbackExcludedSections, ['creed', 'lord-prayer']);
   assert.deepEqual(profile.sections.map(([id]) => id), taiwanese.sections.map(([id]) => id));
   assert.deepEqual(profile.fixedLibrary, taiwanese.fixedLibrary);
   assert.deepEqual(profile.librarySections, taiwanese.librarySections);

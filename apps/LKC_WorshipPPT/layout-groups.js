@@ -7,7 +7,8 @@
   const draftKey = window.worshipDraftKey || 'lkc-taiwanese-worship-draft';
   const cloudStore = window.TaiwaneseWorshipLayoutCloud.createLayoutCloudStore({
     templateId,
-    fallbackTemplateId: templateProfile.layoutFallbackTemplateId
+    fallbackTemplateId: templateProfile.layoutFallbackTemplateId,
+    fallbackExcludedSectionIds: templateProfile.layoutFallbackExcludedSections
   });
   let liveParams = null;
   let layoutUnlocked = false;

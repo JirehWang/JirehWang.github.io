@@ -520,7 +520,7 @@ worshipPpt/layoutConfig/shared
 worshipPpt/layoutConfig/templates/{templateId}
 ```
 
-台語沿用 `shared`；聯合台語與聯合華語分別使用 `templates/joint-taiwanese`、`templates/joint-mandarin`。聯合台語在自己的雲端版面尚不存在時，先讀取台語 `shared` 作為初始 clone；第一次解鎖保存後只寫入自己的 namespace。各模板也使用不同 localStorage 草稿 key，避免內容與 page assignments 互相覆蓋。
+台語沿用 `shared`；聯合台語與聯合華語分別使用 `templates/joint-taiwanese`、`templates/joint-mandarin`。聯合台語在自己的雲端版面尚不存在時，先讀取台語 `shared` 作為初始 clone，但會排除 `creed:*` 與 `lord-prayer:*` 的台語 page assignments，使這兩段直接使用聯合華語來源的雙欄模板參數；第一次解鎖保存後只寫入自己的 namespace。各模板也使用不同 localStorage 草稿 key，避免內容與 page assignments 互相覆蓋。
 
 文件 schema：
 

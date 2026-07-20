@@ -207,6 +207,7 @@
       { sectionId: 'verse', label: '聖經', versions: ['tghg', 'unv'], languageLabels: ['台', '華'], prependTitle: '金句' }
     ],
     layoutFallbackTemplateId: 'taiwanese',
+    layoutFallbackExcludedSections: ['creed', 'lord-prayer'],
     sections: clone(profiles.taiwanese.sections).map(section => {
       const [id, label, type, defaults] = section;
       if (id === 'cover' || id === 'service-cover') return [id, '台華語聯合禮拜', type, defaults];

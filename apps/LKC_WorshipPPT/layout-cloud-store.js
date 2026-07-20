@@ -59,6 +59,25 @@
     };
   }
 
+  function excludeSectionsFromLayoutState(layoutState, sectionIds) {
+    const normalized = normalizeLayoutState(layoutState);
+    const excluded = new Set((Array.isArray(sectionIds) ? sectionIds : [])
+      .map(value => String(value || '').trim())
+      .filter(Boolean));
+    if (!excluded.size) return normalized;
+    const isExcludedPage = pageId => excluded.has(String(pageId || '').split(':')[0]);
+
+    Object.keys(normalized.pageAssignments).forEach(pageId => {
+      if (isExcludedPage(pageId)) delete normalized.pageAssignments[pageId];
+    });
+    Object.entries(normalized.groups).forEach(([groupId, group]) => {
+      if (!Array.isArray(group && group.pageIds)) return;
+      group.pageIds = group.pageIds.filter(pageId => !isExcludedPage(pageId));
+      if (!group.pageIds.length) delete normalized.groups[groupId];
+    });
+    return normalized;
+  }
+
   async function defaultFirebaseLoader() {
     const [appSdk, authSdk, databaseSdk] = await Promise.all([
       import('https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js'),
@@ -88,6 +107,7 @@
     const fallbackLayoutPath = options.fallbackTemplateId
       ? layoutPathForTemplate(options.fallbackTemplateId)
       : '';
+    const fallbackExcludedSectionIds = options.fallbackExcludedSectionIds || [];
     let firebasePromise = null;
     const firebase = () => {
       if (!firebasePromise) {
@@ -111,7 +131,10 @@
     async function load() {
       const templateLayout = await loadFromPath(layoutPath);
       if (templateLayout || !fallbackLayoutPath || fallbackLayoutPath === layoutPath) return templateLayout;
-      return loadFromPath(fallbackLayoutPath);
+      const fallbackLayout = await loadFromPath(fallbackLayoutPath);
+      return fallbackLayout
+        ? excludeSectionsFromLayoutState(fallbackLayout, fallbackExcludedSectionIds)
+        : null;
     }
 
     async function isUnlocked() {
@@ -159,6 +182,7 @@
     SHARED_LAYOUT_PATH,
     layoutPathForTemplate,
     chooseLayoutStateForLoad,
+    excludeSectionsFromLayoutState,
     normalizeLayoutState,
     createLayoutCloudStore
   };
