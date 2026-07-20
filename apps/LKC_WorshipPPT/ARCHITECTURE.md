@@ -1,8 +1,8 @@
 # 禮拜PPT產生器：系統架構與多模板擴充指南
 
-本文件是 `apps/LKC_WorshipPPT/` 的主要技術說明，也是維護「台語」與「聯合－華語」、以及未來開發「聯合－台語」與「華語」PPT 模板時的起點。它說明目前產生器的執行架構、資料來源、模組責任、技術選擇、問題解法、故障回退、驗證方式，以及哪些邏輯屬於共用核心、哪些內容留在模板設定層。
+本文件是 `apps/LKC_WorshipPPT/` 的主要技術說明，也是維護「台語」、「聯合－台語」與「聯合－華語」、以及未來開發「華語」PPT 模板時的起點。它說明目前產生器的執行架構、資料來源、模組責任、技術選擇、問題解法、故障回退、驗證方式，以及哪些邏輯屬於共用核心、哪些內容留在模板設定層。
 
-目前程式已實作「台語主日禮拜」與依 `聯合華語模板.ppt` 建立的「聯合－華語」流程。`template-profiles.js` 是兩者共用的 declarative 模板設定層；開發其他模板時不要複製整個資料夾，以免 PPTX 解析、分頁、Firebase、版面與匯出修正分岔。
+目前程式已實作「台語主日禮拜」、「聯合－台語」與依 `聯合華語模板.ppt` 建立的「聯合－華語」流程。`template-profiles.js` 是三者共用的 declarative 模板設定層；開發其他模板時不要複製整個資料夾，以免 PPTX 解析、分頁、Firebase、版面與匯出修正分岔。
 
 ## 1. 系統目標與邊界
 
@@ -10,7 +10,7 @@
 
 目前負責的範圍：
 
-- 依模板與禮拜日期讀取「講道資訊-台語」或「講道資訊-聯合-華語」、報告，以及模板需要的讚美資料。
+- 依模板與禮拜日期讀取「講道資訊-台語」、「講道資訊-聯合-台語」或「講道資訊-聯合-華語」、報告，以及模板需要的讚美資料。
 - 將行事曆欄位轉成講題、講員、經文查詢、聖詩編號及啟應文編號。
 - 依模板查詢台語 `tghg`，或依序查詢台語 `tghg` 與華語 `unv` 聖經全文並分頁。
 - 從雲端索引配對聖詩／啟應文 PPTX，在瀏覽器解析 OOXML。
@@ -151,7 +151,7 @@ flowchart LR
 [sectionId, userFacingLabel, editorType]
 ```
 
-台語 profile 有 27 個流程段落；聯合華語 profile 有 16 個段落，對應來源母片的封面、靜默、序樂、雙語宣召、全心敬拜時刻、雙欄信經、雙語聖經、祈禱、雙欄主禱文、講道、回應詩、報告、奉獻、獻上感恩、祝禱與平安禮。奉獻來源頁已包含標題與說明，因此不再另生一張文字頁。
+台語與聯合台語 profile 都有 27 個流程段落；聯合台語沿用台語的聖詩、啟應文、讚美、金句與奉獻流程，但封面改為台華語聯合禮拜，宣召、信仰告白、主禱文、經文與金句改為台華雙語。聯合華語 profile 有 16 個段落，對應來源母片的封面、靜默、序樂、雙語宣召、全心敬拜時刻、雙欄信經、雙語聖經、祈禱、雙欄主禱文、講道、回應詩、報告、奉獻、獻上感恩、祝禱與平安禮。奉獻來源頁已包含標題與說明，因此不再另生一張文字頁。
 
 `sectionId` 是資料映射、Library 載入、版面保存及測試的穩定識別，不應直接用可翻譯的標籤替代。
 
@@ -309,7 +309,7 @@ JSONP 只應開放：
 cal_queryBible({ book, chap, sec, version })
 ```
 
-結果統一成 `bible_text`，並為每筆經節保留 `queryBookName`、`queryChap`、`querySec` 與 `queryGroupKey`，再交給 `buildBiblePages()` 每頁兩節。分頁規則與 `LKC_ppt_generator` 一致：不同 `queryGroupKey` 絕不放在同一頁，每頁標題依該頁第一節與最後一節重建成實際範圍（例如 `聖經－以弗所書 5:1-2`），不重複顯示整串原始查詢。台語模板使用 `tghg`；聯合華語依序使用 `tghg`、`unv`，頁面保留語言標記。台語金句在經文頁前額外插入 `verse:title` 標題頁。
+結果統一成 `bible_text`，並為每筆經節保留 `queryBookName`、`queryChap`、`querySec` 與 `queryGroupKey`，再交給 `buildBiblePages()` 每頁兩節。分頁規則與 `LKC_ppt_generator` 一致：不同 `queryGroupKey` 絕不放在同一頁，每頁標題依該頁第一節與最後一節重建成實際範圍（例如 `聖經－以弗所書 5:1-2`），不重複顯示整串原始查詢。台語模板使用 `tghg`；聯合台語的宣召、經文與金句，以及聯合華語的宣召與經文，皆依序使用 `tghg`、`unv` 並保留語言標記。台語與聯合台語的金句在經文頁前額外插入 `verse:title` 標題頁。
 
 這個設計解決兩個問題：
 
@@ -431,7 +431,7 @@ lineCapacity = floor(availableHeightPx / (fontHeightPx × lineSpacing))
 
 台語使徒信經與主禱文在 model 中保留單一全文，避免使用者逐頁維護。`fixed-page-editor.js` 取來源三頁的文字量作為權重，`paginateFixedText()` 以空白行為優先切點，把修改後全文重排回原頁數與每頁模板屬性。
 
-聯合華語的信經為五頁、主禱文為四頁。每頁都是 `dual-liturgical`：`primaryBody` 與 `secondaryBody` 分別對應左右文字框，並各自使用來源頁的文字量權重重排；絕不把兩種語言串入單一文字框。每頁 `layout` 保存從母片換算的左右框座標、字級、顏色與行距。
+聯合台語與聯合華語共用同一組雙語禮文版型：信經五頁、主禱文四頁。每頁都是 `dual-liturgical`：`primaryBody` 與 `secondaryBody` 分別對應左右文字框，並各自使用來源頁的文字量權重重排；絕不把兩種語言串入單一文字框。每頁 `layout` 保存從母片換算的左右框座標、字級、顏色與行距。
 
 ## 14. 預覽與匯出的單一版面來源
 
@@ -520,7 +520,7 @@ worshipPpt/layoutConfig/shared
 worshipPpt/layoutConfig/templates/{templateId}
 ```
 
-台語沿用 `shared`；聯合華語使用 `templates/joint-mandarin`。兩種模板也使用不同 localStorage 草稿 key，避免內容與 page assignments 互相覆蓋。
+台語沿用 `shared`；聯合台語與聯合華語分別使用 `templates/joint-taiwanese`、`templates/joint-mandarin`。聯合台語在自己的雲端版面尚不存在時，先讀取台語 `shared` 作為初始 clone；第一次解鎖保存後只寫入自己的 namespace。各模板也使用不同 localStorage 草稿 key，避免內容與 page assignments 互相覆蓋。
 
 文件 schema：
 
@@ -588,7 +588,7 @@ PptxGenJS 產生 blob 後，若 JSZip 可用，系統會再次打開輸出 PPTX�
 ## 18. 背景、視覺與可及性
 
 - 背景可使用安全的 PNG／JPG／WebP Data URL 或純色。
-- 台語與聯合華語模板皆以純白色 `#ffffff` 為預設背景；只有使用者自行上傳背景圖時才套用全份背景圖片。
+- 台語、聯合台語與聯合華語模板皆以純白色 `#ffffff` 為預設背景；只有使用者自行上傳背景圖時才套用全份背景圖片。
 - 背景圖不包含固定教會名稱或頁首，讓模板內容與視覺分離。
 - 三欄工作台固定為流程、編輯器、16:9 預覽。
 - 狀態區使用 `role=status`、`aria-live=polite`。
@@ -667,13 +667,13 @@ PptxGenJS 產生 blob 後，若 JSZip 可用，系統會再次打開輸出 PPTX�
 - 固定全文按權重分頁的工具。
 - Node tests 與 visual QA 流程。
 
-目前已啟用 `taiwanese` 與 `joint-mandarin`；`joint-taiwanese`、`mandarin` 是保留的下一階段 template ID。
+目前已啟用 `taiwanese`、`joint-taiwanese` 與 `joint-mandarin`；`mandarin` 是保留的下一階段 template ID。
 
 ### 21.2 必須由模板設定提供的差異
 
 | 差異 | 台語 | 其他模板提供 |
 | --- | --- | --- |
-| template ID | `taiwanese` | `joint-mandarin` 已實作；`joint-taiwanese`、`mandarin` 保留 |
+| template ID | `taiwanese` | `joint-taiwanese`、`joint-mandarin` 已實作；`mandarin` 保留 |
 | 顯示名稱 | 台語主日禮拜 | 聯合／華語對應名稱 |
 | 流程 sections | 27 段固定陣列 | 每模板自己的順序、label、type |
 | 行事曆事件條件 | `講道資訊-台語` | typeName/typeFullName selector |

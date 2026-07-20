@@ -13,7 +13,44 @@ const {
 test('keeps Taiwanese as the default and resolves the joint Mandarin query value', () => {
   assert.equal(DEFAULT_TEMPLATE_ID, 'taiwanese');
   assert.equal(resolveTemplateId('?template=joint-mandarin'), 'joint-mandarin');
+  assert.equal(resolveTemplateId('?template=joint-taiwanese'), 'joint-taiwanese');
   assert.equal(resolveTemplateId('?template=unknown'), 'taiwanese');
+});
+
+test('clones the Taiwanese flow into a bilingual joint Taiwanese template', () => {
+  const taiwanese = getTemplateProfile('taiwanese');
+  const profile = getTemplateProfile('joint-taiwanese');
+
+  assert.equal(profile.id, 'joint-taiwanese');
+  assert.equal(profile.label, '聯合－台語');
+  assert.equal(profile.coverTitle, '台 華 語 聯 合 禮 拜');
+  assert.equal(profile.filenamePrefix, '聯合-台語禮拜');
+  assert.equal(profile.draftKey, 'lkc-worship-draft-joint-taiwanese');
+  assert.deepEqual(profile.calendarSelector, { typeName: '聯合-台語', typeFullName: '講道資訊-聯合-台語' });
+  assert.equal(profile.layoutFallbackTemplateId, 'taiwanese');
+  assert.deepEqual(profile.sections.map(([id]) => id), taiwanese.sections.map(([id]) => id));
+  assert.deepEqual(profile.fixedLibrary, taiwanese.fixedLibrary);
+  assert.deepEqual(profile.librarySections, taiwanese.librarySections);
+  assert.notEqual(profile.sections, taiwanese.sections);
+
+  const bibleSections = Object.fromEntries(profile.bibleSections.map(config => [config.sectionId, config]));
+  for (const sectionId of ['call', 'scripture', 'verse']) {
+    assert.deepEqual(bibleSections[sectionId].versions, ['tghg', 'unv']);
+    assert.deepEqual(bibleSections[sectionId].languageLabels, ['台', '華']);
+  }
+  assert.equal(bibleSections.verse.prependTitle, '金句');
+
+  const model = createTemplateModel(profile);
+  const jointMandarinModel = createTemplateModel(getTemplateProfile('joint-mandarin'));
+  assert.equal(model.cover.label, '台華語聯合禮拜');
+  assert.equal(model.creed.type, 'dual-fixed');
+  assert.equal(model.creed.pptPages.length, 5);
+  assert.equal(model['lord-prayer'].type, 'dual-fixed');
+  assert.equal(model['lord-prayer'].pptPages.length, 4);
+  assert.equal(model.creed.pptPages[0].kind, 'dual-liturgical');
+  assert.equal(model.creed.pptPages[0].secondaryLabel, '華');
+  assert.deepEqual(model.creed.pptPages, jointMandarinModel.creed.pptPages);
+  assert.deepEqual(model['lord-prayer'].pptPages, jointMandarinModel['lord-prayer'].pptPages);
 });
 
 test('defines the joint Mandarin flow from the supplied 33-slide template', () => {
@@ -76,6 +113,7 @@ test('loads template profiles before app initialization and renders a template s
   const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
   assert.match(html, /id="template-selector"/);
   assert.match(html, /value="taiwanese"/);
+  assert.match(html, /value="joint-taiwanese"/);
   assert.match(html, /value="joint-mandarin"/);
   assert.ok(html.indexOf('template-profiles.js') < html.indexOf('app.js'));
 

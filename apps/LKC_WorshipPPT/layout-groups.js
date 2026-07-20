@@ -3,8 +3,12 @@
   const layoutState = { groups: {}, pageAssignments: {}, hymnOpacityBySection: {}, outputScale: { text: 100, image: 100 } };
   const pendingSelection = new Set();
   const templateId = window.activeWorshipTemplateId || 'taiwanese';
+  const templateProfile = window.activeWorshipTemplateProfile || {};
   const draftKey = window.worshipDraftKey || 'lkc-taiwanese-worship-draft';
-  const cloudStore = window.TaiwaneseWorshipLayoutCloud.createLayoutCloudStore({ templateId });
+  const cloudStore = window.TaiwaneseWorshipLayoutCloud.createLayoutCloudStore({
+    templateId,
+    fallbackTemplateId: templateProfile.layoutFallbackTemplateId
+  });
   let liveParams = null;
   let layoutUnlocked = false;
   let cloudLayoutFound = false;

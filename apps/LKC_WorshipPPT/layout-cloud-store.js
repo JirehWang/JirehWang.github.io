@@ -85,6 +85,9 @@
   function createLayoutCloudStore(options = {}) {
     const loadFirebase = options.loadFirebase || defaultFirebaseLoader;
     const layoutPath = layoutPathForTemplate(options.templateId);
+    const fallbackLayoutPath = options.fallbackTemplateId
+      ? layoutPathForTemplate(options.fallbackTemplateId)
+      : '';
     let firebasePromise = null;
     const firebase = () => {
       if (!firebasePromise) {
@@ -96,13 +99,19 @@
       return firebasePromise;
     };
 
-    async function load() {
+    async function loadFromPath(path) {
       const sdk = await firebase();
-      const snapshot = await sdk.get(sdk.ref(sdk.database, layoutPath));
+      const snapshot = await sdk.get(sdk.ref(sdk.database, path));
       if (!snapshot.exists()) return null;
       const value = snapshot.val();
       if (!value || value.schemaVersion !== 1 || !value.layoutState) return null;
       return normalizeLayoutState(value.layoutState);
+    }
+
+    async function load() {
+      const templateLayout = await loadFromPath(layoutPath);
+      if (templateLayout || !fallbackLayoutPath || fallbackLayoutPath === layoutPath) return templateLayout;
+      return loadFromPath(fallbackLayoutPath);
     }
 
     async function isUnlocked() {

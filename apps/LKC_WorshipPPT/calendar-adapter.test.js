@@ -56,6 +56,16 @@ test('selects the same-date 聯合-華語 event from a template selector', () =>
   assert.equal(selected.eventId, 'target');
 });
 
+test('selects only the same-date 聯合-台語 event from its template selector', () => {
+  const selected = selectSermonEvent([
+    { date: '2026-07-19', typeName: '台語', typeFullName: '講道資訊 - 台語', eventId: 'wrong-language' },
+    { date: '2026-07-19', typeName: '聯合-華語', typeFullName: '講道資訊 - 聯合-華語', eventId: 'wrong-joint' },
+    { date: '2026-07-19', typeName: '聯合-台語', typeFullName: '講道資訊 - 聯合-台語', eventId: 'target' },
+    { date: '2026-07-26', typeName: '聯合-台語', typeFullName: '講道資訊 - 聯合-台語', eventId: 'wrong-date' }
+  ], '2026-07-19', { typeName: '聯合-台語', typeFullName: '講道資訊-聯合-台語' });
+  assert.equal(selected.eventId, 'target');
+});
+
 test('keeps an alphanumeric hymn suffix used by Drive filenames', () => {
   const model = {
     call: {}, sermon: {}, scripture: {}, verse: {}, response: {}, 'hymn-1': {}, 'hymn-2': {}, doxology: {}

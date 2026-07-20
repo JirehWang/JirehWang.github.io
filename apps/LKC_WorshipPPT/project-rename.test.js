@@ -48,5 +48,5 @@ test('architecture documents the shared core and active template boundaries', ()
   assert.match(architecture, /共用的核心/);
   assert.match(architecture, /現行 template profile/);
   assert.match(relation, /ARCHITECTURE\.md/);
-  assert.match(relation, /多模板擴充邊界（台語與聯合華語已實作）/);
+  assert.match(relation, /多模板擴充邊界（台語、聯合台語與聯合華語已實作）/);
 });

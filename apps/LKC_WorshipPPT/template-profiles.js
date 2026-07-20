@@ -189,6 +189,45 @@
     }
   };
 
+  profiles['joint-taiwanese'] = {
+    ...clone(profiles.taiwanese),
+    id: 'joint-taiwanese',
+    label: '聯合－台語',
+    selectorLabel: '聯合－台語',
+    coverTitle: '台 華 語 聯 合 禮 拜',
+    filenamePrefix: '聯合-台語禮拜',
+    draftKey: 'lkc-worship-draft-joint-taiwanese',
+    eventTypeName: '聯合-台語',
+    eventTypeFullName: '講道資訊-聯合-台語',
+    calendarSelector: { typeName: '聯合-台語', typeFullName: '講道資訊-聯合-台語' },
+    bibleVersions: ['tghg', 'unv'],
+    bibleSections: [
+      { sectionId: 'call', label: '宣召', versions: ['tghg', 'unv'], languageLabels: ['台', '華'] },
+      { sectionId: 'scripture', label: '聖經', versions: ['tghg', 'unv'], languageLabels: ['台', '華'] },
+      { sectionId: 'verse', label: '聖經', versions: ['tghg', 'unv'], languageLabels: ['台', '華'], prependTitle: '金句' }
+    ],
+    layoutFallbackTemplateId: 'taiwanese',
+    sections: clone(profiles.taiwanese.sections).map(section => {
+      const [id, label, type, defaults] = section;
+      if (id === 'cover' || id === 'service-cover') return [id, '台華語聯合禮拜', type, defaults];
+      if (id === 'creed') {
+        return [id, '信仰告白－使徒信經', 'dual-fixed', {
+          body: jointCreedPrimary,
+          secondaryBody: jointCreedSecondary,
+          pptPages: clone(jointCreedPages)
+        }];
+      }
+      if (id === 'lord-prayer') {
+        return [id, '主禱文', 'dual-fixed', {
+          body: jointPrayerPrimary,
+          secondaryBody: jointPrayerSecondary,
+          pptPages: clone(jointLordPrayerPages)
+        }];
+      }
+      return [id, label, type, defaults];
+    })
+  };
+
   function clone(value) {
     return value == null ? value : JSON.parse(JSON.stringify(value));
   }

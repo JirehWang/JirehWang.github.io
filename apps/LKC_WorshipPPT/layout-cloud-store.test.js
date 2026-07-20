@@ -14,17 +14,22 @@ const {
 
 function firebaseFixture(initialValue = null) {
   const writes = [];
+  const reads = [];
   const auth = { currentUser: null };
   const api = {
     auth,
     database: { name: 'test-db' },
     inMemoryPersistence: { name: 'memory' },
     ref: (_database, path) => ({ path }),
-    get: async reference => ({
-      exists: () => initialValue !== null,
-      val: () => initialValue,
-      ref: reference
-    }),
+    get: async reference => {
+      reads.push(reference);
+      const value = typeof initialValue === 'function' ? initialValue(reference.path) : initialValue;
+      return {
+        exists: () => value !== null,
+        val: () => value,
+        ref: reference
+      };
+    },
     set: async (reference, value) => writes.push({ reference, value }),
     serverTimestamp: () => 123456789,
     setPersistence: async (_auth, persistence) => {
@@ -38,7 +43,7 @@ function firebaseFixture(initialValue = null) {
     },
     signOut: async () => { auth.currentUser = null; }
   };
-  return { api, writes };
+  return { api, reads, writes };
 }
 
 test('normalizes shared layout groups and protected score opacity values only', () => {
@@ -71,6 +76,31 @@ test('isolates the joint Mandarin layout from Taiwanese page assignments', async
   await store.load();
   assert.equal(layoutPathForTemplate('joint-mandarin'), 'worshipPpt/layoutConfig/templates/joint-mandarin');
   assert.equal(layoutPathForTemplate('taiwanese'), SHARED_LAYOUT_PATH);
+});
+
+test('loads Taiwanese layout as the initial joint Taiwanese layout but saves to its own namespace', async () => {
+  const sharedState = {
+    groups: { scripture: { id: 'scripture', pageIds: ['scripture:1'], params: { contentSize: 42 } } },
+    pageAssignments: { 'scripture:1': 'scripture' }
+  };
+  const fixture = firebaseFixture(path => path === SHARED_LAYOUT_PATH
+    ? { schemaVersion: 1, layoutState: sharedState }
+    : null);
+  const store = createLayoutCloudStore({
+    loadFirebase: async () => fixture.api,
+    templateId: 'joint-taiwanese',
+    fallbackTemplateId: 'taiwanese'
+  });
+
+  assert.deepEqual(await store.load(), sharedState);
+  assert.deepEqual(fixture.reads.map(reference => reference.path), [
+    'worshipPpt/layoutConfig/templates/joint-taiwanese',
+    SHARED_LAYOUT_PATH
+  ]);
+
+  await store.unlock('test-secret');
+  await store.save(sharedState);
+  assert.equal(fixture.writes[0].reference.path, 'worshipPpt/layoutConfig/templates/joint-taiwanese');
 });
 
 test('declares matching Firebase rules for template-specific layout paths', () => {

@@ -466,11 +466,12 @@ LKC_MasterSchedule GAS → Google Drive 聖詩／啟應文資料夾（唯讀檔�
 禮拜PPT產生器 → layout-groups.js（勾選頁面＋具名參數群組；報告版面異動或雲端版面載入時觸發重新分頁）
 禮拜PPT產生器 → Firebase RTDB `worshipPpt/layoutConfig/shared`（需 Auth 解鎖寫入的共用版面；localStorage 保存離線備份與待同步狀態）
 禮拜PPT產生器（聯合華語）→ Firebase RTDB `worshipPpt/layoutConfig/templates/joint-mandarin`（與台語 page assignments 隔離）
+禮拜PPT產生器（聯合台語）→ Firebase RTDB `worshipPpt/layoutConfig/templates/joint-taiwanese`（首次無設定時讀取台語 `shared` 作為初始 clone，保存後獨立）
 禮拜PPT產生器 → ppt-export.js / PptxGenJS（匯出前重新確認報告分頁，再產生完整禮拜 PPTX）
 ```
 
-行事曆帶入沿用既有 `LKC_MasterSchedule` Router 與 `cal_getEvents` 快取讀取，依 active profile 嚴格選取同日期的 `講道資訊-台語` 或 `講道資訊-聯合-華語`。內容讀取以 Firebase 鏡像為優先，沒有鏡像或讀取失敗時才回退 `churchAPI` POST；由 `file://` 直接開啟或 POST 遭跨來源政策拒絕時，`read-api.js` 改用 GAS 唯讀 JSONP，僅允許 `cal_getEvents`、`cal_getPptLibraryIndex`、`cal_getPptLibraryFile`、`cal_queryBible`。映射結果先成為 `sourceValue`：講題與講員可直接顯示；宣召、經文與台語金句由瀏覽器解析範圍後依 profile 查詢台語或華語聖經全文並分頁。台語模板使用聖詩／啟應文 Library；聯合華語的全心敬拜、奉獻與獻上感恩直接使用專案內三張 16:9 PNG 原圖，完整保留圖片中的文字排版、背景與視覺效果，不再依賴外部簡報或 GAS。每張產生後的投影片具有穩定 `pageId`，使用者可將不同勾選批次存成具名版面群組；群組參數與頁面歸屬按 template ID 同步到 Firebase，並以不同 localStorage key 保存草稿與待同步狀態。
+行事曆帶入沿用既有 `LKC_MasterSchedule` Router 與 `cal_getEvents` 快取讀取，依 active profile 嚴格選取同日期的 `講道資訊-台語`、`講道資訊-聯合-台語` 或 `講道資訊-聯合-華語`。內容讀取以 Firebase 鏡像為優先，沒有鏡像或讀取失敗時才回退 `churchAPI` POST；由 `file://` 直接開啟或 POST 遭跨來源政策拒絕時，`read-api.js` 改用 GAS 唯讀 JSONP，僅允許 `cal_getEvents`、`cal_getPptLibraryIndex`、`cal_getPptLibraryFile`、`cal_queryBible`。映射結果先成為 `sourceValue`：講題與講員可直接顯示；宣召、經文與金句由瀏覽器解析範圍後依 profile 查詢台語或華語聖經全文並分頁。台語與聯合台語模板使用聖詩／啟應文 Library；聯合台語的宣召、信仰告白、主禱文、經文與金句為台華雙語，雙欄禮文沿用聯合華語版型。聯合華語的全心敬拜、奉獻與獻上感恩直接使用專案內三張 16:9 PNG 原圖，完整保留圖片中的文字排版、背景與視覺效果，不再依賴外部簡報或 GAS。每張產生後的投影片具有穩定 `pageId`，使用者可將不同勾選批次存成具名版面群組；群組參數與頁面歸屬按 template ID 同步到 Firebase，並以不同 localStorage key 保存草稿與待同步狀態。
 
-### 多模板擴充邊界（台語與聯合華語已實作）
+### 多模板擴充邊界（台語、聯合台語與聯合華語已實作）
 
-「台語」與「聯合－華語」共用資料回退、PPTX／OOXML 解析、Canvas 點陣化、報告動態分頁、deck/page ID、版面群組與 PptxGenJS 匯出核心；流程段落、行事曆 selector、聖經版本、固定禮文、固定素材、預設版面、來源需求與輸出檔名由 declarative template profile 提供。模板版面已分為既有 `worshipPpt/layoutConfig/shared` 與 `worshipPpt/layoutConfig/templates/{templateId}`。同日內容若未來因模板而不同，仍應再評估 `worshipPpt/content/services/{date}/{templateId}/...`；目前內容鏡像 schema 尚未遷移。
+「台語」、「聯合－台語」與「聯合－華語」共用資料回退、PPTX／OOXML 解析、Canvas 點陣化、報告動態分頁、deck/page ID、版面群組與 PptxGenJS 匯出核心；流程段落、行事曆 selector、聖經版本、固定禮文、固定素材、預設版面、來源需求與輸出檔名由 declarative template profile 提供。模板版面已分為既有 `worshipPpt/layoutConfig/shared` 與 `worshipPpt/layoutConfig/templates/{templateId}`；聯合台語僅在尚無專屬設定時以台語版面作為初始 fallback。同日內容若未來因模板而不同，仍應再評估 `worshipPpt/content/services/{date}/{templateId}/...`；目前內容鏡像 schema 尚未遷移。
