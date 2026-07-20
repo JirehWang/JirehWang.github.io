@@ -151,26 +151,13 @@
       </div>
 
       <div class="form-group">
-        <label for="songLyrics" style="font-weight: bold;">歌詞（段落之間請空一行，以便 PPT 自動分頁）：</label>
+        <label for="songLyrics" style="font-weight: bold; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 5px; width: 100%;">
+          <span>歌詞（段落之間請空一行，以便 PPT 自動分頁）：</span>
+          <span id="longestLineIndicator" style="font-weight: normal; font-size: 12px; color: #64748b; display: none;">
+            最長列：<span id="maxLineLen" style="font-weight: 700; color: #2c5f8a;">0</span> 字
+          </span>
+        </label>
         <textarea id="songLyrics" class="form-input" rows="10" placeholder="請在此貼入讚美詩歌之完整歌詞..."></textarea>
-        <!-- 歌詞字數動態監控容器 -->
-        <div class="lyrics-monitor" id="lyricsMonitor" style="display: none; margin-top: 12px; padding: 15px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; color: #334155; box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 6px;">
-            <span style="font-weight: 600; color: #1e293b; display: flex; align-items: center; gap: 5px;">📊 歌詞字數即時監控</span>
-            <span style="font-size: 11px; color: #64748b;">(自動忽略空白列)</span>
-          </div>
-          <div style="font-size: 14px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
-            <span>最長單列字數：</span>
-            <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 28px; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 50%; color: #e11d48; font-weight: 700; font-size: 15px; font-family: system-ui, -apple-system, sans-serif; margin: 0 4px; padding: 2px;">
-              <span id="maxLineLen">0</span>
-            </span>
-            字
-          </div>
-          <div style="font-weight: 500; color: #475569; margin-bottom: 6px; font-size: 12px;">各列字數明細：</div>
-          <div id="linesDetail" style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 120px; overflow-y: auto; padding: 6px; border-radius: 6px; background: #ffffff; border: 1px solid #f1f5f9;">
-            <!-- 各列的字數 badge 會動態渲染在這裡 -->
-          </div>
-        </div>
       </div>
 
       <hr style="border: 0; border-top: 1px solid #dee2e6; margin: 25px 0;">
@@ -362,69 +349,47 @@
 
   function updateLyricsMonitor() {
     const lyricsVal = document.getElementById('songLyrics').value || '';
-    const monitorDiv = document.getElementById('lyricsMonitor');
+    const indicatorSpan = document.getElementById('longestLineIndicator');
     const maxLineLenSpan = document.getElementById('maxLineLen');
-    const linesDetailDiv = document.getElementById('linesDetail');
 
     if (!lyricsVal.trim()) {
-      monitorDiv.style.display = 'none';
+      if (indicatorSpan) indicatorSpan.style.display = 'none';
       return;
     }
 
-    monitorDiv.style.display = 'block';
-    
     // Split by lines (handling both \r\n and \n)
     const lines = lyricsVal.split(/\r?\n/);
     let maxLen = 0;
     let maxLineIdx = -1;
     
-    // Clear detail div
-    linesDetailDiv.innerHTML = '';
-    
     lines.forEach((line, index) => {
       const trimmed = line.trim();
-      if (!trimmed) {
-        // Skip empty lines
-        return;
-      }
+      if (!trimmed) return; // Skip empty lines
       
       const len = trimmed.length;
       if (len > maxLen) {
         maxLen = len;
         maxLineIdx = index + 1;
       }
-      
-      const badge = document.createElement('span');
-      badge.style.display = 'inline-flex';
-      badge.style.alignItems = 'center';
-      badge.style.padding = '3px 8px';
-      badge.style.borderRadius = '4px';
-      badge.style.fontSize = '12px';
-      badge.style.fontFamily = 'monospace, sans-serif';
-      badge.style.fontWeight = '500';
-      badge.style.transition = 'all 0.2s ease';
-      
-      // Highlight lines with warning status if they are too long (e.g., > 16 characters)
-      const warningThreshold = 16;
-      if (len > warningThreshold) {
-        badge.style.background = '#fee2e2';
-        badge.style.border = '1px solid #fca5a5';
-        badge.style.color = '#991b1b';
-        badge.title = `第 ${index + 1} 列字數達 ${len} 字（超過建議的 ${warningThreshold} 字，可能折行）`;
-      } else {
-        badge.style.background = '#f1f5f9';
-        badge.style.border = '1px solid #e2e8f0';
-        badge.style.color = '#475569';
-        badge.title = `第 ${index + 1} 列字數: ${len} 字`;
-      }
-      
-      badge.textContent = `列 ${index + 1}: ${len}字`;
-      linesDetailDiv.appendChild(badge);
     });
 
-    maxLineLenSpan.textContent = maxLen;
-    if (maxLineIdx !== -1) {
-      maxLineLenSpan.title = `最長列為第 ${maxLineIdx} 列 (共 ${maxLen} 字)`;
+    if (maxLen > 0) {
+      maxLineLenSpan.textContent = maxLen;
+      if (maxLineIdx !== -1) {
+        maxLineLenSpan.title = `最長列為第 ${maxLineIdx} 列 (共 ${maxLen} 字)`;
+      }
+      indicatorSpan.style.display = 'inline-block';
+      
+      // Color-code the number if it's too long (> 16 chars)
+      if (maxLen > 16) {
+        maxLineLenSpan.style.color = '#e11d48'; // Red warning color
+        indicatorSpan.title = `警告：最長列已達 ${maxLen} 字（超過建議的 16 字，可能導致 PPT 折行）`;
+      } else {
+        maxLineLenSpan.style.color = '#2c5f8a'; // Theme color
+        indicatorSpan.title = `最長列為第 ${maxLineIdx} 列，共 ${maxLen} 字`;
+      }
+    } else {
+      indicatorSpan.style.display = 'none';
     }
   }
 
