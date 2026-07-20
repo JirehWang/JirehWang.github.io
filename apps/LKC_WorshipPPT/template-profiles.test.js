@@ -23,7 +23,8 @@ test('defines the joint Mandarin flow from the supplied 33-slide template', () =
   assert.deepEqual(profile.bibleVersions, ['tghg', 'unv']);
   assert.equal(profile.coverTitle, '台 華 語 聯 合 禮 拜');
   assert.equal(profile.filenamePrefix, '聯合-華語禮拜');
-  assert.match(profile.assets.background, /joint-mandarin-background\.jpeg$/);
+  assert.equal(profile.defaultBackgroundColor, '#ffffff');
+  assert.equal(profile.assets.background, undefined);
   assert.match(profile.assets.worshipMoment, /joint-mandarin-worship-moment\.png$/);
   assert.match(profile.assets.offering, /joint-mandarin-offering\.png$/);
   assert.match(profile.assets.thanksgiving, /joint-mandarin-thanksgiving\.png$/);

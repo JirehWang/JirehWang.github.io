@@ -152,7 +152,6 @@
       activeSectionId: 'silence',
       defaultBackgroundColor: '#ffffff',
       assets: {
-        background: 'templates/joint-mandarin-background.jpeg',
         worshipMoment: 'templates/joint-mandarin-worship-moment.png',
         offering: 'templates/joint-mandarin-offering.png',
         thanksgiving: 'templates/joint-mandarin-thanksgiving.png'
