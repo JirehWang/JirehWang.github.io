@@ -1,5 +1,5 @@
 (function() {
-  const production = window.TaiwaneseWorshipSlideProduction;
+  const production = window.TaiwaneseWorshipSlideProduction || window.PrayerSlideProduction;
   const layoutState = { groups: {}, pageAssignments: {}, hymnOpacityBySection: {}, outputScale: { text: 100, image: 100 } };
   const pendingSelection = new Set();
   const templateId = window.activeWorshipTemplateId || 'taiwanese';

@@ -111,6 +111,36 @@
     return sectionsToUpdate;
   }
 
+  const BIBLE_BOOK_NAMES = [
+    '帖撒羅尼迦後書', '帖撒羅尼迦前書', '哥林多後書', '哥林多前書', '提摩太後書', '提摩太前書', '彼得後書', '彼得前書', '約翰三書', '約翰二書', '約翰一書',
+    '歷代志下', '歷代志上', '撒母耳記下', '撒母耳記上', '列王紀下', '列王紀上', '以斯拉記', '尼希米記', '以斯帖記', '耶利米書', '以西結書', '何西阿書', '約珥書', '阿摩司書', '俄巴底亞書', '約拿書', '彌迦書', '那鴻書', '哈巴谷書', '西番雅書', '哈該書', '撒迦利亞書', '瑪拉基書',
+    '創世記', '出埃及記', '利未記', '民數記', '申命記', '約書亞記', '士師記', '路得記', '約伯記', '詩篇', '箴言', '傳道書', '雅歌', '以賽亞書', '耶利米哀歌', '但以理書', '馬太福音', '馬可福音', '路加福音', '約翰福音', '使徒行傳', '羅馬書', '加拉太書', '以弗所書', '腓立比書', '歌羅西書', '提多書', '腓利門書', '希伯來書', '雅各書', '猶大書', '啟示錄',
+    '帖後', '帖前', '帖撒後', '帖撒前', '林後', '林前', '提前', '提後', '彼後', '彼前', '約三', '約二', '約一', '創', '出', '利', '民', '申', '書', '士', '得', '撒下', '撒上', '王下', '王上', '代下', '代上', '拉', '尼', '斯', '伯', '詩', '箴', '傳', '歌', '賽', '耶', '哀', '結', '但', '何', '珥', '摩', '俄', '拿', '彌', '鴻', '哈', '番', '該', '亞', '瑪', '太', '可', '路', '約', '徒', '羅', '加', '弗', '腓', '西', '多', '門', '來', '雅', '猶', '啟'
+  ].sort((left, right) => right.length - left.length);
+
+  const BIBLE_REFERENCE_PATTERN = new RegExp(
+    `(${BIBLE_BOOK_NAMES.join('|')})\\s*(\\d+)\\s*[:：]\\s*(\\d+(?:\\s*[-~～]\\s*\\d+)?)`,
+    'g'
+  );
+
+  function extractBibleReferences(lines) {
+    const references = [];
+    const seen = new Set();
+    (Array.isArray(lines) ? lines : [lines]).forEach(line => {
+      const text = String(line || '');
+      BIBLE_REFERENCE_PATTERN.lastIndex = 0;
+      let match;
+      while ((match = BIBLE_REFERENCE_PATTERN.exec(text))) {
+        const reference = `${match[1]} ${match[2]}:${match[3].replace(/\\s+/g, '')}`;
+        if (!seen.has(reference)) {
+          seen.add(reference);
+          references.push(reference);
+        }
+      }
+    });
+    return references;
+  }
+
   let textMeasureContext;
   const NATIVE_TEXT_WRAP_SAFETY = 0.92;
 
@@ -419,6 +449,39 @@
     return state;
   }
 
+  function detachPagesFromLayoutGroup(state, pageIds) {
+    ensureLayoutState(state);
+    (pageIds || []).forEach(pageId => {
+      const groupId = state.pageAssignments[pageId];
+      if (!groupId || !state.groups[groupId]) return;
+      state.groups[groupId].pageIds = (state.groups[groupId].pageIds || []).filter(id => id !== pageId);
+      delete state.pageAssignments[pageId];
+    });
+    return state;
+  }
+
+  function createLayoutGroup(state, groupId, pageIds, params) {
+    ensureLayoutState(state);
+    detachPagesFromLayoutGroup(state, pageIds);
+    const previous = state.groups[groupId] || { id: groupId, name: groupId, pageIds: [], params: {} };
+    const uniquePageIds = Array.from(new Set([...(previous.pageIds || []), ...(pageIds || [])]));
+    state.groups[groupId] = {
+      ...previous,
+      id: groupId,
+      pageIds: uniquePageIds,
+      params: { ...(params || {}) }
+    };
+    uniquePageIds.forEach(pageId => { state.pageAssignments[pageId] = groupId; });
+    return state.groups[groupId];
+  }
+
+  function updateLayoutGroup(state, groupId, params) {
+    ensureLayoutState(state);
+    if (!state.groups[groupId]) throw new Error(`找不到版面群組：${groupId}`);
+    state.groups[groupId].params = { ...(params || {}) };
+    return state.groups[groupId];
+  }
+
   function layoutForPage(state, page) {
     ensureLayoutState(state);
     const groupId = state.pageAssignments[page.id];
@@ -432,10 +495,14 @@
     isSupportedBackgroundImage,
     normalizeBackgroundImageDataUrl,
     parseRecognizedSections,
+    extractBibleReferences,
     wrapTextForBox,
     splitIntoPoints,
     generateSectionPages,
     buildDeckEntries,
+    createLayoutGroup,
+    updateLayoutGroup,
+    detachPagesFromLayoutGroup,
     layoutForPage
   };
 });

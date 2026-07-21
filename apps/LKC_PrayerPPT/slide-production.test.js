@@ -59,4 +59,23 @@ assert.doesNotMatch(keepPointTogetherPages[0].body, /^b\./m,
 assert.match(keepPointTogetherPages[1].body, /^b\. 第二個小點/,
   'the complete sub-point must move to the next slide');
 
+const layoutState = { groups: {}, pageAssignments: {} };
+production.createLayoutGroup(layoutState, 'prayer-body', ['world:1'], { contentSize: 36 });
+assert.equal(production.layoutForPage(layoutState, { id: 'world:1' }).contentSize, 36,
+  'saved PrayerPPT layout groups must affect the resolved slide layout');
+production.detachPagesFromLayoutGroup(layoutState, ['world:1']);
+assert.equal(layoutState.pageAssignments['world:1'], undefined,
+  'PrayerPPT layout groups must allow a page to be detached again');
+
+assert.deepEqual(
+  production.extractBibleReferences([
+    '羅 8:26「閣聖神也親像按呢扶持咱的軟弱」',
+    '弗 6:18「用逐樣的祈禱及懇求」',
+    '提摩太前書 2:1「所以我所勸勉的」',
+    '路 4:38「耶穌對會堂起來」'
+  ]),
+  ['羅 8:26', '弗 6:18', '提摩太前書 2:1', '路 4:38'],
+  'Bible text must be reduced to references before FHL Bible API lookup'
+);
+
 console.log('PrayerPPT slide production checks passed');

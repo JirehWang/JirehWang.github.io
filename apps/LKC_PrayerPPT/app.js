@@ -477,17 +477,20 @@ function importRecognizedTexts(texts) {
 
 function saveCurrentSectionContent(sectionId, lines) {
   const item = model[sectionId];
+  const bibleReferences = window.PrayerSlideProduction.extractBibleReferences(lines);
   if (sectionId === 'scripture' || sectionId === 'verse') {
-    const queries = lines.map(line => {
-      return line.replace(/\(台語\)|\(華語\)|（台語）|（華語）/g, '').replace(/[\"\']/g, '').trim();
-    }).filter(Boolean);
-    item.bibleQuery = queries.join('; ');
+    // OCR may include the handwritten verse itself; only send references to the Bible API.
+    item.bibleQuery = bibleReferences.join('; ');
+    item.body = '';
   } else if (sectionId === 'repentance' || sectionId === 'nation') {
-    const firstLine = lines[0] || '';
-    const hasScripture = /^[a-zA-Z\u4e00-\u9fa5]+\s*\d+/.test(firstLine);
-    if (hasScripture) {
-      item.bibleQuery = firstLine.replace(/\(台語\)|\(華語\)|（台語）|（華語）/g, '').replace(/[\"\']/g, '').trim();
-      item.body = lines.slice(1).join('\n');
+    const referenceLineIndexes = lines.reduce((indexes, line, index) => {
+      if (window.PrayerSlideProduction.extractBibleReferences([line]).length) indexes.push(index);
+      return indexes;
+    }, []);
+    if (bibleReferences.length) {
+      item.bibleQuery = bibleReferences[0];
+      // The API owns Bible text. Keep only non-scripture prayer content in this list section.
+      item.body = lines.filter((line, index) => !referenceLineIndexes.includes(index)).join('\n');
     } else {
       item.bibleQuery = '';
       item.body = lines.join('\n');
