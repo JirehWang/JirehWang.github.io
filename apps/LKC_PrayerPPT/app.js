@@ -423,7 +423,7 @@ parseButton.onclick = async () => {
 
     const combinedText = recognizedTexts.join('\n\n');
     $('#import-textarea').value = combinedText;
-    importRawText(combinedText);
+    importRecognizedTexts(recognizedTexts);
     statusDiv.textContent = `🎉 ${selectedImageFiles.length} 張照片辨識完成！已合併文字並解析經文。`;
     statusDiv.style.color = '#10b981';
     setTimeout(() => importDialog.close(), 1000);
@@ -452,67 +452,11 @@ $('#import-dialog-form').onsubmit = (e) => {
 
 function importRawText(text) {
   if (!text) return;
-  
-  const lines = text.split('\n');
-  const sectionsToUpdate = {};
-  let currentSection = null;
-  let currentLines = [];
-  let currentTitle = '';
+  importRecognizedTexts([text]);
+}
 
-  const numberToSectionMap = {
-    1: 'silence',
-    2: 'hymn-1',
-    3: 'scripture',
-    4: 'thanksgiving',
-    5: 'repentance',
-    6: 'world',
-    7: 'nation',
-    8: 'church',
-    9: 'members',
-    10: 'oneself',
-    11: 'verse',
-    12: 'hymn-2',
-    13: 'benediction'
-  };
-
-  const collectCurrentSection = () => {
-    if (!currentSection) return;
-    const existing = sectionsToUpdate[currentSection];
-    if (existing) {
-      existing.lines.push(...currentLines);
-      if (!existing.title && currentTitle) existing.title = currentTitle;
-      return;
-    }
-    sectionsToUpdate[currentSection] = {
-      title: currentTitle || model[currentSection].title,
-      lines: currentLines.slice()
-    };
-  };
-
-  lines.forEach(line => {
-    const trimmed = line.trim();
-    if (!trimmed) return;
-
-    // Matches main section headers: "1. 請安靜心...", "2. 詩歌...", "4. 獻上感謝...", "11. pray 金句..."
-    const headerMatch = trimmed.match(/^(\d+)\.\s*(.*)/);
-    if (headerMatch) {
-      const num = parseInt(headerMatch[1], 10);
-      const sectionKey = numberToSectionMap[num];
-      if (sectionKey) {
-        collectCurrentSection();
-        currentSection = sectionKey;
-        currentLines = [];
-        currentTitle = headerMatch[2].trim() || model[sectionKey].label;
-        return;
-      }
-    }
-
-    if (currentSection) {
-      currentLines.push(trimmed);
-    }
-  });
-
-  collectCurrentSection();
+function importRecognizedTexts(texts) {
+  const sectionsToUpdate = window.PrayerSlideProduction.parseRecognizedSections(texts, model);
 
   // Update only the parsed sections (so single page scan increments nicely)
   const bibleSectionsToQuery = [];

@@ -44,7 +44,7 @@ preview = function() {
     titleElem.style.width = `${layout.titleW}%`;
     titleElem.style.height = `${layout.titleH}%`;
     titleElem.style.textAlign = layout.titleAlign || 'center';
-    titleElem.style.color = layout.titleColor || '#FFFFFF';
+    titleElem.style.color = layout.titleColor || '#111827';
     titleElem.style.margin = '0';
     titleElem.style.padding = '0';
   }
@@ -57,7 +57,7 @@ preview = function() {
     bodyElem.style.width = `${layout.contentW}%`;
     bodyElem.style.height = `${layout.contentH}%`;
     bodyElem.style.textAlign = layout.contentAlign || 'left';
-    bodyElem.style.color = layout.contentColor || '#E0E0E0';
+    bodyElem.style.color = layout.contentColor || '#1F2937';
     bodyElem.style.lineHeight = layout.lineSpacing || 1.5;
     bodyElem.style.margin = '0';
     bodyElem.style.padding = '0';

@@ -12,14 +12,14 @@
     titleW: 84,
     titleH: 14,
     titleAlign: 'center',
-    titleColor: '#FFFFFF',
+    titleColor: '#111827',
     contentSize: 48,
     contentX: 8,
     contentY: 24,
     contentW: 84,
     contentH: 68,
     contentAlign: 'left',
-    contentColor: '#E0E0E0',
+    contentColor: '#1F2937',
     lineSpacing: 1.5
   };
 
@@ -41,6 +41,74 @@
   function normalizeBackgroundImageDataUrl(value) {
     const dataUrl = String(value || '').trim();
     return /^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=\s]+$/i.test(dataUrl) ? dataUrl : '';
+  }
+
+  function parseRecognizedSections(texts, model = {}) {
+    const sectionsToUpdate = {};
+    const numberToSectionMap = {
+      1: 'silence',
+      2: 'hymn-1',
+      3: 'scripture',
+      4: 'thanksgiving',
+      5: 'repentance',
+      6: 'world',
+      7: 'nation',
+      8: 'church',
+      9: 'members',
+      10: 'oneself',
+      11: 'verse',
+      12: 'hymn-2',
+      13: 'benediction'
+    };
+
+    (Array.isArray(texts) ? texts : [texts]).forEach(sourceText => {
+      let currentSection = null;
+      let currentLines = [];
+      let currentTitle = '';
+
+      const collectCurrentSection = () => {
+        if (!currentSection) return;
+        const existing = sectionsToUpdate[currentSection];
+        if (existing) {
+          existing.lines.push(...currentLines);
+          return;
+        }
+        const item = model[currentSection] || {};
+        sectionsToUpdate[currentSection] = {
+          title: currentTitle || item.title || item.label || '',
+          lines: currentLines.slice()
+        };
+      };
+
+      const sourceLines = String(sourceText || '').split('\n').map(line => line.trim()).filter(Boolean);
+      if (sourceLines.length && /^\d+\.?$/.test(sourceLines[sourceLines.length - 1])) {
+        sourceLines.pop();
+      }
+
+      sourceLines.forEach(trimmed => {
+
+        // A section number must include a title. This excludes handwritten page footers such as "5.".
+        const headerMatch = trimmed.match(/^(\d+)\.\s*(.+)/);
+        if (headerMatch) {
+          const sectionKey = numberToSectionMap[parseInt(headerMatch[1], 10)];
+          if (sectionKey) {
+            collectCurrentSection();
+            const item = model[sectionKey] || {};
+            currentSection = sectionKey;
+            currentLines = [];
+            currentTitle = headerMatch[2].trim() || item.label || item.title || '';
+            return;
+          }
+        }
+
+        if (currentSection) currentLines.push(trimmed);
+      });
+
+      // Reset at every image boundary so the next image's date/title cannot leak into this section.
+      collectCurrentSection();
+    });
+
+    return sectionsToUpdate;
   }
 
   let textMeasureContext;
@@ -336,6 +404,7 @@
     normalizeColor,
     isSupportedBackgroundImage,
     normalizeBackgroundImageDataUrl,
+    parseRecognizedSections,
     wrapTextForBox,
     splitIntoPoints,
     generateSectionPages,
