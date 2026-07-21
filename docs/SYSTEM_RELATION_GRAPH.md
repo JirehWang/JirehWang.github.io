@@ -116,6 +116,7 @@ flowchart LR
     end
 
     User --> FE
+    Portal --> PrayerPptFE
     FE --> Config
     Config --> FirebaseClient
     Config --> MainGAS

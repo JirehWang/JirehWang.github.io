@@ -9,6 +9,7 @@ const expectedCards = [
   ['apps/LKC_MinistrySchedule/', '教會事工總表系統'],
   ['apps/LKC_worship/admin.html', '敬拜團服事表'],
   ['apps/LKC_ppt_generator/', '聖經PPT產生器'],
+  ['apps/LKC_PrayerPPT/', '禱告會PPT產生器'],
   ['apps/LKC_TaiwaneseAudioBible/', '台語有聲聖經'],
   ['apps/LKC_WhosCar/', '教會車牌管理系統'],
   ['apps/LKC_Group/', '教會小組點名系統'],
