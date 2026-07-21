@@ -16,5 +16,7 @@ assert.match(indexSource, /\.dialog-tab-content\.active\s*\{\s*display:\s*block;
   'active import tab must be visible');
 assert.match(indexSource, /@media \(max-width:\s*620px\)/,
   'PrayerPPT must define a mobile layout');
+assert.match(indexSource, /window\._GAS_KEY\s*=\s*['"]LKC_PrayerPPT['"]/,
+  'PrayerPPT must use its dedicated main-GAS route');
 
 console.log('PrayerPPT AI integration source checks passed');

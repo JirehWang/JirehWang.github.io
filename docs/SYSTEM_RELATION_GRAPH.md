@@ -508,7 +508,7 @@ LKC_MasterSchedule GAS → Google Drive 聖詩／啟應文資料夾（唯讀檔�
 禮拜PPT產生器 → ppt-export.js / PptxGenJS（匯出前重新確認報告分頁，再產生完整禮拜 PPTX）
 ```
 
-- 禱告會 PPT 不在瀏覽器保存或直連 Gemini key；圖片以 `cal_parsePrayerImage` 送至合併主 GAS，由 `CalendarCore.js` 呼叫 `GeminiHelper.js`，再從「LKC系統設定」試算表的 `AI_Config` 讀取 `GEMINI_API_KEY`。
+- 禱告會 PPT 使用中央路由 key `LKC_PrayerPPT` 指向合併主 GAS，不沿用舊獨立行事曆的 `LKC_MasterSchedule`；瀏覽器不保存或直連 Gemini key。圖片以 `cal_parsePrayerImage` 送至合併主 GAS，由 `CalendarCore.js` 呼叫 `GeminiHelper.js`，再從「LKC系統設定」試算表的 `AI_Config` 讀取 `GEMINI_API_KEY`。
 
 行事曆帶入沿用既有 `LKC_MasterSchedule` Router 與 `cal_getEvents` 快取讀取，依 active profile 嚴格選取同日期的 `講道資訊-台語`、`講道資訊-聯合-台語` 或 `講道資訊-聯合-華語`。內容讀取以 Firebase 鏡像為優先，沒有鏡像或讀取失敗時才回退 `churchAPI` POST；由 `file://` 直接開啟或 POST 遭跨來源政策拒絕時，`read-api.js` 改用 GAS 唯讀 JSONP，僅允許 `cal_getEvents`、`cal_getPptLibraryIndex`、`cal_getPptLibraryFile`、`cal_queryBible`。映射結果先成為 `sourceValue`：講題與講員可直接顯示；宣召、經文與金句由瀏覽器解析範圍後依 profile 查詢台語或華語聖經全文並分頁。台語與聯合台語模板使用聖詩／啟應文 Library；聯合台語的宣召、信仰告白、主禱文、經文與金句為台華雙語，雙欄禮文沿用聯合華語版型。聯合華語的全心敬拜、奉獻與獻上感恩直接使用專案內三張 16:9 PNG 原圖，完整保留圖片中的文字排版、背景與視覺效果，不再依賴外部簡報或 GAS。每張產生後的投影片具有穩定 `pageId`，使用者可將不同勾選批次存成具名版面群組；群組參數與頁面歸屬按 template ID 同步到 Firebase，並以不同 localStorage key 保存草稿與待同步狀態。
 
