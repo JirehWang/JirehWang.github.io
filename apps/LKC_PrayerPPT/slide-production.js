@@ -30,6 +30,16 @@
     return fallback;
   }
 
+  // Keep the PrayerPPT layout contract compatible with the shared layout editor.
+  // The editor renders against a 960px-wide 16:9 canvas, so 1cqw equals 9.6pt.
+  function pointsToCanvasCqw(value) {
+    return Number(value) / 9.6;
+  }
+
+  function canvasCqwToPoints(value) {
+    return Number(value) * 9.6;
+  }
+
   function isSupportedBackgroundImage(file) {
     if (!file) return false;
     const type = String(file.type || '').toLowerCase();
@@ -492,6 +502,8 @@
   return {
     DEFAULT_LAYOUT_PARAMS,
     normalizeColor,
+    pointsToCanvasCqw,
+    canvasCqwToPoints,
     isSupportedBackgroundImage,
     normalizeBackgroundImageDataUrl,
     parseRecognizedSections,

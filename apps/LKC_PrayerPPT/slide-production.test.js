@@ -66,6 +66,10 @@ assert.equal(production.layoutForPage(layoutState, { id: 'world:1' }).contentSiz
 production.detachPagesFromLayoutGroup(layoutState, ['world:1']);
 assert.equal(layoutState.pageAssignments['world:1'], undefined,
   'PrayerPPT layout groups must allow a page to be detached again');
+assert.equal(production.canvasCqwToPoints(4), 38.4,
+  'the shared layout editor must be able to convert its canvas font size to PPT points');
+assert.equal(production.pointsToCanvasCqw(38.4), 4,
+  'the shared layout preview must be able to convert PPT points back to canvas units');
 
 assert.deepEqual(
   production.extractBibleReferences([
