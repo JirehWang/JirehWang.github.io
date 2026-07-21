@@ -85,9 +85,18 @@ function editor() {
       ${field('禱告項目清單 (每點一行，自動以 a., b., c. 拆分投影頁)', 'body', item.body, 'textarea')}
     `;
   } else if (item.type === 'praise') {
+    const lines = (item.body || '').split('\n');
+    const maxLen = lines.reduce((max, line) => Math.max(max, line.trim().length), 0);
     html = `
       ${field('詩歌名稱', 'title', item.title)}
-      ${field('歌詞（以空白行分頁）', 'body', item.body, 'textarea')}
+      <label class="field">
+        <span style="display:flex; justify-content:space-between; width:100%;">
+          <span>歌詞（段落之間請空一行，以便 PPT 自動分頁）：</span>
+          <span class="max-line-len-badge" style="font-weight:normal; opacity:0.7; font-size:13px; color:#bb86fc;">最長單行：${maxLen} 字</span>
+        </span>
+        <textarea data-key="body">${esc(item.body)}</textarea>
+        <small>依你貼入的歌詞分頁，不自動生成歌詞。</small>
+      </label>
     `;
   } else {
     // content (quiet waiting, Lord's prayer, etc.)
@@ -102,7 +111,18 @@ function editor() {
   // Handlers
   form.querySelectorAll('[data-key]').forEach(element => {
     element.oninput = event => {
-      item[event.target.dataset.key] = event.target.value;
+      const key = event.target.dataset.key;
+      item[key] = event.target.value;
+      
+      // Update max line length badge in real-time
+      if (key === 'body' && item.type === 'praise') {
+        const lines = event.target.value.split('\n');
+        const maxLen = lines.reduce((max, l) => Math.max(max, l.trim().length), 0);
+        const badge = $('.max-line-len-badge');
+        if (badge) {
+          badge.textContent = `最長單行：${maxLen} 字`;
+        }
+      }
       preview();
     };
   });
@@ -228,24 +248,176 @@ importDialog.style.borderRadius = '8px';
 importDialog.style.width = '600px';
 importDialog.style.maxWidth = '90%';
 importDialog.innerHTML = `
-  <form method="dialog" id="import-dialog-form">
-    <h3 style="margin-top:0;">智慧解析手寫/AI提取文字</h3>
-    <p style="color:#aaa; font-size:13px; margin-bottom:10px;">請將禱告會手寫稿所提取的完整文字（如 1. 2. 3. 直到 13.）貼入下方框中：</p>
-    <textarea id="import-textarea" style="width:100%; height:300px; background:#111; color:#fff; border:1px solid #444; border-radius:4px; padding:8px; font-family:monospace; font-size:13px; resize:vertical;"></textarea>
-    <div style="margin-top:15px; text-align:right;">
-      <button class="button quiet" type="button" id="import-cancel" style="margin-right:8px;">取消</button>
-      <button class="button primary" type="submit" id="import-submit">進行解析與導入</button>
+  <div class="dialog-tabs">
+    <button type="button" class="dialog-tab-btn active" id="tab-btn-ai">照片 AI 辨識</button>
+    <button type="button" class="dialog-tab-btn" id="tab-btn-text">貼入純文字</button>
+  </div>
+  
+  <!-- Tab 1: AI Image Upload -->
+  <div class="dialog-tab-content active" id="tab-content-ai">
+    <h3 style="margin-top:0;">上傳手寫草稿照片 (AI 圖文判定)</h3>
+    <div class="dropzone" id="ai-image-dropzone">
+      <span class="dropzone-icon">☁️</span>
+      <span class="dropzone-text">將手寫相片拖曳至此，或點擊此處上傳</span>
+      <span class="dropzone-subtext">(支援 PNG、JPG 或 WebP)</span>
+      <input type="file" id="ai-image-file" accept="image/png,image/jpeg,image/webp" style="display:none;">
     </div>
-  </form>
+    
+    <div class="img-preview-container" id="ai-image-preview-container">
+      <img src="" class="img-preview" id="ai-image-preview">
+    </div>
+    
+    <div id="ai-parse-status" style="margin-top:15px; min-height:20px; font-size:13px; color:#bb86fc; white-space:pre-wrap;"></div>
+    
+    <div style="margin-top:15px; text-align:right;">
+      <button class="button quiet" type="button" id="import-cancel-ai" style="margin-right:8px;">取消</button>
+      <button class="button primary" type="button" id="ai-parse-btn" style="width:120px;">AI 圖文判定</button>
+    </div>
+  </div>
+  
+  <!-- Tab 2: Raw Text Input -->
+  <div class="dialog-tab-content" id="tab-content-text">
+    <form method="dialog" id="import-dialog-form">
+      <h3 style="margin-top:0;">智慧解析手寫/AI提取文字</h3>
+      <p style="color:#aaa; font-size:13px; margin-bottom:10px;">請將禱告會手寫稿所提取的完整文字（如 1. 2. 3. 直到 13.）貼入下方框中：</p>
+      <textarea id="import-textarea" style="width:100%; height:250px; background:#111; color:#fff; border:1px solid #444; border-radius:4px; padding:8px; font-family:monospace; font-size:13px; resize:vertical;"></textarea>
+      <div style="margin-top:15px; text-align:right;">
+        <button class="button quiet" type="button" id="import-cancel-text" style="margin-right:8px;">取消</button>
+        <button class="button primary" type="submit" id="import-submit">進行解析與導入</button>
+      </div>
+    </form>
+  </div>
 `;
 document.body.appendChild(importDialog);
 
-importBtn.onclick = () => {
-  importDialog.showModal();
+// Tab Switching
+const tabBtnAi = $('#tab-btn-ai');
+const tabBtnText = $('#tab-btn-text');
+const tabContentAi = $('#tab-content-ai');
+const tabContentText = $('#tab-content-text');
+
+tabBtnAi.onclick = () => {
+  tabBtnAi.classList.add('active');
+  tabBtnText.classList.remove('active');
+  tabContentAi.classList.add('active');
+  tabContentText.classList.remove('active');
 };
 
-$('#import-cancel').onclick = () => {
-  importDialog.close();
+tabBtnText.onclick = () => {
+  tabBtnText.classList.add('active');
+  tabBtnAi.classList.remove('active');
+  tabContentText.classList.add('active');
+  tabContentAi.classList.remove('active');
+};
+
+// Drag & Drop / Click Upload
+const dropzone = $('#ai-image-dropzone');
+const fileInput = $('#ai-image-file');
+const previewContainer = $('#ai-image-preview-container');
+const previewImg = $('#ai-image-preview');
+let selectedImageFile = null;
+
+function selectImageFile(file) {
+  if (!file) return;
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+    alert('僅支援 PNG、JPG 或 WebP 圖片。');
+    return;
+  }
+
+  selectedImageFile = file;
+  const reader = new FileReader();
+  reader.onload = () => {
+    previewImg.src = reader.result;
+    previewContainer.style.display = 'block';
+    $('#ai-image-dropzone .dropzone-text').textContent = file.name;
+  };
+  reader.onerror = () => {
+    selectedImageFile = null;
+    alert('圖片讀取失敗，請重新選擇。');
+  };
+  reader.readAsDataURL(file);
+}
+
+dropzone.onclick = () => fileInput.click();
+
+dropzone.ondragover = (e) => {
+  e.preventDefault();
+  dropzone.classList.add('dragover');
+};
+
+dropzone.ondragleave = () => {
+  dropzone.classList.remove('dragover');
+};
+
+dropzone.ondrop = (e) => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  selectImageFile(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]);
+};
+
+fileInput.onchange = (e) => {
+  selectImageFile(e.target.files && e.target.files[0]);
+};
+
+$('#import-cancel-ai').onclick = () => importDialog.close();
+$('#import-cancel-text').onclick = () => importDialog.close();
+
+// Trigger AI Parsing
+$('#ai-parse-btn').onclick = async () => {
+  if (!selectedImageFile) {
+    alert('請先選擇或拖入要辨識的手寫稿照片！');
+    return;
+  }
+  
+  const statusDiv = $('#ai-parse-status');
+  statusDiv.textContent = '正在讀取圖片並進行 base64 編碼…';
+  statusDiv.style.color = 'var(--text-muted)';
+  
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const dataUrl = reader.result;
+    const commaIndex = dataUrl.indexOf(',');
+    const base64Data = dataUrl.substring(commaIndex + 1);
+    const mimeType = selectedImageFile.type;
+    
+    statusDiv.textContent = '正在由全教會 GAS 雲端 AI 引擎判定中 (這需要 5-15 秒)…';
+    statusDiv.style.color = 'var(--accent-color)';
+    
+    try {
+      statusDiv.textContent = '呼叫全教會 GAS 雲端 AI 引擎…';
+      const response = await window.churchAPI('cal_parsePrayerImage', { mimeType, base64Data });
+      if (response && response.success && response.text) {
+        statusDiv.textContent = '🎉 AI 圖文判定完成！已填充文字並解析經文！';
+        statusDiv.style.color = '#10b981'; // Green color for success
+        $('#import-textarea').value = response.text;
+        
+        // Auto trigger import
+        importRawText(response.text);
+        
+        setTimeout(() => {
+          importDialog.close();
+        }, 1000);
+      } else if (response && response.error) {
+        throw new Error(response.error);
+      } else {
+        throw new Error((response && response.message) || 'GAS 未回傳有效文字內容');
+      }
+    } catch (err) {
+      statusDiv.textContent = `❌ 辨識失敗：${err.message}`;
+      statusDiv.style.color = '#ef4444'; // Red color for error
+    }
+  };
+  reader.readAsDataURL(selectedImageFile);
+};
+
+importBtn.onclick = () => {
+  // Clear file uploads and status on open
+  selectedImageFile = null;
+  fileInput.value = '';
+  previewContainer.style.display = 'none';
+  $('#ai-image-dropzone .dropzone-text').textContent = '將手寫相片拖曳至此，或點擊此處上傳';
+  $('#ai-parse-status').textContent = '';
+  importDialog.showModal();
 };
 
 $('#import-dialog-form').onsubmit = (e) => {
@@ -259,17 +431,9 @@ function importRawText(text) {
   if (!text) return;
   
   const lines = text.split('\n');
+  const sectionsToUpdate = {};
   let currentSection = null;
   let currentLines = [];
-
-  // Reset model
-  Object.keys(model).forEach(key => {
-    model[key].body = '';
-    if (model[key].bibleQuery !== undefined) {
-      model[key].bibleQuery = '';
-      model[key].bibleRecords = [];
-    }
-  });
 
   const numberToSectionMap = {
     1: 'silence',
@@ -298,12 +462,18 @@ function importRawText(text) {
       const sectionKey = numberToSectionMap[num];
       if (sectionKey) {
         if (currentSection) {
-          saveCurrentSectionContent(currentSection, currentLines);
+          sectionsToUpdate[currentSection] = {
+            title: model[currentSection].title,
+            lines: currentLines
+          };
         }
         currentSection = sectionKey;
         currentLines = [];
         const titleText = headerMatch[2].trim();
-        model[sectionKey].title = titleText || model[sectionKey].label;
+        sectionsToUpdate[sectionKey] = {
+          title: titleText || model[sectionKey].label,
+          lines: currentLines
+        };
         return;
       }
     }
@@ -314,13 +484,24 @@ function importRawText(text) {
   });
 
   if (currentSection) {
-    saveCurrentSectionContent(currentSection, currentLines);
+    sectionsToUpdate[currentSection] = {
+      title: sectionsToUpdate[currentSection] ? sectionsToUpdate[currentSection].title : model[currentSection].title,
+      lines: currentLines
+    };
   }
 
-  // Trigger Bible queries for all Bible sections
-  const bibleSections = ['scripture', 'repentance', 'nation', 'verse'];
+  // Update only the parsed sections (so single page scan increments nicely)
+  const bibleSectionsToQuery = [];
+  Object.entries(sectionsToUpdate).forEach(([sectionId, data]) => {
+    model[sectionId].title = data.title;
+    saveCurrentSectionContent(sectionId, data.lines);
+    if (['scripture', 'repentance', 'nation', 'verse'].includes(sectionId)) {
+      bibleSectionsToQuery.push(sectionId);
+    }
+  });
+
   status('正在透過 API 解析並查詢各段聖經經文…');
-  Promise.all(bibleSections.map(sec => queryBibleForSection(sec))).then(() => {
+  Promise.all(bibleSectionsToQuery.map(sec => queryBibleForSection(sec))).then(() => {
     render();
     status('智慧文字導入與經文解析載入完成！');
   });
@@ -351,5 +532,4 @@ function saveCurrentSectionContent(sectionId, lines) {
 // Initial setup to bind coordinate-saving features (mocked for simplicity, or synchronized via window structure)
 window.getDeckEntries = () => window.PrayerSlideProduction.buildDeckEntries(sections, model);
 window.navigateDeck = null; // Defined by layout-groups.js if loaded
-
-render();
+// Initial render is owned by ppt-format-preview.js after it defines preview().

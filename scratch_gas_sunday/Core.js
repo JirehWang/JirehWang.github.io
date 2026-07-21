@@ -410,6 +410,7 @@ function _handleCalendarRequest(body) {
       // ─── Phase 2.5：批量 + AI ───
       case 'cal_addEventsBatch':      result = cal_addEventsBatch(data); break;
       case 'cal_aiParseForType':      result = cal_aiParseForType(data); break;
+      case 'cal_parsePrayerImage':    result = cal_parsePrayerImage(data); break;
 
       // ─── FHL Bible API ───
       case 'cal_queryBible':          result = cal_queryBible(data); break;
@@ -521,4 +522,69 @@ function _handleWorshipRequest(body) {
     response = { status: 'error', message: error.toString() };
   }
   return _groupResponseJSON(response);
+}
+
+/**
+ * AI 圖片辨識手寫禱告項目 (呼叫 Gemini Vision API)
+ */
+function cal_parsePrayerImage(data) {
+  const apiKey = _getGeminiApiKey();
+  const model = _getGeminiModel();
+  if (!apiKey) {
+    throw new Error("未設定 GEMINI_API_KEY，請至主專案指令碼屬性設定。");
+  }
+
+  const mimeType = data.mimeType || 'image/jpeg';
+  const base64Data = data.base64Data;
+  if (!base64Data) {
+    throw new Error("未接收到有效的圖片數據！");
+  }
+
+  const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + apiKey;
+
+  const systemPrompt = "你是一個專業的林口長老教會助理。請仔細辨識這張手寫禱告會草稿圖片中的所有中文與英文文字，並將其整理成結構化的純文字格式。\n" +
+                       "請以條列式輸出，格式如下：\n" +
+                       "1. 請安靜心、等候神\n" +
+                       "請放下身心重擔...\n" +
+                       "\n" +
+                       "3. 經文 (台語漢字)\n" +
+                       "羅 8:26\n" +
+                       "\n" +
+                       "4. 獻上感謝讚美的 pray.\n" +
+                       "a. 讚美上帝的美好...\n" +
+                       "\n" +
+                       "請務必保留原本的編號與標題，不要添加任何 Markdown 標籤（如 ```）或多餘的說明文字。直接回傳純文字內容即可。";
+
+  const requestBody = {
+    contents: [{
+      parts: [
+        { text: systemPrompt },
+        {
+          inlineData: {
+            mimeType: mimeType,
+            data: base64Data
+          }
+        }
+      ]
+    }]
+  };
+
+  const options = {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify(requestBody),
+    muteHttpExceptions: true
+  };
+
+  const response = UrlFetchApp.fetch(apiUrl, options);
+  const respCode = response.getResponseCode();
+  const respText = response.getContentText();
+
+  if (respCode !== 200) {
+    throw new Error("Gemini API 回傳錯誤 (" + respCode + "): " + respText);
+  }
+
+  const resJson = JSON.parse(respText);
+  const extractedText = resJson.candidates[0].content.parts[0].text.trim();
+  return { success: true, text: extractedText };
 }

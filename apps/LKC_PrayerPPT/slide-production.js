@@ -291,14 +291,25 @@
 
   function buildDeckEntries(sections, model) {
     let deckNumber = 0;
-    const sectionDecks = sections.map(([sectionId, label]) => {
-      const item = model[sectionId];
-      const pages = generateSectionPages(sectionId, item);
-      return { sectionId, label, pages };
-    });
+    let resolvedDecks = [];
 
-    return sectionDecks.flatMap((section, sectionIndex) => (section.pages || []).map((page, pageIndex) => ({
+    if (Array.isArray(sections) && sections.length > 0) {
+      if (Array.isArray(sections[0])) {
+        // Signature: buildDeckEntries(sections, model)
+        resolvedDecks = sections.map(([sectionId, label]) => {
+          const item = model[sectionId];
+          const pages = generateSectionPages(sectionId, item);
+          return { sectionId, label, pages };
+        });
+      } else if (typeof sections[0] === 'object' && sections[0] !== null) {
+        // Signature: buildDeckEntries(sectionDecks)
+        resolvedDecks = sections;
+      }
+    }
+
+    return resolvedDecks.flatMap((section, sectionIndex) => (section.pages || []).map((page, pageIndex) => ({
       ...page,
+      id: page.id || `${section.sectionId}:${pageIndex + 1}`,
       sectionId: section.sectionId,
       sectionLabel: section.label,
       sectionIndex,
