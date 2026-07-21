@@ -208,6 +208,36 @@
     return pages.length ? pages : [''];
   }
 
+  function paginateGroupedPoints(bodyText, maxLines = 5, contentW = 84, fontSize = 48) {
+    const points = splitIntoPoints(bodyText);
+    if (!points.length) return [];
+    const pages = [];
+    let currentLines = [];
+    const flushCurrent = () => {
+      if (!currentLines.length) return;
+      pages.push(currentLines.join('\n'));
+      currentLines = [];
+    };
+
+    points.forEach(point => {
+      const pointLines = wrapTextForBox(point, { fontSize, boxWidth: contentW }).split('\n');
+      if (pointLines.length > maxLines) {
+        flushCurrent();
+        for (let index = 0; index < pointLines.length; index += maxLines) {
+          pages.push(pointLines.slice(index, index + maxLines).join('\n'));
+        }
+        return;
+      }
+      if (currentLines.length && currentLines.length + pointLines.length > maxLines) {
+        flushCurrent();
+      }
+      currentLines.push(...pointLines);
+    });
+
+    flushCurrent();
+    return pages;
+  }
+
   // Build slide pages for a section based on its type
   function generateSectionPages(sectionId, item) {
     const pages = [];
@@ -250,8 +280,6 @@
     if (item.type === 'list-bible') {
       // Bullet points with bible header
       const bibleText = item.bibleRecords && item.bibleRecords.map(r => `${r.sec} ${cleanText(r.bible_text || r.text)}`).join(' ') || '';
-      const points = splitIntoPoints(item.body);
-      
       // Page 1: The Scripture text
       if (bibleText) {
         const wrappedBible = wrapTextForBox(bibleText, { fontSize: 48, boxWidth: 84 });
@@ -267,29 +295,9 @@
         }
       }
 
-      // Subsequent pages: One point per page
-      points.forEach((point, pointIndex) => {
-        const paginatedSubpages = paginatePointText(point, 5, 84, 48);
-        paginatedSubpages.forEach((subpage, subIndex) => {
-          pages.push({
-            kind: 'list-item',
-            title: title,
-            body: subpage,
-            layout: {}
-          });
-        });
-      });
-
-      return pages.map((page, index) => ({
-        ...page,
-        id: `${sectionId}:${index + 1}`
-      }));
-    }
-
-    if (item.type === 'list') {
-      const points = splitIntoPoints(item.body);
-      points.forEach(point => {
-        const paginatedSubpages = paginatePointText(point, 5, 84, 48);
+      // Subsequent pages: keep sub-points together under the same major section.
+      if (item.body) {
+        const paginatedSubpages = paginateGroupedPoints(item.body, 5, 84, 48);
         paginatedSubpages.forEach(subpage => {
           pages.push({
             kind: 'list-item',
@@ -298,7 +306,26 @@
             layout: {}
           });
         });
-      });
+      }
+
+      return pages.map((page, index) => ({
+        ...page,
+        id: `${sectionId}:${index + 1}`
+      }));
+    }
+
+    if (item.type === 'list') {
+      if (item.body) {
+        const paginatedSubpages = paginateGroupedPoints(item.body, 5, 84, 48);
+        paginatedSubpages.forEach(subpage => {
+          pages.push({
+            kind: 'list-item',
+            title: title,
+            body: subpage,
+            layout: {}
+          });
+        });
+      }
 
       if (!pages.length) {
         pages.push({

@@ -479,7 +479,7 @@ cache/
    - 即使 Key 外洩，攻擊者無法從其他網域使用
 3. **`.gitignore` 預防**
    - 加上 `*firebase-adminsdk*.json` / `.clasprc.json` 黑名單
-   - Gemini API Key 集中在「LKC系統設定」試算表的 `AI_Config`，由主 GAS `GeminiHelper.js` 讀取並快取；PrayerPPT 以專用 `LKC_PrayerPPT` 中央路由呼叫合併主 GAS 的 `cal_parsePrayerImage`，前端可批量選取圖片並逐張辨識，每張結果獨立解析後再合併段落，避免跨圖片前言與頁碼污染，且不接觸 key；預設白底使用深色標題與內文
+   - Gemini API Key 集中在「LKC系統設定」試算表的 `AI_Config`，由主 GAS `GeminiHelper.js` 讀取並快取；PrayerPPT 以專用 `LKC_PrayerPPT` 中央路由呼叫合併主 GAS 的 `cal_parsePrayerImage`，前端可批量選取圖片並逐張辨識，每張結果獨立解析後再合併段落，避免跨圖片前言與頁碼污染，且不接觸 key；預設白底使用深色標題與內文，清單以大項分頁並在可用空間內合併小點
 
 #### 🐛 修補
 - **事工管理 fetchAPI 整合 churchAPI**：原本沒走中央 churchAPI、缺 `ministry_` 前綴、body 格式不對，整合方案 C 後失效 → 修復後自動走前綴 + Firebase cache

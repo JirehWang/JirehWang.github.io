@@ -29,4 +29,34 @@ assert.deepEqual(sections.oneself.lines, ['a. 身心靈剛強']);
 assert.equal(sections.repentance, undefined,
   'a trailing handwritten page number such as "5." must not create a section');
 
+const compactListPages = production.generateSectionPages('world', {
+  type: 'list',
+  title: '為世界 pray',
+  body: 'a. 第一個小點\nb. 第二個小點\nc. 第三個小點'
+});
+assert.equal(compactListPages.length, 1,
+  'small sub-points under the same major section must share one slide when they fit');
+assert.equal(compactListPages[0].body, 'a. 第一個小點\nb. 第二個小點\nc. 第三個小點');
+
+const overflowListPages = production.generateSectionPages('members', {
+  type: 'list',
+  title: '為教會肢體 pray',
+  body: 'a. 第一點\nb. 第二點\nc. 第三點\nd. 第四點\ne. 第五點\nf. 第六點'
+});
+assert.equal(overflowListPages.length, 2,
+  'a major section must continue onto another slide only after the available lines are filled');
+assert.equal(overflowListPages[0].body.split('\n').length, 5);
+assert.equal(overflowListPages[1].body, 'f. 第六點');
+
+const keepPointTogetherPages = production.generateSectionPages('church', {
+  type: 'list',
+  title: '為教會 pray',
+  body: 'a. 第一個小點\n第一點續行一\n第一點續行二\n第一點續行三\nb. 第二個小點\n第二點續行'
+});
+assert.equal(keepPointTogetherPages.length, 2);
+assert.doesNotMatch(keepPointTogetherPages[0].body, /^b\./m,
+  'a sub-point that fits on the next slide must not be split across a page boundary');
+assert.match(keepPointTogetherPages[1].body, /^b\. 第二個小點/,
+  'the complete sub-point must move to the next slide');
+
 console.log('PrayerPPT slide production checks passed');
