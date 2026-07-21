@@ -258,20 +258,18 @@ importDialog.innerHTML = `
     <h3 style="margin-top:0;">上傳手寫草稿照片 (AI 圖文判定)</h3>
     <div class="dropzone" id="ai-image-dropzone">
       <span class="dropzone-icon">☁️</span>
-      <span class="dropzone-text">將手寫相片拖曳至此，或點擊此處上傳</span>
-      <span class="dropzone-subtext">(支援 PNG、JPG 或 WebP)</span>
-      <input type="file" id="ai-image-file" accept="image/png,image/jpeg,image/webp" style="display:none;">
+      <span class="dropzone-text">將多張手寫相片拖曳至此，或點擊此處批量上傳</span>
+      <span class="dropzone-subtext">(支援 PNG、JPG 或 WebP，可一次選取多張)</span>
+      <input type="file" id="ai-image-file" accept="image/png,image/jpeg,image/webp" multiple style="display:none;">
     </div>
     
-    <div class="img-preview-container" id="ai-image-preview-container">
-      <img src="" class="img-preview" id="ai-image-preview">
-    </div>
+    <div class="batch-preview-list" id="ai-image-preview-list"></div>
     
     <div id="ai-parse-status" style="margin-top:15px; min-height:20px; font-size:13px; color:#bb86fc; white-space:pre-wrap;"></div>
     
     <div style="margin-top:15px; text-align:right;">
       <button class="button quiet" type="button" id="import-cancel-ai" style="margin-right:8px;">取消</button>
-      <button class="button primary" type="button" id="ai-parse-btn" style="width:120px;">AI 圖文判定</button>
+      <button class="button primary" type="button" id="ai-parse-btn">批量 AI 圖文判定</button>
     </div>
   </div>
   
@@ -313,29 +311,62 @@ tabBtnText.onclick = () => {
 // Drag & Drop / Click Upload
 const dropzone = $('#ai-image-dropzone');
 const fileInput = $('#ai-image-file');
-const previewContainer = $('#ai-image-preview-container');
-const previewImg = $('#ai-image-preview');
-let selectedImageFile = null;
+const previewList = $('#ai-image-preview-list');
+const parseButton = $('#ai-parse-btn');
+let selectedImageFiles = [];
+let selectedPreviewUrls = [];
 
-function selectImageFile(file) {
-  if (!file) return;
-  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+function clearSelectedImageFiles() {
+  selectedPreviewUrls.forEach(url => URL.revokeObjectURL(url));
+  selectedPreviewUrls = [];
+  selectedImageFiles = [];
+  fileInput.value = '';
+  previewList.innerHTML = '';
+  $('#ai-image-dropzone .dropzone-text').textContent = '將多張手寫相片拖曳至此，或點擊此處批量上傳';
+}
+
+function selectImageFiles(files) {
+  const imageFiles = Array.from(files || []);
+  if (!imageFiles.length) return;
+  if (imageFiles.some(file => !['image/png', 'image/jpeg', 'image/webp'].includes(file.type))) {
     alert('僅支援 PNG、JPG 或 WebP 圖片。');
     return;
   }
 
-  selectedImageFile = file;
-  const reader = new FileReader();
-  reader.onload = () => {
-    previewImg.src = reader.result;
-    previewContainer.style.display = 'block';
-    $('#ai-image-dropzone .dropzone-text').textContent = file.name;
-  };
-  reader.onerror = () => {
-    selectedImageFile = null;
-    alert('圖片讀取失敗，請重新選擇。');
-  };
-  reader.readAsDataURL(file);
+  clearSelectedImageFiles();
+  selectedImageFiles = imageFiles;
+  selectedImageFiles.forEach(file => {
+    const previewUrl = URL.createObjectURL(file);
+    selectedPreviewUrls.push(previewUrl);
+    const item = document.createElement('div');
+    item.className = 'batch-preview-item';
+    const image = document.createElement('img');
+    image.src = previewUrl;
+    image.alt = file.name;
+    const label = document.createElement('small');
+    label.textContent = file.name;
+    label.title = file.name;
+    item.append(image, label);
+    previewList.appendChild(item);
+  });
+  $('#ai-image-dropzone .dropzone-text').textContent = `已選擇 ${selectedImageFiles.length} 張圖片`;
+}
+
+function readImageAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || '');
+      const commaIndex = dataUrl.indexOf(',');
+      if (commaIndex === -1) {
+        reject(new Error(`無法讀取 ${file.name}`));
+        return;
+      }
+      resolve(dataUrl.substring(commaIndex + 1));
+    };
+    reader.onerror = () => reject(new Error(`圖片讀取失敗：${file.name}`));
+    reader.readAsDataURL(file);
+  });
 }
 
 dropzone.onclick = () => fileInput.click();
@@ -352,70 +383,62 @@ dropzone.ondragleave = () => {
 dropzone.ondrop = (e) => {
   e.preventDefault();
   dropzone.classList.remove('dragover');
-  selectImageFile(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]);
+  selectImageFiles(e.dataTransfer && e.dataTransfer.files);
 };
 
 fileInput.onchange = (e) => {
-  selectImageFile(e.target.files && e.target.files[0]);
+  selectImageFiles(e.target.files);
 };
 
 $('#import-cancel-ai').onclick = () => importDialog.close();
 $('#import-cancel-text').onclick = () => importDialog.close();
 
 // Trigger AI Parsing
-$('#ai-parse-btn').onclick = async () => {
-  if (!selectedImageFile) {
+parseButton.onclick = async () => {
+  if (!selectedImageFiles.length) {
     alert('請先選擇或拖入要辨識的手寫稿照片！');
     return;
   }
-  
+
   const statusDiv = $('#ai-parse-status');
-  statusDiv.textContent = '正在讀取圖片並進行 base64 編碼…';
-  statusDiv.style.color = 'var(--text-muted)';
-  
-  const reader = new FileReader();
-  reader.onload = async () => {
-    const dataUrl = reader.result;
-    const commaIndex = dataUrl.indexOf(',');
-    const base64Data = dataUrl.substring(commaIndex + 1);
-    const mimeType = selectedImageFile.type;
-    
-    statusDiv.textContent = '正在由全教會 GAS 雲端 AI 引擎判定中 (這需要 5-15 秒)…';
-    statusDiv.style.color = 'var(--accent-color)';
-    
-    try {
-      statusDiv.textContent = '呼叫全教會 GAS 雲端 AI 引擎…';
-      const response = await window.churchAPI('cal_parsePrayerImage', { mimeType, base64Data });
+  const recognizedTexts = [];
+  parseButton.disabled = true;
+  fileInput.disabled = true;
+  statusDiv.style.color = 'var(--accent-color)';
+
+  try {
+    for (let index = 0; index < selectedImageFiles.length; index += 1) {
+      const file = selectedImageFiles[index];
+      statusDiv.textContent = `正在辨識第 ${index + 1}/${selectedImageFiles.length} 張：${file.name}`;
+      const base64Data = await readImageAsBase64(file);
+      const response = await window.churchAPI('cal_parsePrayerImage', { mimeType: file.type, base64Data });
       if (response && response.success && response.text) {
-        statusDiv.textContent = '🎉 AI 圖文判定完成！已填充文字並解析經文！';
-        statusDiv.style.color = '#10b981'; // Green color for success
-        $('#import-textarea').value = response.text;
-        
-        // Auto trigger import
-        importRawText(response.text);
-        
-        setTimeout(() => {
-          importDialog.close();
-        }, 1000);
+        recognizedTexts.push(response.text.trim());
       } else if (response && response.error) {
-        throw new Error(response.error);
+        throw new Error(`第 ${index + 1} 張辨識失敗：${response.error}`);
       } else {
-        throw new Error((response && response.message) || 'GAS 未回傳有效文字內容');
+        throw new Error(`第 ${index + 1} 張辨識失敗：${(response && response.message) || 'GAS 未回傳有效文字內容'}`);
       }
-    } catch (err) {
-      statusDiv.textContent = `❌ 辨識失敗：${err.message}`;
-      statusDiv.style.color = '#ef4444'; // Red color for error
     }
-  };
-  reader.readAsDataURL(selectedImageFile);
+
+    const combinedText = recognizedTexts.join('\n\n');
+    $('#import-textarea').value = combinedText;
+    importRawText(combinedText);
+    statusDiv.textContent = `🎉 ${selectedImageFiles.length} 張照片辨識完成！已合併文字並解析經文。`;
+    statusDiv.style.color = '#10b981';
+    setTimeout(() => importDialog.close(), 1000);
+  } catch (err) {
+    statusDiv.textContent = `❌ 辨識失敗：${err.message}`;
+    statusDiv.style.color = '#ef4444';
+  } finally {
+    parseButton.disabled = false;
+    fileInput.disabled = false;
+  }
 };
 
 importBtn.onclick = () => {
   // Clear file uploads and status on open
-  selectedImageFile = null;
-  fileInput.value = '';
-  previewContainer.style.display = 'none';
-  $('#ai-image-dropzone .dropzone-text').textContent = '將手寫相片拖曳至此，或點擊此處上傳';
+  clearSelectedImageFiles();
   $('#ai-parse-status').textContent = '';
   importDialog.showModal();
 };
@@ -434,6 +457,7 @@ function importRawText(text) {
   const sectionsToUpdate = {};
   let currentSection = null;
   let currentLines = [];
+  let currentTitle = '';
 
   const numberToSectionMap = {
     1: 'silence',
@@ -451,6 +475,20 @@ function importRawText(text) {
     13: 'benediction'
   };
 
+  const collectCurrentSection = () => {
+    if (!currentSection) return;
+    const existing = sectionsToUpdate[currentSection];
+    if (existing) {
+      existing.lines.push(...currentLines);
+      if (!existing.title && currentTitle) existing.title = currentTitle;
+      return;
+    }
+    sectionsToUpdate[currentSection] = {
+      title: currentTitle || model[currentSection].title,
+      lines: currentLines.slice()
+    };
+  };
+
   lines.forEach(line => {
     const trimmed = line.trim();
     if (!trimmed) return;
@@ -461,19 +499,10 @@ function importRawText(text) {
       const num = parseInt(headerMatch[1], 10);
       const sectionKey = numberToSectionMap[num];
       if (sectionKey) {
-        if (currentSection) {
-          sectionsToUpdate[currentSection] = {
-            title: model[currentSection].title,
-            lines: currentLines
-          };
-        }
+        collectCurrentSection();
         currentSection = sectionKey;
         currentLines = [];
-        const titleText = headerMatch[2].trim();
-        sectionsToUpdate[sectionKey] = {
-          title: titleText || model[sectionKey].label,
-          lines: currentLines
-        };
+        currentTitle = headerMatch[2].trim() || model[sectionKey].label;
         return;
       }
     }
@@ -483,12 +512,7 @@ function importRawText(text) {
     }
   });
 
-  if (currentSection) {
-    sectionsToUpdate[currentSection] = {
-      title: sectionsToUpdate[currentSection] ? sectionsToUpdate[currentSection].title : model[currentSection].title,
-      lines: currentLines
-    };
-  }
+  collectCurrentSection();
 
   // Update only the parsed sections (so single page scan increments nicely)
   const bibleSectionsToQuery = [];

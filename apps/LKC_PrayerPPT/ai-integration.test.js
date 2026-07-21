@@ -5,7 +5,14 @@ const path = require('node:path');
 const appSource = fs.readFileSync(path.join(__dirname, 'app.js'), 'utf8');
 const indexSource = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
 
-assert.match(appSource, /let selectedImageFile = null;/, 'image selection state must be declared');
+assert.match(appSource, /id="ai-image-file"[^>]*\bmultiple\b/,
+  'image picker must allow selecting multiple files');
+assert.match(appSource, /let selectedImageFiles = \[\];/, 'batch image selection state must be declared');
+assert.match(appSource, /selectedImageFiles\.length/, 'batch processing must use the selected file count');
+assert.match(appSource, /第 \$\{index \+ 1\}\/\$\{selectedImageFiles\.length\} 張/,
+  'batch processing must report per-image progress');
+assert.match(appSource, /recognizedTexts\.join\(['"]\\n\\n['"]\)/,
+  'recognized image texts must be merged before import');
 assert.match(appSource, /dropzone\.ondrop\s*=\s*\(e\)\s*=>/, 'drag-and-drop handler must be registered');
 assert.match(appSource, /fileInput\.onchange\s*=\s*\(e\)\s*=>/, 'file picker handler must be registered');
 assert.match(appSource, /churchAPI\('cal_parsePrayerImage'/, 'image parsing must go through the GAS proxy');
