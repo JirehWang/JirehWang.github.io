@@ -309,7 +309,7 @@ JSONP 只應開放：
 cal_queryBible({ book, chap, sec, version })
 ```
 
-結果統一成 `bible_text`，並為每筆經節保留 `queryBookName`、`queryChap`、`querySec` 與 `queryGroupKey`，再交給 `buildBiblePages()` 每頁兩節。分頁規則與 `LKC_ppt_generator` 一致：不同 `queryGroupKey` 絕不放在同一頁，每頁標題依該頁第一節與最後一節重建成實際範圍（例如 `聖經－以弗所書 5:1-2`），不重複顯示整串原始查詢。台語模板使用 `tghg`；聯合台語的宣召、經文與金句，以及聯合華語的宣召與經文，皆依序使用 `tghg`、`unv` 並保留語言標記。台語與聯合台語的金句在經文頁前額外插入 `verse:title` 標題頁。
+結果統一成 `bible_text`，並為每筆經節保留 `queryBookName`、`queryChap`、`querySec` 與 `queryGroupKey`，再交給 `buildBiblePages()` 每頁兩節。不同 `queryGroupKey` 絕不放在同一頁；標題優先使用原始查詢段落的 `querySec`，所以同卷多段如 `創世記 1:1-10; 2:1-5` 會拆為各自的 `聖經－創世記 1:1-10` 與 `聖經－創世記 2:1-5`，不隨每一張內文頁的兩節切分而改變。沒有查詢段落資料時才以該頁第一節與最後一節重建範圍。台語模板使用 `tghg`；聯合台語的宣召、經文與金句，以及聯合華語的宣召與經文，皆依序使用 `tghg`、`unv` 並保留語言標記。台語與聯合台語的金句在經文頁前額外插入 `verse:title` 標題頁；兩個台語模板的會前聖詩一、會前聖詩二、聖詩一、聖詩二與頌榮，皆在匯入聖詩內容前插入獨立標題頁。
 
 這個設計解決兩個問題：
 

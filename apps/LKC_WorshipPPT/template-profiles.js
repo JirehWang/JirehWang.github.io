@@ -101,6 +101,7 @@
       defaultBackgroundColor: '#ffffff',
       assets: {},
       hymnOpacitySectionIds: ['pre-hymn-1', 'pre-hymn-2', 'hymn-1', 'prayer-song', 'hymn-2', 'offering', 'doxology', 'amen'],
+      hymnTitleSectionIds: ['pre-hymn-1', 'pre-hymn-2', 'hymn-1', 'hymn-2', 'doxology'],
       fixedLibrary: [
         { sectionId: 'prayer-song', sourceValue: '261', includeSectionTitle: false },
         { sectionId: 'offering', sourceValue: '306B', includeSectionTitle: true },

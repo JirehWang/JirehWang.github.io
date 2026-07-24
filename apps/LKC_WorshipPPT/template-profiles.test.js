@@ -32,6 +32,8 @@ test('clones the Taiwanese flow into a bilingual joint Taiwanese template', () =
   assert.deepEqual(profile.sections.map(([id]) => id), taiwanese.sections.map(([id]) => id));
   assert.deepEqual(profile.fixedLibrary, taiwanese.fixedLibrary);
   assert.deepEqual(profile.librarySections, taiwanese.librarySections);
+  assert.deepEqual(profile.hymnTitleSectionIds, ['pre-hymn-1', 'pre-hymn-2', 'hymn-1', 'hymn-2', 'doxology']);
+  assert.deepEqual(taiwanese.hymnTitleSectionIds, profile.hymnTitleSectionIds);
   assert.notEqual(profile.sections, taiwanese.sections);
 
   const bibleSections = Object.fromEntries(profile.bibleSections.map(config => [config.sectionId, config]));

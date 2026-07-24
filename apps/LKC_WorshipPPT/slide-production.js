@@ -148,9 +148,10 @@
       const hasQueryContext = firstRecord && firstRecord.queryBookName && firstRecord.queryChap != null;
       let titleReference = reference;
       if (hasQueryContext) {
+        const requestedRange = String(firstRecord.querySec || '').trim();
         const firstSec = firstRecord.sec;
         const lastSec = pageRecords[pageRecords.length - 1].sec;
-        const verseRange = pageRecords.length === 1 ? firstSec : `${firstSec}-${lastSec}`;
+        const verseRange = requestedRange || (pageRecords.length === 1 ? firstSec : `${firstSec}-${lastSec}`);
         titleReference = `${firstRecord.queryBookName} ${firstRecord.queryChap}:${verseRange}`;
       }
       pages.push({

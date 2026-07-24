@@ -70,6 +70,10 @@
 
   async function loadSection(sectionId, kind, entries) {
     const item = model[sectionId];
+    const profile = window.activeWorshipTemplateProfile || {};
+    if (item && (profile.hymnTitleSectionIds || []).includes(sectionId)) {
+      item.includeSectionTitle = true;
+    }
     const number = library.normalizeLibraryNumber(item && item.sourceValue);
     if (!item || !number) return { sectionId, state: 'empty' };
     const entry = library.findLibraryEntry(entries, kind, number);

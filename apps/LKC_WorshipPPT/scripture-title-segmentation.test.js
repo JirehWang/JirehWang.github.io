@@ -43,3 +43,17 @@ test('separates scripture query groups and titles each page from its actual vers
   assert.equal(pages[1].title, '聖經－約翰福音 3:16-17');
   assert.equal(pages[1].body, '16 神愛世人\n\n17 不是定世人的罪');
 });
+
+test('keeps the requested range as the title when one book contains multiple scripture segments', () => {
+  const pages = buildBiblePages('scripture', '聖經', '創世記1:1-10; 2:1-5', [
+    { chap: 1, sec: 1, bible_text: '第一節', queryBookName: '創世記', queryChap: 1, querySec: '1-10', queryGroupKey: '創世記_1_1-10' },
+    { chap: 1, sec: 2, bible_text: '第二節', queryBookName: '創世記', queryChap: 1, querySec: '1-10', queryGroupKey: '創世記_1_1-10' },
+    { chap: 2, sec: 1, bible_text: '第二章第一節', queryBookName: '創世記', queryChap: 2, querySec: '1-5', queryGroupKey: '創世記_2_1-5' },
+    { chap: 2, sec: 2, bible_text: '第二章第二節', queryBookName: '創世記', queryChap: 2, querySec: '1-5', queryGroupKey: '創世記_2_1-5' }
+  ]);
+
+  assert.deepEqual(pages.map(page => page.title), [
+    '聖經－創世記 1:1-10',
+    '聖經－創世記 2:1-5'
+  ]);
+});
