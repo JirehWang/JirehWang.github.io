@@ -589,7 +589,7 @@ async function addSelectedMembers(sessionName) {
 
       const message = String(await callSundayAttendancePayloadApi('addMember', {
         name,
-        gender: item['新家人性別'] || '',
+        gender: item['性別'] || '',
         note: item['備註'] || '',
         isExcluded: false
       }) || '');

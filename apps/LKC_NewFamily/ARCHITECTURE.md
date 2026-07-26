@@ -40,7 +40,7 @@
   * **頁籤與表單控制**：實作 `switchTab(tabName)` 與表單提交事件監聽器。
   * **API 請求與快取**：實作 `callApi(action, data)`。針對 `getTrackingCases` 與 `getClosedCases` 兩項載入動作，實作 `callCachedListApi()` 快取包裝，設定 TTL 19800 秒（5.5 小時）。
   * **跨系統資料流同步（一鍵轉會友）**：當同工點擊「加入會友名單」：
-    1. 呼叫主日出席 API 的 `addMember` 新增會友。
+    1. 呼叫主日出席 API 的 `addMember` 新增會友；欄位契約為新家人追蹤資料的 `姓名` → `name`、`性別` → `gender`、`備註` → `note`。
     2. 從主日出席 API 的 `getAllMembers` 下載最新大名單（並以 `memberDirectoryPromise` 加以快取），以正則解析出新會友的「點名代碼」（如 `L012` 等）與所屬小組。
     3. 呼叫新家人 API 的 `markTrackingMemberStatuses` 將新家人追蹤表上的狀態回寫為「已加入」或「已存在」，並填入「點名系統代碼」。
   * **落戶統計分析統計**：實作 `buildSettlementPivot` 將結案數據依年份、季度、小組統計人數。
