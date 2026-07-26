@@ -44,6 +44,7 @@ let currentTableHeaders = [];
 
 let currentGroupMembers = [];
 let currentCoreMembers = [];
+let currentGeneralMembers = [];
 let currentGroupPrompt = "";
 let currentAutoRoleRules = "";
 
@@ -124,6 +125,21 @@ function isFieldMemberListEnabled(fieldName) {
   }
   const noListFields = ["日期", "地點", "主題", "經文", "聚會名稱", "聚會類別", "套用講道"];
   return !noListFields.some(f => fieldName.includes(f));
+}
+
+function getFieldMemberListId(fieldName, templateName = currentTemplate) {
+  if (!isFieldMemberListEnabled(fieldName)) return "";
+
+  if (templateName === "小組聚會表模板" || templateName === "團契聚會表模板") {
+    return "generalMembersList";
+  }
+  if (templateName === "新家人服事表模板" && fieldName.includes("小家長")) {
+    return "parentMembersList";
+  }
+  if (templateName === "新家人服事表模板" && fieldName.includes("新家人同工")) {
+    return "normalMembersList";
+  }
+  return "customMembersList";
 }
 
 function normalizeFieldConfig(rawConfig, templateType, pageId) {
@@ -672,6 +688,7 @@ function renderTable(data) {
 
   currentGroupMembers = data.members || [];
   currentCoreMembers = data.coreMembers || [];
+  currentGeneralMembers = data.generalMembers || [];
   currentGroupPrompt = data.groupPrompt || "";
   currentAutoRoleRules = data.autoRoleRules || "";
   currentEventData = (data.eventData || []).map(ev => {
@@ -777,6 +794,8 @@ function renderTable(data) {
     datalistHTML += `<datalist id="allMembersList">` + currentGroupMembers.map(m => `<option value="${m}">`).join('') + `</datalist>`;
   if (currentCoreMembers.length > 0)
     datalistHTML += `<datalist id="coreMembersList">` + currentCoreMembers.map(m => `<option value="${m}">`).join('') + `</datalist>`;
+  if (currentGeneralMembers.length > 0)
+    datalistHTML += `<datalist id="generalMembersList">` + currentGeneralMembers.map(m => `<option value="${m}">`).join('') + `</datalist>`;
 
   if (currentTemplate !== "小組聚會表模板") {
     if (currentTemplate === "新家人服事表模板") {
@@ -942,53 +961,10 @@ function createRowHTML(rowData, gridTemplate) {
     const isSermonField = header === "主題" || header === "經文";
     const readonlyAttr = (isRowSermonLinked && isSermonField) ? "readonly" : "";
 
-    if (currentTemplate === "團契聚會表模板") {
-      const allDropdownCols = ["破冰", "敬拜"];
-      const coreDropdownCols = ["司會"];
-      const isAllCol = allDropdownCols.some(c => header.includes(c));
-      const isCoreCol = coreDropdownCols.some(c => header.includes(c));
-
-      if (isCoreCol) {
-        listAttr = `list="coreMembersList"`;
-        extraClass = `datalist-input`;
-      } else if (isAllCol) {
-        listAttr = `list="allMembersList"`;
-        extraClass = `datalist-input`;
-      }
-
-    } else if (currentTemplate !== "小組聚會表模板") {
-      if (header.includes("日期") || header.includes("聚會名稱") || header.includes("聚會類別")) {
-        listAttr = "";
-        extraClass = "";
-      } else {
-        if (currentTemplate === "新家人服事表模板" && header.includes("小家長")) {
-          listAttr = `list="parentMembersList"`;
-          extraClass = `datalist-input`;
-        } else if (currentTemplate === "新家人服事表模板" && header.includes("新家人同工")) {
-          listAttr = `list="normalMembersList"`;
-          extraClass = `datalist-input`;
-        } else if (isFieldMemberListEnabled(header)) {
-          listAttr = `list="customMembersList"`;
-          extraClass = `datalist-input`;
-        } else {
-          listAttr = "";
-          extraClass = "";
-        }
-      }
-
-    } else {
-      const allDropdownCols = ["破冰", "敬拜", "分享"];
-      const coreDropdownCols = ["話語", "領會", "主領", "帶領"];
-      const isAllCol = allDropdownCols.some(c => header.includes(c));
-      const isCoreCol = coreDropdownCols.some(c => header.includes(c));
-
-      if (isCoreCol) {
-        listAttr = `list="coreMembersList"`;
-        extraClass = `datalist-input`;
-      } else if (isAllCol) {
-        listAttr = `list="allMembersList"`;
-        extraClass = `datalist-input`;
-      }
+    const memberListId = getFieldMemberListId(header, currentTemplate);
+    if (memberListId) {
+      listAttr = `list="${memberListId}"`;
+      extraClass = `datalist-input`;
     }
 
     rowHtml += `<div class="record-cell"><input type="${inputType}" class="grid-input ${extraClass}" data-c="${cIdx}" value="${val}" title="${val}" ${listAttr} ${readonlyAttr}></div>`;

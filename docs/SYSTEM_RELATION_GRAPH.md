@@ -24,7 +24,7 @@ flowchart LR
 - `LKC_MinistrySchedule/script.js` 讀取 `pageFieldConfig` 時，以 GAS 已儲存欄位設定覆蓋同名 localStorage 欄位；只保留本機獨有暫存欄位，避免瀏覽器舊快取阻斷新的小組群 datalist。
 - 新家人服事模板同時輸出角色專用 datalist 與完整 `customMembersList`；班表中任何 `useMemberList=true` 的自訂欄位，皆可取得已儲存的同工或小組群名單。
 - 新家人前端執行「加入會友名單」時，直接呼叫合併主 GAS 的 `addMember`；跨系統欄位契約為新家人追蹤資料 `姓名` → `name`、`性別` → `gender`、`備註` → `note`，成功後再提交 `saveAttendance`。
-- 聚會型模板的 `members`（核心＋一般）與 `coreMembers`（核心＋陪伴）由主 GAS 依小組角色提供；前端不得以事工自訂名單覆蓋前者，分別供破冰／敬拜與話語分享等欄位使用。
+- 聚會型模板由主 GAS 同時提供 `members`（核心＋一般）、`coreMembers`（核心＋陪伴）與 `generalMembers`（一般同工）。班表欄位是否綁定 datalist 只依 `pageFieldConfig.fields[].useMemberList`；啟用時前端使用 `generalMembers`，停用時不綁定，不能再依欄位名稱推斷角色清單。`members`／`coreMembers` 保留給 AI 排班與角色權限資料流。
 - 事工頁面的正式索引位於事工管理 Google Sheet 的 `Config` 工作表；Firebase `ministry_getPageConfig` 只是成功讀取結果的快取，不參與分頁身分判定或鎖定。
 - `ministry_createGroup` 與 `ministry_autoSyncSmallGroups` 必須在合併主 GAS 內共用 ScriptLock。鎖內重新讀 Config，依小組 UUID、正規化 ID、名稱比對並修復缺少的 Config／工作表，避免多手機或定時同步重複建立同名 Sheet。
 

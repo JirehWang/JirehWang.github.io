@@ -16,6 +16,7 @@ function createContext(storedConfig) {
   storage.set('ministry.pageFieldConfig.SVCH', JSON.stringify(storedConfig));
   const context = {
     currentId: 'SVCH',
+    currentPageFieldConfig: null,
     localStorage: {
       getItem: key => storage.get(key) || null,
       setItem: (key, value) => storage.set(key, String(value)),
@@ -71,9 +72,28 @@ test('new-family templates provide the shared list used by enabled custom fields
   );
 });
 
-test('meeting templates retain the backend all-member list for break and worship fields', () => {
+test('meeting templates retain the backend role lists for AI permissions', () => {
   assert.match(
     source,
     /if \(!isGroupOrFellowship\) currentGroupMembers = localCustomMembers\.map\(m => m\.name\);/
+  );
+});
+
+test('meeting fields use the general coworker list only when field settings enable it', () => {
+  const context = createContext(null);
+  context.currentPageFieldConfig = {
+    fields: [
+      { name: '破冰/司會', enabled: true, useMemberList: true },
+      { name: '敬拜', enabled: true, useMemberList: false }
+    ]
+  };
+
+  assert.equal(
+    context.getFieldMemberListId('破冰/司會', '團契聚會表模板'),
+    'generalMembersList'
+  );
+  assert.equal(
+    context.getFieldMemberListId('敬拜', '團契聚會表模板'),
+    ''
   );
 });
