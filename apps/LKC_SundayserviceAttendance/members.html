@@ -57,7 +57,7 @@
           <th style="width: 70px;">性別</th>
           <th style="width: 110px;">建立日期</th>
           <th>備註</th>
-          <th style="width: 90px;">狀態</th>
+          <th style="width: 120px;">狀態</th>
           <th style="width: 120px;">操作</th>
         </tr>
       </thead>
@@ -152,16 +152,41 @@
 
 <script>
   var allMembersRawData = [];
+  var memberUsageByUid = {};
   var currentQrUrl = "";
   var currentMemberName = "";
 
-  function refreshMemberTable() {
+  function getMemberScrollKey(rowOrUid) {
+    const rawValue = Array.isArray(rowOrUid) ? (rowOrUid[7] || rowOrUid[0]) : rowOrUid;
+    return encodeURIComponent(String(rawValue || ''));
+  }
+
+  function restoreMemberScroll(anchor) {
+    const scrollContainer = document.querySelector('.member-table-container');
+    if (!anchor || !scrollContainer || !window.ListScrollAnchor) return;
+    const restoreAnchor = function() {
+      window.ListScrollAnchor.restore(scrollContainer, 'tr[data-scroll-key]', anchor);
+    };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(restoreAnchor);
+    else setTimeout(restoreAnchor, 0);
+  }
+
+  function refreshMemberTable(options) {
+    options = options || {};
+    const scrollContainer = document.querySelector('.member-table-container');
+    const preferredKey = options.preserveUid ? getMemberScrollKey(options.preserveUid) : '';
+    const scrollAnchor = scrollContainer && window.ListScrollAnchor
+      ? window.ListScrollAnchor.capture(scrollContainer, 'tr[data-scroll-key]', preferredKey)
+      : null;
     const tbody = document.getElementById('memberTableBody');
     tbody.innerHTML = '<tr><td colspan="7" class="text-center p-5"><div class="spinner-border text-primary"></div><br>資料載入中...</td></tr>';
     google.script.run.withSuccessHandler(function(data) {
-      allMembersRawData = data || [];
+      const response = data || {};
+      allMembersRawData = Array.isArray(response) ? response : (response.members || []);
+      memberUsageByUid = response.usageByUid || {};
       filterMembers();
-    }).getAllMembers();
+      restoreMemberScroll(scrollAnchor);
+    }).getMemberManagementData();
   }
 
   function filterMembers() {
@@ -191,19 +216,31 @@
     data.forEach(row => {
       if (!row[0]) return;
       const isExcluded = (row[4] === true || row[4] === "TRUE");
+      const usage = memberUsageByUid[String(row[7] || '').trim().toUpperCase()] || {};
+      const statusHtml = usage.effective
+        ? `<div class="d-flex flex-wrap gap-1">
+            <span class="badge bg-primary bg-opacity-10 text-primary border-0 px-2 py-1">有效</span>
+            ${isExcluded ? '<span class="badge bg-warning bg-opacity-10 border-0 px-2 py-1" style="color: #d97706 !important;">不統計</span>' : ''}
+          </div>`
+        : (isExcluded
+          ? '<span class="badge bg-warning bg-opacity-10 border-0 px-2 py-1" style="color: #d97706 !important;">不統計</span>'
+          : '<span class="badge bg-success bg-opacity-10 text-success border-0 px-2 py-1">正常</span>');
+      const deleteButtonHtml = usage.effective
+        ? '<button class="btn btn-sm btn-outline-secondary border-0 fw-bold" disabled title="已有點名紀錄或小組關聯，僅可改為不統計" style="border-radius: 12px; font-size: 0.8rem;">不可刪除</button>'
+        : `<button class="btn btn-sm btn-outline-danger border-0 fw-bold" onclick="deleteMemberAction('${row[0]}')" style="border-radius: 12px; font-size: 0.8rem; color: var(--color-rose); background-color: rgba(244, 63, 94, 0.05);">刪除</button>`;
       let dateStr = row[2] || '';
       const rowJson = JSON.stringify(row).replace(/'/g, "&#39;");
-      html += `<tr>
+      html += `<tr data-scroll-key="${getMemberScrollKey(row)}">
         <td class="text-dark"><strong>${row[0]}</strong></td>
         <td><code class="text-secondary" style="font-family: var(--font-sans);">${row[7] || ''}</code></td>
         <td>${row[1] === '男' ? '👦 男' : (row[1] === '女' ? '👧 女' : row[1] || '')}</td>
         <td><small class="text-secondary">${dateStr}</small></td>
         <td title="${row[3] || ''}"><div class="text-truncate text-secondary" style="max-width:200px;">${row[3] || ''}</div></td>
-        <td>${isExcluded ? '<span class="badge bg-warning bg-opacity-10 text-warning border-0 px-2 py-1" style="color: #d97706 !important;">不統計</span>' : '<span class="badge bg-success bg-opacity-10 text-success border-0 px-2 py-1">正常</span>'}</td>
+        <td>${statusHtml}</td>
         <td>
           <div class="btn-group" style="gap: 4px;">
             <button class="btn btn-sm btn-outline-primary border-0 fw-bold" onclick='openMemberModal(${rowJson})' style="border-radius: 12px; font-size: 0.8rem; color: var(--color-teal); background-color: rgba(6, 182, 212, 0.05);">編輯</button>
-            <button class="btn btn-sm btn-outline-danger border-0 fw-bold" onclick="deleteMemberAction('${row[0]}')" style="border-radius: 12px; font-size: 0.8rem; color: var(--color-rose); background-color: rgba(244, 63, 94, 0.05);">刪除</button>
+            ${deleteButtonHtml}
           </div>
         </td>
       </tr>`;
@@ -358,13 +395,17 @@
     const gender = document.getElementById('editGender_Mem').value;
     const note = document.getElementById('editNote_Mem').value.trim();
     const isExcluded = document.getElementById('editIsExcluded_Mem').checked;
+    const memberUid = document.getElementById('editModal_Uid').value.trim();
     if (!name) return alert("請輸入姓名");
     const btn = document.getElementById('saveMemBtn');
     btn.disabled = true; btn.innerText = "處理中...";
 
     const onSuccess = function(msg) {
       alert(msg); btn.disabled = false; btn.innerText = "確認儲存";
-      if (msg && msg.includes("成功")) { closeMemberModal(); refreshMemberTable(); }
+      if (msg && msg.includes("成功")) {
+        closeMemberModal();
+        refreshMemberTable({ preserveUid: memberUid });
+      }
     };
 
     // 所屬小組、身分由小組系統管理，此處不傳

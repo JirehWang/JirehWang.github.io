@@ -317,7 +317,7 @@ flowchart TB
 
 | 分組 | 前端來源 | 後端 handler | 代表 action |
 |---|---|---|---|
-| 主日出席 | `apps/LKC_SundayserviceAttendance` | `_handleAttendanceRequest` | `getAllMembers`, `getSmartAttendanceList`, `saveAttendance`, `getAttendanceStats` |
+| 主日出席 | `apps/LKC_SundayserviceAttendance` | `_handleAttendanceRequest` | `getAllMembers`, `getMemberManagementData`, `deleteMember`, `getSmartAttendanceList`, `saveAttendance`, `getAttendanceStats` |
 | 小組點名 | `apps/LKC_Group` | `_handleGroupRequest` | `getGroups`, `verifyGroup`, `submitAttendance`, `getWeeklyReport`, `happyGroup_*` |
 | 事工管理 | `apps/LKC_MinistrySchedule` | `_handleMinistryRequest` | `ministry_getGroups`, `ministry_getPageConfig`, `ministry_saveSheetData`, `ministry_savePageFieldConfig`, `ministry_saveGroupMembers`, `ministry_getGroupMembers` |
 | 教會行事曆 | `apps/LKC_MasterSchedule` | `_handleCalendarRequest` | `cal_getTypes`, `cal_getFields`, `cal_getEvents`, `cal_addEvent`, `cal_queryBible` |
@@ -373,6 +373,10 @@ flowchart LR
 | 敬拜團異動 | `worship_getSchedule`, `worship_getScheduleByDateRange`, `worship_getPositions`, `worship_getSongs`, `worship_getTeamMembers`, `memberStatus_getMembers`, `memberStatus_getProfile`, `memberStatus_getServiceIndex` |
 | 會友狀態刷新 | `memberStatus_getMembers`, `memberStatus_getProfile`, `memberStatus_getServiceIndex`, `memberStatus_getDiscipleshipStatus` |
 | 兒童出席異動 | `children_getAllMembers`, `children_getSmartAttendanceList`, `children_getAttendanceStats`, `children_getAttendanceTrend` |
+
+### 會友刪除保護資料流
+
+`members.html` 透過 `getMemberManagementData` 讀取快取會友名單，並由 `MemberDB.js` 即時掃描主日與小組資料來源產生 `usageByUid`。UID 若曾出現在任一 `*點名紀錄` 的出席／缺席欄位、存在於 `*_名單`，或主會友資料仍有小組欄位，即標記為 `effective`。前端顯示「有效」並停用刪除；即使繞過前端直接呼叫 `deleteMember`，後端仍會在持有 ScriptLock 時重新掃描並拒絕硬刪除，只保留改為「不統計」的操作。
 
 ## 6. 資料儲存與跨系統讀取
 

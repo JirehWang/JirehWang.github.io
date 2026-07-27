@@ -8,6 +8,7 @@
 church-attendance/
 ├── index.html          # 主頁面（導覽選單）
 ├── config.js           # ⚠️ 設定檔（填入你的 GAS URL）
+├── list-scroll-anchor.js # 篩選或刷新後維持目前名單位置
 ├── js/
 │   └── api.js          # GAS API 橋接層
 └── pages/
@@ -44,7 +45,8 @@ function doPost(e) {
 
   const result = (function() {
     switch (action) {
-      case 'getAllMembers':      return getAllMembers();
+      case 'getAllMembers':            return getAllMembers();
+      case 'getMemberManagementData':  return getMemberManagementData();
       case 'updateMember':      return updateMember(payload[0], payload[1]);
       case 'deleteMember':      return deleteMember(payload);
       case 'addMember':         return addMember(payload);
@@ -69,6 +71,8 @@ function doPost(e) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 ```
+
+會友管理頁使用 `getMemberManagementData` 取得名單與 UID 使用狀態。若代碼曾被主日／小組點名，或仍存在小組名單（含主檔小組欄位），前端會標示「有效」並停用刪除；`deleteMember` 後端也會重新檢查並拒絕刪除，只允許將會友改成「不統計」。
 
 ### 3. 部署到 GitHub Pages
 

@@ -245,6 +245,7 @@
       var isLocked = (m.isChecked && lockedId && lockedId !== attUserId);
       var isSubmitted = m.isSubmitted;
       var memberKey = m.id || m.name;
+      label.dataset.scrollKey = encodeURIComponent(String(memberKey || ''));
       if (localPendingActions[memberKey] && (now - localPendingActions[memberKey].time < 5000)) {
         isChecked = localPendingActions[memberKey].state;
         isLocked = false;
@@ -518,13 +519,29 @@ function executeRevoke(uid, displayName) {
     var searchInput = document.getElementById('attSearchInput');
     if (!searchInput) return;
     var kw = searchInput.value.trim().toLowerCase();
-    document.querySelectorAll('label.att-item').forEach(function(item) {
+    var items = Array.prototype.slice.call(document.querySelectorAll('label.att-item'));
+    var scrollArea = document.querySelector('.attendance-scroll-area');
+    var wasFiltered = items.some(function(item) { return item.style.display === 'none'; });
+    var anchor = null;
+    if (kw === "" && wasFiltered && scrollArea && window.ListScrollAnchor) {
+      anchor = window.ListScrollAnchor.capture(scrollArea, 'label.att-item');
+    }
+
+    items.forEach(function(item) {
       var nameEl = item.querySelector('.att-name');
       if (nameEl) {
           var name = nameEl.innerText.trim().toLowerCase();
           item.style.display = (kw === "" || name.includes(kw)) ? 'flex' : 'none';
       }
     });
+
+    if (anchor && window.ListScrollAnchor) {
+      var restoreAnchor = function() {
+        window.ListScrollAnchor.restore(scrollArea, 'label.att-item', anchor);
+      };
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(restoreAnchor);
+      else setTimeout(restoreAnchor, 0);
+    }
   }
 
   function toggleScanner() {
