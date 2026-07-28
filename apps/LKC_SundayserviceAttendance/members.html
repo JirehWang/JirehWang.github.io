@@ -94,7 +94,6 @@
         </div>
         <!-- 操作按鈕 -->
         <div class="d-flex flex-wrap gap-2">
-          <button class="btn btn-sm btn-primary border-0 fw-bold px-3 py-2 shadow-sm" onclick="openAddOfficialModal()" style="border-radius: 16px; background-color: var(--color-teal);">➕ 新增和會會員</button>
           <button class="btn btn-sm btn-warning border-0 fw-bold px-3 py-2 text-dark shadow-sm" onclick="syncOfficialUIDsAction()" style="border-radius: 16px;">⚡ 執行姓名對應與編號鎖定</button>
           <button class="btn btn-sm btn-outline-success fw-bold px-3 py-2 shadow-sm" onclick="seedOfficialDataAction()" style="border-radius: 16px;">🌱 補載/初始化手冊名單</button>
         </div>
@@ -170,9 +169,12 @@
         </small>
       </div>
     </div>
-    <div class="text-end mt-4">
-      <button class="btn btn-light px-4 me-2 border-0" onclick="closeMemberModal()" style="border-radius: 20px;">取消</button>
-      <button id="saveMemBtn" class="btn btn-primary px-4 fw-bold border-0" onclick="processMemberSave()" style="border-radius: 20px; background-color: var(--color-teal);">確認儲存</button>
+    <div class="text-end mt-4 d-flex justify-content-between align-items-center">
+      <button id="btnAddToOfficial" type="button" class="btn btn-outline-primary fw-bold border-0 px-3 py-2" onclick="addCurrentGeneralToOfficial()" style="border-radius: 20px; display: none; background-color: #e0e7ff; color: #4338ca;">📋 加入會員名單</button>
+      <div>
+        <button class="btn btn-light px-4 me-2 border-0" onclick="closeMemberModal()" style="border-radius: 20px;">取消</button>
+        <button id="saveMemBtn" class="btn btn-primary px-4 fw-bold border-0" onclick="processMemberSave()" style="border-radius: 20px; background-color: var(--color-teal);">確認儲存</button>
+      </div>
     </div>
   </div>
 </div>
@@ -564,6 +566,18 @@
     }
   }
 
+  
+  function addCurrentGeneralToOfficial() {
+    const name = document.getElementById('editName_Mem').value.trim();
+    if (!name) {
+      alert("會友姓名不能為空白");
+      return;
+    }
+    closeMemberModal();
+    openEditOfficialModal(0, name);
+    document.getElementById('offMemModalHeader').innerText = `📋 將「${name}」加入和會獨立會員名單`;
+  }
+
   function openAddOfficialModal() {
     document.getElementById('offMemModalHeader').innerText = "➕ 新增和會獨立會員";
     document.getElementById('editOffRowIndex').value = "";
@@ -811,7 +825,7 @@
         <td><small>${voting}</small></td>
         <td><small>${resident}</small></td>
         <td>
-          <button class="btn btn-sm btn-outline-primary border-0 fw-bold px-2 py-1" onclick="openEditOfficialModal('${m.rowIndex || 0}', '${name}')">✏️ 編輯</button>
+          <button class="btn btn-sm btn-outline-primary border-0 fw-bold px-2 py-1" onclick="openEditOfficialModal('${m.rowIndex || 0}', '${name}')">✏️ 編輯類別</button>
         </td>
       </tr>`;
     });
@@ -900,6 +914,18 @@
       votingEl.checked = false;
       residentEl.checked = false;
     }
+  }
+
+  
+  function addCurrentGeneralToOfficial() {
+    const name = document.getElementById('editName_Mem').value.trim();
+    if (!name) {
+      alert("會友姓名不能為空白");
+      return;
+    }
+    closeMemberModal();
+    openEditOfficialModal(0, name);
+    document.getElementById('offMemModalHeader').innerText = `📋 將「${name}」加入和會獨立會員名單`;
   }
 
   function openAddOfficialModal() {
