@@ -246,6 +246,30 @@
         <span class="nav-arrow">→</span>
       </div>
       
+      <div class="card nav-card mb-3" onclick="loadPage('AGM_ATTENDANCE')" style="--theme-color: #6366f1;">
+        <div class="nav-card-body">
+          <div class="nav-icon-wrapper">🏛️</div>
+          <div class="nav-text-group">
+            <span class="nav-text">會員大會點名系統</span>
+            <span class="nav-subtitle">AGM Roll Call (6 Categories)</span>
+          </div>
+        </div>
+        <span class="nav-arrow">→</span>
+      </div>
+        <span class="nav-arrow">→</span>
+      </div>
+      
+      <div class="card nav-card mb-3" onclick="loadPage('AGM_ATTENDANCE')" style="--theme-color: #6366f1;">
+        <div class="nav-card-body">
+          <div class="nav-icon-wrapper">🏛️</div>
+          <div class="nav-text-group">
+            <span class="nav-text">會員大會點名系統</span>
+            <span class="nav-subtitle">AGM Roll Call (6 Categories)</span>
+          </div>
+        </div>
+        <span class="nav-arrow">→</span>
+      </div>
+      
       <div class="card nav-card mb-3" onclick="loadPage('MEMBERS')" style="--theme-color: var(--color-green);">
         <div class="nav-card-body">
           <div class="nav-icon-wrapper">👥</div>
@@ -278,12 +302,15 @@
         </div>
         <span class="nav-arrow">→</span>
       </div>
-    </div>
+
+  <!-- 設定檔與 API 橋接層 -->
+  </div>
 
     <div id="content-area" style="display:none;">
       <button class="btn btn-outline-secondary mb-3 shadow-sm" onclick="showHome()">← 回主選單</button>
       
       <div id="page-ATTENDANCE" class="page-section"></div>
+      <div id="page-AGM_ATTENDANCE" class="page-section"></div>
       <div id="page-MEMBERS" class="page-section"></div>
       <div id="page-STATS" class="page-section"></div>
       <div id="page-TREND_CHART" class="page-section"></div>
@@ -291,7 +318,6 @@
 
   </div>
 
-  <!-- 設定檔與 API 橋接層 -->
   <script>window._GAS_KEY = 'LKC_SundayserviceAttendance_TEST';</script>
   <script src="../../config.js"></script>
   <script src="config.js"></script>
@@ -301,7 +327,7 @@
 
 <script>
   var autoJumpConfig = { cat: null, grp: null, active: false };
-  var pageLoaded = { ATTENDANCE: false, MEMBERS: false, STATS: false, TREND_CHART: false };
+  var pageLoaded = { ATTENDANCE: false, AGM_ATTENDANCE: false, MEMBERS: false, STATS: false, TREND_CHART: false };
 
   /**
    * 動態載入子頁面 HTML
@@ -383,7 +409,7 @@
     if (!target) return;
     target.style.display = 'block';
 
-    const fileMap = { MEMBERS: 'members', STATS: 'STATS', TREND_CHART: 'Chart' };
+    const fileMap = { MEMBERS: 'members', STATS: 'STATS', TREND_CHART: 'Chart', AGM_ATTENDANCE: 'agm_attendance' };
     await loadPageContent(pageId, fileMap[pageId]);
 
     if (pageId === 'MEMBERS' && typeof refreshMemberTable === "function") refreshMemberTable();

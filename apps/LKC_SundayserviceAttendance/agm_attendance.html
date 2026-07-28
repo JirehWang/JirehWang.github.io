@@ -1,0 +1,107 @@
+<style>
+  .agm-scroll-area {
+    height: calc(100vh - 280px);
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(4px);
+    padding: clamp(8px, 2%, 16px);
+    overflow-y: auto;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    box-sizing: border-box;
+  }
+  
+  #agmListBody {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(22%, 85px), 1fr));
+    gap: 8px;
+  }
+
+  .agm-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: clamp(4px, 1%, 6px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    height: clamp(68px, 15vw, 90px);
+    transition: all 0.25s ease;
+    position: relative;
+    box-shadow: 0 2px 6px rgba(15, 42, 53, 0.02);
+    user-select: none;
+  }
+
+  .agm-item:active { transform: scale(0.95); }
+  
+  .agm-name {
+    font-size: clamp(0.85rem, 2.2vw, 1rem);
+    font-weight: 700;
+    color: var(--text-primary);
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  .agm-cat-tag {
+    font-size: 0.65rem;
+    margin-top: 4px;
+    padding: 1px 5px;
+    border-radius: 8px;
+  }
+
+  .agm-item.selected {
+    background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+    color: white !important;
+    border-color: transparent;
+    box-shadow: 0 6px 16px rgba(99, 102, 241, 0.3);
+  }
+  .agm-item.selected .agm-name { color: white !important; }
+  .agm-item.selected .agm-cat-tag { background: rgba(255, 255, 255, 0.2) !important; color: white !important; }
+</style>
+
+<div class="card p-3 shadow-sm border-0 mb-3" style="background: white; border-radius: var(--radius-lg);">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h4 class="mb-0 fw-bold text-dark" style="font-size: 1.25rem;">🏛️ 會員大會（和會）點名系統</h4>
+    <button class="btn btn-sm btn-outline-primary fw-bold" onclick="syncAgmCheckins()" style="border-radius: 16px;">🔄 同步與刷新</button>
+  </div>
+
+  <!-- 🏛️ 和會成會實時進度 Banner -->
+  <div id="agmQuorumBanner" class="p-3 my-2 border-0 shadow-sm" style="border-radius: var(--radius-lg); background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%);">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+      <span class="fw-bold text-dark" style="font-size: 0.95rem;">🏛️ 和會/會員大會成會實時進度</span>
+      <span id="agmQuorumStatusBadge" class="badge bg-warning text-dark fw-bold px-2 py-1" style="border-radius: 12px; font-size: 0.78rem;">計算中...</span>
+    </div>
+    <div class="progress mb-2" style="height: 10px; border-radius: 5px; background-color: rgba(0,0,0,0.06);">
+      <div id="agmProgressBar" class="progress-bar bg-success progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;"></div>
+    </div>
+    <div class="d-flex justify-content-between small text-secondary fw-bold" style="font-size: 0.8rem;">
+      <span>1. 應到會員總數：<strong class="text-dark">204</strong> 人</span>
+      <span>法定門檻 (50%)：<strong class="text-primary">102</strong> 人</span>
+      <span>實到應到會員：<strong id="agmPresentCount" class="text-success fs-6">0</strong> 人</span>
+    </div>
+  </div>
+
+  <!-- 分類 Filter Pills -->
+  <div class="d-flex flex-wrap gap-1 my-2" id="agmCatPills">
+    <button class="btn btn-sm btn-primary fw-bold active" onclick="filterAgmCat('ALL', this)" style="border-radius: 12px;">全部 (417)</button>
+    <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterAgmCat('CAT_1', this)" style="border-radius: 12px;">1. 應到 (204)</button>
+    <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterAgmCat('CAT_2', this)" style="border-radius: 12px;">2. 準會員 (6)</button>
+    <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterAgmCat('CAT_3', this)" style="border-radius: 12px;">3. 在外教派 (26)</button>
+    <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterAgmCat('CAT_4', this)" style="border-radius: 12px;">4. 外出 (80)</button>
+    <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterAgmCat('CAT_5', this)" style="border-radius: 12px;">5. 未陪餐 (44)</button>
+    <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterAgmCat('CAT_6', this)" style="border-radius: 12px;">6. 未陪餐籍在 (57)</button>
+  </div>
+
+  <!-- 搜尋框 -->
+  <div class="input-group shadow-sm border-0 my-1" style="border-radius: 16px; overflow: hidden;">
+    <span class="input-group-text bg-light border-0 text-muted px-3">🔍</span>
+    <input type="text" id="agmSearchInput" class="form-control border-0 bg-light py-2" placeholder="搜尋會員姓名、類別..." oninput="renderAgmGrid()" style="font-size: 0.9rem;">
+  </div>
+</div>
+
+<div class="agm-scroll-area">
+  <div id="agmListBody"></div>
+</div>
+
+<script src="agm_attendance.js"></script>
