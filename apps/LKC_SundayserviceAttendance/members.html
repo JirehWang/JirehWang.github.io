@@ -93,7 +93,8 @@
           <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterOfficialCat('CAT_6', this)" style="border-radius: 12px;">6. 未陪餐籍在 (57)</button>
         </div>
         <!-- 操作按鈕 -->
-        <div class="d-flex gap-2">
+        <div class="d-flex flex-wrap gap-2">
+          <button class="btn btn-sm btn-primary border-0 fw-bold px-3 py-2 shadow-sm" onclick="openAddOfficialModal()" style="border-radius: 16px; background-color: var(--color-teal);">➕ 新增和會會員</button>
           <button class="btn btn-sm btn-warning border-0 fw-bold px-3 py-2 text-dark shadow-sm" onclick="syncOfficialUIDsAction()" style="border-radius: 16px;">⚡ 執行姓名對應與編號鎖定</button>
           <button class="btn btn-sm btn-outline-success fw-bold px-3 py-2 shadow-sm" onclick="seedOfficialDataAction()" style="border-radius: 16px;">🌱 補載/初始化手冊名單</button>
         </div>
@@ -114,8 +115,9 @@
             <th style="width: 160px;">會員類別</th>
             <th style="width: 140px;">對應會友編號 (UID)</th>
             <th style="width: 160px;">防覆寫與鎖定狀態</th>
-            <th style="width: 110px;">和會表決權</th>
-            <th style="width: 110px;">居住本地</th>
+            <th style="width: 100px;">和會表決權</th>
+            <th style="width: 100px;">居住本地</th>
+            <th style="width: 90px;">操作</th>
           </tr>
         </thead>
         <tbody id="officialMemberTableBody">
@@ -171,6 +173,56 @@
     <div class="text-end mt-4">
       <button class="btn btn-light px-4 me-2 border-0" onclick="closeMemberModal()" style="border-radius: 20px;">取消</button>
       <button id="saveMemBtn" class="btn btn-primary px-4 fw-bold border-0" onclick="processMemberSave()" style="border-radius: 20px; background-color: var(--color-teal);">確認儲存</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- 和會獨立會員 編輯/新增 Modal -->
+<div id="officialMemberModal" class="custom-overlay">
+  <div class="custom-modal-content" style="max-width: 540px;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 id="offMemModalHeader" class="fw-bold mb-0 text-dark">新增/編輯和會會員資料</h5>
+      <button type="button" class="btn-close" onclick="closeOfficialMemberModal()"></button>
+    </div>
+    <hr style="opacity: 0.1;">
+    <input type="hidden" id="editOffRowIndex">
+    <div class="row g-3">
+      <div class="col-12">
+        <label class="form-label fw-bold small text-secondary">會員姓名 <span class="text-danger">*</span></label>
+        <input type="text" id="editOffName" class="form-control border-0 bg-light py-2.5" placeholder="例如: 張小明" style="border-radius: 10px; font-size: 0.95rem;">
+      </div>
+      <div class="col-12">
+        <label class="form-label fw-bold small text-secondary">會員所屬類別 (6大類) <span class="text-danger">*</span></label>
+        <select id="editOffCategory" class="form-select border-0 bg-light py-2.5" onchange="onOfficialCategoryChange()" style="border-radius: 10px; font-size: 0.95rem;">
+          <option value="CAT_1">1. 應到會員 (具表決權, 居住本地)</option>
+          <option value="CAT_2">2. 準會員 (具表決權, 居住本地)</option>
+          <option value="CAT_3">3. 在外教派聚會 (無表決權, 非居住本地)</option>
+          <option value="CAT_4">4. 外出會員-籍在人不在 (無表決權, 非居住本地)</option>
+          <option value="CAT_5">5. 未陪餐會員 (未陪餐, 居住本地)</option>
+          <option value="CAT_6">6. 未陪餐籍在人不在 (未陪餐, 非居住本地)</option>
+        </select>
+      </div>
+      <div class="col-6">
+        <div class="form-check form-switch mt-2">
+          <input class="form-check-input" type="checkbox" id="editOffVotingRights" checked>
+          <label class="form-check-label fw-bold text-dark" for="editOffVotingRights">具和會表決權</label>
+        </div>
+      </div>
+      <div class="col-6">
+        <div class="form-check form-switch mt-2">
+          <input class="form-check-input" type="checkbox" id="editOffIsResident" checked>
+          <label class="form-check-label fw-bold text-dark" for="editOffIsResident">居住本地</label>
+        </div>
+      </div>
+      <div class="col-12">
+        <label class="form-label fw-bold small text-secondary">備註</label>
+        <textarea id="editOffNotes" class="form-control border-0 bg-light" rows="2" placeholder="備註說明..." style="border-radius: 10px; font-size: 0.95rem;"></textarea>
+      </div>
+    </div>
+    <div class="text-end mt-4">
+      <button class="btn btn-light px-4 me-2 border-0" onclick="closeOfficialMemberModal()" style="border-radius: 20px;">取消</button>
+      <button id="saveOffMemBtn" class="btn btn-primary px-4 fw-bold border-0" onclick="saveOfficialMemberAction()" style="border-radius: 20px; background-color: var(--color-teal);">確認儲存</button>
     </div>
   </div>
 </div>
@@ -480,7 +532,140 @@
 
   function deleteMemberAction(name) {
     if (confirm("⚠️ 確定刪除 [" + name + "] ?")) {
-      google.script.run.withSuccessHandler(function(msg) { alert(msg); refreshMemberTable(); }).deleteMember(name);
+      google.script.run.withSuccessHandler(function(msg) { alert(msg); 
+  // =========================================================================
+  // 🏛️ 和會獨立會員 新增/編輯 Modal 邏輯
+  // =========================================================================
+  const catNamesMap = {
+    'CAT_1': '1. 應到會員',
+    'CAT_2': '2. 準會員',
+    'CAT_3': '3. 在外教派聚會',
+    'CAT_4': '4. 外出會員-籍在人不在',
+    'CAT_5': '5. 未陪餐會員',
+    'CAT_6': '6. 未陪餐籍在人不在'
+  };
+
+  function onOfficialCategoryChange() {
+    const code = document.getElementById('editOffCategory').value;
+    const votingEl = document.getElementById('editOffVotingRights');
+    const residentEl = document.getElementById('editOffIsResident');
+    if (code === 'CAT_1' || code === 'CAT_2') {
+      votingEl.checked = true;
+      residentEl.checked = true;
+    } else if (code === 'CAT_3' || code === 'CAT_4') {
+      votingEl.checked = false;
+      residentEl.checked = false;
+    } else if (code === 'CAT_5') {
+      votingEl.checked = false;
+      residentEl.checked = true;
+    } else if (code === 'CAT_6') {
+      votingEl.checked = false;
+      residentEl.checked = false;
+    }
+  }
+
+  function openAddOfficialModal() {
+    document.getElementById('offMemModalHeader').innerText = "➕ 新增和會獨立會員";
+    document.getElementById('editOffRowIndex').value = "";
+    document.getElementById('editOffName').value = "";
+    document.getElementById('editOffName').disabled = false;
+    document.getElementById('editOffCategory').value = "CAT_1";
+    document.getElementById('editOffVotingRights').checked = true;
+    document.getElementById('editOffIsResident').checked = true;
+    document.getElementById('editOffNotes').value = "";
+    document.getElementById('officialMemberModal').style.display = 'block';
+  }
+
+  function openEditOfficialModal(rowIndex, name) {
+    const item = allOfficialMembersData.find(m => m.name === name || String(m.rowIndex) === String(rowIndex));
+    document.getElementById('offMemModalHeader').innerText = `✏️ 編輯會員資料及類別 — ${name}`;
+    document.getElementById('editOffRowIndex').value = rowIndex || (item ? item.rowIndex : '');
+    document.getElementById('editOffName').value = name;
+    document.getElementById('editOffName').disabled = false;
+    document.getElementById('editOffCategory').value = item ? (item.categoryCode || item.category_code || 'CAT_1') : 'CAT_1';
+    document.getElementById('editOffVotingRights').checked = item ? (item.votingRights !== undefined ? item.votingRights : item.voting_rights) : true;
+    document.getElementById('editOffIsResident').checked = item ? (item.isResident !== undefined ? item.isResident : item.is_resident) : true;
+    document.getElementById('editOffNotes').value = item ? (item.notes || '') : '';
+    document.getElementById('officialMemberModal').style.display = 'block';
+  }
+
+  function closeOfficialMemberModal() {
+    document.getElementById('officialMemberModal').style.display = 'none';
+  }
+
+  function saveOfficialMemberAction() {
+    const rowIndex = document.getElementById('editOffRowIndex').value;
+    const name = document.getElementById('editOffName').value.trim();
+    const categoryCode = document.getElementById('editOffCategory').value;
+    const categoryName = catNamesMap[categoryCode] || categoryCode;
+    const votingRights = document.getElementById('editOffVotingRights').checked;
+    const isResident = document.getElementById('editOffIsResident').checked;
+    const notes = document.getElementById('editOffNotes').value.trim();
+
+    if (!name) {
+      alert("請輸入會員姓名！");
+      return;
+    }
+
+    const saveBtn = document.getElementById('saveOffMemBtn');
+    saveBtn.disabled = true;
+    saveBtn.innerText = "儲存中...";
+
+    const payload = {
+      rowIndex: rowIndex ? parseInt(rowIndex, 10) : 0,
+      name: name,
+      categoryCode: categoryCode,
+      categoryName: categoryName,
+      votingRights: votingRights,
+      isResident: isResident,
+      notes: notes
+    };
+
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          saveBtn.disabled = false;
+          saveBtn.innerText = "確認儲存";
+          closeOfficialMemberModal();
+          alert(res.message || "✅ 儲存成功！");
+          fetchOfficialMembersData();
+        })
+        .withFailureHandler(function(err) {
+          saveBtn.disabled = false;
+          saveBtn.innerText = "確認儲存";
+          alert("❌ 儲存失敗：" + err.message);
+        })
+        .saveOfficialMember(payload);
+    } else {
+      // 本地展示模組
+      const existingIndex = allOfficialMembersData.findIndex(m => m.name === name);
+      if (existingIndex >= 0) {
+        allOfficialMembersData[existingIndex].categoryCode = categoryCode;
+        allOfficialMembersData[existingIndex].categoryName = categoryName;
+        allOfficialMembersData[existingIndex].votingRights = votingRights;
+        allOfficialMembersData[existingIndex].isResident = isResident;
+        allOfficialMembersData[existingIndex].notes = notes;
+      } else {
+        allOfficialMembersData.push({
+          name: name,
+          categoryCode: categoryCode,
+          categoryName: categoryName,
+          uid: "",
+          status: "UNMATCHED",
+          votingRights: votingRights,
+          isResident: isResident,
+          notes: notes
+        });
+      }
+      saveBtn.disabled = false;
+      saveBtn.innerText = "確認儲存";
+      closeOfficialMemberModal();
+      alert("✅ [模擬] 會員資料與類別更新成功！");
+      filterOfficialMembers();
+    }
+  }
+
+  refreshMemberTable(); }).deleteMember(name);
     }
   }
 
@@ -625,6 +810,9 @@
         <td>${statusBadge}</td>
         <td><small>${voting}</small></td>
         <td><small>${resident}</small></td>
+        <td>
+          <button class="btn btn-sm btn-outline-primary border-0 fw-bold px-2 py-1" onclick="openEditOfficialModal('${m.rowIndex || 0}', '${name}')">✏️ 編輯</button>
+        </td>
       </tr>`;
     });
 
@@ -678,6 +866,139 @@
     } else {
       allOfficialMembersData = window.INITIAL_OFFICIAL_MEMBERS || [];
       alert("✅ 已載入 417 筆預置會員名單！");
+      filterOfficialMembers();
+    }
+  }
+
+  
+  // =========================================================================
+  // 🏛️ 和會獨立會員 新增/編輯 Modal 邏輯
+  // =========================================================================
+  const catNamesMap = {
+    'CAT_1': '1. 應到會員',
+    'CAT_2': '2. 準會員',
+    'CAT_3': '3. 在外教派聚會',
+    'CAT_4': '4. 外出會員-籍在人不在',
+    'CAT_5': '5. 未陪餐會員',
+    'CAT_6': '6. 未陪餐籍在人不在'
+  };
+
+  function onOfficialCategoryChange() {
+    const code = document.getElementById('editOffCategory').value;
+    const votingEl = document.getElementById('editOffVotingRights');
+    const residentEl = document.getElementById('editOffIsResident');
+    if (code === 'CAT_1' || code === 'CAT_2') {
+      votingEl.checked = true;
+      residentEl.checked = true;
+    } else if (code === 'CAT_3' || code === 'CAT_4') {
+      votingEl.checked = false;
+      residentEl.checked = false;
+    } else if (code === 'CAT_5') {
+      votingEl.checked = false;
+      residentEl.checked = true;
+    } else if (code === 'CAT_6') {
+      votingEl.checked = false;
+      residentEl.checked = false;
+    }
+  }
+
+  function openAddOfficialModal() {
+    document.getElementById('offMemModalHeader').innerText = "➕ 新增和會獨立會員";
+    document.getElementById('editOffRowIndex').value = "";
+    document.getElementById('editOffName').value = "";
+    document.getElementById('editOffName').disabled = false;
+    document.getElementById('editOffCategory').value = "CAT_1";
+    document.getElementById('editOffVotingRights').checked = true;
+    document.getElementById('editOffIsResident').checked = true;
+    document.getElementById('editOffNotes').value = "";
+    document.getElementById('officialMemberModal').style.display = 'block';
+  }
+
+  function openEditOfficialModal(rowIndex, name) {
+    const item = allOfficialMembersData.find(m => m.name === name || String(m.rowIndex) === String(rowIndex));
+    document.getElementById('offMemModalHeader').innerText = `✏️ 編輯會員資料及類別 — ${name}`;
+    document.getElementById('editOffRowIndex').value = rowIndex || (item ? item.rowIndex : '');
+    document.getElementById('editOffName').value = name;
+    document.getElementById('editOffName').disabled = false;
+    document.getElementById('editOffCategory').value = item ? (item.categoryCode || item.category_code || 'CAT_1') : 'CAT_1';
+    document.getElementById('editOffVotingRights').checked = item ? (item.votingRights !== undefined ? item.votingRights : item.voting_rights) : true;
+    document.getElementById('editOffIsResident').checked = item ? (item.isResident !== undefined ? item.isResident : item.is_resident) : true;
+    document.getElementById('editOffNotes').value = item ? (item.notes || '') : '';
+    document.getElementById('officialMemberModal').style.display = 'block';
+  }
+
+  function closeOfficialMemberModal() {
+    document.getElementById('officialMemberModal').style.display = 'none';
+  }
+
+  function saveOfficialMemberAction() {
+    const rowIndex = document.getElementById('editOffRowIndex').value;
+    const name = document.getElementById('editOffName').value.trim();
+    const categoryCode = document.getElementById('editOffCategory').value;
+    const categoryName = catNamesMap[categoryCode] || categoryCode;
+    const votingRights = document.getElementById('editOffVotingRights').checked;
+    const isResident = document.getElementById('editOffIsResident').checked;
+    const notes = document.getElementById('editOffNotes').value.trim();
+
+    if (!name) {
+      alert("請輸入會員姓名！");
+      return;
+    }
+
+    const saveBtn = document.getElementById('saveOffMemBtn');
+    saveBtn.disabled = true;
+    saveBtn.innerText = "儲存中...";
+
+    const payload = {
+      rowIndex: rowIndex ? parseInt(rowIndex, 10) : 0,
+      name: name,
+      categoryCode: categoryCode,
+      categoryName: categoryName,
+      votingRights: votingRights,
+      isResident: isResident,
+      notes: notes
+    };
+
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          saveBtn.disabled = false;
+          saveBtn.innerText = "確認儲存";
+          closeOfficialMemberModal();
+          alert(res.message || "✅ 儲存成功！");
+          fetchOfficialMembersData();
+        })
+        .withFailureHandler(function(err) {
+          saveBtn.disabled = false;
+          saveBtn.innerText = "確認儲存";
+          alert("❌ 儲存失敗：" + err.message);
+        })
+        .saveOfficialMember(payload);
+    } else {
+      // 本地展示模組
+      const existingIndex = allOfficialMembersData.findIndex(m => m.name === name);
+      if (existingIndex >= 0) {
+        allOfficialMembersData[existingIndex].categoryCode = categoryCode;
+        allOfficialMembersData[existingIndex].categoryName = categoryName;
+        allOfficialMembersData[existingIndex].votingRights = votingRights;
+        allOfficialMembersData[existingIndex].isResident = isResident;
+        allOfficialMembersData[existingIndex].notes = notes;
+      } else {
+        allOfficialMembersData.push({
+          name: name,
+          categoryCode: categoryCode,
+          categoryName: categoryName,
+          uid: "",
+          status: "UNMATCHED",
+          votingRights: votingRights,
+          isResident: isResident,
+          notes: notes
+        });
+      }
+      saveBtn.disabled = false;
+      saveBtn.innerText = "確認儲存";
+      closeOfficialMemberModal();
+      alert("✅ [模擬] 會員資料與類別更新成功！");
       filterOfficialMembers();
     }
   }
