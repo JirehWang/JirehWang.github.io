@@ -256,19 +256,6 @@
         </div>
         <span class="nav-arrow">→</span>
       </div>
-        <span class="nav-arrow">→</span>
-      </div>
-      
-      <div class="card nav-card mb-3" onclick="loadPage('AGM_ATTENDANCE')" style="--theme-color: #6366f1;">
-        <div class="nav-card-body">
-          <div class="nav-icon-wrapper">🏛️</div>
-          <div class="nav-text-group">
-            <span class="nav-text">會員大會點名系統</span>
-            <span class="nav-subtitle">AGM Roll Call (6 Categories)</span>
-          </div>
-        </div>
-        <span class="nav-arrow">→</span>
-      </div>
       
       <div class="card nav-card mb-3" onclick="loadPage('MEMBERS')" style="--theme-color: var(--color-green);">
         <div class="nav-card-body">
@@ -302,9 +289,7 @@
         </div>
         <span class="nav-arrow">→</span>
       </div>
-
-  <!-- 設定檔與 API 橋接層 -->
-  </div>
+    </div>
 
     <div id="content-area" style="display:none;">
       <button class="btn btn-outline-secondary mb-3 shadow-sm" onclick="showHome()">← 回主選單</button>
@@ -318,6 +303,7 @@
 
   </div>
 
+  <!-- 設定檔與 API 橋接層 -->
   <script>window._GAS_KEY = 'LKC_SundayserviceAttendance_TEST';</script>
   <script src="../../config.js"></script>
   <script src="config.js"></script>
@@ -427,7 +413,6 @@
   window.onload = function() {
     if (typeof initializeApp === "function") initializeApp();
 
-    // ✅ 已修改：直接從瀏覽器網址讀取參數，取代 google.script.url.getLocation
     const params = new URLSearchParams(window.location.search);
     const initCat = params.get('cat');
     const initGrp = params.get('grp');
@@ -441,11 +426,9 @@
       prepareContentArea();
       document.getElementById('page-ATTENDANCE').style.display = 'block';
 
-      // 直接加載點名頁面，後續名單載入與防呆鎖定交給 attendance.js 自行並行處理
       loadPageContent('ATTENDANCE', 'attendance');
-    }       // ← 關 if
+    }
 
-    // 自動在彈出視窗顯示時鎖定底層 body 捲動
     var scrollLockObserver = new MutationObserver(function(mutations) {
       var anyVisible = false;
       var overlays = document.querySelectorAll('.custom-overlay, .custom-modal-backdrop, .modal');
@@ -466,7 +449,7 @@
       attributes: true,
       attributeFilter: ['style']
     });
-  };        // ← 關 window.onload
+  };
 </script>
 </body>
 </html>
