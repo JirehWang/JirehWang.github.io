@@ -72,6 +72,74 @@
     renderAgmGrid();
   };
 
+  window.resetAgmCheckins = function() {
+    if (!confirm("⚠️ 是否確認重設/清空目前的會員大會簽到狀態？")) return;
+    checkedStateMap = {};
+    localStorage.removeItem('agm_checked_state');
+    renderAgmGrid();
+  };
+
+  window.submitAgmCheckins = function() {
+    const list = getAgmList();
+    const meetingTitle = (document.getElementById('agmMeetingTitle')?.value || '').trim() || '會員大會點名紀錄';
+
+    const checkedNames = Object.keys(checkedStateMap).filter(n => !!checkedStateMap[n]);
+    if (checkedNames.length === 0) {
+      alert("⚠️ 目前尚無任何會員點名簽到，無法送出紀錄！");
+      return;
+    }
+
+    const cat1List = list.filter(m => (m.category_code || m.categoryCode) === 'CAT_1');
+    const cat1Total = cat1List.length || 204;
+    const cat1Threshold = Math.ceil(cat1Total * 0.5);
+
+    let cat1Present = 0;
+    cat1List.forEach(m => {
+      if (checkedStateMap[m.name]) cat1Present++;
+    });
+
+    const isQuorumMet = cat1Present >= cat1Threshold;
+    const quorumText = isQuorumMet ? "✅ 已達50%成會門檻" : "⚠️ 未達50%成會門檻";
+
+    const confirmMsg = `🏛️ 確認送出會員大會點名紀錄？
+
+` +
+      `📌 會議名稱: ${meetingTitle}
+` +
+      `👥 總簽到人數: ${checkedNames.length} 人
+` +
+      `🏛️ 應到會員出席: ${cat1Present} / ${cat1Total} 人 (${quorumText})
+
+` +
+      `將送出點名紀錄至 Google Sheets「和會點名紀錄」工作表紀錄存檔。`;
+
+    if (!confirm(confirmMsg)) return;
+
+    const payload = {
+      meetingTitle: meetingTitle,
+      totalPresent: checkedNames.length,
+      cat1Present: cat1Present,
+      cat1Total: cat1Total,
+      isQuorumMet: isQuorumMet,
+      checkedNames: checkedNames
+    };
+
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          alert(res.message || "🎉 會員大會點名紀錄已成功送出並紀錄存檔！");
+        })
+        .withFailureHandler(function(err) {
+          alert("❌ 送出失敗：" + err.message);
+        })
+        .saveAgmAttendance(payload);
+    } else {
+      console.log("離線/模擬送出紀錄：", payload);
+      alert(`🎉 [模擬] ${meetingTitle} 點名紀錄已成功儲存！
+總簽到: ${checkedNames.length} 人 (${quorumText})`);
+    }
+  };
+
   function updateQuorumProgress() {
     const list = getAgmList();
     const activeCommunicants = list.filter(m => (m.category_code || m.categoryCode) === 'CAT_1');

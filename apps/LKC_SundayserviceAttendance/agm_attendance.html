@@ -61,9 +61,23 @@
 </style>
 
 <div class="card p-3 shadow-sm border-0 mb-3" style="background: white; border-radius: var(--radius-lg);">
-  <div class="d-flex justify-content-between align-items-center mb-2">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
     <h4 class="mb-0 fw-bold text-dark" style="font-size: 1.25rem;">🏛️ 會員大會（和會）點名系統</h4>
-    <button class="btn btn-sm btn-outline-primary fw-bold" onclick="syncAgmCheckins()" style="border-radius: 16px;">🔄 同步與刷新</button>
+    <div class="d-flex gap-2">
+      <button class="btn btn-sm btn-success fw-bold px-3 shadow-sm border-0" onclick="submitAgmCheckins()" style="border-radius: 16px; background-color: #10b981;">🚀 送出點名紀錄</button>
+      <button class="btn btn-sm btn-outline-danger fw-bold px-3" onclick="resetAgmCheckins()" style="border-radius: 16px;">🧹 重設簽到</button>
+      <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="syncAgmCheckins()" style="border-radius: 16px;">🔄 刷新</button>
+    </div>
+  </div>
+  
+  <!-- 會議名稱輸入區 -->
+  <div class="row g-2 mb-2 align-items-center">
+    <div class="col-auto">
+      <span class="badge bg-primary px-2 py-1 fw-bold" style="font-size: 0.8rem;">📅 會議主題</span>
+    </div>
+    <div class="col">
+      <input type="text" id="agmMeetingTitle" class="form-control form-control-sm border-0 bg-light fw-bold text-dark" value="2026年度會員大會" placeholder="請輸入會議名稱 (例: 2026年度會員大會)" style="border-radius: 10px;">
+    </div>
   </div>
 
   <!-- 🏛️ 和會成會實時進度 Banner -->
