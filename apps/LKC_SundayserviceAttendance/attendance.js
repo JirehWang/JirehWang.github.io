@@ -288,33 +288,67 @@
         '<div class="att-info"><b class="gender-text" style="color: ' + statusColor + ';">' + genderString + '</b></div>';
       container.appendChild(label);
     });
+
+    updateAgmQuorumBanner();
+  }
+
+  // 🏛️ 和會/會員大會成會即時計算器 (針對 204 名應到會員)
+  function updateAgmQuorumBanner() {
+    var banner = document.getElementById('agmQuorumBanner');
+    if (!banner) return;
+
+    var officialList = window.INITIAL_OFFICIAL_MEMBERS || [];
+    var activeCommunicants = officialList.filter(function(m) {
+      return (m.category_code || m.categoryCode) === 'CAT_1';
+    });
+
+    var totalActiveCount = activeCommunicants.length || 204;
+    var threshold = Math.ceil(totalActiveCount * 0.5);
+
+    var activeNamesMap = {};
+    activeCommunicants.forEach(function(m) { activeNamesMap[m.name] = true; });
+
+    var presentCount = 0;
+    var checkboxes = document.querySelectorAll('#attendanceListBody input[type="checkbox"]');
+    checkboxes.forEach(function(cb) {
+      if ((cb.checked || cb.parentElement.classList.contains('submitted')) && activeNamesMap[cb.value]) {
+        presentCount++;
+      }
+    });
+
+    var percent = Math.min(100, Math.round((presentCount / totalActiveCount) * 100));
+    var progressBar = document.getElementById('agmProgressBar');
+    var presentEl = document.getElementById('agmPresentCount');
+    var statusBadge = document.getElementById('agmQuorumStatusBadge');
+
+    if (progressBar) progressBar.style.width = percent + '%';
+    if (presentEl) presentEl.innerText = presentCount;
+
+    if (statusBadge) {
+      if (presentCount >= threshold) {
+        statusBadge.className = "badge bg-success text-white fw-bold px-2 py-1";
+        statusBadge.innerText = "✅ 已達 50% 成會門檻 (" + percent + "%)";
+      } else {
+        var needed = threshold - presentCount;
+        statusBadge.className = "badge bg-warning text-dark fw-bold px-2 py-1";
+        statusBadge.innerText = "⚠️ 尚差 " + needed + " 人成會 (" + percent + "%)";
+      }
+    }
   }
 
   function toggleCardStyle(checkbox) {
     var isChecked = checkbox.checked;
-    var uid = checkbox.dataset.uid || checkbox.value;  // 優先用 UID
+    var uid = checkbox.dataset.uid || checkbox.value;
     if (isChecked) checkbox.parentElement.classList.add('selected');
     else checkbox.parentElement.classList.remove('selected');
+    updateAgmQuorumBanner();
     localPendingActions[uid] = { time: Date.now(), state: isChecked };
     google.script.run.withFailureHandler(function(err) {
         checkbox.checked = !isChecked;
         checkbox.parentElement.classList.toggle('selected');
         delete localPendingActions[uid];
+        updateAgmQuorumBanner();
     }).syncClickToServer(uid, isChecked, currentAttType, attUserId);
-  }
-
-  function openAttendanceAddModal() {
-    var modal = document.getElementById('attendanceAddModal');
-    if (modal) modal.style.display = 'block';
-    document.getElementById('editName_Att').value = "";
-    document.getElementById('editGender_Att').value = "男";
-    document.getElementById('editNote_Att').value = "";
-    document.getElementById('editIsExcluded_Att').checked = false;
-  }
-  
-  function closeAttendanceAddModal() { 
-    var modal = document.getElementById('attendanceAddModal');
-    if (modal) modal.style.display = 'none'; 
   }
 
   function saveNewMemberFromAttendance() {

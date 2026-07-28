@@ -39,6 +39,16 @@
 </style>
 
 <div class="members-main-wrapper p-2">
+  <!-- 雙視圖切換 Tab -->
+  <div class="d-flex align-items-center mb-3">
+    <div class="btn-group p-1 bg-white shadow-sm" style="border-radius: 24px;">
+      <button id="btnViewGeneral" class="btn btn-sm btn-primary fw-bold px-4 py-2" onclick="switchMemberView('GENERAL')" style="border-radius: 20px;">👥 常態會友名單</button>
+      <button id="btnViewOfficial" class="btn btn-sm btn-outline-primary border-0 fw-bold px-4 py-2" onclick="switchMemberView('OFFICIAL')" style="border-radius: 20px;">📋 和會獨立會員名單 (6大類)</button>
+    </div>
+  </div>
+
+  <!-- 常態會友名單 View -->
+  <div id="viewGeneralMembers">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <div class="input-group shadow-sm border-0" style="width: 280px; border-radius: 20px; overflow: hidden;">
       <span class="input-group-text bg-white border-0 text-muted px-3" style="font-size: 0.9rem;">🔍</span>
@@ -65,6 +75,54 @@
         <tr><td colspan="7" class="text-center p-5">資料載入中...</td></tr>
       </tbody>
     </table>
+  </div>
+  </div>
+
+  <!-- 和會獨立會員名單 (6大類) View -->
+  <div id="viewOfficialMembers" style="display: none;">
+    <div class="card border-0 shadow-sm p-3 mb-3" style="border-radius: var(--radius-lg); background: white;">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <!-- 分類 Filter Pills -->
+        <div class="btn-group flex-wrap gap-1" id="officialCatPills">
+          <button class="btn btn-sm btn-primary fw-bold active" onclick="filterOfficialCat('ALL', this)" style="border-radius: 12px;">全部 (417)</button>
+          <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterOfficialCat('CAT_1', this)" style="border-radius: 12px;">1. 應到 (204)</button>
+          <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterOfficialCat('CAT_2', this)" style="border-radius: 12px;">2. 準會員 (6)</button>
+          <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterOfficialCat('CAT_3', this)" style="border-radius: 12px;">3. 在外教派 (26)</button>
+          <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterOfficialCat('CAT_4', this)" style="border-radius: 12px;">4. 外出 (80)</button>
+          <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterOfficialCat('CAT_5', this)" style="border-radius: 12px;">5. 未陪餐 (44)</button>
+          <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterOfficialCat('CAT_6', this)" style="border-radius: 12px;">6. 未陪餐籍在 (57)</button>
+        </div>
+        <!-- 操作按鈕 -->
+        <div class="d-flex gap-2">
+          <button class="btn btn-sm btn-warning border-0 fw-bold px-3 py-2 text-dark shadow-sm" onclick="syncOfficialUIDsAction()" style="border-radius: 16px;">⚡ 執行姓名對應與編號鎖定</button>
+          <button class="btn btn-sm btn-outline-success fw-bold px-3 py-2 shadow-sm" onclick="seedOfficialDataAction()" style="border-radius: 16px;">🌱 補載/初始化手冊名單</button>
+        </div>
+      </div>
+      <!-- 快速搜尋框 -->
+      <div class="input-group shadow-sm border-0" style="width: 300px; border-radius: 20px; overflow: hidden;">
+        <span class="input-group-text bg-light border-0 text-muted px-3">🔍</span>
+        <input type="text" id="officialSearchInput" class="form-control border-0 bg-light py-2" placeholder="搜尋獨立會員姓名/類別/編號..." oninput="filterOfficialMembers()" style="font-size: 0.9rem;">
+      </div>
+    </div>
+
+    <!-- 獨立會員表格 -->
+    <div class="member-table-container shadow-sm">
+      <table class="table table-hover align-middle mb-0" style="min-width: 880px;">
+        <thead class="table-dark">
+          <tr>
+            <th style="width: 130px;">會員姓名</th>
+            <th style="width: 160px;">會員類別</th>
+            <th style="width: 140px;">對應會友編號 (UID)</th>
+            <th style="width: 160px;">防覆寫與鎖定狀態</th>
+            <th style="width: 110px;">和會表決權</th>
+            <th style="width: 110px;">居住本地</th>
+          </tr>
+        </thead>
+        <tbody id="officialMemberTableBody">
+          <tr><td colspan="6" class="text-center p-5">載入獨立會員資料中...</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -440,5 +498,189 @@
   }
 
   // 頁面載入時自動刷新
+  
+  // =========================================================================
+  // 📋 獨立「會員名單 (6大類)」管理與防覆寫鎖定邏輯
+  // =========================================================================
+  var currentMemberView = 'GENERAL';
+  var allOfficialMembersData = [];
+  var activeOfficialCat = 'ALL';
+
+  function switchMemberView(viewMode) {
+    currentMemberView = viewMode;
+    const btnGeneral = document.getElementById('btnViewGeneral');
+    const btnOfficial = document.getElementById('btnViewOfficial');
+    const viewGen = document.getElementById('viewGeneralMembers');
+    const viewOff = document.getElementById('viewOfficialMembers');
+
+    if (viewMode === 'GENERAL') {
+      btnGeneral.className = "btn btn-sm btn-primary fw-bold px-4 py-2";
+      btnOfficial.className = "btn btn-sm btn-outline-primary border-0 fw-bold px-4 py-2";
+      viewGen.style.display = 'block';
+      viewOff.style.display = 'none';
+    } else {
+      btnOfficial.className = "btn btn-sm btn-primary fw-bold px-4 py-2";
+      btnGeneral.className = "btn btn-sm btn-outline-primary border-0 fw-bold px-4 py-2";
+      viewGen.style.display = 'none';
+      viewOff.style.display = 'block';
+      fetchOfficialMembersData();
+    }
+  }
+
+  function fetchOfficialMembersData() {
+    const tbody = document.getElementById('officialMemberTableBody');
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center p-5"><div class="spinner-border text-primary"></div><br>載入獨立「會員名單」中...</td></tr>';
+
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          const list = Array.isArray(res) ? res : (res.data || []);
+          if (list.length === 0 && window.INITIAL_OFFICIAL_MEMBERS) {
+            allOfficialMembersData = window.INITIAL_OFFICIAL_MEMBERS;
+          } else {
+            allOfficialMembersData = list;
+          }
+          filterOfficialMembers();
+        })
+        .withFailureHandler(function(err) {
+          console.warn("GAS 尚未佈署 getOfficialMembers，載入前端預置備份");
+          allOfficialMembersData = window.INITIAL_OFFICIAL_MEMBERS || [];
+          filterOfficialMembers();
+        })
+        .getOfficialMembers();
+    } else {
+      allOfficialMembersData = window.INITIAL_OFFICIAL_MEMBERS || [];
+      filterOfficialMembers();
+    }
+  }
+
+  function filterOfficialCat(catCode, btnEl) {
+    activeOfficialCat = catCode;
+    const container = document.getElementById('officialCatPills');
+    if (container) {
+      container.querySelectorAll('button').forEach(b => {
+        b.className = "btn btn-sm btn-outline-secondary fw-bold";
+      });
+      if (btnEl) btnEl.className = "btn btn-sm btn-primary fw-bold active";
+    }
+    filterOfficialMembers();
+  }
+
+  function filterOfficialMembers() {
+    const keyword = (document.getElementById('officialSearchInput').value || '').trim().toLowerCase();
+    let filtered = allOfficialMembersData;
+
+    if (activeOfficialCat !== 'ALL') {
+      filtered = filtered.filter(m => (m.categoryCode || m.category_code) === activeOfficialCat);
+    }
+
+    if (keyword) {
+      filtered = filtered.filter(m => {
+        const name = (m.name || '').toLowerCase();
+        const uid = (m.uid || '').toLowerCase();
+        const cat = (m.categoryName || m.category_name || '').toLowerCase();
+        return name.includes(keyword) || uid.includes(keyword) || cat.includes(keyword);
+      });
+    }
+
+    renderOfficialTable(filtered);
+  }
+
+  function renderOfficialTable(data) {
+    const tbody = document.getElementById('officialMemberTableBody');
+    if (!data || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center p-5 text-muted">查無獨立會員資料</td></tr>';
+      return;
+    }
+
+    let html = '';
+    data.forEach(m => {
+      const name = m.name || '';
+      const catName = m.categoryName || m.category_name || '';
+      const catCode = m.categoryCode || m.category_code || '';
+      const uid = m.uid || '';
+      const voting = (m.votingRights !== undefined ? m.votingRights : m.voting_rights) ? '✅ 有' : '❌ 無';
+      const resident = (m.isResident !== undefined ? m.isResident : m.is_resident) ? '是' : '否';
+
+      let statusBadge = '';
+      if (catCode === 'CAT_5' || catCode === 'CAT_6') {
+        statusBadge = '<span class="badge bg-secondary bg-opacity-10 text-secondary border-0 px-2 py-1">👶 獨立未陪餐會員</span>';
+      } else if (uid) {
+        statusBadge = '<span class="badge bg-success bg-opacity-10 text-success border-0 px-2 py-1">🔒 已對應並鎖定</span>';
+      } else {
+        statusBadge = '<span class="badge bg-warning bg-opacity-10 text-dark border-0 px-2 py-1">⚠️ 空白未對應</span>';
+      }
+
+      let catBadgeClass = 'bg-primary';
+      if (catCode === 'CAT_2') catBadgeClass = 'bg-info';
+      if (catCode === 'CAT_3') catBadgeClass = 'bg-secondary';
+      if (catCode === 'CAT_4') catBadgeClass = 'bg-warning text-dark';
+      if (catCode === 'CAT_5') catBadgeClass = 'bg-dark';
+      if (catCode === 'CAT_6') catBadgeClass = 'bg-light text-dark border';
+
+      html += `<tr>
+        <td class="text-dark"><strong>${name}</strong></td>
+        <td><span class="badge ${catBadgeClass} px-2 py-1">${catName}</span></td>
+        <td><code class="text-primary fw-bold" style="font-family: var(--font-sans);">${uid || '（空白）'}</code></td>
+        <td>${statusBadge}</td>
+        <td><small>${voting}</small></td>
+        <td><small>${resident}</small></td>
+      </tr>`;
+    });
+
+    tbody.innerHTML = html;
+  }
+
+  function syncOfficialUIDsAction() {
+    if (!confirm("⚡ 是否執行「姓名自動對應與編號鎖定」？\n\n規則：僅當獨立會員的編號為空白時才會寫入對應會友代碼；若已有編號則鎖定不更動。")) return;
+
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          alert(`✅ 自動對應完成！\n新增對應寫入: ${res.updatedCount || 0} 筆\n🔒 已鎖定跳過 (防覆寫): ${res.lockedCount || 0} 筆\n未查獲會友: ${res.unmatchedCount || 0} 筆`);
+          fetchOfficialMembersData();
+        })
+        .withFailureHandler(function(err) {
+          alert("❌ 執行失敗：" + err.message);
+        })
+        .syncOfficialMemberUIDs();
+    } else {
+      // 本地模擬比對 (如果沒有 GAS 連結)
+      let updated = 0, locked = 0;
+      allOfficialMembersData.forEach(m => {
+        if (m.category_code === 'CAT_5' || m.category_code === 'CAT_6') return;
+        if (m.uid) {
+          locked++;
+        } else {
+          const match = allMembersRawData.find(gen => gen[0] === m.name);
+          if (match && match[7]) {
+            m.uid = match[7];
+            m.status = 'MATCHED';
+            updated++;
+          }
+        }
+      });
+      alert(`✅ [模擬] 自動對應完成！\n新增對應寫入: ${updated} 筆\n🔒 已鎖定跳過: ${locked} 筆`);
+      filterOfficialMembers();
+    }
+  }
+
+  function seedOfficialDataAction() {
+    if (!confirm("🌱 是否一鍵載入/初始化手冊 417 筆會員名單至獨立工作表？")) return;
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          alert(res.message || `✅ 成功寫入 ${res.count} 筆和會會員資料！`);
+          fetchOfficialMembersData();
+        })
+        .withFailureHandler(function(err) { alert("❌ 初始化失敗：" + err.message); })
+        .seedOfficialMembers(window.INITIAL_OFFICIAL_MEMBERS || []);
+    } else {
+      allOfficialMembersData = window.INITIAL_OFFICIAL_MEMBERS || [];
+      alert("✅ 已載入 417 筆預置會員名單！");
+      filterOfficialMembers();
+    }
+  }
+
   refreshMemberTable();
 </script>
