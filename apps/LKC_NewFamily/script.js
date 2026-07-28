@@ -242,14 +242,13 @@ form.addEventListener('submit', async event => {
 
   try {
     const payload = Object.fromEntries(new FormData(form).entries());
+    delete payload['會友狀態'];
     if (selectedMemberRecord) {
       payload['點名編號'] = selectedMemberRecord.memberCode;
       payload['會友狀態'] = '已加入';
       if (selectedMemberRecord.sundayGroup) {
         payload['現行小組'] = selectedMemberRecord.sundayGroup;
       }
-    } else {
-      payload['會友狀態'] = '未加入';
     }
     const result = await callApi('submitNewFamily', payload);
     setNotice(formNotice, `${result.message}，表單號：${result.formNumber}`, 'success');
@@ -589,9 +588,7 @@ async function addSelectedMembers(sessionName) {
 
       const message = String(await callSundayAttendancePayloadApi('addMember', {
         name,
-        gender: item['性別'] || '',
-        note: item['備註'] || '',
-        isExcluded: false
+        gender: item['性別'] || ''
       }) || '');
       let memberCode = extractMemberCode(message);
       const duplicate = message.includes('已存在');

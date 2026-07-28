@@ -38,9 +38,10 @@
 ### 2. 業務控制邏輯
 * `script.js`：
   * **頁籤與表單控制**：實作 `switchTab(tabName)` 與表單提交事件監聽器。
+    * 新家人表單只有在姓名比對到既有主日會友時，才送出 `會友狀態=已加入`；未比對到會友時不送出會友狀態，欄位維持空白，不使用「未加入」標記。
   * **API 請求與快取**：實作 `callApi(action, data)`。針對 `getTrackingCases` 與 `getClosedCases` 兩項載入動作，實作 `callCachedListApi()` 快取包裝，設定 TTL 19800 秒（5.5 小時）。
   * **跨系統資料流同步（一鍵轉會友）**：當同工點擊「加入會友名單」：
-    1. 呼叫主日出席 API 的 `addMember` 新增會友；欄位契約為新家人追蹤資料的 `姓名` → `name`、`性別` → `gender`、`備註` → `note`。
+    1. 呼叫主日出席 API 的 `addMember` 新增會友；基於個資最小化，跨系統欄位契約僅允許新家人追蹤資料的 `姓名` → `name`、`性別` → `gender`，不得傳送備註或其他欄位。
     2. 從主日出席 API 的 `getAllMembers` 下載最新大名單（並以 `memberDirectoryPromise` 加以快取），以正則解析出新會友的「點名代碼」（如 `L012` 等）與所屬小組。
     3. 呼叫新家人 API 的 `markTrackingMemberStatuses` 將新家人追蹤表上的狀態回寫為「已加入」或「已存在」，並填入「點名系統代碼」。
   * **落戶統計分析統計**：實作 `buildSettlementPivot` 將結案數據依年份、季度、小組統計人數。
@@ -105,7 +106,7 @@ sequenceDiagram
     participant GAS_NF as 新家人 GAS
     
     UI->>JS: 勾選名單並點擊「加入會友名單」
-    JS->>GAS_Sun: 發送 addMember (姓名, 性別, 備註)
+    JS->>GAS_Sun: 發送 addMember (僅姓名, 性別)
     GAS_Sun-->>JS: 回傳「成功/已存在，編號: L051」
     JS->>GAS_Sun: 下載/比對大名單 getAllMembers
     GAS_Sun-->>JS: 回傳大名單，比對出所屬小組與代碼
