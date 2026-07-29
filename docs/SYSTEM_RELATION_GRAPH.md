@@ -391,6 +391,7 @@ flowchart TD
     BulletinGAS["週報 GAS"]
 
     MemberSheet["會友名單 Sheet<br/>UID / 姓名 / 小組關聯"]
+    OfficialMemberSheet["會員名單 Sheet<br/>正式會員 6 大類 / 會友編號"]
     AttendanceSheet["主日出席 Sheet<br/>點名系統清單 / 點名紀錄"]
     GroupSheet["小組 Sheet<br/>小組清單 / 名單 / 點名紀錄"]
     MinistrySheet["事工 Sheet<br/>Config / pageFieldConfig.scheduleMode / 事工頁面資料"]
@@ -400,6 +401,7 @@ flowchart TD
     OfferingSheet["奉獻 Sheet<br/>奉獻紀錄 / member code mapping"]
 
     MainGAS --> MemberSheet
+    MainGAS --> OfficialMemberSheet
     MainGAS --> AttendanceSheet
     MainGAS --> GroupSheet
     MainGAS --> MinistrySheet
@@ -426,6 +428,10 @@ flowchart TD
     BulletinGAS --> FHL["FHL Bible API"]
     BulletinGAS --> CalendarSheet
 ```
+
+### 主日會員名單與統計基準
+
+`members.html` 的「常態會友名單」以 `getMemberManagementData` 讀取 `會友名單`；「和會獨立會員名單」以 `getOfficialMembers` 讀取 `會員名單`，並以預置基準資料補足部分回應。`STATS.html` 的 `baseSheet` 會傳入 `ReportService.getAttendanceStats`／`getAttendanceTrend`，後端依所選工作表的實際欄位（`姓名／系統編號` 或 `會員姓名／會友編號`）正規化後，再以 UID 對應主日點名紀錄。
 
 ## 7. codebase MCP 索引狀態
 

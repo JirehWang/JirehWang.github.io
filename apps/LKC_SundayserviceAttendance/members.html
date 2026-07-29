@@ -55,7 +55,10 @@
       <input type="text" id="memberSearchInput" class="form-control border-0 py-2" placeholder="輸入姓名即時查找..." oninput="filterMembers()" style="font-size: 0.9rem;">
       <button id="memberClearBtn" class="btn bg-white border-0 text-muted pe-3" type="button" onclick="clearMemberSearch()" style="display: none; font-size: 0.9rem;">✕</button>
     </div>
-    <button class="btn btn-primary border-0 shadow-sm px-4 py-2 fw-bold" onclick="openMemberModal()" style="border-radius: 20px; font-size: 0.9rem; background-color: var(--color-teal);">＋ 新增會友</button>
+    <div class="d-flex align-items-center gap-3">
+      <span id="memberListSummary" class="small text-secondary">載入中...</span>
+      <button class="btn btn-primary border-0 shadow-sm px-4 py-2 fw-bold" onclick="openMemberModal()" style="border-radius: 20px; font-size: 0.9rem; background-color: var(--color-teal);">＋ 新增會友</button>
+    </div>
   </div>
 
   <div class="member-table-container shadow-sm">
@@ -84,13 +87,13 @@
       <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <!-- 分類 Filter Pills -->
         <div class="btn-group flex-wrap gap-1" id="officialCatPills">
-          <button class="btn btn-sm btn-primary fw-bold active" onclick="filterOfficialCat('ALL', this)" style="border-radius: 12px;">全部 (417)</button>
-          <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterOfficialCat('CAT_1', this)" style="border-radius: 12px;">1. 應到 (204)</button>
-          <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterOfficialCat('CAT_2', this)" style="border-radius: 12px;">2. 準會員 (6)</button>
-          <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterOfficialCat('CAT_3', this)" style="border-radius: 12px;">3. 在外教派 (26)</button>
-          <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterOfficialCat('CAT_4', this)" style="border-radius: 12px;">4. 外出 (80)</button>
-          <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterOfficialCat('CAT_5', this)" style="border-radius: 12px;">5. 未陪餐 (44)</button>
-          <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterOfficialCat('CAT_6', this)" style="border-radius: 12px;">6. 未陪餐籍在 (57)</button>
+          <button data-category="ALL" class="btn btn-sm btn-primary fw-bold active" onclick="filterOfficialCat('ALL', this)" style="border-radius: 12px;">全部</button>
+          <button data-category="CAT_1" class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterOfficialCat('CAT_1', this)" style="border-radius: 12px;">1. 應到</button>
+          <button data-category="CAT_2" class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterOfficialCat('CAT_2', this)" style="border-radius: 12px;">2. 準會員</button>
+          <button data-category="CAT_3" class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterOfficialCat('CAT_3', this)" style="border-radius: 12px;">3. 在外教派</button>
+          <button data-category="CAT_4" class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterOfficialCat('CAT_4', this)" style="border-radius: 12px;">4. 外出</button>
+          <button data-category="CAT_5" class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterOfficialCat('CAT_5', this)" style="border-radius: 12px;">5. 未陪餐</button>
+          <button data-category="CAT_6" class="btn btn-sm btn-outline-secondary fw-bold" onclick="filterOfficialCat('CAT_6', this)" style="border-radius: 12px;">6. 未陪餐籍在</button>
         </div>
         <!-- 操作按鈕 -->
         <div class="d-flex flex-wrap gap-2">
@@ -120,7 +123,7 @@
           </tr>
         </thead>
         <tbody id="officialMemberTableBody">
-          <tr><td colspan="6" class="text-center p-5">載入獨立會員資料中...</td></tr>
+          <tr><td colspan="7" class="text-center p-5">載入獨立會員資料中...</td></tr>
         </tbody>
       </table>
     </div>
@@ -301,15 +304,28 @@
     }).getMemberManagementData();
   }
 
+  function updateMemberSummary(visibleCount) {
+    const summary = document.getElementById('memberListSummary');
+    if (!summary) return;
+    const total = allMembersRawData.filter(row => row && row[0]).length;
+    const keyword = (document.getElementById('memberSearchInput').value || '').trim();
+    summary.textContent = keyword ? `顯示 ${visibleCount} / ${total} 位會友` : `共 ${total} 位會友`;
+  }
+
   function filterMembers() {
     const keyword = document.getElementById('memberSearchInput').value.trim().toLowerCase();
     document.getElementById('memberClearBtn').style.display = keyword ? 'block' : 'none';
-    if (!keyword) { renderTable(allMembersRawData); return; }
+    if (!keyword) {
+      updateMemberSummary(allMembersRawData.filter(row => row && row[0]).length);
+      renderTable(allMembersRawData);
+      return;
+    }
     const filtered = allMembersRawData.filter(row => {
       const name = (row[0] || "").toString().toLowerCase();
       const code = (row[7] || "").toString().toLowerCase();
       return name.includes(keyword) || code.includes(keyword);
     });
+    updateMemberSummary(filtered.filter(row => row && row[0]).length);
     renderTable(filtered);
   }
 
@@ -534,152 +550,10 @@
 
   function deleteMemberAction(name) {
     if (confirm("⚠️ 確定刪除 [" + name + "] ?")) {
-      google.script.run.withSuccessHandler(function(msg) { alert(msg); 
-  // =========================================================================
-  // 🏛️ 和會獨立會員 新增/編輯 Modal 邏輯
-  // =========================================================================
-  const catNamesMap = {
-    'CAT_1': '1. 應到會員',
-    'CAT_2': '2. 準會員',
-    'CAT_3': '3. 在外教派聚會',
-    'CAT_4': '4. 外出會員-籍在人不在',
-    'CAT_5': '5. 未陪餐會員',
-    'CAT_6': '6. 未陪餐籍在人不在'
-  };
-
-  function onOfficialCategoryChange() {
-    const code = document.getElementById('editOffCategory').value;
-    const votingEl = document.getElementById('editOffVotingRights');
-    const residentEl = document.getElementById('editOffIsResident');
-    if (code === 'CAT_1' || code === 'CAT_2') {
-      votingEl.checked = true;
-      residentEl.checked = true;
-    } else if (code === 'CAT_3' || code === 'CAT_4') {
-      votingEl.checked = false;
-      residentEl.checked = false;
-    } else if (code === 'CAT_5') {
-      votingEl.checked = false;
-      residentEl.checked = true;
-    } else if (code === 'CAT_6') {
-      votingEl.checked = false;
-      residentEl.checked = false;
-    }
-  }
-
-  
-  function addCurrentGeneralToOfficial() {
-    const name = document.getElementById('editName_Mem').value.trim();
-    if (!name) {
-      alert("會友姓名不能為空白");
-      return;
-    }
-    closeMemberModal();
-    openEditOfficialModal(0, name);
-    document.getElementById('offMemModalHeader').innerText = `📋 將「${name}」加入和會獨立會員名單`;
-  }
-
-  function openAddOfficialModal() {
-    document.getElementById('offMemModalHeader').innerText = "➕ 新增和會獨立會員";
-    document.getElementById('editOffRowIndex').value = "";
-    document.getElementById('editOffName').value = "";
-    document.getElementById('editOffName').disabled = false;
-    document.getElementById('editOffCategory').value = "CAT_1";
-    document.getElementById('editOffVotingRights').checked = true;
-    document.getElementById('editOffIsResident').checked = true;
-    document.getElementById('editOffNotes').value = "";
-    document.getElementById('officialMemberModal').style.display = 'block';
-  }
-
-  function openEditOfficialModal(rowIndex, name) {
-    const item = allOfficialMembersData.find(m => m.name === name || String(m.rowIndex) === String(rowIndex));
-    document.getElementById('offMemModalHeader').innerText = `✏️ 編輯會員資料及類別 — ${name}`;
-    document.getElementById('editOffRowIndex').value = rowIndex || (item ? item.rowIndex : '');
-    document.getElementById('editOffName').value = name;
-    document.getElementById('editOffName').disabled = false;
-    document.getElementById('editOffCategory').value = item ? (item.categoryCode || item.category_code || 'CAT_1') : 'CAT_1';
-    document.getElementById('editOffVotingRights').checked = item ? (item.votingRights !== undefined ? item.votingRights : item.voting_rights) : true;
-    document.getElementById('editOffIsResident').checked = item ? (item.isResident !== undefined ? item.isResident : item.is_resident) : true;
-    document.getElementById('editOffNotes').value = item ? (item.notes || '') : '';
-    document.getElementById('officialMemberModal').style.display = 'block';
-  }
-
-  function closeOfficialMemberModal() {
-    document.getElementById('officialMemberModal').style.display = 'none';
-  }
-
-  function saveOfficialMemberAction() {
-    const rowIndex = document.getElementById('editOffRowIndex').value;
-    const name = document.getElementById('editOffName').value.trim();
-    const categoryCode = document.getElementById('editOffCategory').value;
-    const categoryName = catNamesMap[categoryCode] || categoryCode;
-    const votingRights = document.getElementById('editOffVotingRights').checked;
-    const isResident = document.getElementById('editOffIsResident').checked;
-    const notes = document.getElementById('editOffNotes').value.trim();
-
-    if (!name) {
-      alert("請輸入會員姓名！");
-      return;
-    }
-
-    const saveBtn = document.getElementById('saveOffMemBtn');
-    saveBtn.disabled = true;
-    saveBtn.innerText = "儲存中...";
-
-    const payload = {
-      rowIndex: rowIndex ? parseInt(rowIndex, 10) : 0,
-      name: name,
-      categoryCode: categoryCode,
-      categoryName: categoryName,
-      votingRights: votingRights,
-      isResident: isResident,
-      notes: notes
-    };
-
-    if (typeof google !== 'undefined' && google.script && google.script.run) {
-      google.script.run
-        .withSuccessHandler(function(res) {
-          saveBtn.disabled = false;
-          saveBtn.innerText = "確認儲存";
-          closeOfficialMemberModal();
-          alert(res.message || "✅ 儲存成功！");
-          fetchOfficialMembersData();
-        })
-        .withFailureHandler(function(err) {
-          saveBtn.disabled = false;
-          saveBtn.innerText = "確認儲存";
-          alert("❌ 儲存失敗：" + err.message);
-        })
-        .saveOfficialMember(payload);
-    } else {
-      // 本地展示模組
-      const existingIndex = allOfficialMembersData.findIndex(m => m.name === name);
-      if (existingIndex >= 0) {
-        allOfficialMembersData[existingIndex].categoryCode = categoryCode;
-        allOfficialMembersData[existingIndex].categoryName = categoryName;
-        allOfficialMembersData[existingIndex].votingRights = votingRights;
-        allOfficialMembersData[existingIndex].isResident = isResident;
-        allOfficialMembersData[existingIndex].notes = notes;
-      } else {
-        allOfficialMembersData.push({
-          name: name,
-          categoryCode: categoryCode,
-          categoryName: categoryName,
-          uid: "",
-          status: "UNMATCHED",
-          votingRights: votingRights,
-          isResident: isResident,
-          notes: notes
-        });
-      }
-      saveBtn.disabled = false;
-      saveBtn.innerText = "確認儲存";
-      closeOfficialMemberModal();
-      alert("✅ [模擬] 會員資料與類別更新成功！");
-      filterOfficialMembers();
-    }
-  }
-
-  refreshMemberTable(); }).deleteMember(name);
+      google.script.run.withSuccessHandler(function(msg) {
+        alert(msg);
+        refreshMemberTable();
+      }).deleteMember(name);
     }
   }
 
@@ -728,29 +602,76 @@
 
   function fetchOfficialMembersData() {
     const tbody = document.getElementById('officialMemberTableBody');
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center p-5"><div class="spinner-border text-primary"></div><br>載入獨立「會員名單」中...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center p-5"><div class="spinner-border text-primary"></div><br>載入獨立「會員名單」中...</td></tr>';
 
     if (typeof google !== 'undefined' && google.script && google.script.run) {
       google.script.run
         .withSuccessHandler(function(res) {
           const list = Array.isArray(res) ? res : (res.data || []);
-          if (list.length === 0 && window.INITIAL_OFFICIAL_MEMBERS) {
-            allOfficialMembersData = window.INITIAL_OFFICIAL_MEMBERS;
-          } else {
-            allOfficialMembersData = list;
-          }
+          allOfficialMembersData = mergeOfficialMemberSources(list);
           filterOfficialMembers();
         })
         .withFailureHandler(function(err) {
           console.warn("GAS 尚未佈署 getOfficialMembers，載入前端預置備份");
-          allOfficialMembersData = window.INITIAL_OFFICIAL_MEMBERS || [];
+          allOfficialMembersData = mergeOfficialMemberSources([]);
           filterOfficialMembers();
         })
         .getOfficialMembers();
     } else {
-      allOfficialMembersData = window.INITIAL_OFFICIAL_MEMBERS || [];
+      allOfficialMembersData = mergeOfficialMemberSources([]);
       filterOfficialMembers();
     }
+  }
+
+  function normalizeOfficialMember(member) {
+    member = member || {};
+    return {
+      rowIndex: member.rowIndex || 0,
+      name: String(member.name || '').trim(),
+      categoryCode: member.categoryCode || member.category_code || '',
+      categoryName: member.categoryName || member.category_name || '',
+      uid: String(member.uid || '').trim(),
+      status: member.status || '',
+      votingRights: member.votingRights !== undefined ? member.votingRights : !!member.voting_rights,
+      isResident: member.isResident !== undefined ? member.isResident : !!member.is_resident,
+      notes: member.notes || ''
+    };
+  }
+
+  function mergeOfficialMemberSources(serverList) {
+    const merged = (Array.isArray(serverList) ? serverList : [])
+      .map(normalizeOfficialMember)
+      .filter(member => member.name);
+    const knownNames = new Set(merged.map(member => member.name));
+    (window.INITIAL_OFFICIAL_MEMBERS || []).forEach(function(member) {
+      const normalized = normalizeOfficialMember(member);
+      if (normalized.name && !knownNames.has(normalized.name)) {
+        merged.push(normalized);
+        knownNames.add(normalized.name);
+      }
+    });
+    return merged;
+  }
+
+  function updateOfficialCategoryCounts() {
+    const labels = {
+      ALL: '全部',
+      CAT_1: '1. 應到',
+      CAT_2: '2. 準會員',
+      CAT_3: '3. 在外教派',
+      CAT_4: '4. 外出',
+      CAT_5: '5. 未陪餐',
+      CAT_6: '6. 未陪餐籍在'
+    };
+    const counts = { ALL: allOfficialMembersData.length };
+    allOfficialMembersData.forEach(member => {
+      const code = member.categoryCode || member.category_code || '';
+      counts[code] = (counts[code] || 0) + 1;
+    });
+    document.querySelectorAll('#officialCatPills button[data-category]').forEach(button => {
+      const code = button.dataset.category;
+      button.textContent = `${labels[code] || code} (${counts[code] || 0})`;
+    });
   }
 
   function filterOfficialCat(catCode, btnEl) {
@@ -766,6 +687,7 @@
   }
 
   function filterOfficialMembers() {
+    updateOfficialCategoryCounts();
     const keyword = (document.getElementById('officialSearchInput').value || '').trim().toLowerCase();
     let filtered = allOfficialMembersData;
 
@@ -788,7 +710,7 @@
   function renderOfficialTable(data) {
     const tbody = document.getElementById('officialMemberTableBody');
     if (!data || data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="text-center p-5 text-muted">查無獨立會員資料</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center p-5 text-muted">查無獨立會員資料</td></tr>';
       return;
     }
 

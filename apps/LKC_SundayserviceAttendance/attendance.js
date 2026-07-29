@@ -10,6 +10,9 @@
   var DOUBLE_CLICK_DELAY = 350; 
   var lastActiveTime = Date.now(); 
   var isSleeping = false; 
+  var attSearchCacheKey = '';
+  var attSearchCacheActive = false;
+  var attSearchMemoryAnchor = null;
   
   var globalGroupConfig = {};
 
@@ -507,10 +510,28 @@ function executeRevoke(uid, displayName) {
     var kw = searchInput.value.trim().toLowerCase();
     var items = Array.prototype.slice.call(document.querySelectorAll('label.att-item'));
     var scrollArea = document.querySelector('.attendance-scroll-area');
-    var wasFiltered = items.some(function(item) { return item.style.display === 'none'; });
     var anchor = null;
-    if (kw === "" && wasFiltered && scrollArea && window.ListScrollAnchor) {
-      anchor = window.ListScrollAnchor.capture(scrollArea, 'label.att-item');
+    var cacheKey = window.AttendanceSearchScroll
+      ? window.AttendanceSearchScroll.getKey(currentAttType, document.getElementById('attendanceDateInput')?.value)
+      : '';
+
+    if (kw !== "" && scrollArea && window.ListScrollAnchor && window.AttendanceSearchScroll) {
+      if (!attSearchCacheActive || attSearchCacheKey !== cacheKey) {
+        var preSearchAnchor = window.ListScrollAnchor.capture(scrollArea, 'label.att-item');
+        var storage = null;
+        try { storage = window.localStorage; } catch (error) { storage = null; }
+        var stored = window.AttendanceSearchScroll.save(storage, cacheKey, preSearchAnchor);
+        attSearchMemoryAnchor = stored ? null : preSearchAnchor;
+        attSearchCacheKey = cacheKey;
+        attSearchCacheActive = true;
+      }
+    } else if (kw === "" && attSearchCacheActive && attSearchCacheKey === cacheKey && window.AttendanceSearchScroll) {
+      var restoreStorage = null;
+      try { restoreStorage = window.localStorage; } catch (error) { restoreStorage = null; }
+      anchor = window.AttendanceSearchScroll.consume(restoreStorage, cacheKey) || attSearchMemoryAnchor;
+      attSearchMemoryAnchor = null;
+      attSearchCacheKey = '';
+      attSearchCacheActive = false;
     }
 
     items.forEach(function(item) {
@@ -521,7 +542,7 @@ function executeRevoke(uid, displayName) {
       }
     });
 
-    if (anchor && window.ListScrollAnchor) {
+    if (anchor && scrollArea && window.ListScrollAnchor) {
       var restoreAnchor = function() {
         window.ListScrollAnchor.restore(scrollArea, 'label.att-item', anchor);
       };
