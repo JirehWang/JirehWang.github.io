@@ -36,6 +36,33 @@
   .member-table-container tbody tr:hover td:first-child {
     background-color: #f1f5f9 !important;
   }
+  @media (max-width: 600px) {
+    #qrCodeModal .btn-group {
+      display: flex;
+      width: 100%;
+    }
+    #qrCodeModal .btn-group > label {
+      flex: 1 1 0;
+      min-width: 0;
+      padding-left: 0.3rem !important;
+      padding-right: 0.3rem !important;
+      white-space: nowrap;
+      font-size: 0.72rem !important;
+    }
+  }
+  .custom-close-button {
+    width: 2rem;
+    height: 2rem;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    color: #718096;
+    font-family: Arial, sans-serif;
+    font-size: 1.8rem !important;
+    font-weight: 300;
+    line-height: 1;
+    opacity: 0.85;
+  }
 </style>
 
 <div class="members-main-wrapper p-2">
@@ -237,7 +264,7 @@
   <div class="custom-modal-content" style="max-width: 600px;">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <h5 class="fw-bold mb-0 text-dark" id="qrModalTitle">專屬 QR Code / 卡片預覽</h5>
-      <button type="button" class="btn-close" onclick="closeQrModal()"></button>
+      <button type="button" class="btn-close custom-close-button" onclick="closeQrModal()" aria-label="關閉">×</button>
     </div>
     <hr style="opacity: 0.1;">
     <div class="text-center mb-3">
@@ -246,6 +273,8 @@
         <label class="btn btn-light px-4 border-0 fw-bold" for="typeQr" style="font-size: 0.85rem;">純 QR Code</label>
         <input type="radio" class="btn-check" name="previewType" id="typeCard" autocomplete="off" onclick="togglePreviewMode('card')">
         <label class="btn btn-light px-4 border-0 fw-bold" for="typeCard" style="font-size: 0.85rem;">🖼️ 預覽實體卡片</label>
+        <input type="radio" class="btn-check" name="previewType" id="typeShare" autocomplete="off" onclick="togglePreviewMode('share')">
+        <label class="btn btn-light px-3 border-0 fw-bold" for="typeShare" style="font-size: 0.85rem;">🔗 分享卡片 QR</label>
       </div>
     </div>
     <div class="p-4 bg-light border-0 rounded-4 mb-3 d-flex justify-content-center align-items-center flex-column" style="min-height: 280px; border-radius: var(--radius-md) !important; background-color: #f8fafc !important;">
@@ -255,11 +284,19 @@
         <div class="water-ripple mb-2"><div></div><div></div></div>
         <div class="small text-secondary">雲端繪製中，請稍候...</div>
       </div>
+      <div id="shareLinkPanel" class="w-100 mt-3" style="display: none; max-width: 520px;">
+        <label for="shareLinkInput" class="small fw-bold text-secondary d-block mb-1">掃描後可開啟卡片並下載</label>
+        <div class="input-group input-group-sm shadow-sm">
+          <input id="shareLinkInput" class="form-control border-0 bg-white" type="text" readonly style="min-width: 0; text-overflow: ellipsis;">
+          <button id="btnCopyShareLink" class="btn btn-light fw-bold border-0" type="button" onclick="copyShareLink()">📋 複製連結</button>
+        </div>
+      </div>
     </div>
-    <div class="text-end mt-4">
+    <div class="text-end mt-4 d-flex flex-wrap justify-content-end gap-2">
       <button class="btn btn-light px-3 me-2 border-0" onclick="closeQrModal()" style="border-radius: 20px;">返回</button>
       <button id="btnDownloadQr" class="btn btn-success px-3 fw-bold me-2 border-0" onclick="downloadQrCode()" style="border-radius: 20px; background-color: var(--color-green);">📥 下載 QR</button>
       <button id="btnDownloadCard" class="btn btn-warning px-3 fw-bold text-dark me-2 border-0" style="display:none; border-radius: 20px; background-color: var(--color-gold);" onclick="downloadCardJpg()">📥 下載卡片圖檔 (JPG)</button>
+      <button id="btnDownloadShareQr" class="btn btn-success px-3 fw-bold border-0" style="display:none; border-radius: 20px; background-color: var(--color-green);" onclick="downloadShareQr()">📥 下載分享 QR</button>
       <button id="btnCreateCard" class="btn btn-info px-3 fw-bold text-white border-0" onclick="createCardAction()" style="border-radius: 20px; background-color: var(--color-teal);">📇 儲存卡片至雲端</button>
     </div>
   </div>
@@ -270,6 +307,8 @@
   var memberUsageByUid = {};
   var currentQrUrl = "";
   var currentMemberName = "";
+  var currentShareUrl = "";
+  var currentShareQrUrl = "";
 
   function getMemberScrollKey(rowOrUid) {
     const rawValue = Array.isArray(rowOrUid) ? (rowOrUid[7] || rowOrUid[0]) : rowOrUid;
@@ -444,10 +483,14 @@
     const loading = document.getElementById('previewLoading');
     const btnDownloadQr = document.getElementById('btnDownloadQr'); 
     const btnDownloadCard = document.getElementById('btnDownloadCard'); 
+    const btnDownloadShareQr = document.getElementById('btnDownloadShareQr');
+    const shareLinkPanel = document.getElementById('shareLinkPanel');
 
     img.style.display = 'none';
     emptyText.style.display = 'none';
     loading.style.display = 'none';
+    if (shareLinkPanel) shareLinkPanel.style.display = 'none';
+    if (btnDownloadShareQr) btnDownloadShareQr.style.display = 'none';
 
     if (mode === 'qr') {
       if (btnDownloadCard) btnDownloadCard.style.display = 'none'; 
@@ -489,6 +532,38 @@
           emptyText.style.display = 'block';
         })
         .previewMemberCard({ name: currentMemberName, uid: uidInput });
+    } else if (mode === 'share') {
+      if (btnDownloadQr) btnDownloadQr.style.display = 'none';
+      if (btnDownloadCard) btnDownloadCard.style.display = 'none';
+      const uidInput = document.getElementById('editModal_Uid').value.trim();
+      if (!uidInput || uidInput === "無編號") {
+        emptyText.innerText = "缺少系統編號，無法建立分享連結";
+        emptyText.style.display = 'block';
+        return;
+      }
+      loading.style.display = 'block';
+      google.script.run
+        .withSuccessHandler(function(res) {
+          loading.style.display = 'none';
+          if (res && res.success && res.shareUrl) {
+            currentShareUrl = res.shareUrl;
+            currentShareQrUrl = "https://quickchart.io/qr?size=300x300&text=" + encodeURIComponent(currentShareUrl);
+            img.src = currentShareQrUrl;
+            img.style.display = 'block';
+            document.getElementById('shareLinkInput').value = currentShareUrl;
+            if (shareLinkPanel) shareLinkPanel.style.display = 'block';
+            if (btnDownloadShareQr) btnDownloadShareQr.style.display = 'inline-block';
+          } else {
+            emptyText.innerText = "❌ " + ((res && res.msg) || "建立分享連結失敗");
+            emptyText.style.display = 'block';
+          }
+        })
+        .withFailureHandler(function(err) {
+          loading.style.display = 'none';
+          emptyText.innerText = "❌ 建立分享連結失敗：" + (err && err.message ? err.message : "伺服器錯誤");
+          emptyText.style.display = 'block';
+        })
+        .getMemberCardShareLink({ name: currentMemberName, uid: uidInput });
     }
   }
 
@@ -671,6 +746,47 @@
     document.querySelectorAll('#officialCatPills button[data-category]').forEach(button => {
       const code = button.dataset.category;
       button.textContent = `${labels[code] || code} (${counts[code] || 0})`;
+    });
+  }
+
+  function copyShareLink() {
+    if (!currentShareUrl) return;
+    const fallbackCopy = function() {
+      const input = document.getElementById('shareLinkInput');
+      input.focus();
+      input.select();
+      document.execCommand('copy');
+      alert('✅ 分享連結已複製');
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(currentShareUrl)
+        .then(function() { alert('✅ 分享連結已複製'); })
+        .catch(fallbackCopy);
+    } else {
+      fallbackCopy();
+    }
+  }
+
+  function downloadShareQr() {
+    if (!currentShareQrUrl) return;
+    const btn = document.getElementById('btnDownloadShareQr');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = "📥 抓取中...";
+    btn.disabled = true;
+    fetch(currentShareQrUrl).then(function(response) { return response.blob(); }).then(function(blob) {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = currentMemberName + "_分享卡片QRCode.png";
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    }).catch(function() {
+      alert('❌ QR Code 下載失敗，請稍後再試');
+    }).finally(function() {
+      btn.innerHTML = originalText;
+      btn.disabled = false;
     });
   }
 

@@ -1,5 +1,34 @@
 # LKC1958 整體系統關聯圖
 
+## 個人卡片分享流程（2026-07）
+
+```mermaid
+sequenceDiagram
+    participant Admin as 會員管理者
+    participant Members as members.html
+    participant GAS as 主日出席 GAS
+    participant Props as GAS Script Properties
+    participant Share as card.html
+    participant Slides as Google Slides / JPG 產生器
+
+    Admin->>Members: 切換「分享卡片 QR」
+    Members->>GAS: getMemberCardShareLink(uid)
+    GAS->>Props: 讀取或保存 UID 對應的隨機 shareToken
+    Props-->>GAS: shareToken
+    GAS-->>Members: card.html?share=shareToken
+    Admin-->>Share: 對方掃描分享 QR
+    Share->>GAS: getMemberCardByShareToken(shareToken)
+    GAS->>Props: 解析 shareToken → UID
+    GAS->>Slides: 依目前名單產生卡片 JPG
+    Slides-->>GAS: JPG base64
+    GAS-->>Share: 卡片影像
+    Share-->>Admin: 顯示卡片與 JPG 下載按鈕
+```
+
+- 分享 QR 與原本卡片內的 UID 點名 QR 分離；前者只開啟卡片分享頁，後者仍交由點名掃描器處理。
+- 公開頁只接受已簽發的隨機分享碼，不接受 UID／姓名查詢；分享碼對應目前名單，會友不存在時連結失效。
+- 卡片產生仍由主日出席 GAS 的 `MemberDB.js` 呼叫 Google Slides 暫存模板，GitHub Pages 不持有 Google 憑證。
+
 ## 管理入口快取維護流程（2026-07）
 
 ```mermaid

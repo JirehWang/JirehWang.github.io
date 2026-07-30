@@ -40,10 +40,12 @@
 
 ### 3. 會友名單維護
 * `members.html`：會友資料庫的 CRUD 介面。提供表單新增、修改與刪除會友。編輯成功重新抓取名單時，以該會友的 UID 作為穩定捲動錨點，表格重建後仍回到原列位置。
+  * **個人卡片分享**：在既有 QR／卡片視窗新增「分享卡片 QR」模式。分享 QR 只編碼 `card.html?share=...`，不改變原本以 UID 點名的純 QR；分享頁再透過 GAS 取得目前卡片並提供 JPG 下載。
 * 管理頁透過 `getMemberManagementData` 同時取得會友名單與 UID 使用狀態。UID 曾出現在主日／小組點名紀錄、仍存在於小組名單，或主檔仍有小組欄位時，狀態顯示「有效」並停用刪除；後端 `deleteMember` 也會即時重查並拒絕硬刪除。這類資料只能保留歷史關聯，必要時改成「不統計」。
 * 管理頁另有「和會獨立會員名單」視圖，透過 `getOfficialMembers` 讀取 `會員名單`；前端以姓名去重合併伺服器資料與 `official_members_data.js` 的基準名單，避免部分回應造成畫面少列，分類按鈕數字也依實際資料動態計算。
 * `list-scroll-anchor.js`：點名卡片與會友表格共用的輕量捲動錨點工具；記錄穩定 key、元素相對容器的位移與備援 `scrollTop`，並在篩選或資料重建後還原。
 * `attendance-search-scroll.js`：以 `localStorage` 保存依點名類別與日期分隔的搜尋前錨點；清除搜尋時只消費一次，避免沿用過期位置。
+* `card.html`：公開個人卡片分享頁。接收不可猜測的 `share` 查詢參數，呼叫 `getMemberCardByShareToken` 後顯示卡片與下載按鈕；不載入會員管理導覽或點名控制項。
 * `README.md`：說明點名與名單管理操作說明。
 
 ### 4. 統計與趨勢圖表
@@ -71,6 +73,13 @@
 1. 同工點擊「確認送出」時，前端收集所有 `.selected` 卡片的 UID（`presentList`）以及新朋友男女數，調用 `saveAttendance` 送至後端。
 2. 後端寫入 Sheets 完成後，會主動向 Firebase 發送 `DELETE` 刪除 `getSmartAttendanceList`、`getWeeklyReport`、`getAttendanceStats` 等快取 Topic。
 3. 由於本前端呼叫 `saveAttendance` 後會立刻調用 `switchType()` 重新拉取最新名單，因此中央 `config.js` 中的 `churchAPI` 在發送寫入請求時，會 `await` 等待 Firebase 快取清除完畢，以防前端在下一步讀取時抓到舊快取。
+
+### 4. 個人卡片分享流程
+
+1. 管理者在 `members.html` 的「分享卡片 QR」模式中呼叫 `getMemberCardShareLink`。
+2. GAS 以目前「會友名單」的 UID 查找會友，於 Script Properties 保存 UID 對應的隨機分享碼，回傳 `card.html?share=...`。
+3. 對方掃描 QR 後開啟 `card.html`，以 `getMemberCardByShareToken` 解析分享碼；後端只對已簽發的分享碼回傳目前會友的卡片 JPG base64。
+4. 原本卡片內的 UID QR 仍維持點名用途；分享 QR 是另一個獨立入口，不會干擾 `qrcodescanner.github.io` 或 `attendance.js` 的點名掃描。
 
 ---
 

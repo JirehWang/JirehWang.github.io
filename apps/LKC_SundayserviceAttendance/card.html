@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>專屬資料卡片</title>
+  <style>
+    :root {
+      --ink: #24343b;
+      --muted: #718096;
+      --teal: #06b6d4;
+      --gold: #f59e0b;
+      --surface: #ffffff;
+      --page: #f4f7f9;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 24px 16px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      background: radial-gradient(circle at top, #ffffff 0, var(--page) 55%, #e9f1f4 100%);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    }
+
+    .page-card {
+      width: min(100%, 560px);
+      margin: 10px auto 0;
+      padding: clamp(22px, 5vw, 38px);
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-radius: 28px;
+      box-shadow: 0 20px 60px rgba(36, 52, 59, 0.12);
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.35rem, 4vw, 1.75rem);
+      letter-spacing: 0.02em;
+    }
+
+    .subtitle {
+      margin: 8px 0 24px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .preview {
+      min-height: 260px;
+      padding: 18px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border-radius: 22px;
+      background: #f7fafc;
+    }
+
+    #cardImage {
+      display: none;
+      width: auto;
+      max-width: 100%;
+      max-height: min(65vh, 560px);
+      border-radius: 12px;
+      box-shadow: 0 14px 32px rgba(36, 52, 59, 0.14);
+    }
+
+    #status {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    #status.error { color: #be123c; }
+
+    .actions {
+      display: none;
+      margin-top: 24px;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .button {
+      min-height: 44px;
+      padding: 10px 20px;
+      border: 0;
+      border-radius: 999px;
+      color: #fff;
+      font: inherit;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .button.download { background: var(--gold); color: #33200a; }
+    .button.back { background: var(--teal); }
+
+    .hint {
+      display: none;
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 420px) {
+      body { padding: 12px 10px; }
+      .page-card { margin-top: 0; border-radius: 22px; }
+      .preview { padding: 10px; }
+      .button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page-card" aria-live="polite">
+    <h1 id="pageTitle">專屬資料卡片</h1>
+    <p class="subtitle">掃描連結後即可查看並下載卡片</p>
+    <section class="preview" aria-label="卡片預覽">
+      <div id="status">卡片讀取中，請稍候…</div>
+      <img id="cardImage" alt="專屬資料卡片">
+    </section>
+    <div id="actions" class="actions">
+      <a id="downloadButton" class="button download" href="#" download>📥 下載卡片圖檔 (JPG)</a>
+      <button class="button back" type="button" onclick="history.back()">返回</button>
+    </div>
+    <p id="hint" class="hint">若手機沒有直接下載，請長按卡片圖片後選擇儲存圖片。</p>
+  </main>
+
+  <script>window._GAS_KEY = 'LKC_SundayserviceAttendance_TEST';</script>
+  <script src="../../config.js"></script>
+  <script src="config.js"></script>
+  <script>
+    (function() {
+      const shareToken = new URLSearchParams(window.location.search).get('share');
+      const status = document.getElementById('status');
+      const image = document.getElementById('cardImage');
+      const actions = document.getElementById('actions');
+      const downloadButton = document.getElementById('downloadButton');
+      const hint = document.getElementById('hint');
+      const pageTitle = document.getElementById('pageTitle');
+
+      function showError(message) {
+        status.textContent = '❌ ' + message;
+        status.classList.add('error');
+      }
+
+      async function loadCard() {
+        if (!shareToken) {
+          showError('找不到分享連結代碼。');
+          return;
+        }
+
+        try {
+          const response = await fetch(window.GAS_CONFIG.apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'getMemberCardByShareToken',
+              payload: { token: shareToken },
+              clientOrigin: window.location.origin
+            })
+          });
+          const envelope = await response.json();
+          const result = envelope.data || envelope;
+          if (!response.ok || !result.success || !result.base64) {
+            showError(result.msg || '卡片讀取失敗，分享連結可能已失效。');
+            return;
+          }
+
+          const name = result.name || '專屬資料';
+          pageTitle.textContent = name + '的專屬資料卡片';
+          document.title = pageTitle.textContent;
+          image.src = result.base64;
+          image.alt = name + '的專屬資料卡片';
+          image.style.display = 'block';
+          status.style.display = 'none';
+          downloadButton.href = result.base64;
+          downloadButton.download = name + '_專屬名卡.jpg';
+          actions.style.display = 'flex';
+          hint.style.display = 'block';
+        } catch (error) {
+          showError('目前無法連線取得卡片，請稍後再試。');
+          console.error(error);
+        }
+      }
+
+      loadCard();
+    })();
+  </script>
+</body>
+</html>

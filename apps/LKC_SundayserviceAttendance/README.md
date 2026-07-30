@@ -7,6 +7,7 @@
 ```
 church-attendance/
 ├── index.html          # 主頁面（導覽選單）
+├── card.html           # 公開個人卡片分享頁（由分享 QR Code 開啟）
 ├── config.js           # ⚠️ 設定檔（填入你的 GAS URL）
 ├── list-scroll-anchor.js # 篩選或刷新後維持目前名單位置
 ├── js/
@@ -62,6 +63,8 @@ function doPost(e) {
       case 'getCategoryChartData': return getCategoryChartData(payload[0], payload[1], payload[2]);
       case 'previewMemberCard': return previewMemberCard(payload);
       case 'generateMemberCard': return generateMemberCard(payload);
+      case 'getMemberCardShareLink': return getMemberCardShareLink(payload);
+      case 'getMemberCardByShareToken': return getMemberCardByShareToken(payload);
       default: throw new Error('Unknown action: ' + action);
     }
   })();
@@ -73,6 +76,12 @@ function doPost(e) {
 ```
 
 會友管理頁使用 `getMemberManagementData` 取得名單與 UID 使用狀態。若代碼曾被主日／小組點名，或仍存在小組名單（含主檔小組欄位），前端會標示「有效」並停用刪除；`deleteMember` 後端也會重新檢查並拒絕刪除，只允許將會友改成「不統計」。
+
+### 個人卡片分享
+
+在會員管理的「顯示 QR / 卡片」視窗切換至「分享卡片 QR」後，前端呼叫 `getMemberCardShareLink` 取得不可猜測的分享碼，並將 `card.html?share=...` 產生為 QR Code。對方掃描後由 `card.html` 呼叫 `getMemberCardByShareToken`，取得目前名單對應的卡片預覽並下載 JPG。
+
+分享碼儲存在 GAS Script Properties，網址不直接放 UID；分享頁也只接受已簽發的分享碼，不提供以 UID 或姓名查詢卡片的公開 API。會友資料更新後，同一分享連結會顯示最新姓名與卡片內容；會友不存在時連結失效。
 
 ### 3. 部署到 GitHub Pages
 
