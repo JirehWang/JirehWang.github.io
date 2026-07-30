@@ -81,7 +81,7 @@ function doPost(e) {
 
 在會員管理的「顯示 QR / 卡片」視窗切換至「分享卡片 QR」後，前端呼叫 `getMemberCardShareLink` 取得不可猜測的分享碼，並將 `card.html?share=...` 產生為 QR Code。對方掃描後由 `card.html` 呼叫 `getMemberCardByShareToken`，取得目前名單對應的卡片預覽並下載 JPG。
 
-分享碼儲存在 GAS Script Properties，網址不直接放 UID；分享頁也只接受已簽發的分享碼，不提供以 UID 或姓名查詢卡片的公開 API。會友資料更新後，同一分享連結會顯示最新姓名與卡片內容；會友不存在時連結失效。
+分享碼儲存在 GAS Script Properties，網址不直接放 UID；分享頁也只接受已簽發的分享碼，不提供以 UID 或姓名查詢卡片的公開 API。會友資料更新後，同一分享連結會顯示最新姓名與卡片內容；會友不存在時連結失效。手機下載會先使用裝置的分享／儲存功能；若瀏覽器不支援，則開啟圖片供使用者長按儲存。
 
 ### 3. 部署到 GitHub Pages
 

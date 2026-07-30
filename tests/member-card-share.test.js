@@ -61,6 +61,9 @@ test('member card share contract is wired through the UI, GAS route, and public 
   const cardPage = fs.readFileSync(cardPagePath, 'utf8');
   assert.match(cardPage, /getMemberCardByShareToken/);
   assert.match(cardPage, /下載卡片圖檔/);
+  assert.match(cardPage, /URL\.createObjectURL/);
+  assert.match(cardPage, /window\.open/);
+  assert.match(cardPage, /長按圖片/);
 });
 
 test('share tokens are stable per member and resolve to the current member card', () => {

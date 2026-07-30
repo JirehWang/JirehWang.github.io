@@ -128,7 +128,7 @@
       <a id="downloadButton" class="button download" href="#" download>📥 下載卡片圖檔 (JPG)</a>
       <button class="button back" type="button" onclick="history.back()">返回</button>
     </div>
-    <p id="hint" class="hint">若手機沒有直接下載，請長按卡片圖片後選擇儲存圖片。</p>
+    <p id="hint" class="hint">手機若沒有直接下載，請在圖片上長按後選擇「儲存影像」。</p>
   </main>
 
   <script>window._GAS_KEY = 'LKC_SundayserviceAttendance_TEST';</script>
@@ -143,11 +143,64 @@
       const downloadButton = document.getElementById('downloadButton');
       const hint = document.getElementById('hint');
       const pageTitle = document.getElementById('pageTitle');
+      const isMobileBrowser = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+        || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      let cardBlob = null;
+      let cardObjectUrl = '';
+      let downloadFilename = '專屬名卡.jpg';
 
       function showError(message) {
         status.textContent = '❌ ' + message;
         status.classList.add('error');
       }
+
+      async function prepareCardDownload(base64) {
+        downloadButton.href = base64;
+        try {
+          const blobResponse = await fetch(base64);
+          cardBlob = await blobResponse.blob();
+          cardObjectUrl = URL.createObjectURL(cardBlob);
+          downloadButton.href = cardObjectUrl;
+        } catch (error) {
+          // 保留 data URL 作為無法建立 Blob URL 時的桌面瀏覽器備援。
+          console.warn('無法建立卡片下載 Blob URL，改用原始圖片資料。', error);
+        }
+      }
+
+      function openImageForMobileSave() {
+        const imageUrl = cardObjectUrl || downloadButton.href;
+        const popup = window.open(imageUrl, '_blank', 'noopener,noreferrer');
+        if (!popup) window.location.assign(imageUrl);
+        hint.textContent = '圖片已開啟，請長按圖片後選擇「儲存影像」。';
+      }
+
+      async function handleDownload(event) {
+        if (!isMobileBrowser) return;
+        event.preventDefault();
+
+        if (cardBlob && typeof File === 'function' && typeof navigator.share === 'function'
+          && typeof navigator.canShare === 'function') {
+          const file = new File([cardBlob], downloadFilename, {
+            type: cardBlob.type || 'image/jpeg'
+          });
+          if (navigator.canShare({ files: [file] })) {
+            try {
+              await navigator.share({
+                title: pageTitle.textContent,
+                files: [file]
+              });
+              return;
+            } catch (error) {
+              if (error && error.name === 'AbortError') return;
+              console.warn('手機分享卡片失敗，改用圖片儲存備援。', error);
+            }
+          }
+        }
+
+        openImageForMobileSave();
+      }
+
+      downloadButton.addEventListener('click', handleDownload);
 
       async function loadCard() {
         if (!shareToken) {
@@ -179,10 +232,15 @@
           image.alt = name + '的專屬資料卡片';
           image.style.display = 'block';
           status.style.display = 'none';
-          downloadButton.href = result.base64;
-          downloadButton.download = name + '_專屬名卡.jpg';
+          downloadFilename = name + '_專屬名卡.jpg';
+          downloadButton.download = downloadFilename;
+          await prepareCardDownload(result.base64);
           actions.style.display = 'flex';
           hint.style.display = 'block';
+          if (isMobileBrowser) {
+            downloadButton.textContent = '📱 儲存／下載卡片圖片';
+            hint.textContent = '手機若跳出分享選單，請選「儲存影像」；若未出現，請在圖片上長按後儲存。';
+          }
         } catch (error) {
           showError('目前無法連線取得卡片，請稍後再試。');
           console.error(error);

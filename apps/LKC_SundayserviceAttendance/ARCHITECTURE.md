@@ -45,7 +45,7 @@
 * 管理頁另有「和會獨立會員名單」視圖，透過 `getOfficialMembers` 讀取 `會員名單`；前端以姓名去重合併伺服器資料與 `official_members_data.js` 的基準名單，避免部分回應造成畫面少列，分類按鈕數字也依實際資料動態計算。
 * `list-scroll-anchor.js`：點名卡片與會友表格共用的輕量捲動錨點工具；記錄穩定 key、元素相對容器的位移與備援 `scrollTop`，並在篩選或資料重建後還原。
 * `attendance-search-scroll.js`：以 `localStorage` 保存依點名類別與日期分隔的搜尋前錨點；清除搜尋時只消費一次，避免沿用過期位置。
-* `card.html`：公開個人卡片分享頁。接收不可猜測的 `share` 查詢參數，呼叫 `getMemberCardByShareToken` 後顯示卡片與下載按鈕；不載入會員管理導覽或點名控制項。
+* `card.html`：公開個人卡片分享頁。接收不可猜測的 `share` 查詢參數，呼叫 `getMemberCardByShareToken` 後顯示卡片與下載按鈕；手機優先使用原生分享／儲存功能，不支援時開啟圖片供長按儲存；不載入會員管理導覽或點名控制項。
 * `README.md`：說明點名與名單管理操作說明。
 
 ### 4. 統計與趨勢圖表
