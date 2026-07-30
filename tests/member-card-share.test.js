@@ -66,6 +66,20 @@ test('member card share contract is wired through the UI, GAS route, and public 
   assert.match(cardPage, /長按圖片/);
 });
 
+test('card modal keeps the card and share QR previews independent', () => {
+  const memberPage = fs.readFileSync(memberPagePath, 'utf8');
+
+  assert.doesNotMatch(memberPage, /id="typeQr"/);
+  assert.doesNotMatch(memberPage, /id="btnDownloadQr"/);
+  assert.doesNotMatch(memberPage, /function downloadQrCode/);
+  assert.match(memberPage, /id="typeCard"/);
+  assert.match(memberPage, /id="typeShare"/);
+  assert.match(memberPage, /id="cardPreviewPanel"/);
+  assert.match(memberPage, /id="sharePreviewPanel"/);
+  assert.match(memberPage, /previewRequestId/);
+  assert.match(memberPage, /isCurrentPreviewRequest/);
+});
+
 test('share tokens are stable per member and resolve to the current member card', () => {
   const context = loadMemberDb();
   const first = context.getMemberCardShareLink({ uid: 'LK00001' });

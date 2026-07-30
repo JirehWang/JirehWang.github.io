@@ -63,6 +63,19 @@
     line-height: 1;
     opacity: 0.85;
   }
+  .preview-mode-panel {
+    min-height: 280px;
+    padding: 1.5rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    border-radius: var(--radius-md) !important;
+    background-color: #f8fafc !important;
+  }
+  .preview-mode-panel[hidden] {
+    display: none !important;
+  }
 </style>
 
 <div class="members-main-wrapper p-2">
@@ -269,20 +282,26 @@
     <hr style="opacity: 0.1;">
     <div class="text-center mb-3">
       <div class="btn-group shadow-sm" role="group" style="border-radius: 20px; overflow: hidden; border: 1px solid var(--border-color);">
-        <input type="radio" class="btn-check" name="previewType" id="typeQr" autocomplete="off" checked onclick="togglePreviewMode('qr')">
-        <label class="btn btn-light px-4 border-0 fw-bold" for="typeQr" style="font-size: 0.85rem;">純 QR Code</label>
-        <input type="radio" class="btn-check" name="previewType" id="typeCard" autocomplete="off" onclick="togglePreviewMode('card')">
+        <input type="radio" class="btn-check" name="previewType" id="typeCard" autocomplete="off" checked onclick="togglePreviewMode('card')">
         <label class="btn btn-light px-4 border-0 fw-bold" for="typeCard" style="font-size: 0.85rem;">🖼️ 預覽實體卡片</label>
         <input type="radio" class="btn-check" name="previewType" id="typeShare" autocomplete="off" onclick="togglePreviewMode('share')">
-        <label class="btn btn-light px-3 border-0 fw-bold" for="typeShare" style="font-size: 0.85rem;">🔗 分享卡片 QR</label>
+        <label class="btn btn-light px-4 border-0 fw-bold" for="typeShare" style="font-size: 0.85rem;">🔗 分享卡片 QR</label>
       </div>
     </div>
-    <div class="p-4 bg-light border-0 rounded-4 mb-3 d-flex justify-content-center align-items-center flex-column" style="min-height: 280px; border-radius: var(--radius-md) !important; background-color: #f8fafc !important;">
-      <img id="qrModal_Img" src="" alt="預覽圖" style="max-width: 100%; max-height: 280px; display: none; box-shadow: 0 10px 30px rgba(15, 42, 53, 0.08); border-radius: 8px;">
-      <span id="qrModal_EmptyText" class="text-secondary">此會友尚無資料</span>
-      <div id="previewLoading" style="display: none;" class="text-center">
+    <div id="cardPreviewPanel" class="preview-mode-panel mb-3">
+      <img id="cardPreviewImg" src="" alt="實體卡片預覽" style="max-width: 100%; max-height: 280px; display: none; box-shadow: 0 10px 30px rgba(15, 42, 53, 0.08); border-radius: 8px;">
+      <span id="cardPreviewEmptyText" class="text-secondary">此會友尚無資料</span>
+      <div id="cardPreviewLoading" style="display: none;" class="text-center">
         <div class="water-ripple mb-2"><div></div><div></div></div>
         <div class="small text-secondary">雲端繪製中，請稍候...</div>
+      </div>
+    </div>
+    <div id="sharePreviewPanel" class="preview-mode-panel mb-3" hidden>
+      <img id="sharePreviewImg" src="" alt="分享卡片 QR Code" style="max-width: 100%; max-height: 280px; display: none; box-shadow: 0 10px 30px rgba(15, 42, 53, 0.08); border-radius: 8px;">
+      <span id="sharePreviewEmptyText" class="text-secondary">尚未建立分享連結</span>
+      <div id="sharePreviewLoading" style="display: none;" class="text-center">
+        <div class="water-ripple mb-2"><div></div><div></div></div>
+        <div class="small text-secondary">分享連結建立中，請稍候...</div>
       </div>
       <div id="shareLinkPanel" class="w-100 mt-3" style="display: none; max-width: 520px;">
         <label for="shareLinkInput" class="small fw-bold text-secondary d-block mb-1">掃描後可開啟卡片並下載</label>
@@ -294,10 +313,9 @@
     </div>
     <div class="text-end mt-4 d-flex flex-wrap justify-content-end gap-2">
       <button class="btn btn-light px-3 me-2 border-0" onclick="closeQrModal()" style="border-radius: 20px;">返回</button>
-      <button id="btnDownloadQr" class="btn btn-success px-3 fw-bold me-2 border-0" onclick="downloadQrCode()" style="border-radius: 20px; background-color: var(--color-green);">📥 下載 QR</button>
       <button id="btnDownloadCard" class="btn btn-warning px-3 fw-bold text-dark me-2 border-0" style="display:none; border-radius: 20px; background-color: var(--color-gold);" onclick="downloadCardJpg()">📥 下載卡片圖檔 (JPG)</button>
       <button id="btnDownloadShareQr" class="btn btn-success px-3 fw-bold border-0" style="display:none; border-radius: 20px; background-color: var(--color-green);" onclick="downloadShareQr()">📥 下載分享 QR</button>
-      <button id="btnCreateCard" class="btn btn-info px-3 fw-bold text-white border-0" onclick="createCardAction()" style="border-radius: 20px; background-color: var(--color-teal);">📇 儲存卡片至雲端</button>
+      <button id="btnCreateCard" class="btn btn-info px-3 fw-bold text-white border-0" onclick="createCardAction()" style="display:none; border-radius: 20px; background-color: var(--color-teal);">📇 儲存卡片至雲端</button>
     </div>
   </div>
 </div>
@@ -305,10 +323,11 @@
 <script>
   var allMembersRawData = [];
   var memberUsageByUid = {};
-  var currentQrUrl = "";
   var currentMemberName = "";
   var currentShareUrl = "";
   var currentShareQrUrl = "";
+  var previewRequestId = 0;
+  var currentPreviewMode = "";
 
   function getMemberScrollKey(rowOrUid) {
     const rawValue = Array.isArray(rowOrUid) ? (rowOrUid[7] || rowOrUid[0]) : rowOrUid;
@@ -445,7 +464,6 @@
       let uid = String(row[7] || "").trim();
       document.getElementById('editModal_Uid').value = uid || "無編號";
       currentMemberName = row[0];
-      currentQrUrl = uid ? "https://quickchart.io/qr?size=250x250&text=" + encodeURIComponent(uid) : "";
       btnShowQr.disabled = !uid;
     } else {
       document.getElementById('memModalHeader').innerText = "新增會友資料";
@@ -457,7 +475,6 @@
       let nextUid = calculateNextUid(allMembersRawData);
       document.getElementById('editModal_Uid').value = nextUid;
       currentMemberName = "新會友";
-      currentQrUrl = "https://quickchart.io/qr?size=250x250&text=" + encodeURIComponent(nextUid);
       btnShowQr.disabled = false;
     }
   }
@@ -468,8 +485,8 @@
     const nameInput = document.getElementById('editName_Mem').value.trim();
     currentMemberName = nameInput || currentMemberName;
     document.getElementById('qrModalTitle').innerText = currentMemberName + " 的專屬資料";
-    document.getElementById('typeQr').checked = true;
-    togglePreviewMode('qr');
+    document.getElementById('typeCard').checked = true;
+    togglePreviewMode('card');
     document.getElementById('qrCodeModal').style.display = 'block';
   }
 
@@ -477,91 +494,105 @@
 
   var currentCardBase64 = "";
 
-  function togglePreviewMode(mode) {
-    const img = document.getElementById('qrModal_Img');
-    const emptyText = document.getElementById('qrModal_EmptyText');
-    const loading = document.getElementById('previewLoading');
-    const btnDownloadQr = document.getElementById('btnDownloadQr'); 
-    const btnDownloadCard = document.getElementById('btnDownloadCard'); 
+  function isCurrentPreviewRequest(mode, requestId) {
+    return currentPreviewMode === mode && previewRequestId === requestId;
+  }
+
+  function updatePreviewActions(mode) {
+    const btnDownloadCard = document.getElementById('btnDownloadCard');
     const btnDownloadShareQr = document.getElementById('btnDownloadShareQr');
+    const btnCreateCard = document.getElementById('btnCreateCard');
+    if (btnDownloadCard) btnDownloadCard.style.display = mode === 'card' ? 'inline-block' : 'none';
+    if (btnDownloadShareQr) btnDownloadShareQr.style.display = mode === 'share' ? 'inline-block' : 'none';
+    if (btnCreateCard) btnCreateCard.style.display = mode === 'card' ? 'inline-block' : 'none';
+  }
+
+  function togglePreviewMode(mode) {
+    if (mode !== 'card' && mode !== 'share') return;
+
+    const cardPanel = document.getElementById('cardPreviewPanel');
+    const sharePanel = document.getElementById('sharePreviewPanel');
+    const cardImg = document.getElementById('cardPreviewImg');
+    const cardEmptyText = document.getElementById('cardPreviewEmptyText');
+    const cardLoading = document.getElementById('cardPreviewLoading');
+    const shareImg = document.getElementById('sharePreviewImg');
+    const shareEmptyText = document.getElementById('sharePreviewEmptyText');
+    const shareLoading = document.getElementById('sharePreviewLoading');
     const shareLinkPanel = document.getElementById('shareLinkPanel');
+    const requestId = ++previewRequestId;
+    currentPreviewMode = mode;
+    updatePreviewActions(mode);
+    cardPanel.hidden = mode !== 'card';
+    sharePanel.hidden = mode !== 'share';
 
-    img.style.display = 'none';
-    emptyText.style.display = 'none';
-    loading.style.display = 'none';
-    if (shareLinkPanel) shareLinkPanel.style.display = 'none';
-    if (btnDownloadShareQr) btnDownloadShareQr.style.display = 'none';
-
-    if (mode === 'qr') {
-      if (btnDownloadCard) btnDownloadCard.style.display = 'none'; 
-      if (currentQrUrl !== "") {
-        img.src = currentQrUrl;
-        img.style.display = 'block';
-        if (btnDownloadQr) btnDownloadQr.style.display = 'inline-block';
-      } else {
-        emptyText.innerText = "此會友尚無 QR Code";
-        emptyText.style.display = 'block';
-        if (btnDownloadQr) btnDownloadQr.style.display = 'none';
-      }
-    } else if (mode === 'card') {
-      if (btnDownloadQr) btnDownloadQr.style.display = 'none'; 
-      if (btnDownloadCard) btnDownloadCard.style.display = 'none'; 
+    if (mode === 'card') {
+      currentCardBase64 = "";
+      cardImg.style.display = 'none';
+      cardEmptyText.style.display = 'none';
+      cardLoading.style.display = 'none';
       const uidInput = document.getElementById('editModal_Uid').value.trim();
       if (!uidInput || uidInput === "無編號") {
-        emptyText.innerText = "缺少系統編號，無法預覽";
-        emptyText.style.display = 'block';
+        cardEmptyText.innerText = "缺少系統編號，無法預覽";
+        cardEmptyText.style.display = 'block';
         return;
       }
-      loading.style.display = 'block';
+      cardLoading.style.display = 'block';
       google.script.run
         .withSuccessHandler(function(res) {
-          loading.style.display = 'none';
+          if (!isCurrentPreviewRequest('card', requestId)) return;
+          cardLoading.style.display = 'none';
           if (res.success) {
             currentCardBase64 = res.base64; 
-            img.src = res.base64;
-            img.style.display = 'block';
-            if (btnDownloadCard) btnDownloadCard.style.display = 'inline-block'; 
+            cardImg.src = res.base64;
+            cardImg.style.display = 'block';
           } else {
-            emptyText.innerText = "❌ 預覽失敗：" + res.msg;
-            emptyText.style.display = 'block';
+            cardEmptyText.innerText = "❌ 預覽失敗：" + res.msg;
+            cardEmptyText.style.display = 'block';
           }
         })
         .withFailureHandler(function(err) {
-          loading.style.display = 'none';
-          emptyText.innerText = "❌ 伺服器錯誤";
-          emptyText.style.display = 'block';
+          if (!isCurrentPreviewRequest('card', requestId)) return;
+          cardLoading.style.display = 'none';
+          cardEmptyText.innerText = "❌ 伺服器錯誤";
+          cardEmptyText.style.display = 'block';
         })
         .previewMemberCard({ name: currentMemberName, uid: uidInput });
-    } else if (mode === 'share') {
-      if (btnDownloadQr) btnDownloadQr.style.display = 'none';
-      if (btnDownloadCard) btnDownloadCard.style.display = 'none';
+    } else {
+      currentShareUrl = "";
+      currentShareQrUrl = "";
+      shareImg.style.display = 'none';
+      shareEmptyText.style.display = 'none';
+      shareLoading.style.display = 'none';
+      if (shareLinkPanel) shareLinkPanel.style.display = 'none';
+      document.getElementById('shareLinkInput').value = '';
       const uidInput = document.getElementById('editModal_Uid').value.trim();
       if (!uidInput || uidInput === "無編號") {
-        emptyText.innerText = "缺少系統編號，無法建立分享連結";
-        emptyText.style.display = 'block';
+        shareEmptyText.innerText = "缺少系統編號，無法建立分享連結";
+        shareEmptyText.style.display = 'block';
         return;
       }
-      loading.style.display = 'block';
+      shareLoading.style.display = 'block';
       google.script.run
         .withSuccessHandler(function(res) {
-          loading.style.display = 'none';
+          if (!isCurrentPreviewRequest('share', requestId)) return;
+          shareLoading.style.display = 'none';
           if (res && res.success && res.shareUrl) {
             currentShareUrl = res.shareUrl;
             currentShareQrUrl = "https://quickchart.io/qr?size=300x300&text=" + encodeURIComponent(currentShareUrl);
-            img.src = currentShareQrUrl;
-            img.style.display = 'block';
+            shareImg.src = currentShareQrUrl;
+            shareImg.style.display = 'block';
             document.getElementById('shareLinkInput').value = currentShareUrl;
             if (shareLinkPanel) shareLinkPanel.style.display = 'block';
-            if (btnDownloadShareQr) btnDownloadShareQr.style.display = 'inline-block';
           } else {
-            emptyText.innerText = "❌ " + ((res && res.msg) || "建立分享連結失敗");
-            emptyText.style.display = 'block';
+            shareEmptyText.innerText = "❌ " + ((res && res.msg) || "建立分享連結失敗");
+            shareEmptyText.style.display = 'block';
           }
         })
         .withFailureHandler(function(err) {
-          loading.style.display = 'none';
-          emptyText.innerText = "❌ 建立分享連結失敗：" + (err && err.message ? err.message : "伺服器錯誤");
-          emptyText.style.display = 'block';
+          if (!isCurrentPreviewRequest('share', requestId)) return;
+          shareLoading.style.display = 'none';
+          shareEmptyText.innerText = "❌ 建立分享連結失敗：" + (err && err.message ? err.message : "伺服器錯誤");
+          shareEmptyText.style.display = 'block';
         })
         .getMemberCardShareLink({ name: currentMemberName, uid: uidInput });
     }
@@ -575,21 +606,6 @@
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-  }
-
-  function downloadQrCode() {
-    if (!currentQrUrl) return;
-    const btn = document.getElementById('btnDownloadQr');
-    const originalText = btn.innerHTML;
-    btn.innerHTML = "📥 抓取中..."; btn.disabled = true;
-    fetch(currentQrUrl).then(r => r.blob()).then(blob => {
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = currentMemberName + "_QRCode.png";
-      document.body.appendChild(a); a.click();
-      window.URL.revokeObjectURL(url); document.body.removeChild(a);
-      btn.innerHTML = originalText; btn.disabled = false;
-    });
   }
 
   function processMemberSave() {
