@@ -2,6 +2,16 @@ function agmMemberKey(member) {
   return String(member && (member.uid || member.memberUid || member.id || member.name) || '').trim();
 }
 
+function getAgmCategoryCounts(list) {
+  const counts = { ALL: 0 };
+  (Array.isArray(list) ? list : []).forEach(member => {
+    counts.ALL++;
+    const code = member && (member.categoryCode || member.category_code);
+    if (code) counts[code] = (counts[code] || 0) + 1;
+  });
+  return counts;
+}
+
 function buildAgmAttendancePayload(list, checkedState, meetingTitle, scope) {
   const members = Array.isArray(list) ? list : [];
   const state = checkedState || {};
@@ -66,6 +76,28 @@ function buildAgmAttendancePayload(list, checkedState, meetingTitle, scope) {
       }
     });
     localStorage.setItem('agm_checked_state', JSON.stringify(checkedStateMap));
+    updateAgmMemberCounts();
+  }
+
+  function updateAgmMemberCounts() {
+    const counts = getAgmCategoryCounts(agmMembers);
+    const labels = {
+      ALL: '全部', CAT_1: '1. 應到', CAT_2: '2. 準會員', CAT_3: '3. 在外教派',
+      CAT_4: '4. 外出', CAT_5: '5. 未陪餐', CAT_6: '6. 未陪餐籍在'
+    };
+    const pills = document.querySelectorAll('#agmCatPills button');
+    pills.forEach(button => {
+      const match = (button.getAttribute('onclick') || '').match(/filterAgmCat\('([^']+)'/);
+      if (!match) return;
+      const code = match[1];
+      button.textContent = (labels[code] || code) + ' (' + (counts[code] || 0) + ')';
+    });
+    const cat1Total = counts.CAT_1 || 204;
+    const threshold = Math.ceil(cat1Total * 0.5);
+    const totalEl = document.getElementById('agmCat1Total');
+    const thresholdEl = document.getElementById('agmQuorumThreshold');
+    if (totalEl) totalEl.textContent = cat1Total;
+    if (thresholdEl) thresholdEl.textContent = threshold;
   }
 
   function getMeetingTitle() {
