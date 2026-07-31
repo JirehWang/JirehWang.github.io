@@ -379,6 +379,7 @@
   function showHome() {
     if (typeof stopScanning === "function") stopScanning();
     if (typeof stopAutoSync === "function") stopAutoSync();
+    if (typeof stopAgmCheckinPolling === "function") stopAgmCheckinPolling();
     document.getElementById('main-nav').style.display = 'block';
     document.getElementById('content-area').style.display = 'none';
     autoJumpConfig.active = false;
@@ -403,6 +404,7 @@
     await loadPageContent(pageId, fileMap[pageId]);
 
     if (pageId === 'MEMBERS' && typeof refreshMemberTable === "function") refreshMemberTable();
+    if (pageId === 'AGM_ATTENDANCE' && typeof initAgmAttendancePage === "function") initAgmAttendancePage();
     if (pageId === 'STATS') {
       if (typeof initStatsPage === "function") initStatsPage();
       else if (typeof fetchStatsData === "function") fetchStatsData();

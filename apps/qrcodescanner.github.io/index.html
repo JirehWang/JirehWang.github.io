@@ -240,7 +240,9 @@
 
       const urlParams = new URLSearchParams(window.location.search);
       const uid = urlParams.get('userId') || urlParams.get('uid') || 'Unknown';
-      const targetUrl = `${GAS_URL}?action=syncClickToServer&name=${encodeURIComponent(data)}&isChecked=true&userId=${uid}`;
+      const mode = urlParams.get('mode');
+      const modeQuery = mode ? `&mode=${encodeURIComponent(mode)}` : '';
+      const targetUrl = `${GAS_URL}?action=syncClickToServer&name=${encodeURIComponent(data)}&isChecked=true&userId=${uid}${modeQuery}`;
 
       fetch(targetUrl, { mode: 'no-cors' }).catch(e => console.log("背景傳送異常", e));
 

@@ -35,6 +35,7 @@
   * **點名連動同步**：執行勾選時透過 `syncClickToServer` 同步給後端；此時會在前端設定 5 秒過期緩衝的 `localPendingActions` 以防 UI 閃爍。
   * **防衝突鎖定**：若其他裝置已勾選某人，本端名單會渲染為灰色鎖定狀態（帶有 🔒 圖示），禁止本端點擊。
   * **QR 掃描點名**：串接 `Html5Qrcode` 調用手機後置相機解碼，匹配到名單中對應的會友 UID 後自動勾選並捲動至該卡片。
+  * **會員大會 QR 點名**：`agm_attendance.js` 先讀取 `getOfficialMembers` 的正式會員 UID，開啟共用 `qrcodescanner.github.io` 時帶入 `mode=AGM:<會議名稱>`；掃描結果沿用 `syncClickToServer` 寫入 `SYNC_TEMP`，會員大會頁每 5 秒以 `getAgmCheckinState` 同步指定 scope 的 UID。
   * **自動跳轉卡**：使用 `QRious` 函式庫，動態在 `<canvas>` 繪製包含 `cat` 和 `grp` 參數與時間戳記的場次 QR Code，供同工下載並列印在門口點名處。當使用者用相機掃描該 QR，網頁加載時會偵測參數並隱藏所有導航列，強制進入該場次的「鎖定點名模式」。
   * **搜尋捲動連續性**：第一次輸入姓名前，先以 `ListScrollAnchor` 保存目前清單位置至本機搜尋捲動快取；清除搜尋後恢復該位置，恢復完成即消費快取，讓同工可接續往下點名。
 
@@ -43,8 +44,17 @@
   * **個人卡片分享**：卡片視窗保留「預覽實體卡片」與「分享卡片 QR」兩個獨立模式。分享 QR 只編碼 `card.html?share=...`，不改變卡片內既有以 UID 點名的 QR；兩個模式各自管理容器與非同步載入狀態，分享頁再透過 GAS 取得目前卡片並提供 JPG 下載。
 * 管理頁透過 `getMemberManagementData` 同時取得會友名單與 UID 使用狀態。UID 曾出現在主日／小組點名紀錄、仍存在於小組名單，或主檔仍有小組欄位時，狀態顯示「有效」並停用刪除；後端 `deleteMember` 也會即時重查並拒絕硬刪除。這類資料只能保留歷史關聯，必要時改成「不統計」。
 * 管理頁另有「和會獨立會員名單」視圖，透過 `getOfficialMembers` 讀取 `會員名單`；前端以姓名去重合併伺服器資料與 `official_members_data.js` 的基準名單，避免部分回應造成畫面少列，分類按鈕數字也依實際資料動態計算。
+* `agm_attendance.html` / `agm_attendance.js`：會員大會（和會）六大類點名介面。手動點選與 QR 掃描共用 UID 狀態；提交時保存姓名明細與 UID 明細，清除該會議 scope 的 QR 暫存。
 * `list-scroll-anchor.js`：點名卡片與會友表格共用的輕量捲動錨點工具；記錄穩定 key、元素相對容器的位移與備援 `scrollTop`，並在篩選或資料重建後還原。
 * `attendance-search-scroll.js`：以 `localStorage` 保存依點名類別與日期分隔的搜尋前錨點；清除搜尋時只消費一次，避免沿用過期位置。
+
+### 3.1 會員大會 QR 點名流程
+
+1. `agm_attendance.js` 呼叫 `getOfficialMembers` 取得含 UID 的正式會員名單，並以 `AGM:<會議名稱>` 建立本次點名 scope。
+2. 使用者按「QR 掃描」後開啟共用掃描器；掃描器將 `mode` 一起送到 `syncClickToServer`，GAS 將 UID 寫入 `SYNC_TEMP` 的 scope 欄位。
+3. 會員大會頁呼叫 `getAgmCheckinState(scope)` 合併其他裝置的已掃 UID；「重設」呼叫 `clearAgmCheckinState(scope)`。
+4. 送出時 `saveAgmAttendance` 同時保存 `出席人員明細` 與 `出席會員UID明細`，完成後清除該 scope 暫存。
+
 * `card.html`：公開個人卡片分享頁。接收不可猜測的 `share` 查詢參數，呼叫 `getMemberCardByShareToken` 後顯示卡片與下載按鈕；手機優先使用原生分享／儲存功能，不支援時開啟圖片供長按儲存；不載入會員管理導覽或點名控制項。
 * `README.md`：說明點名與名單管理操作說明。
 
@@ -91,9 +101,13 @@ graph TD
     Index[index.html SPA 容器] -->|動態 Fetch & Script 注入| PageAtt[attendance.html 點名卡片]
     Index -->|動態 Fetch| PageMem[members.html 會友維護]
     Index -->|動態 Fetch| PageStats[STATS.html / Chart.html 統計趨勢]
+    Index -->|動態 Fetch| PageAgm[agm_attendance.html 會員大會]
     
     PageAtt -->|狀態驅動| AttJS[attendance.js 業務邏輯]
     AttJS -->|調用| API[api.js google.script.run 模擬]
+    PageAgm --> AgmJS[agm_attendance.js]
+    AgmJS -->|調用| API
+    AgmJS -->|開啟| Scanner[qrcodescanner.github.io]
     API -->|請求| Route[config.js 中央路由]
 ```
 

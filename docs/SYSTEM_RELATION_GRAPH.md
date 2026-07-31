@@ -29,6 +29,32 @@ sequenceDiagram
 - 公開頁只接受已簽發的隨機分享碼，不接受 UID／姓名查詢；分享碼對應目前名單，會友不存在時連結失效。
 - 卡片產生仍由主日出席 GAS 的 `MemberDB.js` 呼叫 Google Slides 暫存模板，GitHub Pages 不持有 Google 憑證。
 
+## 會員大會 QR 點名資料流（2026-08）
+
+```mermaid
+sequenceDiagram
+    participant AGM as agm_attendance.js
+    participant Scanner as qrcodescanner.github.io
+    participant GAS as 主日出席 GAS
+    participant Temp as SYNC_TEMP
+    participant Official as 會員名單
+    participant Record as 和會點名紀錄
+
+    AGM->>GAS: getOfficialMembers()
+    GAS->>Official: 讀取正式會員與 UID
+    Official-->>AGM: 會員姓名／分類／UID
+    AGM->>Scanner: 開啟 scanner?userId=...&mode=AGM:<會議>
+    Scanner->>GAS: GET syncClickToServer(name=UID, mode=AGM:<會議>)
+    GAS->>Temp: 以 AGM scope 寫入 checked UID
+    AGM->>GAS: getAgmCheckinState(scope)
+    GAS-->>AGM: scope 內去重 UID
+    AGM->>GAS: saveAgmAttendance(scope, checkedUids, checkedNames)
+    GAS->>Record: 保存姓名與 UID 明細
+    GAS->>Temp: 清除該 AGM scope 暫存
+```
+
+會員大會與主日點名共用 QR Scanner 及 `syncClickToServer`，但以 `AGM:<會議名稱>` 作為 `SYNC_TEMP` 的獨立類別 scope；因此不會把會員大會掃描結果混入台語、華語或聯合點名。會員大會提交資料的正式來源仍是 `會員名單`，UID 是跨裝置同步與存檔的穩定鍵。
+
 ## 管理入口快取維護流程（2026-07）
 
 ```mermaid
