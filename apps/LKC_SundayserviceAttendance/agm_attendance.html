@@ -1,7 +1,7 @@
 <style>
   .agm-scroll-area {
     height: calc(100vh - 280px);
-    background: rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.52);
     backdrop-filter: blur(4px);
     padding: clamp(8px, 2%, 16px);
     overflow-y: auto;
@@ -29,11 +29,15 @@
     height: clamp(68px, 15vw, 90px);
     transition: all 0.25s ease;
     position: relative;
-    box-shadow: 0 2px 6px rgba(15, 42, 53, 0.02);
+    box-shadow: 0 2px 6px rgba(15, 42, 53, 0.03);
     user-select: none;
   }
 
   .agm-item:active { transform: scale(0.95); }
+  .agm-item:hover {
+    border-color: rgba(6, 182, 212, 0.42);
+    box-shadow: var(--shadow-hover);
+  }
   
   .agm-name {
     font-size: clamp(0.85rem, 2.2vw, 1rem);
@@ -51,13 +55,123 @@
   }
 
   .agm-item.selected {
-    background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+    background: linear-gradient(135deg, var(--color-teal), var(--color-teal-hover)) !important;
     color: white !important;
     border-color: transparent;
-    box-shadow: 0 6px 16px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 6px 16px rgba(6, 182, 212, 0.3);
   }
   .agm-item.selected .agm-name { color: white !important; }
   .agm-item.selected .agm-cat-tag { background: rgba(255, 255, 255, 0.2) !important; color: white !important; }
+  .agm-item.on-leave {
+    background: rgba(245, 158, 11, 0.12) !important;
+    border-color: rgba(245, 158, 11, 0.58) !important;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.1);
+  }
+  .agm-item.on-leave .agm-name { color: #9a6700 !important; }
+  .agm-item.on-leave::after {
+    content: '請假';
+    position: absolute;
+    top: 3px;
+    right: 4px;
+    color: #9a6700;
+    font-size: 0.58rem;
+    font-weight: 700;
+  }
+
+  /* Visual-only theme alignment with the main water-glass interface. */
+  #page-AGM_ATTENDANCE > .card {
+    background: rgba(255, 255, 255, 0.62) !important;
+    box-shadow: var(--shadow-soft) !important;
+  }
+  #page-AGM_ATTENDANCE .btn-primary {
+    background-color: var(--color-teal) !important;
+    border-color: var(--color-teal) !important;
+    color: #fff !important;
+  }
+  #page-AGM_ATTENDANCE .btn-primary:hover,
+  #page-AGM_ATTENDANCE .btn-primary:focus-visible {
+    background-color: var(--color-teal-hover) !important;
+    border-color: var(--color-teal-hover) !important;
+  }
+  #page-AGM_ATTENDANCE .btn-outline-secondary {
+    color: var(--text-secondary) !important;
+    border-color: var(--border-color) !important;
+    background-color: rgba(255, 255, 255, 0.72) !important;
+  }
+  #page-AGM_ATTENDANCE .btn-outline-secondary:hover,
+  #page-AGM_ATTENDANCE .btn-outline-secondary:focus-visible {
+    color: var(--color-teal-hover) !important;
+    background-color: rgba(6, 182, 212, 0.08) !important;
+  }
+  #page-AGM_ATTENDANCE .btn-success {
+    background-color: var(--color-green) !important;
+    border-color: var(--color-green) !important;
+  }
+  #page-AGM_ATTENDANCE .btn-outline-warning {
+    color: #9a6700 !important;
+    border-color: rgba(245, 158, 11, 0.55) !important;
+  }
+  #page-AGM_ATTENDANCE .btn-warning {
+    background-color: rgba(245, 158, 11, 0.18) !important;
+    border-color: rgba(245, 158, 11, 0.55) !important;
+    color: #9a6700 !important;
+  }
+  #page-AGM_ATTENDANCE .text-warning {
+    color: #9a6700 !important;
+  }
+  #page-AGM_ATTENDANCE .btn-outline-danger {
+    color: var(--color-rose) !important;
+    border-color: rgba(244, 63, 94, 0.45) !important;
+  }
+  #page-AGM_ATTENDANCE .btn-outline-danger:hover,
+  #page-AGM_ATTENDANCE .btn-outline-danger:focus-visible {
+    background-color: rgba(244, 63, 94, 0.08) !important;
+  }
+  #page-AGM_ATTENDANCE .bg-primary {
+    background-color: var(--color-teal) !important;
+  }
+  #page-AGM_ATTENDANCE .text-primary {
+    color: var(--color-teal-hover) !important;
+  }
+  #page-AGM_ATTENDANCE .text-success {
+    color: var(--color-green) !important;
+  }
+  #agmQuorumBanner {
+    background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(16, 185, 129, 0.09)) !important;
+    box-shadow: var(--shadow-soft) !important;
+  }
+  #agmQuorumStatusBadge {
+    background-color: rgba(245, 158, 11, 0.16) !important;
+    color: #9a6700 !important;
+  }
+  #agmProgressBar {
+    background-color: var(--color-green) !important;
+    background-image: none !important;
+  }
+  #page-AGM_ATTENDANCE .form-control {
+    background-color: rgba(255, 255, 255, 0.72) !important;
+    color: var(--text-primary) !important;
+  }
+  #page-AGM_ATTENDANCE .form-control:focus {
+    box-shadow: 0 0 0 0.2rem rgba(6, 182, 212, 0.16) !important;
+  }
+  .agm-session-panel {
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(6, 182, 212, 0.16);
+    border-radius: var(--radius-md);
+  }
+  .agm-session-qr {
+    width: 210px;
+    min-height: 210px;
+    display: grid;
+    place-items: center;
+    background: #fff;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+  }
+  .agm-session-qr canvas { max-width: 190px; height: auto; }
+  .agm-session-qr-empty { color: var(--text-secondary); font-size: .82rem; text-align: center; padding: 20px; }
+  #agmSessionQrLink { overflow-wrap: anywhere; font-size: .72rem; color: var(--color-teal-hover); }
 </style>
 
 <div class="card p-3 shadow-sm border-0 mb-3" style="background: white; border-radius: var(--radius-lg);">
@@ -66,6 +180,7 @@
     <div class="d-flex gap-2">
       <button class="btn btn-sm btn-primary fw-bold px-3 shadow-sm border-0" onclick="toggleAgmScanner()" style="border-radius: 16px;">📷 QR 掃描</button>
       <button class="btn btn-sm btn-success fw-bold px-3 shadow-sm border-0" onclick="submitAgmCheckins()" style="border-radius: 16px; background-color: #10b981;">🚀 送出點名紀錄</button>
+      <button id="agmLeaveModeBtn" class="btn btn-sm btn-outline-warning fw-bold px-3 shadow-sm border-0" onclick="toggleAgmLeaveMode()" aria-pressed="false" title="先啟用請假模式，再點選需要標記請假的會員" style="border-radius: 16px;">📝 請假模式</button>
       <button class="btn btn-sm btn-outline-danger fw-bold px-3" onclick="resetAgmCheckins()" style="border-radius: 16px;">🧹 重設簽到</button>
       <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="syncAgmCheckins()" style="border-radius: 16px;">🔄 刷新</button>
     </div>
@@ -82,6 +197,37 @@
   </div>
 
   <!-- 🏛️ 和會成會實時進度 Banner -->
+  <div class="agm-session-panel p-2 p-md-3 mb-2">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+      <div>
+        <div id="agmActiveSessionLabel" class="fw-bold text-dark">尚未選擇場次；請先建立或選擇場次</div>
+        <small class="text-secondary">場次 QR 是三台裝置共用的同步入口；掃描後才可進入會員點名。</small>
+      </div>
+      <div class="d-flex gap-2">
+        <button id="agmCreateSessionBtn" class="btn btn-sm btn-primary fw-bold" onclick="createAgmSession()" style="border-radius: 12px;">建立場次 QR</button>
+        <button id="agmNewSessionBtn" class="btn btn-sm btn-outline-secondary fw-bold" onclick="startNewAgmSession()" style="border-radius: 12px;">新增場次</button>
+      </div>
+    </div>
+    <div class="row g-2 align-items-center">
+      <div class="col-12 col-md-7">
+        <label for="agmSessionSelect" class="form-label small text-secondary fw-bold mb-1">已建立場次</label>
+        <select id="agmSessionSelect" class="form-select form-select-sm border-0" onchange="selectAgmSession(this.value)">
+          <option value="">請選擇已建立的場次</option>
+        </select>
+        <div class="small text-secondary mt-2">建立後請將 QR 交給台下兩台掃描裝置；台上觀看請開啟「會員大會即時觀看」。</div>
+      </div>
+      <div class="col-12 col-md-auto ms-md-auto text-center">
+        <div class="agm-session-qr mx-auto" aria-live="polite">
+          <canvas id="agmSessionQrCanvas" width="190" height="190"></canvas>
+          <div id="agmSessionQrEmpty" class="agm-session-qr-empty">建立場次後顯示 QR Code</div>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary mt-2 fw-bold" onclick="downloadAgmSessionQr()" style="border-radius: 12px;">下載場次 QR</button>
+        <button class="btn btn-sm btn-outline-secondary mt-2 fw-bold" onclick="openAgmViewer()" style="border-radius: 12px;">開啟唯讀觀看</button>
+        <a id="agmSessionQrLink" class="d-block mt-1" href="#" target="_blank" rel="noopener">建立場次後顯示 QR Code</a>
+      </div>
+    </div>
+  </div>
+
   <div id="agmQuorumBanner" class="p-3 my-2 border-0 shadow-sm" style="border-radius: var(--radius-lg); background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%);">
     <div class="d-flex justify-content-between align-items-center mb-1">
       <span class="fw-bold text-dark" style="font-size: 0.95rem;">🏛️ 和會/會員大會成會實時進度</span>
@@ -91,8 +237,9 @@
       <div id="agmProgressBar" class="progress-bar bg-success progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;"></div>
     </div>
     <div class="d-flex justify-content-between small text-secondary fw-bold" style="font-size: 0.8rem;">
-      <span>1. 應到會員總數：<strong id="agmCat1Total" class="text-dark">204</strong> 人</span>
-      <span>法定門檻 (50%)：<strong id="agmQuorumThreshold" class="text-primary">102</strong> 人</span>
+      <span>1. 應到會員總數（扣除請假）：<strong id="agmCat1Total" class="text-dark">204</strong> 人</span>
+      <span>已請假：<strong id="agmCat1LeaveCount" class="text-warning">0</strong> 人</span>
+      <span>法定門檻 (超過50%)：<strong id="agmQuorumThreshold" class="text-primary">103</strong> 人</span>
       <span>實到應到會員：<strong id="agmPresentCount" class="text-success fs-6">0</strong> 人</span>
     </div>
   </div>
@@ -119,4 +266,5 @@
   <div id="agmListBody"></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
 <script src="agm_attendance.js"></script>

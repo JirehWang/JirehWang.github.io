@@ -4,7 +4,7 @@
     overflow: auto;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
-    background: white;
+    background: rgba(255, 255, 255, 0.62);
     box-shadow: var(--shadow-soft);
   }
   .member-table-container thead th {
@@ -22,7 +22,7 @@
     position: sticky;
     left: 0;
     z-index: 5;
-    background-color: #f8fafc; 
+    background-color: rgba(255, 255, 255, 0.94);
     border-right: 1px solid var(--border-color); 
     box-shadow: 2px 0 6px rgba(15, 42, 53, 0.03); 
   }
@@ -31,10 +31,10 @@
     border-bottom: 1px solid var(--border-color);
   }
   .member-table-container tbody tr:hover td {
-    background-color: rgba(6, 182, 212, 0.03) !important;
+    background-color: rgba(6, 182, 212, 0.06) !important;
   }
   .member-table-container tbody tr:hover td:first-child {
-    background-color: #f1f5f9 !important;
+    background-color: rgba(236, 251, 253, 0.96) !important;
   }
   @media (max-width: 600px) {
     #qrCodeModal .btn-group {
@@ -71,10 +71,102 @@
     align-items: center;
     flex-direction: column;
     border-radius: var(--radius-md) !important;
-    background-color: #f8fafc !important;
+    background-color: rgba(255, 255, 255, 0.52) !important;
   }
   .preview-mode-panel[hidden] {
     display: none !important;
+  }
+
+  /* Visual-only theme alignment with the main water-glass interface. */
+  .members-main-wrapper .btn-primary {
+    background-color: var(--color-teal) !important;
+    border-color: var(--color-teal) !important;
+    color: #fff !important;
+  }
+  .members-main-wrapper .btn-primary:hover,
+  .members-main-wrapper .btn-primary:focus-visible {
+    background-color: var(--color-teal-hover) !important;
+    border-color: var(--color-teal-hover) !important;
+  }
+  .members-main-wrapper .btn-outline-primary {
+    color: var(--color-teal-hover) !important;
+    border-color: var(--color-teal) !important;
+  }
+  .members-main-wrapper .btn-outline-primary:hover,
+  .members-main-wrapper .btn-outline-primary:focus-visible {
+    background-color: rgba(6, 182, 212, 0.1) !important;
+    color: var(--color-teal-hover) !important;
+  }
+  .members-main-wrapper .btn-outline-secondary,
+  .members-main-wrapper .btn-light,
+  #memberListModal .btn-light,
+  #officialMemberModal .btn-light,
+  #qrCodeModal .btn-light {
+    color: var(--text-secondary) !important;
+    background-color: rgba(255, 255, 255, 0.72) !important;
+    border-color: var(--border-color) !important;
+  }
+  .members-main-wrapper .btn-outline-secondary:hover,
+  .members-main-wrapper .btn-outline-secondary:focus-visible,
+  .members-main-wrapper .btn-light:hover,
+  .members-main-wrapper .btn-light:focus-visible {
+    background-color: rgba(6, 182, 212, 0.08) !important;
+    color: var(--color-teal-hover) !important;
+  }
+  .members-main-wrapper .btn-outline-success {
+    color: var(--color-green) !important;
+    border-color: rgba(16, 185, 129, 0.55) !important;
+  }
+  .members-main-wrapper .btn-outline-danger {
+    color: var(--color-rose) !important;
+    border-color: rgba(244, 63, 94, 0.45) !important;
+  }
+  .members-main-wrapper .btn-warning {
+    background-color: rgba(245, 158, 11, 0.16) !important;
+    color: #9a6700 !important;
+  }
+  .members-main-wrapper .bg-primary {
+    background-color: var(--color-teal) !important;
+  }
+  .members-main-wrapper .text-primary {
+    color: var(--color-teal-hover) !important;
+  }
+  .members-main-wrapper .text-success {
+    color: var(--color-green) !important;
+  }
+  .members-main-wrapper .form-control,
+  .members-main-wrapper .form-select,
+  #memberListModal .form-control,
+  #memberListModal .form-select,
+  #officialMemberModal .form-control,
+  #officialMemberModal .form-select,
+  #qrCodeModal .form-control {
+    background-color: rgba(255, 255, 255, 0.72) !important;
+    color: var(--text-primary) !important;
+  }
+  .members-main-wrapper .form-control:focus,
+  .members-main-wrapper .form-select:focus,
+  #memberListModal .form-control:focus,
+  #memberListModal .form-select:focus,
+  #officialMemberModal .form-control:focus,
+  #officialMemberModal .form-select:focus,
+  #qrCodeModal .form-control:focus {
+    box-shadow: 0 0 0 0.2rem rgba(6, 182, 212, 0.16) !important;
+  }
+  #btnAddToOfficial {
+    background-color: rgba(6, 182, 212, 0.12) !important;
+    color: var(--color-teal-hover) !important;
+  }
+  .members-main-wrapper .btn-group.bg-white {
+    background-color: rgba(255, 255, 255, 0.72) !important;
+  }
+  #viewOfficialMembers .card {
+    background-color: rgba(255, 255, 255, 0.62) !important;
+    box-shadow: var(--shadow-soft) !important;
+  }
+  .members-main-wrapper .bg-warning {
+    background-color: rgba(245, 158, 11, 0.16) !important;
+    color: #9a6700 !important;
   }
 </style>
 

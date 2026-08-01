@@ -12,43 +12,102 @@ function getAgmCategoryCounts(list) {
   return counts;
 }
 
-function buildAgmAttendancePayload(list, checkedState, meetingTitle, scope) {
+function getAgmStateValue(state, member) {
+  const key = agmMemberKey(member);
+  return !!(state && (state[key] || state[member.name]));
+}
+
+function getAgmQuorumStats(list, checkedState, leaveState) {
   const members = Array.isArray(list) ? list : [];
   const state = checkedState || {};
-  const keyFor = member => String(member && (member.uid || member.memberUid || member.id || member.name) || '').trim();
-  const checkedMembers = members.filter(member => {
-    const key = keyFor(member);
-    return !!(state[key] || state[member.name]);
-  });
+  const leaves = leaveState || {};
   const cat1Members = members.filter(member => (member.categoryCode || member.category_code) === 'CAT_1');
+  const leaveMembers = members.filter(member => getAgmStateValue(leaves, member));
+  const cat1LeaveMembers = cat1Members.filter(member => getAgmStateValue(leaves, member));
+  const effectiveCat1Members = cat1Members.filter(member => !getAgmStateValue(leaves, member));
+  const effectiveTotal = cat1Members.length ? effectiveCat1Members.length : 204;
+  const threshold = effectiveTotal > 0 ? Math.floor(effectiveTotal / 2) + 1 : 0;
+  const checkedMembers = members.filter(member =>
+    !getAgmStateValue(leaves, member) && getAgmStateValue(state, member)
+  );
+  const cat1Present = effectiveCat1Members.filter(member => getAgmStateValue(state, member)).length;
+
+  return {
+    checkedMembers,
+    totalPresent: checkedMembers.length,
+    cat1Present,
+    effectiveTotal,
+    threshold,
+    presentCount: cat1Present,
+    leaveCount: leaveMembers.length,
+    cat1LeaveCount: cat1LeaveMembers.length,
+    leaveMembers,
+    isQuorumMet: effectiveTotal > 0 && cat1Present >= threshold
+  };
+}
+
+function buildAgmAttendancePayload(list, checkedState, meetingTitle, scope, leaveState) {
+  const members = Array.isArray(list) ? list : [];
+  const state = checkedState || {};
+  const stats = getAgmQuorumStats(members, state, leaveState);
+  const checkedMembers = stats.checkedMembers;
   const checkedUids = [...new Set(checkedMembers
     .map(member => String(member.uid || member.memberUid || member.id || '').trim().toUpperCase())
     .filter(uid => /^LK\d+$/i.test(uid)))];
   const checkedNames = checkedMembers.map(member => String(member.name || '').trim()).filter(Boolean);
-  const cat1Present = cat1Members.filter(member => {
-    const key = keyFor(member);
-    return !!(state[key] || state[member.name]);
-  }).length;
-  const cat1Total = cat1Members.length || 204;
+  const leaveUids = [...new Set(stats.leaveMembers
+    .map(member => String(member.uid || member.memberUid || member.id || '').trim().toUpperCase())
+    .filter(uid => /^LK\d+$/i.test(uid)))];
+  const leaveNames = stats.leaveMembers.map(member => String(member.name || '').trim()).filter(Boolean);
 
   return {
     meetingTitle: meetingTitle || '會員大會點名紀錄',
     scope: scope || '',
-    totalPresent: checkedMembers.length,
-    cat1Present,
-    cat1Total,
-    isQuorumMet: cat1Present >= Math.ceil(cat1Total * 0.5),
+    totalPresent: stats.totalPresent,
+    cat1Present: stats.cat1Present,
+    cat1Total: stats.effectiveTotal,
+    cat1Leave: stats.cat1LeaveCount,
+    quorumThreshold: stats.threshold,
+    isQuorumMet: stats.isQuorumMet,
     checkedUids,
-    checkedNames
+    checkedNames,
+    leaveUids,
+    leaveNames
   };
+}
+
+function normalizeAgmSessionRecord(session) {
+  const item = session || {};
+  const sessionId = String(item.sessionId || item.id || '').trim().toUpperCase();
+  const meetingTitle = String(item.meetingTitle || item.sessionName || item.name || '').trim();
+  return {
+    sessionId,
+    meetingTitle,
+    sessionName: meetingTitle,
+    status: String(item.status || 'OPEN').trim().toUpperCase() || 'OPEN',
+    createdAt: String(item.createdAt || '').trim(),
+    scope: sessionId ? 'AGM:' + sessionId : ''
+  };
+}
+
+function buildAgmSessionQrUrl(sessionId, baseUrl) {
+  const normalizedId = String(sessionId || '').trim().toUpperCase();
+  if (!normalizedId) return '';
+  const root = String(baseUrl || 'https://jirehwang.github.io/LKC1958_June_1.github.io/apps/LKC_SundayserviceAttendance/').replace(/[?].*$/, '').replace(/\/$/, '') + '/';
+  return root + '?agmSession=' + encodeURIComponent(normalizedId) + '&agmRole=scanner';
 }
 
 (function() {
   var activeCat = 'ALL';
-  var checkedStateMap = JSON.parse(localStorage.getItem('agm_checked_state') || '{}');
+  var checkedStateMap = {};
+  var leaveStateMap = {};
+  var agmSessions = [];
+  var agmActiveSession = null;
   var agmMembers = [];
   var agmInitialized = false;
   var agmPollTimer = null;
+  var agmLeaveMode = false;
+  var agmQrRetryCount = 0;
   var agmScannerUserId = localStorage.getItem('agm_scanner_user_id');
   if (!agmScannerUserId) {
     agmScannerUserId = 'AGM_User_' + Math.floor(Math.random() * 1000000);
@@ -68,14 +127,134 @@ function buildAgmAttendancePayload(list, checkedState, meetingTitle, scope) {
     });
   }
 
+  function getAgmStorageKey(prefix) {
+    return prefix + '_' + (agmActiveSession ? agmActiveSession.sessionId : 'draft');
+  }
+
+  function loadAgmLocalState() {
+    try {
+      checkedStateMap = JSON.parse(localStorage.getItem(getAgmStorageKey('agm_checked_state')) || '{}');
+      leaveStateMap = JSON.parse(localStorage.getItem(getAgmStorageKey('agm_leave_state')) || '{}');
+    } catch (err) {
+      checkedStateMap = {};
+      leaveStateMap = {};
+    }
+  }
+
+  function saveAgmLocalState() {
+    localStorage.setItem(getAgmStorageKey('agm_checked_state'), JSON.stringify(checkedStateMap));
+    localStorage.setItem(getAgmStorageKey('agm_leave_state'), JSON.stringify(leaveStateMap));
+  }
+
+  function hasAgmSession() {
+    return !!(agmActiveSession && agmActiveSession.sessionId);
+  }
+
+  function getAgmSessionById(sessionId) {
+    const normalized = String(sessionId || '').trim().toUpperCase();
+    return agmSessions.find(session => session.sessionId === normalized) || null;
+  }
+
+  function renderAgmSessionOptions() {
+    const select = document.getElementById('agmSessionSelect');
+    if (!select) return;
+    const currentId = agmActiveSession ? agmActiveSession.sessionId : '';
+    select.innerHTML = '<option value="">請選擇已建立的場次</option>' + agmSessions.map(session =>
+      '<option value="' + escapeHtml(session.sessionId) + '">' +
+      escapeHtml(session.meetingTitle) + ' · ' + escapeHtml(session.createdAt || session.sessionId) +
+      '</option>'
+    ).join('');
+    select.value = currentId;
+  }
+
+  function renderAgmSessionQr() {
+    const canvas = document.getElementById('agmSessionQrCanvas');
+    const empty = document.getElementById('agmSessionQrEmpty');
+    const link = document.getElementById('agmSessionQrLink');
+    const sessionUrl = hasAgmSession() ? buildAgmSessionQrUrl(agmActiveSession.sessionId, window.location.href) : '';
+    if (canvas) canvas.hidden = !sessionUrl;
+    if (canvas && sessionUrl && typeof QRious === 'undefined') {
+      if (agmQrRetryCount < 12) {
+        agmQrRetryCount++;
+        setTimeout(renderAgmSessionQr, 250);
+      }
+    } else if (canvas && sessionUrl && typeof QRious !== 'undefined') {
+      agmQrRetryCount = 0;
+      new QRious({ element: canvas, value: sessionUrl, size: 190, level: 'H' });
+    } else if (canvas) {
+      agmQrRetryCount = 0;
+      const context = canvas.getContext('2d');
+      context.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    if (empty) empty.hidden = !!sessionUrl;
+    if (link) {
+      link.textContent = sessionUrl || '建立場次後顯示 QR Code';
+      link.href = sessionUrl || '#';
+    }
+  }
+
+  function setAgmActiveSession(session) {
+    agmActiveSession = session ? normalizeAgmSessionRecord(session) : null;
+    if (agmActiveSession && !agmActiveSession.sessionId) agmActiveSession = null;
+    if (agmActiveSession) {
+      localStorage.setItem('agm_active_session_id', agmActiveSession.sessionId);
+      loadAgmLocalState();
+    } else {
+      localStorage.removeItem('agm_active_session_id');
+      checkedStateMap = {};
+      leaveStateMap = {};
+    }
+    const titleInput = document.getElementById('agmMeetingTitle');
+    const activeLabel = document.getElementById('agmActiveSessionLabel');
+    const newBtn = document.getElementById('agmNewSessionBtn');
+    if (titleInput) {
+      if (agmActiveSession) titleInput.value = agmActiveSession.meetingTitle;
+      titleInput.readOnly = !!agmActiveSession;
+    }
+    if (activeLabel) activeLabel.textContent = agmActiveSession
+      ? '目前場次：' + agmActiveSession.meetingTitle
+      : '尚未選擇場次；請先建立或選擇場次';
+    if (newBtn) newBtn.disabled = !hasAgmSession() && !((titleInput && titleInput.value || '').trim());
+    renderAgmSessionOptions();
+    renderAgmSessionQr();
+    updateAgmMemberCounts();
+    if (agmInitialized) renderAgmGrid();
+    syncAgmDeviceMode();
+  }
+
+  function loadAgmSessions() {
+    const requestedId = String(window.AGM_ENTRY_SESSION_ID || localStorage.getItem('agm_active_session_id') || '').trim().toUpperCase();
+    const finish = function(list) {
+      agmSessions = (Array.isArray(list) ? list : []).map(normalizeAgmSessionRecord).filter(session => session.sessionId && session.meetingTitle);
+      renderAgmSessionOptions();
+      const requested = getAgmSessionById(requestedId);
+      if (requested) setAgmActiveSession(requested);
+      else if (!hasAgmSession()) setAgmActiveSession(null);
+    };
+    if (typeof google === 'undefined' || !google.script || !google.script.run) {
+      finish([]);
+      return;
+    }
+    google.script.run
+      .withSuccessHandler(finish)
+      .withFailureHandler(function(err) {
+        console.warn('會員大會場次載入失敗:', err);
+        finish([]);
+      })
+      .getAgmSessions();
+  }
+
   function setAgmMembers(list) {
     agmMembers = (Array.isArray(list) ? list : []).map(normalizeAgmMember).filter(member => member.name);
     agmMembers.forEach(member => {
       if (member.uid && checkedStateMap[member.name] && !checkedStateMap[member.uid]) {
         checkedStateMap[member.uid] = true;
       }
+      if (member.uid && leaveStateMap[member.name] && !leaveStateMap[member.uid]) {
+        leaveStateMap[member.uid] = true;
+      }
     });
-    localStorage.setItem('agm_checked_state', JSON.stringify(checkedStateMap));
+    saveAgmLocalState();
     updateAgmMemberCounts();
   }
 
@@ -92,25 +271,32 @@ function buildAgmAttendancePayload(list, checkedState, meetingTitle, scope) {
       const code = match[1];
       button.textContent = (labels[code] || code) + ' (' + (counts[code] || 0) + ')';
     });
-    const cat1Total = counts.CAT_1 || 204;
-    const threshold = Math.ceil(cat1Total * 0.5);
+    const quorumStats = getAgmQuorumStats(agmMembers, checkedStateMap, leaveStateMap);
+    const cat1Total = quorumStats.effectiveTotal;
+    const threshold = quorumStats.threshold;
     const totalEl = document.getElementById('agmCat1Total');
     const thresholdEl = document.getElementById('agmQuorumThreshold');
+    const leaveEl = document.getElementById('agmCat1LeaveCount');
     if (totalEl) totalEl.textContent = cat1Total;
     if (thresholdEl) thresholdEl.textContent = threshold;
+    if (leaveEl) leaveEl.textContent = quorumStats.cat1LeaveCount;
   }
 
   function getMeetingTitle() {
-    return (document.getElementById('agmMeetingTitle')?.value || '').trim() || '會員大會點名紀錄';
+    return (agmActiveSession && agmActiveSession.meetingTitle) ||
+      (document.getElementById('agmMeetingTitle')?.value || '').trim() || '會員大會點名紀錄';
   }
 
   function getAgmScope() {
-    return 'AGM:' + getMeetingTitle().replace(/\s+/g, ' ').slice(0, 100);
+    return agmActiveSession ? agmActiveSession.scope : '';
   }
 
   function isChecked(member) {
-    const key = agmMemberKey(member);
-    return !!(checkedStateMap[key] || checkedStateMap[member.name]);
+    return getAgmStateValue(checkedStateMap, member);
+  }
+
+  function isOnLeave(member) {
+    return getAgmStateValue(leaveStateMap, member);
   }
 
   function escapeHtml(value) {
@@ -120,16 +306,95 @@ function buildAgmAttendancePayload(list, checkedState, meetingTitle, scope) {
   }
 
   function syncAgmDeviceMode() {
-    if (typeof google === 'undefined' || !google.script || !google.script.run) return;
+    if (!hasAgmSession() || typeof google === 'undefined' || !google.script || !google.script.run) return;
     google.script.run
       .withFailureHandler(() => {})
       .updateDeviceMode(agmScannerUserId, getAgmScope());
   }
 
+  function syncAgmLeaveState(key, isOnLeave) {
+    if (!hasAgmSession() || typeof google === 'undefined' || !google.script || !google.script.run) return;
+    google.script.run
+      .withFailureHandler(function(err) {
+        console.warn('會員大會請假狀態同步失敗:', err);
+      })
+      .setAgmLeaveState(key, isOnLeave, getAgmScope(), agmScannerUserId);
+  }
+
+  window.selectAgmSession = function(sessionId) {
+    const session = getAgmSessionById(sessionId);
+    if (session) setAgmActiveSession(session);
+  };
+
+  window.startNewAgmSession = function() {
+    setAgmActiveSession(null);
+    const titleInput = document.getElementById('agmMeetingTitle');
+    if (titleInput) {
+      titleInput.readOnly = false;
+      titleInput.focus();
+      titleInput.select();
+    }
+  };
+
+  window.createAgmSession = function() {
+    const titleInput = document.getElementById('agmMeetingTitle');
+    const title = String(titleInput && titleInput.value || '').trim();
+    if (!title) {
+      alert('請先輸入場次名稱');
+      return;
+    }
+    if (typeof google === 'undefined' || !google.script || !google.script.run) {
+      alert('目前無法連線後台，請稍後再試');
+      return;
+    }
+    const button = document.getElementById('agmCreateSessionBtn');
+    if (button) button.disabled = true;
+    google.script.run
+      .withSuccessHandler(function(session) {
+        if (session) {
+          agmSessions = [normalizeAgmSessionRecord(session)].concat(agmSessions.filter(item => item.sessionId !== session.sessionId));
+          setAgmActiveSession(session);
+          renderAgmSessionQr();
+        }
+        if (button) button.disabled = false;
+      })
+      .withFailureHandler(function(err) {
+        if (button) button.disabled = false;
+        alert('建立場次失敗：' + (err && err.message || err));
+      })
+      .createAgmSession(title, agmScannerUserId);
+  };
+
+  window.downloadAgmSessionQr = function() {
+    if (!hasAgmSession()) {
+      alert('請先建立或選擇場次');
+      return;
+    }
+    renderAgmSessionQr();
+    const canvas = document.getElementById('agmSessionQrCanvas');
+    if (!canvas) return;
+    const link = document.createElement('a');
+    link.download = '會員大會場次QR_' + agmActiveSession.meetingTitle + '.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  };
+
+  window.openAgmViewer = function() {
+    if (!hasAgmSession()) {
+      alert('請先建立或選擇場次');
+      return;
+    }
+    const viewerUrl = buildAgmSessionQrUrl(agmActiveSession.sessionId, window.location.href)
+      .replace('agmRole=scanner', 'agmRole=viewer&agmViewer=1');
+    const viewerWindow = window.open(viewerUrl, '_blank');
+    if (!viewerWindow) alert('瀏覽器阻擋了觀看介面視窗，請允許彈出視窗後再試。');
+  };
+
   function loadAgmMembers() {
     setAgmMembers(window.INITIAL_OFFICIAL_MEMBERS || []);
     renderAgmGrid();
     syncAgmDeviceMode();
+    loadAgmSessions();
 
     if (typeof google === 'undefined' || !google.script || !google.script.run) {
       startAgmCheckinPolling();
@@ -184,7 +449,8 @@ function buildAgmAttendancePayload(list, checkedState, meetingTitle, scope) {
 
     body.innerHTML = filtered.map(member => {
       const key = agmMemberKey(member);
-      const selectedClass = isChecked(member) ? 'selected' : '';
+      const leaveClass = isOnLeave(member) ? 'on-leave' : '';
+      const selectedClass = !leaveClass && isChecked(member) ? 'selected' : '';
       const catName = member.categoryName || member.category_name || '';
       const catCode = member.categoryCode || member.category_code || '';
       let catBadgeStyle = 'background: #e2e8f0; color: #334155;';
@@ -192,7 +458,8 @@ function buildAgmAttendancePayload(list, checkedState, meetingTitle, scope) {
       if (catCode === 'CAT_2') catBadgeStyle = 'background: #e0f2fe; color: #0369a1;';
       if (catCode === 'CAT_3') catBadgeStyle = 'background: #f1f5f9; color: #475569;';
       if (catCode === 'CAT_4') catBadgeStyle = 'background: #fef3c7; color: #92400e;';
-      return `<div class="agm-item ${selectedClass}" data-agm-key="${encodeURIComponent(key)}">
+      const stateTitle = leaveClass ? '已請假' : (selectedClass ? '已出席' : '未點名');
+      return `<div class="agm-item ${selectedClass} ${leaveClass}" data-agm-key="${encodeURIComponent(key)}" title="${stateTitle}">
         <div class="agm-name">${escapeHtml(member.name)}</div>
         <span class="agm-cat-tag fw-bold" style="${catBadgeStyle}">${escapeHtml(catName)}</span>
       </div>`;
@@ -206,29 +473,62 @@ function buildAgmAttendancePayload(list, checkedState, meetingTitle, scope) {
     updateQuorumProgress();
   };
 
+  window.toggleAgmLeaveMode = function() {
+    agmLeaveMode = !agmLeaveMode;
+    const button = document.getElementById('agmLeaveModeBtn');
+    if (button) {
+      button.classList.toggle('btn-warning', agmLeaveMode);
+      button.classList.toggle('btn-outline-warning', !agmLeaveMode);
+      button.textContent = agmLeaveMode ? '✅ 返回點名模式' : '📝 請假模式';
+      button.setAttribute('aria-pressed', String(agmLeaveMode));
+    }
+  };
+
   window.toggleAgmItem = function(key) {
     if (!key) return;
-    checkedStateMap[key] = !checkedStateMap[key];
-    localStorage.setItem('agm_checked_state', JSON.stringify(checkedStateMap));
+    if (!hasAgmSession()) {
+      alert('請先建立或選擇場次，才能開始點名');
+      return;
+    }
+    const wasOnLeave = !!leaveStateMap[key];
+    if (agmLeaveMode) {
+      leaveStateMap[key] = !leaveStateMap[key];
+      if (!leaveStateMap[key]) delete leaveStateMap[key];
+      delete checkedStateMap[key];
+    } else {
+      checkedStateMap[key] = !checkedStateMap[key];
+      if (!checkedStateMap[key]) delete checkedStateMap[key];
+      delete leaveStateMap[key];
+    }
+    if (agmLeaveMode || wasOnLeave) syncAgmLeaveState(key, !!leaveStateMap[key]);
+    saveAgmLocalState();
     renderAgmGrid();
   };
 
   function pollAgmCheckins() {
-    if (typeof google === 'undefined' || !google.script || !google.script.run) return;
+    if (!hasAgmSession() || typeof google === 'undefined' || !google.script || !google.script.run) return;
     const scope = getAgmScope();
     google.script.run
       .withSuccessHandler(function(result) {
         if (!result || result.scope !== scope) return;
         let changed = false;
+        (result.leaveUids || []).forEach(uid => {
+          const normalizedUid = String(uid || '').trim().toUpperCase();
+          if (normalizedUid && !leaveStateMap[normalizedUid]) {
+            leaveStateMap[normalizedUid] = true;
+            delete checkedStateMap[normalizedUid];
+            changed = true;
+          }
+        });
         (result.checkedUids || []).forEach(uid => {
           const normalizedUid = String(uid || '').trim().toUpperCase();
-          if (normalizedUid && !checkedStateMap[normalizedUid]) {
+          if (normalizedUid && !leaveStateMap[normalizedUid] && !checkedStateMap[normalizedUid]) {
             checkedStateMap[normalizedUid] = true;
             changed = true;
           }
         });
         if (changed) {
-          localStorage.setItem('agm_checked_state', JSON.stringify(checkedStateMap));
+          saveAgmLocalState();
           renderAgmGrid();
         }
       })
@@ -256,9 +556,14 @@ function buildAgmAttendancePayload(list, checkedState, meetingTitle, scope) {
 
   window.resetAgmCheckins = function() {
     if (!confirm('⚠️ 是否確認重設/清空目前的會員大會簽到狀態？')) return;
+    if (!hasAgmSession()) {
+      alert('請先建立或選擇場次');
+      return;
+    }
     const scope = getAgmScope();
     checkedStateMap = {};
-    localStorage.removeItem('agm_checked_state');
+    leaveStateMap = {};
+    saveAgmLocalState();
     renderAgmGrid();
     if (typeof google !== 'undefined' && google.script && google.script.run) {
       google.script.run.withFailureHandler(function(err) {
@@ -268,6 +573,10 @@ function buildAgmAttendancePayload(list, checkedState, meetingTitle, scope) {
   };
 
   window.toggleAgmScanner = function() {
+    if (!hasAgmSession()) {
+      alert('請先建立或選擇場次，再開啟會員 QR 掃描器');
+      return;
+    }
     const scope = getAgmScope();
     syncAgmDeviceMode();
     const scannerUrl = 'https://jirehwang.github.io/LKC1958_June_1.github.io/apps/qrcodescanner.github.io/?userId=' +
@@ -277,15 +586,20 @@ function buildAgmAttendancePayload(list, checkedState, meetingTitle, scope) {
   };
 
   window.submitAgmCheckins = function() {
+    if (!hasAgmSession()) {
+      alert('請先建立或選擇場次');
+      return;
+    }
     const list = getAgmList();
     const meetingTitle = getMeetingTitle();
-    const payload = buildAgmAttendancePayload(list, checkedStateMap, meetingTitle, getAgmScope());
+    const payload = buildAgmAttendancePayload(list, checkedStateMap, meetingTitle, getAgmScope(), leaveStateMap);
+    payload.sessionId = agmActiveSession.sessionId;
     if (payload.totalPresent === 0) {
       alert('⚠️ 目前尚無任何會員點名簽到，無法送出紀錄！');
       return;
     }
 
-    const quorumText = payload.isQuorumMet ? '✅ 已達50%成會門檻' : '⚠️ 未達50%成會門檻';
+    const quorumText = payload.isQuorumMet ? '✅ 已達超過50%成會門檻' : '⚠️ 未達超過50%成會門檻';
     const confirmMsg = `🏛️ 確認送出會員大會點名紀錄？\n\n` +
       `📌 會議名稱: ${meetingTitle}\n` +
       `👥 總簽到人數: ${payload.totalPresent} 人\n` +
@@ -298,7 +612,8 @@ function buildAgmAttendancePayload(list, checkedState, meetingTitle, scope) {
         .withSuccessHandler(function(res) {
           alert(res.message || '🎉 會員大會點名紀錄已成功送出並紀錄存檔！');
           checkedStateMap = {};
-          localStorage.removeItem('agm_checked_state');
+          leaveStateMap = {};
+          saveAgmLocalState();
           renderAgmGrid();
         })
         .withFailureHandler(function(err) {
@@ -308,25 +623,27 @@ function buildAgmAttendancePayload(list, checkedState, meetingTitle, scope) {
     } else {
       console.log('離線/模擬送出紀錄：', payload);
       alert(`🎉 [模擬] ${meetingTitle} 點名紀錄已成功儲存！\n總簽到: ${payload.totalPresent} 人 (${quorumText})`);
+      leaveStateMap = {};
+      saveAgmLocalState();
     }
   };
 
   function updateQuorumProgress() {
     const list = getAgmList();
-    const activeCommunicants = list.filter(member => (member.categoryCode || member.category_code) === 'CAT_1');
-    const totalCount = activeCommunicants.length || 204;
-    const threshold = Math.ceil(totalCount * 0.5);
-    const presentCount = activeCommunicants.filter(isChecked).length;
-    const percent = Math.min(100, Math.round((presentCount / totalCount) * 100));
+    const quorumStats = getAgmQuorumStats(list, checkedStateMap, leaveStateMap);
+    const totalCount = quorumStats.effectiveTotal;
+    const threshold = quorumStats.threshold;
+    const presentCount = quorumStats.presentCount;
+    const percent = totalCount > 0 ? Math.min(100, Math.round((presentCount / totalCount) * 100)) : 0;
     const progressBar = document.getElementById('agmProgressBar');
     const presentEl = document.getElementById('agmPresentCount');
     const statusBadge = document.getElementById('agmQuorumStatusBadge');
     if (progressBar) progressBar.style.width = percent + '%';
     if (presentEl) presentEl.innerText = presentCount;
     if (statusBadge) {
-      if (presentCount >= threshold) {
+      if (quorumStats.isQuorumMet) {
         statusBadge.className = 'badge bg-success text-white fw-bold px-2 py-1';
-        statusBadge.innerText = '✅ 已達 50% 成會門檻 (' + percent + '%)';
+        statusBadge.innerText = '✅ 已達超過 50% 成會門檻 (' + percent + '%)';
       } else {
         statusBadge.className = 'badge bg-warning text-dark fw-bold px-2 py-1';
         statusBadge.innerText = '⚠️ 尚差 ' + (threshold - presentCount) + ' 人成會 (' + percent + '%)';
