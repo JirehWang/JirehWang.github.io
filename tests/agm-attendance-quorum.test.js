@@ -92,3 +92,20 @@ test('AGM session QR uses a stable session scope instead of the editable title',
     'https://example.test/apps/?agmSession=SABC123&agmRole=scanner'
   );
 });
+
+test('AGM scanner QR entry is a locked attendance-only mode', () => {
+  const { isAgmScannerQrEntry } = loadAgmHelpers();
+
+  assert.equal(isAgmScannerQrEntry({ sessionId: 'SABC123', role: 'scanner' }), true);
+  assert.equal(isAgmScannerQrEntry({ sessionId: 'SABC123', role: 'viewer' }), false);
+  assert.equal(isAgmScannerQrEntry({ sessionId: '', role: 'scanner' }), false);
+});
+
+test('inactive official members are excluded from active attendance data', () => {
+  const { isOfficialMemberActive } = loadAgmHelpers();
+
+  assert.equal(isOfficialMemberActive({ name: 'Active', isActive: true }), true);
+  assert.equal(isOfficialMemberActive({ name: 'Legacy blank status' }), true);
+  assert.equal(isOfficialMemberActive({ name: 'Deceased', isActive: false }), false);
+  assert.equal(isOfficialMemberActive({ name: 'Disabled', isActive: '停用' }), false);
+});

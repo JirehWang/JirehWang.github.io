@@ -446,6 +446,7 @@
 
     if (agmSession || openAgmViewer) {
       window.AGM_ENTRY_SESSION_ID = agmSession || '';
+      window.AGM_ENTRY_ROLE = agmRole || (agmSession ? 'scanner' : '');
       prepareContentArea();
       const targetPage = openAgmViewer ? 'AGM_VIEWER' : 'AGM_ATTENDANCE';
       document.getElementById('page-' + targetPage).style.display = 'block';

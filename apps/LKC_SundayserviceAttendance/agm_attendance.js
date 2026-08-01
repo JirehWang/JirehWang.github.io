@@ -97,6 +97,18 @@ function buildAgmSessionQrUrl(sessionId, baseUrl) {
   return root + '?agmSession=' + encodeURIComponent(normalizedId) + '&agmRole=scanner';
 }
 
+function isAgmScannerQrEntry(entry) {
+  const item = entry || {};
+  return String(item.sessionId || '').trim() !== '' &&
+    String(item.role || '').trim().toLowerCase() === 'scanner';
+}
+
+function isOfficialMemberActive(member) {
+  if (!member || member.isActive === false) return false;
+  const value = String(member.isActive == null ? '' : member.isActive).trim().toLowerCase();
+  return !['false', '0', 'inactive', 'disabled', '停用', '否', 'n', 'no'].includes(value);
+}
+
 (function() {
   var activeCat = 'ALL';
   var checkedStateMap = {};
@@ -115,7 +127,7 @@ function buildAgmSessionQrUrl(sessionId, baseUrl) {
   }
 
   function getAgmList() {
-    return agmMembers.length ? agmMembers : (window.INITIAL_OFFICIAL_MEMBERS || []);
+    return agmMembers;
   }
 
   function normalizeAgmMember(member) {
@@ -123,7 +135,8 @@ function buildAgmSessionQrUrl(sessionId, baseUrl) {
       name: String(member.name || '').trim(),
       uid: String(member.uid || member.memberUid || member.id || '').trim().toUpperCase(),
       categoryCode: member.categoryCode || member.category_code || '',
-      categoryName: member.categoryName || member.category_name || ''
+      categoryName: member.categoryName || member.category_name || '',
+      isActive: isOfficialMemberActive(member)
     });
   }
 
@@ -148,6 +161,29 @@ function buildAgmSessionQrUrl(sessionId, baseUrl) {
 
   function hasAgmSession() {
     return !!(agmActiveSession && agmActiveSession.sessionId);
+  }
+
+  function isAgmScannerEntry() {
+    return isAgmScannerQrEntry({
+      sessionId: window.AGM_ENTRY_SESSION_ID,
+      role: window.AGM_ENTRY_ROLE
+    });
+  }
+
+  function applyAgmEntryMode() {
+    const scannerEntry = isAgmScannerEntry();
+    const sessionPanel = document.querySelector('.agm-session-panel');
+    const titleInput = document.getElementById('agmMeetingTitle');
+
+    if (sessionPanel) {
+      sessionPanel.hidden = scannerEntry;
+      sessionPanel.setAttribute('aria-hidden', String(scannerEntry));
+    }
+    if (titleInput) {
+      const locked = scannerEntry || hasAgmSession();
+      titleInput.readOnly = locked;
+      titleInput.setAttribute('aria-readonly', String(locked));
+    }
   }
 
   function getAgmSessionById(sessionId) {
@@ -219,6 +255,7 @@ function buildAgmSessionQrUrl(sessionId, baseUrl) {
     renderAgmSessionQr();
     updateAgmMemberCounts();
     if (agmInitialized) renderAgmGrid();
+    applyAgmEntryMode();
     syncAgmDeviceMode();
   }
 
@@ -245,7 +282,7 @@ function buildAgmSessionQrUrl(sessionId, baseUrl) {
   }
 
   function setAgmMembers(list) {
-    agmMembers = (Array.isArray(list) ? list : []).map(normalizeAgmMember).filter(member => member.name);
+    agmMembers = (Array.isArray(list) ? list : []).map(normalizeAgmMember).filter(member => member.name && member.isActive);
     agmMembers.forEach(member => {
       if (member.uid && checkedStateMap[member.name] && !checkedStateMap[member.uid]) {
         checkedStateMap[member.uid] = true;
@@ -322,11 +359,13 @@ function buildAgmSessionQrUrl(sessionId, baseUrl) {
   }
 
   window.selectAgmSession = function(sessionId) {
+    if (isAgmScannerEntry()) return;
     const session = getAgmSessionById(sessionId);
     if (session) setAgmActiveSession(session);
   };
 
   window.startNewAgmSession = function() {
+    if (isAgmScannerEntry()) return;
     setAgmActiveSession(null);
     const titleInput = document.getElementById('agmMeetingTitle');
     if (titleInput) {
@@ -337,6 +376,7 @@ function buildAgmSessionQrUrl(sessionId, baseUrl) {
   };
 
   window.createAgmSession = function() {
+    if (isAgmScannerEntry()) return;
     const titleInput = document.getElementById('agmMeetingTitle');
     const title = String(titleInput && titleInput.value || '').trim();
     if (!title) {
@@ -391,7 +431,7 @@ function buildAgmSessionQrUrl(sessionId, baseUrl) {
   };
 
   function loadAgmMembers() {
-    setAgmMembers(window.INITIAL_OFFICIAL_MEMBERS || []);
+    setAgmMembers([]);
     renderAgmGrid();
     syncAgmDeviceMode();
     loadAgmSessions();
@@ -403,7 +443,7 @@ function buildAgmSessionQrUrl(sessionId, baseUrl) {
 
     google.script.run
       .withSuccessHandler(function(list) {
-        if (Array.isArray(list) && list.length) setAgmMembers(list);
+        setAgmMembers(Array.isArray(list) ? list : []);
         renderAgmGrid();
         syncAgmDeviceMode();
         startAgmCheckinPolling();
@@ -660,6 +700,7 @@ function buildAgmSessionQrUrl(sessionId, baseUrl) {
     agmInitialized = true;
     const titleInput = document.getElementById('agmMeetingTitle');
     if (titleInput) titleInput.addEventListener('input', syncAgmDeviceMode);
+    applyAgmEntryMode();
     loadAgmMembers();
   };
 })();

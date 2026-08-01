@@ -34,17 +34,15 @@ function loadOfficialSourceHelpers() {
   return context;
 }
 
-test('partial official API results are merged with missing baseline members by name', () => {
+test('official member API results remain the source of truth', () => {
   const context = loadOfficialSourceHelpers();
   const merged = context.mergeOfficialMemberSources([
     { rowIndex: 2, name: '預置甲', categoryCode: 'CAT_1', categoryName: '1. 應到會員', uid: 'LK00001' },
     { rowIndex: 3, name: '伺服器新增', categoryCode: 'CAT_2', categoryName: '2. 準會員' }
   ]);
 
-  assert.equal(merged.length, 3);
-  assert.equal(merged.filter(member => member.name === '預置甲').length, 1);
-  assert.equal(merged.find(member => member.name === '預置乙').categoryCode, 'CAT_6');
-  assert.equal(merged.find(member => member.name === '伺服器新增').name, '伺服器新增');
+  assert.equal(merged.length, 2);
+  assert.equal(merged.every(member => member.rowIndex > 0), true);
 });
 
 test('member list UI uses seven columns and data-driven official category counts', () => {

@@ -11,6 +11,12 @@ function normalizeAgmViewerSession(session) {
   };
 }
 
+function isAgmViewerMemberActive(member) {
+  if (!member || member.isActive === false) return false;
+  const value = String(member.isActive == null ? '' : member.isActive).trim().toLowerCase();
+  return !['false', '0', 'inactive', 'disabled', '停用', '否', 'n', 'no'].includes(value);
+}
+
 (function() {
   let viewerSessions = [];
   let viewerMembers = [];
@@ -131,10 +137,11 @@ function normalizeAgmViewerSession(session) {
   }
 
   function loadViewerMembers() {
-    viewerMembers = (window.INITIAL_OFFICIAL_MEMBERS || []).map(member => Object.assign({}, member, {
+    viewerMembers = [];
+    const normalizeMember = member => Object.assign({}, member, {
       uid: String(member.uid || member.memberUid || member.id || '').trim().toUpperCase(),
       categoryCode: member.categoryCode || member.category_code || ''
-    })).filter(member => member.name);
+    });
     if (typeof google === 'undefined' || !google.script || !google.script.run) {
       renderViewerMembers();
       renderViewerStats();
@@ -142,12 +149,9 @@ function normalizeAgmViewerSession(session) {
     }
     google.script.run
       .withSuccessHandler(function(list) {
-        if (Array.isArray(list) && list.length) {
-          viewerMembers = list.map(member => Object.assign({}, member, {
-            uid: String(member.uid || member.memberUid || member.id || '').trim().toUpperCase(),
-            categoryCode: member.categoryCode || member.category_code || ''
-          })).filter(member => member.name);
-        }
+        viewerMembers = (Array.isArray(list) ? list : [])
+          .map(normalizeMember)
+          .filter(member => member.name && isAgmViewerMemberActive(member));
         renderViewerMembers();
         renderViewerStats();
       })

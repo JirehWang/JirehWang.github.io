@@ -817,7 +817,8 @@
       status: member.status || '',
       votingRights: member.votingRights !== undefined ? member.votingRights : !!member.voting_rights,
       isResident: member.isResident !== undefined ? member.isResident : !!member.is_resident,
-      notes: member.notes || ''
+      notes: member.notes || '',
+      isActive: member.isActive !== false && !['false', '0', 'inactive', 'disabled', '停用', '否', 'n', 'no'].includes(String(member.isActive == null ? '' : member.isActive).trim().toLowerCase())
     };
   }
 
@@ -825,14 +826,6 @@
     const merged = (Array.isArray(serverList) ? serverList : [])
       .map(normalizeOfficialMember)
       .filter(member => member.name);
-    const knownNames = new Set(merged.map(member => member.name));
-    (window.INITIAL_OFFICIAL_MEMBERS || []).forEach(function(member) {
-      const normalized = normalizeOfficialMember(member);
-      if (normalized.name && !knownNames.has(normalized.name)) {
-        merged.push(normalized);
-        knownNames.add(normalized.name);
-      }
-    });
     return merged;
   }
 
@@ -948,6 +941,9 @@
       const resident = (m.isResident !== undefined ? m.isResident : m.is_resident) ? '是' : '否';
 
       let statusBadge = '';
+      const activeBadge = m.isActive === false
+        ? '<span class="badge bg-secondary text-white border-0 px-2 py-1">已停用</span>'
+        : '<span class="badge bg-success bg-opacity-10 text-success border-0 px-2 py-1">啟用</span>';
       if (catCode === 'CAT_5' || catCode === 'CAT_6') {
         statusBadge = '<span class="badge bg-secondary bg-opacity-10 text-secondary border-0 px-2 py-1">👶 獨立未陪餐會員</span>';
       } else if (uid) {
@@ -963,11 +959,11 @@
       if (catCode === 'CAT_5') catBadgeClass = 'bg-dark';
       if (catCode === 'CAT_6') catBadgeClass = 'bg-light text-dark border';
 
-      html += `<tr>
+      html += `<tr class="${m.isActive === false ? 'table-secondary opacity-75' : ''}">
         <td class="text-dark"><strong>${name}</strong></td>
         <td><span class="badge ${catBadgeClass} px-2 py-1">${catName}</span></td>
         <td><code class="text-primary fw-bold" style="font-family: var(--font-sans);">${uid || '（空白）'}</code></td>
-        <td>${statusBadge}</td>
+        <td>${activeBadge}<br>${statusBadge}</td>
         <td><small>${voting}</small></td>
         <td><small>${resident}</small></td>
         <td>
@@ -1014,6 +1010,9 @@
   }
 
   function seedOfficialDataAction() {
+    alert('預設會員補載功能已停用，請直接手動新增、編輯或停用會員。');
+    return;
+    /* Legacy UI handler kept below for historical reference only. */
     if (!confirm("🌱 是否一鍵載入/初始化手冊 417 筆會員名單至獨立工作表？")) return;
     if (typeof google !== 'undefined' && google.script && google.script.run) {
       google.script.run
@@ -1074,7 +1073,22 @@
     document.getElementById('offMemModalHeader').innerText = `📋 將「${name}」加入和會獨立會員名單`;
   }
 
+  function ensureOfficialActiveControl() {
+    if (document.getElementById('editOffIsActive')) return;
+    const notes = document.getElementById('editOffNotes');
+    const notesColumn = notes && notes.closest('.col-12');
+    if (!notesColumn || !notesColumn.parentElement) return;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'col-12';
+    wrapper.innerHTML = '<div class="form-check form-switch mt-2">' +
+      '<input class="form-check-input" type="checkbox" id="editOffIsActive" checked>' +
+      '<label class="form-check-label fw-bold text-dark" for="editOffIsActive">啟用會員（停用者不列入會員大會）</label>' +
+      '</div>';
+    notesColumn.parentElement.insertBefore(wrapper, notesColumn);
+  }
+
   function openAddOfficialModal() {
+    ensureOfficialActiveControl();
     document.getElementById('offMemModalHeader').innerText = "➕ 新增和會獨立會員";
     document.getElementById('editOffRowIndex').value = "";
     document.getElementById('editOffName').value = "";
@@ -1082,11 +1096,13 @@
     document.getElementById('editOffCategory').value = "CAT_1";
     document.getElementById('editOffVotingRights').checked = true;
     document.getElementById('editOffIsResident').checked = true;
+    document.getElementById('editOffIsActive').checked = true;
     document.getElementById('editOffNotes').value = "";
     document.getElementById('officialMemberModal').style.display = 'block';
   }
 
   function openEditOfficialModal(rowIndex, name) {
+    ensureOfficialActiveControl();
     const item = allOfficialMembersData.find(m => m.name === name || String(m.rowIndex) === String(rowIndex));
     document.getElementById('offMemModalHeader').innerText = `✏️ 編輯會員資料及類別 — ${name}`;
     document.getElementById('editOffRowIndex').value = rowIndex || (item ? item.rowIndex : '');
@@ -1095,6 +1111,7 @@
     document.getElementById('editOffCategory').value = item ? (item.categoryCode || item.category_code || 'CAT_1') : 'CAT_1';
     document.getElementById('editOffVotingRights').checked = item ? (item.votingRights !== undefined ? item.votingRights : item.voting_rights) : true;
     document.getElementById('editOffIsResident').checked = item ? (item.isResident !== undefined ? item.isResident : item.is_resident) : true;
+    document.getElementById('editOffIsActive').checked = !item || item.isActive !== false;
     document.getElementById('editOffNotes').value = item ? (item.notes || '') : '';
     document.getElementById('officialMemberModal').style.display = 'block';
   }
@@ -1104,12 +1121,14 @@
   }
 
   function saveOfficialMemberAction() {
+    ensureOfficialActiveControl();
     const rowIndex = document.getElementById('editOffRowIndex').value;
     const name = document.getElementById('editOffName').value.trim();
     const categoryCode = document.getElementById('editOffCategory').value;
     const categoryName = catNamesMap[categoryCode] || categoryCode;
     const votingRights = document.getElementById('editOffVotingRights').checked;
     const isResident = document.getElementById('editOffIsResident').checked;
+    const isActive = document.getElementById('editOffIsActive').checked;
     const notes = document.getElementById('editOffNotes').value.trim();
 
     if (!name) {
@@ -1128,6 +1147,7 @@
       categoryName: categoryName,
       votingRights: votingRights,
       isResident: isResident,
+      isActive: isActive,
       notes: notes
     };
 
@@ -1154,6 +1174,7 @@
         allOfficialMembersData[existingIndex].categoryName = categoryName;
         allOfficialMembersData[existingIndex].votingRights = votingRights;
         allOfficialMembersData[existingIndex].isResident = isResident;
+        allOfficialMembersData[existingIndex].isActive = isActive;
         allOfficialMembersData[existingIndex].notes = notes;
       } else {
         allOfficialMembersData.push({
@@ -1164,6 +1185,7 @@
           status: "UNMATCHED",
           votingRights: votingRights,
           isResident: isResident,
+          isActive: isActive,
           notes: notes
         });
       }
@@ -1175,5 +1197,7 @@
     }
   }
 
+  const legacySeedButton = document.querySelector('button[onclick="seedOfficialDataAction()"]');
+  if (legacySeedButton) legacySeedButton.remove();
   refreshMemberTable();
 </script>
