@@ -554,10 +554,8 @@ flowchart TD
 admin.html → apps/LKC_WorshipPPT/
 禮拜PPT產生器 → localStorage 草稿 + 16:9 即時預覽
 禮拜PPT產生器 → template-profiles.js → 台語或聯合－華語 sections／固定頁／資料需求／母片資產／檔名前綴
-禮拜PPT產生器 → firebase/firebase-config-values.js 共用 bootstrap → 絕對 gstatic SDK URL → firebase-content-store.js／layout-cloud-store.js（避免 `about:blank` 或 `file://` 下的相對動態 import 解析失敗）
-禮拜PPT產生器 → Firebase RTDB `worshipPpt/content/...`（行事曆／報告／讚美／Library 索引／聖經的唯讀內容鏡像）
-禮拜PPT產生器 → config.js / churchAPI → LKC_MasterSchedule GAS `cal_getEvents`
-禮拜PPT產生器 → config.js / churchAPI → LKC_MasterSchedule GAS `cal_getPptLibraryIndex`
+禮拜PPT產生器 → firebase/firebase-config-values.js 共用 bootstrap → 絕對 gstatic SDK URL → layout-cloud-store.js（避免 `about:blank` 或 `file://` 下的相對動態 import 解析失敗）
+禮拜PPT產生器 → config.js / churchAPI → LKC_MasterSchedule GAS `cal_getEvents` / `cal_getPptLibraryIndex` / `cal_getPptLibraryFile` / `cal_queryBible`
 禮拜PPT產生器 → 週報管理系統 GAS `load` → `reports_YYYY-MM-DD`（本會消息／教界消息／關懷代禱，依序產生報告頁）
 禮拜PPT產生器 → 週報管理系統 GAS `load` → `praise_songs_YYYY-MM-DD`（聖歌隊讚美）
 禮拜PPT產生器（file:// 或 POST 被擋）→ read-api.js JSONP → GAS 唯讀 `cal_getEvents` / `cal_getPptLibraryIndex` / `cal_getPptLibraryFile` / `cal_queryBible`
@@ -578,8 +576,8 @@ LKC_MasterSchedule GAS → Google Drive 聖詩／啟應文資料夾（唯讀檔�
 
 - 禱告會 PPT 使用中央路由 key `LKC_PrayerPPT` 指向合併主 GAS，不沿用舊獨立行事曆的 `LKC_MasterSchedule`；瀏覽器不保存或直連 Gemini key。前端支援一次選取或拖入多張圖片，依序以 `cal_parsePrayerImage` 送至合併主 GAS 並顯示逐張進度；每張 AI 文字在自己的圖片邊界內解析，先排除頁尾頁碼與下一頁前言滲入，再合併結構化禱告段落，因此上傳順序不會污染前一段，重複出現的同編號段落則採追加內容。OCR 對「經文」與「金句」區塊僅回傳可辨識的書卷、章、節代號；PrayerPPT 再從文字中抽取代號並交給既有聖經 API 填入全文，不會把手寫經文本身當成查詢字串。投影片以 1～13 大項分組，同一大項內的小點會在可用行數內合併排版；放不下的小點整體移到下一頁，只有單一小點本身超長時才續頁。PrayerPPT 使用與其他崇拜模板共用的版面群組介面，並實作相同的群組建立、頁面歸屬與套用能力；設定依 template ID 同步。PrayerPPT 預設白色背景搭配深色標題／內文。後端由 `CalendarCore.js` 呼叫 `GeminiHelper.js`，再從「LKC系統設定」試算表的 `AI_Config` 讀取 `GEMINI_API_KEY`。
 
-行事曆帶入沿用既有 `LKC_MasterSchedule` Router 與 `cal_getEvents` 快取讀取，依 active profile 嚴格選取同日期的 `講道資訊-台語`、`講道資訊-聯合-台語` 或 `講道資訊-聯合-華語`。內容讀取以 Firebase 鏡像為優先，沒有鏡像或讀取失敗時才回退 `churchAPI` POST；由 `file://` 直接開啟或 POST 遭跨來源政策拒絕時，`read-api.js` 改用 GAS 唯讀 JSONP，僅允許 `cal_getEvents`、`cal_getPptLibraryIndex`、`cal_getPptLibraryFile`、`cal_queryBible`。映射結果先成為 `sourceValue`：講題與講員可直接顯示；宣召、經文與金句由瀏覽器解析範圍後依 profile 查詢台語或華語聖經全文並分頁。台語與聯合台語模板使用聖詩／啟應文 Library；聯合台語的宣召、信仰告白、主禱文、經文與金句為台華雙語，雙欄禮文沿用聯合華語版型。聯合華語的全心敬拜、奉獻與獻上感恩直接使用專案內三張 16:9 PNG 原圖，完整保留圖片中的文字排版、背景與視覺效果，不再依賴外部簡報或 GAS。每張產生後的投影片具有穩定 `pageId`，使用者可將不同勾選批次存成具名版面群組；群組參數與頁面歸屬按 template ID 同步到 Firebase，並以不同 localStorage key 保存草稿與待同步狀態。
+行事曆帶入沿用既有 `LKC_MasterSchedule` Router 與 `cal_getEvents` 快取讀取，依 active profile 嚴格選取同日期的 `講道資訊-台語`、`講道資訊-聯合-台語` 或 `講道資訊-聯合-華語`。行事曆、Library 與聖經內容直接讀取既有 `LKC_MasterSchedule` API；本會消息、教界消息、關懷代禱與讚美直接讀取週報管理系統的 `load` API，不再經過 `worshipPpt/content` Firebase 鏡像。由 `file://` 直接開啟或 POST 遭跨來源政策拒絕時，`read-api.js` 改用 GAS 唯讀 JSONP，僅允許 `cal_getEvents`、`cal_getPptLibraryIndex`、`cal_getPptLibraryFile`、`cal_queryBible`。映射結果先成為 `sourceValue`：講題與講員可直接顯示；宣召、經文與金句由瀏覽器解析範圍後依 profile 查詢台語或華語聖經全文並分頁。台語與聯合台語模板使用聖詩／啟應文 Library；聯合台語的宣召、信仰告白、主禱文、經文與金句為台華雙語，雙欄禮文沿用聯合華語版型。聯合華語的全心敬拜、奉獻與獻上感恩直接使用專案內三張 16:9 PNG 原圖，完整保留圖片中的文字排版、背景與視覺效果，不再依賴外部簡報或 GAS。每張產生後的投影片具有穩定 `pageId`，使用者可將不同勾選批次存成具名版面群組；群組參數與頁面歸屬按 template ID 同步到 Firebase，並以不同 localStorage key 保存草稿與待同步狀態。
 
 ### 多模板擴充邊界（台語、聯合台語與聯合華語已實作）
 
-「台語」、「聯合－台語」與「聯合－華語」共用資料回退、PPTX／OOXML 解析、Canvas 點陣化、報告動態分頁、deck/page ID、版面群組與 PptxGenJS 匯出核心；流程段落、行事曆 selector、聖經版本、固定禮文、固定素材、預設版面、來源需求與輸出檔名由 declarative template profile 提供。模板版面已分為既有 `worshipPpt/layoutConfig/shared` 與 `worshipPpt/layoutConfig/templates/{templateId}`；聯合台語僅在尚無專屬設定時以台語版面作為初始 fallback。同日內容若未來因模板而不同，仍應再評估 `worshipPpt/content/services/{date}/{templateId}/...`；目前內容鏡像 schema 尚未遷移。
+「台語」、「聯合－台語」與「聯合－華語」共用資料回退、PPTX／OOXML 解析、Canvas 點陣化、報告動態分頁、deck/page ID、版面群組與 PptxGenJS 匯出核心；流程段落、行事曆 selector、聖經版本、固定禮文、固定素材、預設版面、來源需求與輸出檔名由 declarative template profile 提供。模板版面已分為既有 `worshipPpt/layoutConfig/shared` 與 `worshipPpt/layoutConfig/templates/{templateId}`；聯合台語僅在尚無專屬設定時以台語版面作為初始 fallback。內容維持由既有行事曆／週報 API 直接提供，不建立 `worshipPpt/content` 重複鏡像；若未來需要離線快照，另行評估獨立的快取策略。

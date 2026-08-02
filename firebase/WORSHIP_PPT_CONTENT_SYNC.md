@@ -1,6 +1,6 @@
-# 禮拜PPT產生器 Firebase 內容同步契約
+# 禮拜PPT產生器 Firebase 內容同步契約（目前停用）
 
-前端已改為 Firebase-first；節點不存在或讀取失敗時，才回退既有 GAS。這份變更不修改或部署 GAS。
+目前 WorshipPPT 主流程直接讀取既有的行事曆、週報、PPT Library 與聖經 API，不再把相同內容鏡像到 Firebase。以下路徑保留作為未來明確需要離線快照時的契約，並非目前必要部署項目。
 
 ## RTDB 路徑
 
@@ -33,9 +33,10 @@ PPTX 二進位檔放在 `worshipPpt/library/`，不要以 Base64 存入 RTDB。`
 - 日後 GAS 應以既有 Service Account／管理權限同步，管理身分不依賴瀏覽器規則取得寫入權。
 - 部署規則時必須把範本合併進目前正式規則，不可覆蓋既有 `cache`、`logs` 等節點。
 
-## 目前實際盤點（2026-07-15）
+## 目前實際盤點（2026-08-02）
 
 - 已有：`worshipPpt/layoutConfig/shared` 的版面群組與頁面歸屬。
-- 尚無：當日行事曆、PPT Library index、PPTX Storage URL、聖經查詢、報告、讚美內容。
-- `cache/cal_getEvents` 只有其他日期的短期快取，2026-07-15 沒有命中；它不能取代穩定同步資料。
+- `worshipPpt/content` 目前沒有內容，且主流程不依賴它。
+- 行事曆與週報由 WorshipPPT 直接連接既有唯讀 API。
+- `cache/cal_getEvents` 是另一套短期 API 快取，不是 WorshipPPT 內容鏡像。
 - 正式 layoutState 尚未看到 `hymnOpacityBySection` 與 `outputScale`；規則範本已補上這兩種欄位的驗證。

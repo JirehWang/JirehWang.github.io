@@ -5,6 +5,12 @@
   root.worshipReadAPI = api.read;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function(root) {
   let callbackSequence = 0;
+  const JSONP_READ_ACTIONS = new Set([
+    'cal_getEvents',
+    'cal_getPptLibraryIndex',
+    'cal_getPptLibraryFile',
+    'cal_queryBible'
+  ]);
 
   function buildJsonpUrl(endpoint, action, data, token, callbackName) {
     const url = new URL(endpoint);
@@ -12,6 +18,7 @@
     url.searchParams.set('token', token || '');
     url.searchParams.set('data', JSON.stringify(data || {}));
     url.searchParams.set('callback', callbackName);
+    url.searchParams.set('_lkc', `${Date.now()}_${callbackName}`);
     return url.toString();
   }
 
@@ -44,27 +51,47 @@
     });
   }
 
+  function isGithubPages() {
+    const hostname = String(root.location && root.location.hostname || '').toLowerCase();
+    return hostname === 'github.io' || hostname.endsWith('.github.io');
+  }
+
+  function shouldPreferJsonp(action) {
+    if (!JSONP_READ_ACTIONS.has(action) || !root.location) return false;
+    return root.location.protocol === 'file:' || isGithubPages();
+  }
+
+  function isJsonTransportError(error) {
+    if (!error) return false;
+    if (error.name === 'SyntaxError' || error.type === 'INVALID_RESPONSE') return true;
+    const message = String(error.message || error).toLowerCase();
+    return /failed to fetch|network|load failed|unexpected token|not valid json|http\s+4\d\d|http\s+5\d\d/.test(message);
+  }
+
   async function read(action, data) {
-    if (root.worshipFirebaseContent && typeof root.worshipFirebaseContent.readAction === 'function') {
+    if (!root.GAS_URL) throw new Error('行事曆雲端網址尚未就緒');
+    const useJsonpFirst = shouldPreferJsonp(action);
+    let jsonpError = null;
+    if (useJsonpFirst) {
       try {
-        const synchronized = await root.worshipFirebaseContent.readAction(action, data || {});
-        if (synchronized !== null && synchronized !== undefined) return synchronized;
+        return await jsonp(root.GAS_URL, action, data || {}, root.AUTH_TOKEN || 'ChurchApp-2026');
       } catch (error) {
-        console.warn('[worship-firebase-content] read failed; falling back to GAS:', error);
+        jsonpError = error;
+        if (root.location && root.location.protocol === 'file:') throw error;
       }
     }
-    const useJsonpFirst = root.location && root.location.protocol === 'file:';
-    if (!useJsonpFirst) {
+    if (!useJsonpFirst || jsonpError) {
       try {
         if (root.ensureAPIReady) await root.ensureAPIReady();
         if (typeof root.churchAPI === 'function') {
           return await root.churchAPI(action, data || {});
         }
       } catch (error) {
-        if (!/failed to fetch|network|load failed/i.test(String(error && error.message))) throw error;
+        if (!isJsonTransportError(error)) throw error;
+        if (jsonpError) throw jsonpError;
       }
     }
-    if (!root.GAS_URL) throw new Error('行事曆雲端網址尚未就緒');
+    if (jsonpError) throw jsonpError;
     return jsonp(root.GAS_URL, action, data || {}, root.AUTH_TOKEN || 'ChurchApp-2026');
   }
 

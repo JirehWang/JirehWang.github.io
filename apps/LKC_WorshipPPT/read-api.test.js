@@ -53,11 +53,60 @@ test('falls back to JSONP when API readiness fails with a network error', async 
   }
 });
 
-test('uses synchronized Firebase content before calling GAS', async () => {
+test('uses JSONP on GitHub Pages and falls back after invalid JSON POST responses', async () => {
   const previous = {
     firebaseContent: global.worshipFirebaseContent,
     ensureAPIReady: global.ensureAPIReady,
     churchAPI: global.churchAPI,
+    GAS_URL: global.GAS_URL,
+    AUTH_TOKEN: global.AUTH_TOKEN,
+    location: global.location,
+    document: global.document
+  };
+
+  global.worshipFirebaseContent = undefined;
+  global.ensureAPIReady = async () => {};
+  let churchApiCalls = 0;
+  global.churchAPI = async () => {
+    churchApiCalls += 1;
+    throw new SyntaxError("Unexpected token '<', \"<!DOCTYPE ...\" is not valid JSON");
+  };
+  global.GAS_URL = 'https://script.google.com/macros/s/example/exec';
+  global.AUTH_TOKEN = 'ChurchApp-2026';
+  global.location = { protocol: 'https:', hostname: 'jirehwang.github.io' };
+  global.document = {
+    createElement() {
+      return { remove() {} };
+    },
+    head: {
+      appendChild(script) {
+        const callback = new URL(script.src).searchParams.get('callback');
+        queueMicrotask(() => global[callback]({ success: true, data: [{ fileId: 'fallback' }] }));
+      }
+    }
+  };
+
+  try {
+    const result = await read('cal_getPptLibraryIndex', {});
+    assert.deepEqual(result, { success: true, data: [{ fileId: 'fallback' }] });
+    assert.equal(churchApiCalls, 0);
+
+    global.location = { protocol: 'https:', hostname: 'example.com' };
+    const fallbackResult = await read('cal_getPptLibraryIndex', {});
+    assert.deepEqual(fallbackResult, { success: true, data: [{ fileId: 'fallback' }] });
+    assert.equal(churchApiCalls, 1);
+  } finally {
+    Object.assign(global, previous);
+  }
+});
+
+test('uses the existing source API instead of a duplicated Firebase content mirror', async () => {
+  const previous = {
+    firebaseContent: global.worshipFirebaseContent,
+    ensureAPIReady: global.ensureAPIReady,
+    churchAPI: global.churchAPI,
+    GAS_URL: global.GAS_URL,
+    AUTH_TOKEN: global.AUTH_TOKEN,
     location: global.location
   };
   let gasCalls = 0;
@@ -66,16 +115,20 @@ test('uses synchronized Firebase content before calling GAS', async () => {
   };
   global.ensureAPIReady = async () => {};
   global.churchAPI = async () => { gasCalls += 1; return { success: true, records: [{ text: 'gas' }] }; };
+  global.GAS_URL = 'https://script.google.com/macros/s/example/exec';
+  global.AUTH_TOKEN = 'ChurchApp-2026';
   global.location = { protocol: 'https:' };
 
   try {
     const result = await read('cal_queryBible', { book: '太', chap: 13, sec: '1-2', version: 'tghg' });
-    assert.deepEqual(result, { success: true, records: [{ text: 'firebase' }] });
-    assert.equal(gasCalls, 0);
+    assert.deepEqual(result, { success: true, records: [{ text: 'gas' }] });
+    assert.equal(gasCalls, 1);
   } finally {
     global.worshipFirebaseContent = previous.firebaseContent;
     global.ensureAPIReady = previous.ensureAPIReady;
     global.churchAPI = previous.churchAPI;
+    global.GAS_URL = previous.GAS_URL;
+    global.AUTH_TOKEN = previous.AUTH_TOKEN;
     global.location = previous.location;
   }
 });

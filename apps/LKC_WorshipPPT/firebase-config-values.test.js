@@ -31,12 +31,12 @@ test('provides one shared Firebase config and reuses the default app', () => {
   assert.equal(initialized, 1);
 });
 
-test('loads the classic Firebase bootstrap before stores and avoids relative dynamic imports', () => {
+test('loads the classic Firebase bootstrap for layout storage and avoids the duplicate content mirror', () => {
   const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
   const contentStore = fs.readFileSync(path.join(__dirname, 'firebase-content-store.js'), 'utf8');
   const layoutStore = fs.readFileSync(path.join(__dirname, 'layout-cloud-store.js'), 'utf8');
 
-  assert.ok(html.indexOf('../../firebase/firebase-config-values.js') < html.indexOf('firebase-content-store.js'));
+  assert.doesNotMatch(html, /firebase-content-store\.js/);
   assert.doesNotMatch(contentStore, /import\(['"]\.\.\/\.\.\/firebase\/firebase-config\.js['"]\)/);
   assert.doesNotMatch(layoutStore, /import\(['"]\.\.\/\.\.\/firebase\/firebase-config\.js['"]\)/);
   assert.match(contentStore, /root\.LKCFirebaseBootstrap/);

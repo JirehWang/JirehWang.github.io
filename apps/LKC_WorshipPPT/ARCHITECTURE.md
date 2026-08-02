@@ -18,7 +18,7 @@
 - 產生固定禮文、標題頁、讚美歌詞、講道頁、報告頁及其他原生文字頁。
 - 提供整份投影片順序預覽、具名版面群組、背景、文字／圖片縮放與樂譜白底透明度設定。
 - 匯出真正的 `.pptx`，不是螢幕截圖集合。
-- 在 Firebase 不可用、GAS POST 被 CORS 阻擋或由 `file://` 開啟時提供安全的唯讀回退。
+- 直接連接既有的行事曆、週報、PPT Library 與聖經唯讀 API；GAS POST 被 CORS 阻擋或由 `file://` 開啟時提供安全的 JSONP 回退。
 
 目前不負責的範圍：
 
@@ -26,7 +26,7 @@
 - 講道 PPT 上傳欄位尚未實作合併外部講道簡報。
 - 不在瀏覽器端建立或管理 Drive PPTX 資料庫。
 - 不在前端保存版面解鎖密碼。
-- Firebase 內容同步的排程／後端寫入不由本 app 執行；前端只有讀取權限。
+- 不建立行事曆／週報的 Firebase 內容鏡像；前端只讀既有來源 API。Firebase 僅保留版面共用設定用途。
 
 ## 2. 一頁式架構總覽
 
@@ -38,11 +38,9 @@ flowchart LR
 
     Calendar[Master Schedule] --> Read[read-api.js]
     Bulletin[Sunday Bulletin] --> BulletinAdapter[bulletin-integration.js]
-    Firebase[(Firebase RTDB)] --> FirebaseRead[firebase-content-store.js]
     Drive[(Google Drive / Storage PPTX)] --> Library[pptx-library.js]
     Bible[台語／華語聖經查詢] --> Generator[content-generators.js]
 
-    FirebaseRead --> Read
     Read --> CalendarAdapter[calendar-adapter.js]
     CalendarAdapter --> Model
     Read --> Generator
@@ -70,7 +68,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | GitHub Pages + Vanilla JavaScript | 整個 app | 無建置伺服器也能部署；教會工作站直接用瀏覽器操作 | 依賴全域載入順序，新增模組時必須維護 `index.html` |
 | IIFE／UMD 風格模組 | `slide-production.js`、`pptx-library.js` 等 | 同一份純函式可在瀏覽器及 Node 測試中使用 | UI 整合檔仍使用全域 `model`、`active`、`render` |
-| Firebase Realtime Database | 內容鏡像、共用版面 | `index.html` 先以傳統 script 載入共用 bootstrap，再由 store 載入絕對網址 SDK | 內容節點前端唯讀；版面寫入需 Auth |
+| Firebase Realtime Database | 共用版面設定 | `layout-cloud-store.js` 以共用 bootstrap 載入 SDK | 版面寫入需 Auth；不鏡像行事曆／週報 |
 | Firebase Auth Email/Password + in-memory persistence | `layout-cloud-store.js` | 只有知道版面密碼者能改全教會設定；重新整理自動鎖回 | 密碼不得寫入程式或 Git |
 | GAS Router／`churchAPI` | 行事曆、PPT 索引、PPT 檔案、聖經 | 沿用既有後端與 Google Workspace 權限 | POST 可能受 `file://`／CORS 影響 |
 | JSONP 唯讀回退 | `read-api.js` | 無法 POST 時仍能讀取必要資料 | 只允許明確的唯讀 action；60 秒逾時清理 callback |
@@ -98,8 +96,7 @@ flowchart LR
 
 ### 4.2 資料來源與轉接層
 
-- `firebase-content-store.js`：把 action／日期映射到穩定 RTDB 路徑，提供 Firebase-first 唯讀內容；Firebase SDK 一律使用 `https://www.gstatic.com/...` 絕對網址，App 設定取自 `firebase-config-values.js`。
-- `read-api.js`：依序嘗試 Firebase、`churchAPI` POST、JSONP。
+- `read-api.js`：連接既有 `churchAPI` 唯讀入口，並在 GitHub Pages／POST 傳輸失敗時使用 JSONP。
 - `calendar-adapter.js`：將 Master Schedule 的 `values[]` 映射到 model，隔離欄位別名與台語事件條件。
 - `calendar-integration.js`：協調行事曆、週報、經文與 PPT Library 的整批載入。
 - `bulletin-content.js`：正規化報告／讚美資料與報告動態分頁。
@@ -127,17 +124,16 @@ flowchart LR
 目前沒有 bundler，腳本順序就是模組初始化順序：
 
 1. `config.js` 建立 `GAS_URL`、`churchAPI`、API readiness 與 action routing。
-2. `../../firebase/firebase-config-values.js` 以傳統 script 建立跨 classic script／ES module 共用的 Firebase 設定與 App bootstrap。
-3. `firebase-content-store.js` 建立 Firebase-first 內容讀取器；動態載入 Firebase SDK 時只使用絕對 CDN URL。
-4. `read-api.js` 建立統一唯讀 API。
-5. `vendor-jszip.min.js` 與 PptxGenJS 提供 ZIP、OOXML 與 PPTX 匯出能力。
-6. `bible-service.js` 提供經文範圍解析。
-7. 純資料模組：`calendar-adapter.js`、`pptx-library.js`、`slide-production.js`、`template-profiles.js`、`bulletin-content.js`。
-8. `app.js` 解析 `?template=`，由 profile 建立全域 `sections`、`model`、`editor`、`preview`、`render`。
-9. 整合模組依序包裝或替換 editor／preview：內容產生、Library、行事曆、格式預覽、固定頁 editor、production editor、週報 editor。
-10. `layout-cloud-store.js` 建立版面雲端介面。
-11. `layout-groups.js` 將單章 preview 升級為整份 deck 與共用版面。
-12. `ppt-export.js` 最後載入，使用已完成的 deck 與 layout API。
+2. `../../firebase/firebase-config-values.js` 以傳統 script 建立版面共用的 Firebase 設定與 App bootstrap。
+3. `read-api.js` 建立既有來源 API 的統一唯讀入口。
+4. `vendor-jszip.min.js` 與 PptxGenJS 提供 ZIP、OOXML 與 PPTX 匯出能力。
+5. `bible-service.js` 提供經文範圍解析。
+6. 純資料模組：`calendar-adapter.js`、`pptx-library.js`、`slide-production.js`、`template-profiles.js`、`bulletin-content.js`。
+7. `app.js` 解析 `?template=`，由 profile 建立全域 `sections`、`model`、`editor`、`preview`、`render`。
+8. 整合模組依序包裝或替換 editor／preview：內容產生、Library、行事曆、格式預覽、固定頁 editor、production editor、週報 editor。
+9. `layout-cloud-store.js` 建立版面雲端介面。
+10. `layout-groups.js` 將單章 preview 升級為整份 deck 與共用版面。
+11. `ppt-export.js` 最後載入，使用已完成的 deck 與 layout API。
 
 因此，若未來改為 ES modules 或 bundler，必須保留這些依賴關係；不能只按字母排序載入。
 
@@ -246,27 +242,19 @@ sequenceDiagram
 
 ## 8. 統一唯讀資料層與回退順序
 
-### 8.1 Firebase-first
+### 8.1 既有來源 API
 
-`firebase-content-store.js` 將資料映射到：
+WorshipPPT 不複製行事曆與週報內容到 Firebase；資料直接由既有唯讀入口取得：
 
-```text
-worshipPpt/content/services/{YYYY-MM-DD}/calendar
-worshipPpt/content/services/{YYYY-MM-DD}/reports
-worshipPpt/content/services/{YYYY-MM-DD}/praise
-worshipPpt/content/library/index
-worshipPpt/content/bible/{version}/{book}/{chapter}/{verses}
-```
-
-Firebase key 禁止的 `. # $ / [ ]` 與控制字元會轉成 `_`。`cal_getPptLibraryFile` 不映射到 RTDB，因為大型二進位檔不應以 Base64 長期存放在 RTDB。
+- 行事曆、PPT Library、聖經：`LKC_MasterSchedule` 的 `churchAPI` action。
+- 週報報告與讚美：`bulletin-integration.js` 的 Sunday Bulletin `load` action。
 
 ### 8.2 `read-api.js` 回退順序
 
-1. 若 RTDB 有同步內容，直接回傳。
-2. HTTP(S) 頁面等待 `config.js` API ready，再呼叫 `churchAPI(action, data)`。
-3. Firebase 讀取失敗會記錄警告並回退 GAS。
-4. `file://` 或 POST 的 network／CORS 類錯誤改用 JSONP。
-5. JSONP 建立唯一 callback，60 秒逾時或 script error 時移除 callback 與 script。
+1. GitHub Pages／`file://` 的四個唯讀 action 優先使用 JSONP，避開 GAS POST 重導到 `script.googleusercontent.com` 時偶發的 404。
+2. 其他 HTTP(S) 頁面等待 `config.js` API ready，再呼叫 `churchAPI(action, data)`。
+3. POST 遇到 network、4xx/5xx 或非 JSON 回應時改用 JSONP。
+4. JSONP 建立唯一 callback，60 秒逾時或 script error 時移除 callback 與 script。
 
 JSONP 只應開放：
 
@@ -602,8 +590,8 @@ PptxGenJS 產生 blob 後，若 JSZip 可用，系統會再次打開輸出 PPTX�
 
 | 情況 | 行為 |
 | --- | --- |
-| Firebase 內容節點不存在 | 回退 GAS／JSONP |
-| Firebase SDK 載入失敗 | 清除 promise，下一次可重試 |
+| 來源 API 回傳 404／非 JSON | 回退 GAS／JSONP 或顯示來源錯誤 |
+| 版面 Firebase SDK 載入失敗 | 清除 promise，下一次可重試 |
 | GAS POST network/CORS 失敗 | 回退 JSONP |
 | JSONP 逾時／載入失敗 | 清理 script/callback，回報可讀訊息 |
 | PPT Library 索引失敗 | 清除 `indexPromise`，下一次可重試 |
@@ -657,7 +645,7 @@ PptxGenJS 產生 blob 後，若 JSZip 可用，系統會再次打開輸出 PPTX�
 
 下列邏輯不應複製：
 
-- Firebase-first／GAS／JSONP 唯讀資料層。
+- 既有來源 API／GAS／JSONP 唯讀資料層。
 - Firebase 共用版面 store、Auth lock、pending/offline 規則。
 - PPTX 索引、下載、JSZip／OOXML 解析、Canvas 點陣化與 crop 算法。
 - PptxGenJS 匯出器與輸出後 XML 清理。
