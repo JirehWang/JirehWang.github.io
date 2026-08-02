@@ -134,6 +134,77 @@
       opacity: 1;
       text-decoration: underline;
     }
+    .ai-proofread-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .ai-proofread-button {
+      background: #e0f2fe;
+      color: #075985;
+      border: 1px solid #7dd3fc;
+      font-weight: 700;
+    }
+    .ai-proofread-button:hover {
+      background: #bae6fd;
+    }
+    .ai-field-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 10px;
+      flex: 1;
+      min-width: 0;
+    }
+    .ai-original-column,
+    .ai-suggestion-column {
+      min-width: 0;
+    }
+    .ai-field-label {
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 700;
+      margin: 0 0 4px;
+    }
+    .ai-suggestion-column {
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      border-radius: 8px;
+      padding: 8px;
+    }
+    .ai-suggestion-label {
+      color: #0369a1;
+    }
+    .ai-suggestion-input {
+      display: block;
+      width: 100%;
+      min-height: 80px;
+      padding: 7px 10px;
+      border: 1px solid #bae6fd;
+      border-radius: 6px;
+      background: #fff;
+      color: #0f172a;
+      font: inherit;
+      resize: vertical;
+    }
+    .ai-suggestion-input::placeholder {
+      color: #94a3b8;
+    }
+    .ai-suggestion-note {
+      min-height: 16px;
+      margin-top: 4px;
+      color: #64748b;
+      font-size: 11px;
+    }
+    .ai-suggestion-ready .ai-suggestion-input {
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.12);
+    }
+    @media (max-width: 680px) {
+      .ai-field-layout {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
@@ -155,7 +226,11 @@
   <div class="upload-card">
     <div class="upload-header">
       <h2>📋 消息與代禱登記表</h2>
-      <span id="syncStatus" style="font-size: 13px; opacity: 0.8;">狀態：未連線</span>
+      <div class="ai-proofread-toolbar">
+        <button class="btn ai-proofread-button" id="btnAiProofread" type="button">AI 檢查錯字</button>
+        <span id="aiCheckStatus" style="font-size: 13px; opacity: 0.9;">尚未檢查</span>
+        <span id="syncStatus" style="font-size: 13px; opacity: 0.8;">狀態：未連線</span>
+      </div>
     </div>
     <div class="upload-body">
       
@@ -237,7 +312,10 @@
 
 <div class="toast-container" id="toastContainer"></div>
 
+<script>window._GAS_KEY = 'LKC_MinistrySchedule';</script>
+<script src="../../config.js"></script>
 <script src="js/config.js"></script>
+<script src="js/reports-ai.js"></script>
 <script>
   const state = {
     date: '',
@@ -307,10 +385,47 @@
     btnConfirmLoadOther.addEventListener('click', loadOtherFromCloud);
 
     // 初始化所有字數統計
+    SundayBulletinAI.init(document);
+    document.getElementById('btnAiProofread').addEventListener('click', runAiProofread);
     initCharCounters();
 
     clearFormWithoutConfirm();
   });
+
+  async function runAiProofread() {
+    await SundayBulletinAI.checkAll({
+      document,
+      button: document.getElementById('btnAiProofread'),
+      callApi: callProofreadingApi,
+      onStatus: (message) => {
+        document.getElementById('aiCheckStatus').textContent = message;
+      },
+      onNotify: showToast
+    }).catch(() => {});
+  }
+
+  async function callProofreadingApi(payload) {
+    if (typeof window.churchAPI === 'function') {
+      const result = await window.churchAPI('proofreadFields', payload);
+      if (result && result.status === 'success') return result.data;
+      throw new Error((result && result.message) || 'AI 服務回傳錯誤');
+    }
+
+    const response = await fetch(CONFIG.LKCSCHEDULE_GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'ministry_proofreadFields',
+        token: CONFIG.SHARED_TOKEN,
+        data: payload
+      })
+    });
+    const result = await response.json();
+    if (!response.ok || !result || result.status !== 'success') {
+      throw new Error((result && result.message) || `HTTP ${response.status}`);
+    }
+    return result.data;
+  }
 
   function initCharCounters() {
     document.querySelectorAll('textarea.form-input').forEach((textarea) => {
@@ -392,6 +507,7 @@
     document.querySelectorAll('textarea.form-input').forEach(el => {
       if (el._updateCharCount) el._updateCharCount();
     });
+    if (window.SundayBulletinAI) SundayBulletinAI.clearSuggestions(document);
   }
 
 

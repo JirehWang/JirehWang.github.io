@@ -822,6 +822,42 @@ function ministry_parseWithAI(data) {
   return result;
 }
 
+function ministry_proofreadFields(data) {
+  const fields = Array.isArray(data && data.fields)
+    ? data.fields
+        .filter(field => field && field.id != null && String(field.text || '').trim())
+        .map(field => ({ id: String(field.id), text: String(field.text || '').trim() }))
+    : [];
+  if (!fields.length) return { suggestions: [] };
+  if (fields.length > 30) throw new Error('一次最多校對 30 個欄位');
+
+  const systemPrompt = `你是教會週報的繁體中文校對助手。請只檢查錯字、漏字、明顯標點與不自然的詞語，不改變原意、日期、人名、經文、專有名詞或格式。
+請只輸出純 JSON 物件，格式必須是 {"suggestions":[{"id":"欄位 id","suggestion":"校對後完整文字","changed":true,"note":"簡短說明"}]}。
+每個輸入 id 都必須回傳一次；沒有需要修改時 suggestion 請原樣回傳、changed 為 false、note 請填「原文無明顯錯字」。不要加入輸入以外的 id，不要輸出 Markdown 或其他說明。`;
+  const userText = JSON.stringify(fields);
+  const result = callGemini(systemPrompt, userText, { useCache: true });
+  const sourceById = new Map(fields.map(field => [field.id, field]));
+  const resultItems = result && Array.isArray(result.suggestions) ? result.suggestions : [];
+  const resultById = new Map();
+  resultItems.forEach(item => {
+    const id = item && item.id != null ? String(item.id) : '';
+    if (sourceById.has(id) && !resultById.has(id)) resultById.set(id, item);
+  });
+
+  return { suggestions: fields.map(field => {
+    const item = resultById.get(field.id) || {};
+    const suggestion = typeof item.suggestion === 'string' && item.suggestion.trim()
+      ? item.suggestion.trim()
+      : field.text;
+    return {
+      id: field.id,
+      suggestion,
+      changed: typeof item.changed === 'boolean' ? item.changed : suggestion !== field.text,
+      note: typeof item.note === 'string' ? item.note.trim() : ''
+    };
+  }) };
+}
+
 function _ministryGetSystemPrompt(headers, members, groupPrompt, template) {
   let templateRules = "";
   if (template === "團契聚會表模板") {

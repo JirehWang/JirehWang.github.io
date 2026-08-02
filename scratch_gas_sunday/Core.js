@@ -125,6 +125,7 @@ function _handleMinistryRequest(body) {
 
       // AI
       case 'ministry_parseWithAI':          result = { status: 'success', data: ministry_parseWithAI(data) }; break;
+      case 'ministry_proofreadFields':     result = { status: 'success', data: ministry_proofreadFields(data) }; break;
 
       // 小組成員身分管理（橋接到小組系統）
       case 'ministry_getGroupMembers':
