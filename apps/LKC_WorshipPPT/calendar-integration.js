@@ -5,6 +5,7 @@
     const profile = window.activeWorshipTemplateProfile || {};
     const eventLabel = profile.calendarSelector && profile.calendarSelector.typeFullName || '講道資訊-台語';
     if (!date) return status('請先選擇禮拜日期');
+    let stage = '行事曆';
     try {
       button.disabled = true;
       status('正在讀取行事曆與週報資料…');
@@ -18,12 +19,15 @@
       let libraryResults = [];
       if (event) {
         window.TaiwaneseWorshipCalendarAdapter.applyCalendarEvent(event, model);
+        stage = '經文';
         await window.generateCalendarContent();
+        stage = '聖詩／啟應文';
         libraryResults = Array.isArray(profile.librarySections) && profile.librarySections.length
           ? await window.loadPptLibraryContent()
           : [];
         calendarSummary = `已帶入「${eventLabel}」：${event.title || date}`;
       }
+      stage = '週報';
       const bulletinResult = await bulletinPromise;
       render();
       const loadedPages = libraryResults.reduce((total, item) => total + (item.pageCount || 0), 0);
@@ -42,7 +46,7 @@
         window.alert(reminderApi.formatMissingSourceReminder(reminders));
       }
     } catch (error) {
-      status(`行事曆帶入失敗：${error.message}`);
+      status(`${stage}帶入失敗：${error.message}`);
     } finally {
       button.disabled = false;
     }

@@ -11,3 +11,9 @@ test('shows one non-blocking warning dialog that names missing import sources', 
   assert.match(source, /formatMissingSourceReminder\(reminders\)/);
   assert.match(source, /status\(`\$\{calendarSummary\}/);
 });
+
+test('reports the stage that failed instead of labeling every import error as calendar failure', () => {
+  assert.match(source, /let stage = '行事曆'/);
+  assert.match(source, /stage = '聖詩／啟應文'/);
+  assert.match(source, /status\(`\$\{stage\}帶入失敗：\$\{error\.message\}`\)/);
+});
