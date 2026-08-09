@@ -3,6 +3,12 @@
   localStorage.setItem('att_uid', attUserId);
   
   var attSyncTimer = null;
+  var attTempTimer = null;
+  var attTempModulePromise = null;
+  var ATTENDANCE_TEMP_FLUSH_INTERVAL_MS = 5000;
+  var ATTENDANCE_UI_QUEUE_KEY = 'attendance_ui_pending_v1';
+  var MAX_ATTENDANCE_UI_QUEUE = 100;
+  var attTempFlushInFlight = false;
   var attIsRendering = false; 
   var currentAttType = '';
   var html5QrCode = null; 
@@ -15,6 +21,122 @@
   var attSearchMemoryAnchor = null;
   
   var globalGroupConfig = {};
+
+  function getAttendanceTempModule() {
+    if (!attTempModulePromise) {
+      var moduleUrl = new URL('../../firebase/attendance-temp.js', document.baseURI).href;
+      attTempModulePromise = import(moduleUrl);
+    }
+    return attTempModulePromise;
+  }
+
+  function loadAttendanceTempQueue() {
+    try {
+      var parsed = JSON.parse(localStorage.getItem(ATTENDANCE_UI_QUEUE_KEY) || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function saveAttendanceTempQueue(queue) {
+    localStorage.setItem(ATTENDANCE_UI_QUEUE_KEY, JSON.stringify(queue.slice(-MAX_ATTENDANCE_UI_QUEUE)));
+  }
+
+  function enqueueAttendanceTemp(uid, checked) {
+    var normalizedUid = String(uid || '').trim().toUpperCase();
+    if (!/^LK\d+$/i.test(normalizedUid)) throw new Error('點名 UID 無效');
+    if (!currentAttType) throw new Error('尚未選擇點名場次');
+    var queue = loadAttendanceTempQueue();
+    var item = queue.find(function(entry) { return entry.scope === currentAttType && entry.uid === normalizedUid; });
+    if (!item) {
+      if (queue.length >= MAX_ATTENDANCE_UI_QUEUE) throw new Error('點名重試佇列已滿');
+      var now = Date.now();
+      item = {
+        id: now + '-' + Math.random().toString(36).slice(2),
+        scope: currentAttType,
+        uid: normalizedUid,
+        operatorId: attUserId,
+        requestId: currentAttType + ':' + normalizedUid + ':' + attUserId + ':' + now,
+        updatedAt: now
+      };
+      queue.push(item);
+    }
+    item.checked = checked === true;
+    item.updatedAt = Date.now();
+    saveAttendanceTempQueue(queue);
+    return item;
+  }
+
+  function flushAttendanceTempQueue() {
+    if (attTempFlushInFlight) return Promise.resolve({ attempted: 0, acknowledged: 0 });
+    var queue = loadAttendanceTempQueue();
+    if (!queue.length) return Promise.resolve({ attempted: 0, acknowledged: 0 });
+    attTempFlushInFlight = true;
+    var acknowledged = 0;
+    return getAttendanceTempModule().then(function(store) {
+      var batch = queue.slice(0, 12);
+      return Promise.all(batch.map(function(item) {
+        item.attempts = Number(item.attempts || 0) + 1;
+        var writeRequestId = item.requestId;
+        var writeUpdatedAt = item.updatedAt;
+        return store.writeAttendanceTemp({
+          scope: item.scope,
+          uid: item.uid,
+          checked: item.checked,
+          operatorId: item.operatorId,
+          requestId: item.requestId,
+          updatedAt: writeUpdatedAt
+        }).then(function() {
+          var index = queue.findIndex(function(entry) {
+            return entry.id === item.id && entry.requestId === writeRequestId && entry.updatedAt === writeUpdatedAt;
+          });
+          if (index !== -1) { queue.splice(index, 1); acknowledged++; }
+        }).catch(function(error) {
+          item.lastError = String(error && error.message || error);
+          console.warn('Firebase 點名暫存 ACK 失敗，保留重試', error);
+        });
+      })).then(function() {
+        saveAttendanceTempQueue(queue);
+        return { attempted: batch.length, acknowledged: acknowledged };
+      });
+    }).finally(function() {
+      attTempFlushInFlight = false;
+    });
+  }
+
+  function flushAttendanceTempToBackend(scope) {
+    flushAttendanceTempToBackendAsync(scope).catch(function(error) {
+      console.warn('點名暫存批次同步稍後重試', error);
+    });
+  }
+
+  function flushAttendanceTempToBackendAsync(scope) {
+    if (!scope || typeof google === 'undefined' || !google.script || !google.script.run) {
+      return Promise.resolve({ ok: true, skipped: true });
+    }
+    return new Promise(function(resolve, reject) {
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(reject)
+        .flushAttendanceTemp(scope, attUserId);
+    });
+  }
+
+  function startAttendanceTempSync() {
+    if (attTempTimer) clearInterval(attTempTimer);
+    flushAttendanceTempQueue().catch(function(error) { console.warn('點名暫存稍後重試', error); });
+    flushAttendanceTempToBackend(currentAttType);
+    attTempTimer = setInterval(function() {
+      flushAttendanceTempQueue().catch(function(error) { console.warn('點名暫存稍後重試', error); });
+      flushAttendanceTempToBackend(currentAttType);
+    }, ATTENDANCE_TEMP_FLUSH_INTERVAL_MS);
+  }
+
+  function stopAttendanceTempSync() {
+    if (attTempTimer) clearInterval(attTempTimer);
+    attTempTimer = null;
+  }
 
   function updateBadgeUI(sleepMode) {
     var badge = document.getElementById('presentCountBadge');
@@ -299,11 +421,43 @@
     if (isChecked) checkbox.parentElement.classList.add('selected');
     else checkbox.parentElement.classList.remove('selected');
     localPendingActions[uid] = { time: Date.now(), state: isChecked };
-    google.script.run.withFailureHandler(function(err) {
+    if (!/^LK\d+$/i.test(String(uid || '').trim())) {
+      google.script.run.withFailureHandler(function(err) {
         checkbox.checked = !isChecked;
         checkbox.parentElement.classList.toggle('selected');
         delete localPendingActions[uid];
-    }).syncClickToServer(uid, isChecked, currentAttType, attUserId);
+      }).syncClickToServer(uid, isChecked, currentAttType, attUserId);
+      return;
+    }
+    try {
+      enqueueAttendanceTemp(uid, isChecked);
+      flushAttendanceTempQueue().catch(function(error) { console.warn('點名暫存稍後重試', error); });
+      flushAttendanceTempToBackend(currentAttType);
+    } catch (error) {
+      checkbox.checked = !isChecked;
+      checkbox.parentElement.classList.toggle('selected');
+      delete localPendingActions[uid];
+      console.warn('點名暫存建立失敗', error);
+    }
+  }
+
+  function openAttendanceAddModal() {
+    var modal = document.getElementById('attendanceAddModal');
+    if (modal) modal.style.display = 'block';
+
+    var nameInput = document.getElementById('editName_Att');
+    var genderSelect = document.getElementById('editGender_Att');
+    var noteInput = document.getElementById('editNote_Att');
+    var excludedInput = document.getElementById('editIsExcluded_Att');
+    if (nameInput) nameInput.value = '';
+    if (genderSelect) genderSelect.selectedIndex = 0;
+    if (noteInput) noteInput.value = '';
+    if (excludedInput) excludedInput.checked = false;
+  }
+
+  function closeAttendanceAddModal() {
+    var modal = document.getElementById('attendanceAddModal');
+    if (modal) modal.style.display = 'none';
   }
 
   function saveNewMemberFromAttendance() {
@@ -451,6 +605,7 @@ function executeRevoke(uid, displayName) {
   
   function startAutoSync() { 
     stopAutoSync(); 
+    startAttendanceTempSync();
     attSyncTimer = setInterval(function() {
       if (Date.now() - lastActiveTime > 20000) {
         if (!isSleeping) { isSleeping = true; updateBadgeUI(true); }
@@ -460,9 +615,9 @@ function executeRevoke(uid, displayName) {
     }, 10000); 
   }
   
-  function stopAutoSync() { if (attSyncTimer) clearInterval(attSyncTimer); }
+  function stopAutoSync() { if (attSyncTimer) clearInterval(attSyncTimer); stopAttendanceTempSync(); }
 
-  function submitAttendance() {
+  async function submitAttendance() {
     var checked = document.querySelectorAll('.att-item.selected input:checked:not([disabled])');
     var memberCount = checked.length;
     var maleEl = document.getElementById('newFriendsMale');
@@ -489,6 +644,14 @@ function executeRevoke(uid, displayName) {
     var btn = document.getElementById('submitBtn');
     var originalText = "確認送出";
     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 處理中...'; }
+    try {
+      await flushAttendanceTempQueue();
+      await flushAttendanceTempToBackendAsync(currentAttType);
+    } catch (error) {
+      alert('點名暫存尚未取得 Firebase ACK，請確認網路後重試。');
+      if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
+      return;
+    }
     attIsRendering = true; 
     var dateInput = document.getElementById('attendanceDateInput');
     var dateText = dateInput ? formatDateToSlash(dateInput.value) : '';
@@ -553,7 +716,8 @@ function executeRevoke(uid, displayName) {
 
   function toggleScanner() {
     if (!attUserId) attUserId = localStorage.getItem('att_uid');
-    var scannerUrl = "https://jirehwang.github.io/LKC1958_June_1.github.io/apps/qrcodescanner.github.io/?userId=" + attUserId;
+    localStorage.setItem('attendance_scope', currentAttType || '');
+    var scannerUrl = "https://jirehwang.github.io/LKC1958_June_1.github.io/apps/qrcodescanner.github.io/?userId=" + encodeURIComponent(attUserId) + "&mode=" + encodeURIComponent(currentAttType || '') + "&context=attendance";
     window.open(scannerUrl, '_blank');
     startAutoSync();
   }

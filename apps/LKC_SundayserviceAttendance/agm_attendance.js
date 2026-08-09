@@ -625,7 +625,7 @@ function isOfficialMemberActive(member) {
     if (!scannerWindow) alert('⚠️ 瀏覽器阻擋了掃描器視窗，請允許彈出視窗後再試。');
   };
 
-  window.submitAgmCheckins = function() {
+  window.submitAgmCheckins = async function() {
     if (!hasAgmSession()) {
       alert('請先建立或選擇場次');
       return;
@@ -646,6 +646,18 @@ function isOfficialMemberActive(member) {
       `🏛️ 應到會員出席: ${payload.cat1Present} / ${payload.cat1Total} 人 (${quorumText})\n\n` +
       `將送出點名紀錄至 Google Sheets「和會點名紀錄」工作表紀錄存檔。`;
     if (!confirm(confirmMsg)) return;
+
+    if (typeof flushAttendanceTempQueue === 'function') {
+      try {
+        await flushAttendanceTempQueue();
+        if (typeof flushAttendanceTempToBackendAsync === 'function') {
+          await flushAttendanceTempToBackendAsync(payload.scope);
+        }
+      } catch (error) {
+        alert('會員大會點名暫存尚未取得 Firebase ACK，請確認網路後重試。');
+        return;
+      }
+    }
 
     if (typeof google !== 'undefined' && google.script && google.script.run) {
       google.script.run

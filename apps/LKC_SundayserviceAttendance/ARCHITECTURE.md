@@ -2,6 +2,14 @@
 
 本專案為林口教會（LKC）主日出席點名系統的前端 Web 應用程式，部署於 GitHub Pages。它以單頁面應用程式（SPA）架構運作，並利用客製化的 GAS 橋接層與 Firebase 實時資料庫進行點名狀態同步。
 
+## 2026-08 暫存與 ACK 同步策略
+
+- `firebase/attendance-temp.js` 使用 Firebase RTDB `attendanceTemp/{scope}/{UID}` 作為即時暫存；scope 會區隔一般場次與 `AGM:<sessionId>`，scope + UID 是冪等鍵。
+- 勾選／取消先由瀏覽器寫入 Firebase，等 Firebase ACK 後才移除本機待辦；網路錯誤保留最多 100 筆佇列並重試。取消不是直接刪除，而是短期 `checked=false` tombstone，讓其他裝置也能看見取消。
+- `attendance.js` 與 QR scanner 每 5 秒呼叫 GAS `flushAttendanceTemp`。GAS 以批次方式寫入 `SYNC_TEMP`，單一 scope 取得 script lock；批次上限與 Firebase child 的固定鍵避免逐筆 GAS 請求造成塞車或重複列。
+- scanner 開啟網址會明確帶上 `mode=<scope>`，不再依賴 GAS Script Properties 的可變裝置模式。會員大會、一般點名、場次 QR 共用同一個 Firebase staging protocol。
+- Firebase 前端寫入需要 Anonymous Authentication；部署前請同時啟用 Firebase Console 的 Anonymous provider，並套用 `firebase/database.rules.attendance-temp.json`。正式送出時會先等 Firebase ACK 與後台 flush ACK。
+
 ---
 
 ## 系統定位與依存關係

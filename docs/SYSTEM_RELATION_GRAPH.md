@@ -397,6 +397,25 @@ flowchart TB
 
 ## 5. Firebase / CacheService 失效關聯
 
+### 主日／會員大會點名即時暫存資料流
+
+```mermaid
+flowchart LR
+    Scanner[QR scanner / attendance.js] -->|Firebase ACK| Temp[Firebase RTDB<br/>attendanceTemp/{scope}/{UID}]
+    Scanner -->|每 5 秒批次| Flush[GAS flushAttendanceTemp]
+    Temp --> Flush
+    Flush -->|script lock + idempotent upsert/delete| Sync[SYNC_TEMP]
+    Sync -->|fallback / durable staging| Attendance[AttendanceDB / OfficialMemberDB]
+    Temp -->|scope read| Viewer[getSmartAttendanceList / getAgmCheckinState]
+    Flush -->|ETag If-Match ACK| Temp
+```
+
+| 點名元件 | Firebase scope / key | 後台批次 action | 失敗策略 |
+|---|---|---|---|
+| 一般 QR／手動點名 | `scope` + UID | `flushAttendanceTemp` → `SYNC_TEMP` | Firebase ACK 未到：前端最多保留 100 筆並重試 |
+| 場次 QR／會員大會 | `AGM:<sessionId>` + UID | 同上，並保留 AGM leave guard | ETag 衝突不刪新資料，下一個 5 秒批次再處理 |
+| 正式送出 | 同一 scope | 先 flush，再寫正式出席紀錄 | flush 失敗不清除暫存、不回報送出完成 |
+
 ```mermaid
 flowchart LR
     WriteAction["寫入 action<br/>save/update/delete/create"]

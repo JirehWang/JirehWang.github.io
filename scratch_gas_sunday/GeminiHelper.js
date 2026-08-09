@@ -46,6 +46,36 @@ function _getAiConfig(keyName, defaultValue) {
   return defaultValue || "";
 }
 
+const _AI_PROVIDER_BY_API_KEY = {
+  GEMINI_API_KEY: "Gemini",
+  NVIDIA_API_KEY: "NVIDIA",
+  OPENROUTER_API_KEY: "OpenRouter"
+};
+
+/**
+ * 依 AI_Config 中 *_API_KEY 的列出順序決定 AI 備援順序。
+ * 試算表未提供有效順序時，才回到既有預設順序。
+ */
+function _getAiProviderOrder() {
+  const fallback = ["Gemini", "NVIDIA", "OpenRouter"];
+  try {
+    const sheet = SpreadsheetApp.openById("1kkRbpjXGdwv7ggzM7ojPnKLUwkV7CgoxzL7ZzOwZ2l4")
+      .getSheetByName("AI_Config");
+    if (!sheet) return fallback;
+
+    const order = [];
+    sheet.getDataRange().getValues().forEach(row => {
+      const keyName = String(row && row[0] || "").trim().toUpperCase();
+      const provider = _AI_PROVIDER_BY_API_KEY[keyName];
+      if (provider && order.indexOf(provider) === -1) order.push(provider);
+    });
+    return order.length ? order : fallback;
+  } catch (e) {
+    console.warn("讀取 AI_Config 供應商順序失敗，改用預設順序：" + e);
+    return fallback;
+  }
+}
+
 function _getGeminiApiKey() {
   return _getAiConfig("GEMINI_API_KEY", "");
 }
@@ -94,9 +124,8 @@ function callGemini(systemPrompt, userText, opts) {
   }
   props.setProperty(countKey, (currentCount + 1).toString());
 
-  // ── 3. 讀取優先順序並進行備援呼叫 (Gemini ➔ NVIDIA ➔ OpenRouter) ──
-  const priorityStr = _getAiConfig("AI_PRIORITY", "Gemini, NVIDIA, OpenRouter");
-  const priorityList = priorityStr.split(",").map(function(s) { return s.trim(); });
+  // ── 3. 依 AI_Config 的 *_API_KEY 列出順序進行備援呼叫 ──
+  const priorityList = _getAiProviderOrder();
   let lastError = "";
 
   for (let i = 0; i < priorityList.length; i++) {

@@ -1,0 +1,12 @@
+{
+  "rules": {
+    "attendanceTemp": {
+      "$scope": {
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "auth != null && newData.hasChildren(['uid', 'checked', 'operatorId', 'requestId', 'updatedAt', 'expiresAt']) && newData.child('uid').val() === $uid && newData.child('requestId').isString() && newData.child('requestId').val().length <= 240 && newData.child('updatedAt').isNumber() && newData.child('expiresAt').isNumber() && newData.child('expiresAt').val() >= newData.child('updatedAt').val()"
+        }
+      }
+    }
+  }
+}

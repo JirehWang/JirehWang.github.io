@@ -95,3 +95,13 @@ service cloud.firestore {
 | `firebase-config.js` | 從共用 bootstrap 取得 Firebase App，並初始化 Firestore 與 RTDB |
 | `firebase-cache.js` | 快取 API：`cacheGet` / `cacheSet` / `cacheDelete` / `cacheGetOrFetch` |
 | `example.html` | 手動測試頁，含三個按鈕 |
+
+## 點名即時暫存（attendanceTemp）
+
+點名不再以每一次掃描都呼叫 GAS。前端使用 `attendance-temp.js` 寫入：
+
+`attendanceTemp/{encodeURIComponent(scope)}/{UID}`
+
+同一個 `scope + UID` 是固定冪等鍵；寫入內容包含 `requestId`、`updatedAt`、`expiresAt` 與 `checked`。Firebase ACK 成功後前端才移除本機佇列，失敗會保留並重試。每 5 秒由前端呼叫 GAS `flushAttendanceTemp`，GAS 批次更新 `SYNC_TEMP`，完成後以 ETag 條件 ACK 清除已處理資料。
+
+上線前請在 Firebase Console 啟用 Anonymous Authentication，並部署 `database.rules.attendance-temp.json` 的 `attendanceTemp` 規則。規則要求登入狀態、固定欄位與合法 UID；未完成設定時，前端會顯示待重試狀態，不會把未取得 ACK 的掃描當成成功。
