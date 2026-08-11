@@ -138,6 +138,7 @@
   // 統一 21600 = 6 小時。實際更新依靠 invalidation 機制（前端 + GAS + onEdit）
   // TTL 只是「兜底」：若 invalidation 全部漏接，最壞 6 小時後自動刷新
   const _SIX_HOURS = 21600;
+  const _NINETY_DAYS = 90 * 24 * 60 * 60;
   const _CACHEABLE_ACTIONS = {
     // 主日系統 — 全域資料
     'getGroups':                    _SIX_HOURS,
@@ -148,8 +149,8 @@
     'getAllGroupMembers':           _SIX_HOURS,
     'getMemberSuggestions':         _SIX_HOURS,
 
-    // 主日系統 — 點名介面（冷啟動加速）
-    'getSmartAttendanceList':       _SIX_HOURS,  // 點名介面：會友 + 出席計數 + 同步狀態（首次載入）
+    // 主日系統 — 僅匿名近 90 天出席排序索引可進 Firebase；含姓名名單 direct-GAS。
+    'getAttendanceSortIndex':       _NINETY_DAYS,
     'checkGroupStatus':             _SIX_HOURS,  // 小組點名首頁：組員 + 初始化狀態
 
     // 主日系統 — 統計 / 圖表
@@ -195,13 +196,18 @@
     'cal_getEvent':                 _SIX_HOURS,   // 單一事項詳情
 
     // 兒童點名系統 (children_ 前綴)
-    'children_getAllMembers':            _SIX_HOURS,
-    'children_getSmartAttendanceList':   _SIX_HOURS,
-    'children_getGroupConfig':          _SIX_HOURS,
-    'children_getAttendanceStats':       _SIX_HOURS,
-    'children_getAttendanceTrend':       _SIX_HOURS,
-    'children_getCategoryChartData':     _SIX_HOURS
+    'children_getAttendanceSortIndex':   _NINETY_DAYS
   };
+
+  // These routes are served by GAS projects outside this repository. Until
+  // those projects ship the v2 GAS write-through contract, bypass shared
+  // Firebase rather than accepting old entries or pretending this repo can
+  // populate them. They keep their existing direct-GAS response contract.
+  const _EXTERNAL_CACHE_V2_PENDING_RE = /^(memberStatus_|children_)/;
+  function _requiresExternalCacheV2(realAction) {
+    return _EXTERNAL_CACHE_V2_PENDING_RE.test(realAction) &&
+      realAction !== 'children_getAttendanceSortIndex';
+  }
 
   // 寫入時要連帶清除的 read-cache（key = 寫入 action，value = 要清掉的 read action 陣列）
   // 使用 cacheDeleteAll 清整個 topic（包含所有 subkey），所以不分 data 變體
@@ -220,8 +226,8 @@
 
     // ── 主日點名異動 ──
     'createAttendanceGroup':  ['getGroupConfig'],
-    'saveAttendance':         ['getWeeklyReport', 'getAttendanceStats', 'getAttendanceTrend', 'getStats', 'getAllGroupsStats', 'getSmartAttendanceList', 'getCategoryChartData', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
-    'revokeAttendance':       ['getWeeklyReport', 'getAttendanceStats', 'getAttendanceTrend', 'getStats', 'getAllGroupsStats', 'getSmartAttendanceList', 'getCategoryChartData', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
+    'saveAttendance':         ['getWeeklyReport', 'getAttendanceStats', 'getAttendanceTrend', 'getStats', 'getAllGroupsStats', 'getAttendanceSortIndex', 'getCategoryChartData', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
+    'revokeAttendance':       ['getWeeklyReport', 'getAttendanceStats', 'getAttendanceTrend', 'getStats', 'getAllGroupsStats', 'getAttendanceSortIndex', 'getCategoryChartData', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
 
     // ── 小組點名異動 ──
     'submitAttendance':       ['getWeeklyReport', 'getStats', 'getAllGroupsStats', 'checkGroupStatus', 'getCategoryChartData', 'memberStatus_getMembers', 'memberStatus_getProfile', 'memberStatus_getServiceIndex'],
@@ -285,8 +291,8 @@
     'children_addMember':              ['children_getAllMembers', 'children_getSmartAttendanceList', 'children_getAttendanceStats'],
     'children_updateMember':           ['children_getAllMembers', 'children_getSmartAttendanceList', 'children_getAttendanceStats'],
     'children_deleteMember':           ['children_getAllMembers', 'children_getSmartAttendanceList', 'children_getAttendanceStats'],
-    'children_saveAttendance':         ['children_getSmartAttendanceList', 'children_getAttendanceStats', 'children_getAttendanceTrend', 'children_getCategoryChartData'],
-    'children_revokeAttendance':       ['children_getSmartAttendanceList', 'children_getAttendanceStats', 'children_getAttendanceTrend', 'children_getCategoryChartData'],
+    'children_saveAttendance':         ['children_getAttendanceSortIndex'],
+    'children_revokeAttendance':       ['children_getAttendanceSortIndex'],
     'children_createAttendanceGroup':  ['children_getGroupConfig']
   };
 
@@ -439,13 +445,18 @@
 
     try {
       // 🔥 可快取 → 走 Firebase（cache 路徑：cache/{action}/{dataHash}）
-      if (ttl) {
+      if (ttl && !_requiresExternalCacheV2(realAction)) {
         const fb = await _getFirebaseCache();
         if (fb && fb.cacheGetOrFetch) {
           const subkey = _makeSubkey(data);
+          // This state belongs to the whole cache attempt, including its
+          // fallback catch: the catch must not retry a loader that already
+          // reached GAS and failed.
+          let gasAttempted = false;
           try {
             let freshDirect = null;
             const cacheLoader = async () => {
+              gasAttempted = true;
               freshDirect = await _doDirectCall(realAction, data);
               return freshDirect.result;
             };
@@ -469,33 +480,8 @@
               hit: cacheResult.source === 'cache',
               miss: cacheResult.source !== 'cache'
             };
-            if (_isInvalidApiResponse(result)) {
-              if (fb.cacheDelete) {
-                fb.cacheDelete(realAction, subkey).catch(err => {
-                  console.warn('[firebase-cache] delete invalid cache failed:', realAction, err);
-                });
-              } else if (fb.cacheDeleteAll) {
-                fb.cacheDeleteAll(realAction).catch(err => {
-                  console.warn('[firebase-cache] delete invalid cache topic failed:', realAction, err);
-                });
-              }
-              logApi('warn', 'invalid cache response, fallback to GAS', {
-                errorType: 'INVALID_CACHE_RESPONSE',
-                cache: Object.assign({}, cacheMeta, { invalid: true, fallback: true }),
-                payload,
-                responseStatus: result.status
-              });
-              const fallbackDirect = await _doDirectCall(realAction, data);
-              const fallbackResult = fallbackDirect.result;
-              logApi('warn', 'fallback GAS completed after invalid cache', {
-                errorType: 'CACHE_FALLBACK_COMPLETED',
-                cache: Object.assign({}, cacheMeta, { source: 'fallback-gas', fallback: true }),
-                payload: fallbackDirect.payload,
-                httpStatus: fallbackDirect.httpStatus,
-                responseStatus: fallbackResult && fallbackResult.status
-              });
-              return fallbackResult;
-            }
+            // Invalid or legacy Firebase entries are treated as misses by the
+            // cache module. Do not delete or retry them from the browser.
             const durationMs = Date.now() - startedAt;
             if (cacheResult.source === 'fresh' || durationMs > 3000) {
               logApi(durationMs > 5000 ? 'warn' : 'info', 'cacheable API completed', {
@@ -508,7 +494,7 @@
             return result;
           } catch (e) {
             console.warn('[firebase-cache]', realAction, '失敗，回退直接呼叫:', e);
-            logApi('warn', 'firebase cache failed, fallback to GAS', {
+            logApi('warn', 'firebase cache read failed, direct GAS once', {
               errorType: 'FIREBASE_CACHE_ERROR',
               error: e && e.message ? e.message : String(e),
               cache: {
@@ -520,6 +506,14 @@
                 fallback: true
               }
             });
+            // If GAS was already the single-flight loader, its network/JSON
+            // failure is the response for this request. Retrying here would
+            // double both GAS and possible Sheet work.
+            if (gasAttempted) throw e;
+            // The cache module single-flights a miss. Return from this catch
+            // so a Firebase failure cannot fall through to a second GAS call.
+            const direct = await _doDirectCall(realAction, data);
+            return direct.result;
           }
         }
       }
@@ -547,7 +541,9 @@
       // 🗑️ 寫入 action 觸發整個 topic 的 cache 失效（不分 data 變體）
       // ⚠️ 改為 await：避免使用者寫入後立刻去讀（例：改完覆寫立刻看公佈欄），
       //    invalidation 還沒完成 → 讀到舊 cache → 看不到變動
-      const toInvalidate = _INVALIDATE_ON_WRITE[realAction];
+      // Kept only as a compatibility map for older pages. Server-side GAS is
+      // now the sole cache mutator, so this client-side branch is disabled.
+      const toInvalidate = [];
       if (toInvalidate && toInvalidate.length > 0) {
         const fb = await _getFirebaseCache();
         if (fb && fb.cacheDeleteAll) {
@@ -562,7 +558,7 @@
               })
             ));
             console.log('[invalidate] cleared:', uniqueTopics.join(', '));
-            logApi('info', 'cache invalidated after write', {
+            logApi('info', 'server-owned cache sync after write', {
               invalidation: {
                 writeAction: realAction,
                 topics: uniqueTopics,
@@ -591,8 +587,8 @@
 
   // 對外暴露：手動清除整個 topic 的 cache
   window.churchAPIInvalidate = async function(topic) {
-    const fb = await _getFirebaseCache();
-    if (fb && fb.cacheDeleteAll) await fb.cacheDeleteAll(topic);
+    console.warn('[firebase-cache] client invalidation is disabled; request the GAS maintenance action instead:', topic);
+    return false;
   };
 
   // ============================================================

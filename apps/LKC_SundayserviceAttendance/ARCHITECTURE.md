@@ -5,8 +5,10 @@
 ## 2026-08 暫存與 ACK 同步策略
 
 - `firebase/attendance-temp.js` 使用 Firebase RTDB `attendanceTemp/{scope}/{UID}` 作為即時暫存；scope 會區隔一般場次與 `AGM:<sessionId>`，scope + UID 是冪等鍵。
-- 勾選／取消先由瀏覽器寫入 Firebase，等 Firebase ACK 後才移除本機待辦；網路錯誤保留最多 100 筆佇列並重試。取消不是直接刪除，而是短期 `checked=false` tombstone，讓其他裝置也能看見取消。
-- `attendance.js` 與 QR scanner 每 5 秒呼叫 GAS `flushAttendanceTemp`。GAS 以批次方式寫入 `SYNC_TEMP`，單一 scope 取得 script lock；批次上限與 Firebase child 的固定鍵避免逐筆 GAS 請求造成塞車或重複列。
+- 主日點名頁直接訂閱同一個 scope 的 Firebase `onValue`，裝置間畫面同步不等待 GAS；GAS 批次只負責把暫存落到 `SYNC_TEMP`。
+- 勾選／取消先由瀏覽器以 Firebase transaction 寫入；每個 UID 具有 `revision`、`ownerId`、`source` 與 10 分鐘 `lockedUntil`。同一 owner 可直接取消預點名，其他裝置在租約有效時不能取消；取消不是直接刪除，而是保留 `checked=false` tombstone，讓舊操作不能把狀態復活。
+- `source=manual` 維持青綠色，`source=qr` 使用深藍色；同狀態的重複 QR／手動點名是冪等 no-op，不會偷換 owner 或來源顏色。
+- `attendance.js` 與 QR scanner 每 30 秒呼叫 GAS `flushAttendanceTemp`。Firebase 暫存保留 6 小時作為競態與離線緩衝；GAS 取得 scope lock 後讀取最新 snapshot，依 `revision` 防止舊批次覆蓋 `SYNC_TEMP`。
 - scanner 開啟網址會明確帶上 `mode=<scope>`，不再依賴 GAS Script Properties 的可變裝置模式。會員大會、一般點名、場次 QR 共用同一個 Firebase staging protocol。
 - Firebase 前端寫入需要 Anonymous Authentication；部署前請同時啟用 Firebase Console 的 Anonymous provider，並套用 `firebase/database.rules.attendance-temp.json`。正式送出時會先等 Firebase ACK 與後台 flush ACK。
 
@@ -40,8 +42,9 @@
 * `attendance.html`：點名清單之卡片網格佈局。提供類別/場次下拉選單、搜尋框、出席統計 Badge、新朋友計數器與「相機掃描」控制區。
 * `attendance.js`：點名頁面的核心驅動程式。
   * **裝置辨識**：於 `localStorage` 中註冊 `att_uid`，用以識別目前操作手機，做為多端協同點名的鎖定憑證。
-  * **點名連動同步**：執行勾選時透過 `syncClickToServer` 同步給後端；此時會在前端設定 5 秒過期緩衝的 `localPendingActions` 以防 UI 閃爍。
-  * **防衝突鎖定**：若其他裝置已勾選某人，本端名單會渲染為灰色鎖定狀態（帶有 🔒 圖示），禁止本端點擊。
+  * **點名連動同步**：執行勾選／取消時先寫入 Firebase transaction，再由本機待辦佇列重試；佇列 ACK 只會移除相同 `eventId` 與版本，避免快速連點被舊 snapshot 覆蓋。
+  * **防衝突鎖定**：預點名 owner 持有 10 分鐘租約；其他裝置會依 `ownerId` 渲染灰色鎖定狀態（帶有 🔒 圖示），租約過期後才可重新取得。
+  * **來源辨識**：手動預點名維持青綠卡片，QR 預點名使用深藍卡片並顯示 `QR` 標記。
   * **QR 掃描點名**：串接 `Html5Qrcode` 調用手機後置相機解碼，匹配到名單中對應的會友 UID 後自動勾選並捲動至該卡片。
   * **會員大會 QR 點名**：`agm_attendance.js` 先建立／選取後台場次，以穩定的 `sessionId` 形成 `AGM:<sessionId>` scope；場次 QR 導向 `?agmSession=...&agmRole=scanner`，掃描器裝置加入同一場次後，再開啟共用 `qrcodescanner.github.io` 進行會員 UID 點名。
   * **自動跳轉卡**：使用 `QRious` 函式庫，動態在 `<canvas>` 繪製包含 `cat` 和 `grp` 參數與時間戳記的場次 QR Code，供同工下載並列印在門口點名處。當使用者用相機掃描該 QR，網頁加載時會偵測參數並隱藏所有導航列，強制進入該場次的「鎖定點名模式」。
@@ -125,16 +128,17 @@ graph TD
 sequenceDiagram
     participant UI as 前端卡片 (Checkbox)
     participant Local as 本地緩衝 (localPendingActions)
-    participant Proxy as api.js Proxy
-    participant Server as GAS 後端 API
+    participant Firebase as Firebase RTDB transaction
+    participant Server as GAS 批次後端
     
-    UI->>Local: 點擊勾選 (存入 localPendingActions, 5秒保護)
-    UI->>Proxy: google.script.run.syncClickToServer(uid, isChecked)
-    Proxy->>Server: POST (action=syncClickToServer)
-    Server-->>Proxy: 回傳成功狀態
-    alt 通訊成功
-        Proxy-->>UI: 完成同步，維持勾選樣式
-    else 通訊失敗
-        Proxy-->>UI: 彈出警告，還原 Checkbox 勾選狀態，移除 Local 緩衝
+    UI->>Local: 點擊 CHECK/UNCHECK (保存 eventId)
+    UI->>Firebase: transaction(revision+1, owner/source/10分鐘租約)
+    Firebase-->>UI: onValue canonical state
+    Firebase-->>Server: 30秒批次 snapshot
+    Server-->>Firebase: ETag ACK 相同版本
+    alt Firebase 暫時失敗
+        Local-->>UI: 保留待辦並重試
+    else owner 租約有效
+        Firebase-->>UI: 其他裝置顯示鎖定與來源顏色
     end
 ```

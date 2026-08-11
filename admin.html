@@ -540,10 +540,9 @@
     }
 
     async function deleteFirebaseTopics(topics) {
-        const cacheModule = await import('./firebase/firebase-cache.js');
         const targetTopics = uniqueTopics(topics);
-        await Promise.all(targetTopics.map(topic => cacheModule.cacheDeleteAll(topic)));
-        return targetTopics.length;
+        console.warn('Firebase cache is server-owned; admin refresh delegates to GAS.', targetTopics);
+        return 0;
     }
 
     async function refreshBackendCache(action) {

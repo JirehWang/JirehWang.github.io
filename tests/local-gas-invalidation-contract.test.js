@@ -13,7 +13,10 @@ for (const file of gasFiles) {
     const source = fs.readFileSync(file, 'utf8');
     assert.match(source, /function firebaseInvalidate\(topics\)/);
     assert.match(source, /method:\s*'patch'/);
-    assert.match(source, /uniqueTopics\.forEach\(topic => firebaseCacheDeleteAll\(topic\)\)/);
+    assert.match(
+      source,
+      /uniqueTopics\.forEach\(topic => (?:firebaseCacheDeleteAll\(topic\)|\{\s*firebaseCacheDeleteAll\(topic\);)/
+    );
     assert.match(source, /mode:\s*'batch'/);
     assert.match(source, /mode:\s*'fallback'/);
   });

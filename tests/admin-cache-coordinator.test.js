@@ -11,7 +11,7 @@ test('uniqueValues keeps first occurrence and removes empty values', () => {
   assert.deepEqual(uniqueValues(['a', '', 'a', null, 'b', undefined]), ['a', 'b']);
 });
 
-test('single-group refresh invalidates Firebase before warming backend cache', async () => {
+test('single-group refresh delegates cache ownership to the backend', async () => {
   const calls = [];
   const result = await refreshCacheGroup({
     topics: ['getTrackingCases', 'getClosedCases'],
@@ -24,14 +24,11 @@ test('single-group refresh invalidates Firebase before warming backend cache', a
     refreshBackend: async action => calls.push(['refresh', action])
   });
 
-  assert.deepEqual(calls, [
-    ['delete', 'getTrackingCases', 'getClosedCases'],
-    ['refresh', 'newfamily_refreshCaches']
-  ]);
+  assert.deepEqual(calls, [['refresh', 'newfamily_refreshCaches']]);
   assert.equal(result.topicCount, 2);
 });
 
-test('all-group refresh deletes all topics once, then warms backends with bounded concurrency', async () => {
+test('all-group refresh warms backends with bounded concurrency without browser deletion', async () => {
   const calls = [];
   let active = 0;
   let maxActive = 0;
@@ -53,20 +50,17 @@ test('all-group refresh deletes all topics once, then warms backends with bounde
     }
   }, { concurrency: 2 });
 
-  assert.deepEqual(calls[0], ['delete', 'a', 'shared', 'b', 'c']);
   assert.equal(maxActive, 2);
   assert.equal(result.topicCount, 4);
   assert.equal(result.backendCount, 3);
 });
 
-test('refresh stops before backend warm when invalidation fails', async () => {
-  let backendCalled = false;
+test('backend refresh failure is surfaced without any browser-side deletion', async () => {
   await assert.rejects(
     refreshCacheGroup({ topics: ['a'], backendRefresh: 'refreshOne' }, {
-      deleteTopics: async () => { throw new Error('firebase unavailable'); },
-      refreshBackend: async () => { backendCalled = true; }
+      deleteTopics: async () => { throw new Error('must not be called'); },
+      refreshBackend: async () => { throw new Error('backend unavailable'); }
     }),
-    /firebase unavailable/
+    /backend unavailable/
   );
-  assert.equal(backendCalled, false);
 });

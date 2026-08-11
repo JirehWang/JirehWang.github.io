@@ -328,16 +328,23 @@ async function callCachedListApi(action, data = {}) {
     return callApi(action, data);
   }
 
+  let gasCalled = false;
   try {
     const cache = await getFirebaseCacheModule();
     return await cache.cacheGetOrFetch(
       action,
       '_default',
-      () => callApi(action),
+      () => {
+        gasCalled = true;
+        return callApi(action, data);
+      },
       newFamilyCacheTtl
     );
   } catch (error) {
-    console.warn('[new-family-cache] fallback to GAS', error);
+    // If GAS was already the cache loader, preserve its failure instead of
+    // retrying the same request because Firebase/write-through failed.
+    if (gasCalled) throw error;
+    console.warn('[new-family-cache] Firebase read failed; direct GAS once', error);
     return callApi(action, data);
   }
 }

@@ -30,7 +30,9 @@
   async function refreshCacheGroup(config, dependencies) {
     const topics = uniqueValues(config && config.topics);
     const backendRefresh = config && config.backendRefresh;
-    await dependencies.deleteTopics(topics);
+    // Firebase is owned by GAS. Backend maintenance actions invalidate/rebuild
+    // only after their authoritative Sheet work succeeds; the admin browser
+    // must never delete shared cache itself.
     if (backendRefresh) await dependencies.refreshBackend(backendRefresh);
     return { topicCount: topics.length, backendCount: backendRefresh ? 1 : 0 };
   }
@@ -39,7 +41,6 @@
     const configs = Object.values(groups || {});
     const topics = uniqueValues(configs.flatMap(config => config.topics || []));
     const backendRefreshes = uniqueValues(configs.map(config => config.backendRefresh));
-    await dependencies.deleteTopics(topics);
     await mapWithConcurrency(
       backendRefreshes,
       options && options.concurrency ? options.concurrency : 2,

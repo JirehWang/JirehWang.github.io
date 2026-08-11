@@ -1,0 +1,9 @@
+diff --git "a/主日出席_測試版/GroupCore.js" "b/主日出席_測試版/GroupCore.js"
+--- "a/主日出席_測試版/GroupCore.js"
++++ "b/主日出席_測試版/GroupCore.js"
+@@ -124,4 +124,4 @@ function setupKeepWarmTrigger() {
+   ScriptApp.newTrigger('keepWarm')
+     .timeBased()
+-    .everyHours(4)
++    .everyDays(1)
+     .create();

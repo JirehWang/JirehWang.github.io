@@ -77,7 +77,7 @@
     const ATTENDANCE_TEMP_MODULE_URL = new URL('../../firebase/attendance-temp.js', document.baseURI).href;
     const ATTENDANCE_QR_QUEUE_KEY = 'attendance_qr_pending_v1';
     const MAX_PENDING_SCANS = 100;
-    const ATTENDANCE_TEMP_FLUSH_INTERVAL_MS = 5000;
+    const ATTENDANCE_TEMP_FLUSH_INTERVAL_MS = 30000;
     const MAX_SCAN_WRITE_BATCH = 8;
     const tempModulePromise = import(ATTENDANCE_TEMP_MODULE_URL);
     
@@ -207,6 +207,7 @@
           scope,
           uid: normalizedUid,
           operatorId,
+          source: 'qr',
           requestId: `${scope}:${normalizedUid}:${operatorId}:${now}`,
           updatedAt: now,
           attempts: 0
@@ -219,12 +220,24 @@
       return item;
     }
 
+    function updatePendingScanQueueItem(id, requestId, updatedAt, updater) {
+      const latest = loadPendingScans();
+      const index = latest.findIndex(entry => entry.id === id && entry.requestId === requestId && entry.updatedAt === updatedAt);
+      if (index === -1) return false;
+      const next = updater(latest[index]);
+      if (next === null) latest.splice(index, 1);
+      else if (next) latest[index] = next;
+      savePendingScans(latest);
+      return true;
+    }
+
     async function flushPendingScans() {
       if (pendingScanFlush) return { attempted: 0, acknowledged: 0 };
       const queue = loadPendingScans();
       if (!queue.length) return { attempted: 0, acknowledged: 0 };
       pendingScanFlush = true;
       let acknowledged = 0;
+      let successfulWrites = 0;
       try {
         const store = await tempModulePromise;
         const batch = queue.slice(0, MAX_SCAN_WRITE_BATCH);
@@ -236,20 +249,26 @@
               uid: item.uid,
               checked: item.checked !== false,
               operatorId: item.operatorId,
+              source: 'qr',
               requestId: item.requestId,
               updatedAt: item.updatedAt
             });
-            const index = queue.findIndex(entry => entry.id === item.id && entry.requestId === item.requestId);
-            if (index !== -1) {
-              queue.splice(index, 1);
+            successfulWrites++;
+            if (updatePendingScanQueueItem(item.id, item.requestId, item.updatedAt, () => null)) {
               acknowledged++;
             }
           } catch (error) {
-            item.lastError = String(error && error.message || error);
+            updatePendingScanQueueItem(item.id, item.requestId, item.updatedAt, current => ({
+              ...current,
+              attempts: Number(current.attempts || 0) + 1,
+              lastError: String(error && error.message || error)
+            }));
             console.warn('Firebase temp write ACK failed; retrying', item.uid, error);
           }
         }));
-        savePendingScans(queue);
+        if (successfulWrites && loadPendingScans().length) {
+          setTimeout(() => { flushPendingScans(); }, 0);
+        }
         return { attempted: batch.length, acknowledged };
       } catch (error) {
         console.warn('Firebase temp module unavailable; pending scans will retry', error);
@@ -365,7 +384,6 @@
         const result = await flushPendingScans();
         tip.innerText = result.acknowledged ? "✅ 已取得 Firebase ACK：" + data : "⏳ 已排入重試佇列：" + data;
         tip.style.background = result.acknowledged ? "#28a745" : "#f59e0b";
-        flushSheetTemp();
       } catch (error) {
         tip.innerText = "❌ 寫入失敗，請重試";
         tip.style.background = "#dc3545";

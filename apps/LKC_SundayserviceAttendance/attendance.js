@@ -4,11 +4,14 @@
   
   var attSyncTimer = null;
   var attTempTimer = null;
+  var attTempUnsubscribe = null;
   var attTempModulePromise = null;
-  var ATTENDANCE_TEMP_FLUSH_INTERVAL_MS = 5000;
+  var ATTENDANCE_TEMP_FLUSH_INTERVAL_MS = 30000;
   var ATTENDANCE_UI_QUEUE_KEY = 'attendance_ui_pending_v1';
   var MAX_ATTENDANCE_UI_QUEUE = 100;
   var attTempFlushInFlight = false;
+  var attTempFlushPromise = null;
+  var remoteStatusSequence = 0;
   var attIsRendering = false; 
   var currentAttType = '';
   var html5QrCode = null; 
@@ -43,38 +46,56 @@
     localStorage.setItem(ATTENDANCE_UI_QUEUE_KEY, JSON.stringify(queue.slice(-MAX_ATTENDANCE_UI_QUEUE)));
   }
 
-  function enqueueAttendanceTemp(uid, checked) {
+  function enqueueAttendanceTemp(uid, checked, source) {
     var normalizedUid = String(uid || '').trim().toUpperCase();
+    source = source === 'qr' ? 'qr' : 'manual';
     if (!/^LK\d+$/i.test(normalizedUid)) throw new Error('點名 UID 無效');
     if (!currentAttType) throw new Error('尚未選擇點名場次');
     var queue = loadAttendanceTempQueue();
     var item = queue.find(function(entry) { return entry.scope === currentAttType && entry.uid === normalizedUid; });
+    var now = Date.now();
     if (!item) {
       if (queue.length >= MAX_ATTENDANCE_UI_QUEUE) throw new Error('點名重試佇列已滿');
-      var now = Date.now();
+      var createdAt = now;
       item = {
-        id: now + '-' + Math.random().toString(36).slice(2),
+        id: createdAt + '-' + Math.random().toString(36).slice(2),
         scope: currentAttType,
         uid: normalizedUid,
         operatorId: attUserId,
-        requestId: currentAttType + ':' + normalizedUid + ':' + attUserId + ':' + now,
-        updatedAt: now
+        requestId: currentAttType + ':' + normalizedUid + ':' + attUserId + ':' + createdAt,
+        updatedAt: createdAt
       };
       queue.push(item);
     }
     item.checked = checked === true;
-    item.updatedAt = Date.now();
+    item.source = source;
+    item.updatedAt = now;
+    item.requestId = currentAttType + ':' + normalizedUid + ':' + attUserId + ':' + now;
     saveAttendanceTempQueue(queue);
     return item;
   }
 
+  function updateAttendanceTempQueueItem(id, requestId, updatedAt, updater) {
+    var latest = loadAttendanceTempQueue();
+    var index = latest.findIndex(function(entry) {
+      return entry.id === id && entry.requestId === requestId && entry.updatedAt === updatedAt;
+    });
+    if (index === -1) return false;
+    var next = updater(latest[index]);
+    if (next === null) latest.splice(index, 1);
+    else if (next) latest[index] = next;
+    saveAttendanceTempQueue(latest);
+    return true;
+  }
+
   function flushAttendanceTempQueue() {
-    if (attTempFlushInFlight) return Promise.resolve({ attempted: 0, acknowledged: 0 });
+    if (attTempFlushInFlight) return attTempFlushPromise || Promise.resolve({ attempted: 0, acknowledged: 0 });
     var queue = loadAttendanceTempQueue();
     if (!queue.length) return Promise.resolve({ attempted: 0, acknowledged: 0 });
     attTempFlushInFlight = true;
     var acknowledged = 0;
-    return getAttendanceTempModule().then(function(store) {
+    var successfulWrites = 0;
+    attTempFlushPromise = getAttendanceTempModule().then(function(store) {
       var batch = queue.slice(0, 12);
       return Promise.all(batch.map(function(item) {
         item.attempts = Number(item.attempts || 0) + 1;
@@ -85,29 +106,41 @@
           uid: item.uid,
           checked: item.checked,
           operatorId: item.operatorId,
+          source: item.source || 'manual',
           requestId: item.requestId,
           updatedAt: writeUpdatedAt
         }).then(function() {
-          var index = queue.findIndex(function(entry) {
-            return entry.id === item.id && entry.requestId === writeRequestId && entry.updatedAt === writeUpdatedAt;
-          });
-          if (index !== -1) { queue.splice(index, 1); acknowledged++; }
+          successfulWrites++;
+          if (updateAttendanceTempQueueItem(item.id, writeRequestId, writeUpdatedAt, function() { return null; })) {
+            acknowledged++;
+          }
         }).catch(function(error) {
-          item.lastError = String(error && error.message || error);
+          updateAttendanceTempQueueItem(item.id, writeRequestId, writeUpdatedAt, function(current) {
+            return Object.assign({}, current, {
+              attempts: Number(current.attempts || 0) + 1,
+              lastError: String(error && error.message || error)
+            });
+          });
           console.warn('Firebase 點名暫存 ACK 失敗，保留重試', error);
         });
       })).then(function() {
-        saveAttendanceTempQueue(queue);
+        if (successfulWrites && loadAttendanceTempQueue().length) {
+          setTimeout(function() { flushAttendanceTempQueue(); }, 0);
+        }
         return { attempted: batch.length, acknowledged: acknowledged };
       });
     }).finally(function() {
       attTempFlushInFlight = false;
+      attTempFlushPromise = null;
     });
+    return attTempFlushPromise;
   }
 
   function flushAttendanceTempToBackend(scope) {
-    flushAttendanceTempToBackendAsync(scope).catch(function(error) {
-      console.warn('點名暫存批次同步稍後重試', error);
+    flushAttendanceTempQueue().then(function() {
+      return flushAttendanceTempToBackendAsync(scope);
+    }).catch(function(error) {
+      console.warn('Firebase attendance temp batch retry scheduled', error);
     });
   }
 
@@ -123,19 +156,78 @@
     });
   }
 
+  function applyPendingSourceClass(card, entry) {
+    if (!card) return;
+    card.classList.remove('pending-manual', 'pending-qr');
+    if (entry && entry.checked === true) {
+      card.classList.add(entry.source === 'qr' ? 'pending-qr' : 'pending-manual');
+    }
+  }
+
+  function applyRealtimeAttendanceTemp(entries) {
+    var container = document.getElementById('attendanceListBody');
+    if (!container || !entries || typeof entries !== 'object') return;
+    var now = Date.now();
+    Object.keys(entries).forEach(function(uid) {
+      var entry = entries[uid] || {};
+      var checkbox = container.querySelector('input[data-uid="' + uid + '"]');
+      if (!checkbox) return;
+      var card = checkbox.parentElement;
+      if (!card || card.classList.contains('submitted')) return;
+      var pending = localPendingActions[uid];
+      if (pending && now - pending.time < 5000) return;
+      var checked = entry.checked === true;
+      var ownerId = entry.ownerId || entry.operatorId;
+      var lockActive = Number(entry.lockedUntil || 0) > now && Number(entry.expiresAt || 0) > now;
+      var lockedByOther = checked && lockActive && ownerId && ownerId !== attUserId;
+      checkbox.checked = checked;
+      checkbox.disabled = Boolean(lockedByOther);
+      card.className = lockedByOther ? 'att-item shadow-sm locked' : (checked ? 'att-item shadow-sm selected' : 'att-item shadow-sm');
+      applyPendingSourceClass(card, entry);
+      card.style.opacity = lockedByOther ? '0.5' : '1';
+      card.style.pointerEvents = lockedByOther ? 'none' : 'auto';
+      card.onclick = lockedByOther ? null : function(e) {
+        e.preventDefault();
+        var cb = this.querySelector('input');
+        if (cb) { cb.checked = !cb.checked; toggleCardStyle(cb); }
+      };
+    });
+  }
+
+  function startAttendanceTempSubscription(scope) {
+    if (attTempUnsubscribe) attTempUnsubscribe();
+    attTempUnsubscribe = null;
+    if (!scope) return;
+    getAttendanceTempModule().then(function(store) {
+      if (scope !== currentAttType || !store.subscribeAttendanceTemp) return;
+      attTempUnsubscribe = store.subscribeAttendanceTemp(scope, function(entries) {
+        if (scope === currentAttType) applyRealtimeAttendanceTemp(entries);
+      }, function(error) {
+        console.warn('Firebase 點名即時同步暫時失敗，保留 GAS fallback', error);
+      });
+    }).catch(function(error) {
+      console.warn('Firebase 點名即時同步模組載入失敗，保留 GAS fallback', error);
+    });
+  }
+
   function startAttendanceTempSync() {
     if (attTempTimer) clearInterval(attTempTimer);
-    flushAttendanceTempQueue().catch(function(error) { console.warn('點名暫存稍後重試', error); });
-    flushAttendanceTempToBackend(currentAttType);
+    startAttendanceTempSubscription(currentAttType);
+    flushAttendanceTempQueue().then(function() {
+      return flushAttendanceTempToBackendAsync(currentAttType);
+    }).catch(function(error) { console.warn('點名暫存批次同步稍後重試', error); });
     attTempTimer = setInterval(function() {
-      flushAttendanceTempQueue().catch(function(error) { console.warn('點名暫存稍後重試', error); });
-      flushAttendanceTempToBackend(currentAttType);
+      flushAttendanceTempQueue().then(function() {
+        return flushAttendanceTempToBackendAsync(currentAttType);
+      }).catch(function(error) { console.warn('點名暫存批次同步稍後重試', error); });
     }, ATTENDANCE_TEMP_FLUSH_INTERVAL_MS);
   }
 
   function stopAttendanceTempSync() {
     if (attTempTimer) clearInterval(attTempTimer);
+    if (attTempUnsubscribe) attTempUnsubscribe();
     attTempTimer = null;
+    attTempUnsubscribe = null;
   }
 
   function updateBadgeUI(sleepMode) {
@@ -299,6 +391,7 @@
         var nfMale = result.nfMale || 0;
         var nfFemale = result.nfFemale || 0;
         renderAttendanceList(list, nfMale, nfFemale);
+        startAttendanceTempSubscription(requestedType);
         setTimeout(function() { attIsRendering = false; }, 500);
       })
       .withFailureHandler(function(err){
@@ -365,9 +458,11 @@
     data.forEach(function(m) {
       var label = document.createElement('label');
       label.className = "att-item shadow-sm";
-      var lockedId = m.operatorId || m.userId || m.operator || m.uid;
+      var lockedId = m.pendingOwnerId || m.ownerId || m.operatorId || m.userId || m.operator || m.uid;
       var isChecked = m.isChecked;
-      var isLocked = (m.isChecked && lockedId && lockedId !== attUserId);
+      var pendingLockUntil = Number(m.pendingLockedUntil || m.lockedUntil || 0);
+      var isLocked = (m.isChecked && lockedId && lockedId !== attUserId
+        && (!pendingLockUntil || pendingLockUntil > now));
       var isSubmitted = m.isSubmitted;
       var memberKey = m.id || m.name;
       label.dataset.scrollKey = encodeURIComponent(String(memberKey || ''));
@@ -398,6 +493,10 @@
         label.classList.add('selected');
         statusColor = 'rgba(255, 255, 255, 0.85)';
       } 
+      applyPendingSourceClass(label, {
+        checked: isChecked && !isSubmitted,
+        source: m.pendingSource || m.source || 'manual'
+      });
       if (!isSubmitted && !isLocked) {
         label.onclick = function(e) {
           e.preventDefault();
@@ -420,7 +519,7 @@
     var uid = checkbox.dataset.uid || checkbox.value;
     if (isChecked) checkbox.parentElement.classList.add('selected');
     else checkbox.parentElement.classList.remove('selected');
-    localPendingActions[uid] = { time: Date.now(), state: isChecked };
+    localPendingActions[uid] = { time: Date.now(), state: isChecked, source: 'manual' };
     if (!/^LK\d+$/i.test(String(uid || '').trim())) {
       google.script.run.withFailureHandler(function(err) {
         checkbox.checked = !isChecked;
@@ -430,9 +529,8 @@
       return;
     }
     try {
-      enqueueAttendanceTemp(uid, isChecked);
+      enqueueAttendanceTemp(uid, isChecked, 'manual');
       flushAttendanceTempQueue().catch(function(error) { console.warn('點名暫存稍後重試', error); });
-      flushAttendanceTempToBackend(currentAttType);
     } catch (error) {
       checkbox.checked = !isChecked;
       checkbox.parentElement.classList.toggle('selected');
@@ -543,8 +641,10 @@ function executeRevoke(uid, displayName) {
     if (attIsRendering || (searchInput && searchInput.value)) return;
     var dateInput = document.getElementById('attendanceDateInput');
     var selectedDateStr = dateInput ? formatDateToSlash(dateInput.value) : "";
+    var requestSequence = ++remoteStatusSequence;
+    var requestScope = currentAttType;
     google.script.run.withSuccessHandler(function(data) {
-        if (!data || attIsRendering) return;
+        if (!data || attIsRendering || requestSequence !== remoteStatusSequence || requestScope !== currentAttType) return;
         var activeList = Array.isArray(data) ? data : (data.activeList || []);
         var nfMale = Array.isArray(data) ? 0 : (data.nfMale || 0);
         var nfFemale = Array.isArray(data) ? 0 : (data.nfFemale || 0);
@@ -557,7 +657,14 @@ function executeRevoke(uid, displayName) {
            var card = checkbox.parentElement;
            var memKey = m.id || m.name;
            if (localPendingActions[memKey] && (now - localPendingActions[memKey].time < 5000)) return;
-           var lockedId = m.operatorId || m.userId || m.operator || m.uid;
+           var lockedId = m.pendingOwnerId || m.ownerId || m.operatorId || m.userId || m.operator || m.uid;
+           var pendingLockUntil = Number(m.pendingLockedUntil || m.lockedUntil || 0);
+           var pendingExpiresAt = Number(m.pendingExpiresAt || m.expiresAt || 0);
+           var pendingSource = m.pendingSource || m.source || 'manual';
+           applyPendingSourceClass(card, {
+             checked: !m.isSubmitted && m.isChecked,
+             source: pendingSource
+           });
            if (m.isSubmitted) {
              if (!card.classList.contains('submitted')) {
                 card.className = "att-item shadow-sm submitted";
@@ -574,7 +681,9 @@ function executeRevoke(uid, displayName) {
              }
            } else if (m.isChecked) {
              checkbox.checked = true;
-             if (lockedId && lockedId !== attUserId) {
+              if (lockedId && lockedId !== attUserId
+                  && (!pendingLockUntil || pendingLockUntil > now)
+                  && (!pendingExpiresAt || pendingExpiresAt > now)) {
                card.className = "att-item shadow-sm locked"; 
                checkbox.disabled = true; card.onclick = null;
                card.style.opacity = "0.5"; card.style.pointerEvents = "none";
@@ -838,6 +947,7 @@ function executeRevoke(uid, displayName) {
         var nfMale = result.nfMale || 0;
         var nfFemale = result.nfFemale || 0;
         renderAttendanceList(list, nfMale, nfFemale);
+        startAttendanceTempSubscription(initGrp);
         setTimeout(() => { attIsRendering = false; }, 500);
       })
       .withFailureHandler(err => {

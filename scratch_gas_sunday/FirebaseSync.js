@@ -12,6 +12,174 @@
  */
 
 const FIREBASE_DB_URL = 'https://lkc1958june1-default-rtdb.asia-southeast1.firebasedatabase.app';
+const FIREBASE_CACHE_SCHEMA_VERSION = 2;
+const FIREBASE_PENDING_RECONCILE_LIMIT = 20;
+const FIREBASE_PENDING_MARKER_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+// Mirrors the browser cacheable read contract.  New entries are written only
+// by GAS after a successful read; legacy entries without this metadata are a
+// safe browser miss and are rebuilt through the normal API path.
+const FIREBASE_CACHEABLE_ACTIONS = new Set([
+  'getGroups', 'getGroupConfig', 'getWeeklyReport', 'getAllMembers',
+  'getAdminGroupsList', 'getAllGroupMembers', 'getMemberSuggestions',
+  'getSmartAttendanceList', 'checkGroupStatus', 'getStats', 'getAllGroupsStats',
+  'getAttendanceStats', 'getAttendanceTrend', 'getCategoryChartData',
+  'ministry_getGroups', 'ministry_getTemplates', 'ministry_getAggregatedReport',
+  'ministry_getPageConfig', 'ministry_getGroupMembers', 'ministry_getMemberSuggestions',
+  'getSchedule', 'getScheduleByDateRange', 'getPositions', 'getTeamMembers', 'getSongs',
+  'worship_getSchedule', 'worship_getScheduleByDateRange', 'worship_getPositions',
+  'worship_getTeamMembers', 'worship_getSongs', 'worship_getMemberSuggestions',
+  'cal_getTypes', 'cal_getFields', 'cal_getEvents', 'cal_getEvent'
+]);
+
+function _firebaseGenerationProperty(topic) {
+  return 'FB_CACHE_GENERATION_' + String(topic || '').replace(/[^a-zA-Z0-9_]/g, '_');
+}
+
+function _firebaseTopicGeneration(topic) {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const value = Number(props.getProperty(_firebaseGenerationProperty(topic)) || 1);
+    return Number.isInteger(value) && value > 0 ? value : 1;
+  } catch (e) {
+    return 1;
+  }
+}
+
+// Capture this before a cacheable handler starts its Sheet read.  The value is
+// then carried to write-through, rather than being sampled after a slow read
+// has already returned an old snapshot.
+function firebaseCaptureCacheRevision(topic) {
+  return _firebaseTopicGeneration(topic);
+}
+
+// Publishing an entry and invalidating a topic must not interleave their RTDB
+// requests.  This is intentionally a short publish barrier only: Sheet reads
+// run outside it, and the captured revision below is still the stale-read
+// guard.  Older/unit-test environments without LockService retain the
+// revision check, while deployed GAS uses the shared script lock.
+function _withFirebaseCacheRevisionBarrier(callback) {
+  let lock = null;
+  let acquired = false;
+  try {
+    if (typeof LockService !== 'undefined' && LockService.getScriptLock) {
+      lock = LockService.getScriptLock();
+      if (lock && typeof lock.tryLock === 'function') {
+        acquired = lock.tryLock(5000);
+        if (!acquired) throw new Error('Firebase cache revision barrier busy');
+      } else if (lock && typeof lock.waitLock === 'function') {
+        lock.waitLock(5000);
+        acquired = true;
+      }
+    }
+    return callback();
+  } finally {
+    if (lock && acquired && typeof lock.releaseLock === 'function') lock.releaseLock();
+  }
+}
+
+function _bumpFirebaseTopicGeneration(topic) {
+  const generation = _firebaseTopicGeneration(topic) + 1;
+  try {
+    const props = PropertiesService.getScriptProperties();
+    if (typeof props.setProperty === 'function') {
+      props.setProperty(_firebaseGenerationProperty(topic), String(generation));
+    }
+  } catch (e) {
+    console.log('[firebase] generation bump failed for ' + topic + ': ' + e.message);
+  }
+  return generation;
+}
+
+function _firebaseCacheSubkey(requestData) {
+  if (!requestData || typeof requestData !== 'object' || Object.keys(requestData).length === 0) {
+    return '_default';
+  }
+  const json = JSON.stringify(requestData);
+  // Matches config.js _makeSubkey: UTF-8 base64, then remove RTDB-unsafe chars.
+  return Utilities.base64Encode(json, Utilities.Charset.UTF_8).replace(/[^a-zA-Z0-9]/g, '');
+}
+
+function _firebaseResponseIsCacheable(response) {
+  if (!response || typeof response !== 'object') return true;
+  if (response.status && response.status !== 'success') return false;
+  if (response.success === false || response.error) return false;
+  if (response.data && typeof response.data === 'object' && response.data.success === false) return false;
+  return true;
+}
+
+function _recordFirebaseSyncFailure(topic, error) {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    if (typeof props.setProperty === 'function') {
+      props.setProperty('FB_CACHE_REFRESH_PENDING_' + String(topic || '').replace(/[^a-zA-Z0-9_]/g, '_'),
+        JSON.stringify({ topic: String(topic || ''), updatedAt: Date.now(), error: String(error || '') }));
+    }
+  } catch (e) {
+    console.log('[firebase] unable to record pending refresh: ' + e.message);
+  }
+}
+
+function _clearFirebaseSyncFailure(topic) {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    if (typeof props.deleteProperty === 'function') {
+      props.deleteProperty('FB_CACHE_REFRESH_PENDING_' + String(topic || '').replace(/[^a-zA-Z0-9_]/g, '_'));
+    }
+  } catch (e) {
+    console.log('[firebase] unable to clear pending refresh: ' + e.message);
+  }
+}
+
+// A Firebase failure must not make the request reread Sheets. Instead, retain
+// a small server-side repair marker; the low-frequency reconciliation trigger
+// retries the affected topics without using browser traffic as a warm-up job.
+function firebaseReconcilePendingTopics() {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    if (typeof props.getProperties !== 'function') return { attempted: 0, repaired: 0 };
+    const pendingPrefix = 'FB_CACHE_REFRESH_PENDING_';
+    const now = Date.now();
+    const uniqueByTopic = {};
+    Object.keys(props.getProperties())
+      .filter(key => key.indexOf(pendingPrefix) === 0)
+      .forEach(key => {
+        let marker;
+        try { marker = JSON.parse(props.getProperty(key) || '{}'); } catch (e) { marker = {}; }
+        const topic = marker.topic || '';
+        const updatedAt = Number(marker.updatedAt || 0);
+        const isAllowed = FIREBASE_CACHEABLE_ACTIONS.has(topic);
+        const isExpired = !updatedAt || now - updatedAt > FIREBASE_PENDING_MARKER_MAX_AGE_MS;
+        if (!isAllowed || isExpired) {
+          if (typeof props.deleteProperty === 'function') props.deleteProperty(key);
+          return;
+        }
+        const previous = uniqueByTopic[topic];
+        if (!previous || updatedAt > previous.updatedAt) uniqueByTopic[topic] = { key: key, updatedAt: updatedAt };
+      });
+
+    const selectedTopics = Object.keys(uniqueByTopic).slice(0, FIREBASE_PENDING_RECONCILE_LIMIT);
+    if (selectedTopics.length === 0) return { attempted: 0, repaired: 0 };
+    const pendingKeys = selectedTopics.map(topic => uniqueByTopic[topic].key);
+    const topics = selectedTopics.map(topic => {
+      try {
+        const marker = JSON.parse(props.getProperty(uniqueByTopic[topic].key) || '{}');
+        return marker.topic || topic;
+      } catch (e) {
+        return topic;
+      }
+    }).filter(Boolean);
+    const result = firebaseInvalidate(topics);
+    if (result.mode === 'batch' && typeof props.deleteProperty === 'function') {
+      pendingKeys.forEach(key => props.deleteProperty(key));
+      return { attempted: topics.length, repaired: topics.length };
+    }
+    return { attempted: topics.length, repaired: 0 };
+  } catch (e) {
+    console.log('[firebase] pending reconciliation failed: ' + e.message);
+    return { attempted: 0, repaired: 0, error: e.message };
+  }
+}
 
 // ═══════════════════════════════════════════════════════════
 //  OAuth2 token 取得（含 cache，1 小時內共用同一個 token）
@@ -83,20 +251,77 @@ function _getFirebaseAccessToken() {
 /**
  * 寫入 Firebase cache 路徑：cache/{topic}/{subkey}
  */
-function firebaseCacheSet(topic, subkey, value, ttlSeconds) {
+function firebaseCacheSet(topic, subkey, value, ttlSeconds, metadata) {
   try {
+    const sourceRevision = Number(metadata && metadata.sourceRevision);
+    const currentRevision = _firebaseTopicGeneration(topic);
+    if (Number.isInteger(sourceRevision) && sourceRevision > 0 && sourceRevision !== currentRevision) {
+      const error = 'stale source revision ' + sourceRevision + ' (current ' + currentRevision + ')';
+      _recordFirebaseSyncFailure(topic, error);
+      return { ok: true, skipped: true, stale: true, cacheRefreshPending: true };
+    }
     const token = _getFirebaseAccessToken();
     const sk = subkey || '_default';
     const url = FIREBASE_DB_URL + '/cache/' + encodeURIComponent(topic) + '/' + encodeURIComponent(sk) + '.json';
     const expiresAt = ttlSeconds ? Date.now() + ttlSeconds * 1000 : null;
-    UrlFetchApp.fetch(url, {
+    const now = Date.now();
+    const response = UrlFetchApp.fetch(url, {
       method: 'put',
       contentType: 'application/json',
       headers: { 'Authorization': 'Bearer ' + token },
-      payload: JSON.stringify({ value: value, expiresAt: expiresAt, updatedAt: Date.now() }),
+      payload: JSON.stringify({
+        value: value,
+        expiresAt: expiresAt,
+        updatedAt: now,
+        schemaVersion: (metadata && metadata.schemaVersion) || FIREBASE_CACHE_SCHEMA_VERSION,
+        generation: (metadata && metadata.generation) || currentRevision,
+        sourceRevision: (metadata && metadata.sourceRevision) || currentRevision
+      }),
       muteHttpExceptions: true
     });
-  } catch (e) { console.log('[firebase] set(' + topic + ') 失敗: ' + e.message); }
+    const status = response.getResponseCode();
+    if (status < 200 || status >= 300) {
+      throw new Error('RTDB write HTTP ' + status + ': ' + response.getContentText());
+    }
+    _clearFirebaseSyncFailure(topic);
+    return { ok: true, cacheRefreshPending: false };
+  } catch (e) {
+    _recordFirebaseSyncFailure(topic, e.message);
+    console.log('[firebase] set(' + topic + ') 失敗: ' + e.message);
+    return { ok: false, cacheRefreshPending: true, error: e.message };
+  }
+}
+
+/**
+ * The one allowed shared-cache writer.  It never throws into the API response
+ * path, so a Firebase outage cannot cause this request to reread Sheets.
+ */
+function firebaseCacheWriteThrough(topic, requestData, response, sourceRevision) {
+  if (!FIREBASE_CACHEABLE_ACTIONS.has(topic) || !_firebaseResponseIsCacheable(response)) {
+    return { ok: true, skipped: true, cacheRefreshPending: false };
+  }
+  // The optional fallback keeps direct legacy callers compatible; Core.js
+  // always supplies a revision captured before its handler reads Sheets.
+  const snapshotRevision = Number(sourceRevision) || firebaseCaptureCacheRevision(topic);
+  try {
+    return _withFirebaseCacheRevisionBarrier(() => {
+      const currentRevision = _firebaseTopicGeneration(topic);
+      if (snapshotRevision !== currentRevision) {
+        const error = 'stale source revision ' + snapshotRevision + ' (current ' + currentRevision + ')';
+        _recordFirebaseSyncFailure(topic, error);
+        return { ok: true, skipped: true, stale: true, cacheRefreshPending: true };
+      }
+      return firebaseCacheSet(topic, _firebaseCacheSubkey(requestData), response, null, {
+        schemaVersion: FIREBASE_CACHE_SCHEMA_VERSION,
+        generation: currentRevision,
+        sourceRevision: snapshotRevision
+      });
+    });
+  } catch (e) {
+    _recordFirebaseSyncFailure(topic, e.message);
+    console.log('[firebase] write-through barrier failed for ' + topic + ': ' + e.message);
+    return { ok: false, cacheRefreshPending: true, error: e.message };
+  }
 }
 
 /**
@@ -138,24 +363,31 @@ function firebaseInvalidate(topics) {
   const uniqueTopics = Array.from(new Set(topics.map(t => String(t || '').trim()).filter(Boolean)));
 
   try {
-    const token = _getFirebaseAccessToken();
-    const updates = {};
-    uniqueTopics.forEach(topic => { updates[topic] = null; });
-    const response = UrlFetchApp.fetch(FIREBASE_DB_URL + '/cache.json', {
-      method: 'patch',
-      contentType: 'application/json',
-      headers: { 'Authorization': 'Bearer ' + token },
-      payload: JSON.stringify(updates),
-      muteHttpExceptions: true
+    return _withFirebaseCacheRevisionBarrier(() => {
+      // Bump before the RTDB delete. A slow writer that already validated and
+      // publishes first is subsequently deleted; one that waits sees the new
+      // revision and is rejected as stale.
+      uniqueTopics.forEach(_bumpFirebaseTopicGeneration);
+      const token = _getFirebaseAccessToken();
+      const updates = {};
+      uniqueTopics.forEach(topic => { updates[topic] = null; });
+      const response = UrlFetchApp.fetch(FIREBASE_DB_URL + '/cache.json', {
+        method: 'patch',
+        contentType: 'application/json',
+        headers: { 'Authorization': 'Bearer ' + token },
+        payload: JSON.stringify(updates),
+        muteHttpExceptions: true
+      });
+      const status = response.getResponseCode();
+      if (status < 200 || status >= 300) {
+        throw new Error('RTDB batch invalidation HTTP ' + status + ': ' + response.getContentText());
+      }
+      return { invalidatedCount: uniqueTopics.length, mode: 'batch' };
     });
-    const status = response.getResponseCode();
-    if (status < 200 || status >= 300) {
-      throw new Error('RTDB batch invalidation HTTP ' + status + ': ' + response.getContentText());
-    }
-    return { invalidatedCount: uniqueTopics.length, mode: 'batch' };
   } catch (e) {
     console.log('[firebase] batch invalidate 失敗，改用逐筆刪除: ' + e.message);
     uniqueTopics.forEach(topic => firebaseCacheDeleteAll(topic));
+    uniqueTopics.forEach(topic => _recordFirebaseSyncFailure(topic, e.message));
     return { invalidatedCount: uniqueTopics.length, mode: 'fallback' };
   }
 }

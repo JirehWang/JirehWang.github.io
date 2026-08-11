@@ -118,7 +118,9 @@ function _groupResponseJSON(data) {
  *   - 一天僅執行 6 次，相對舊版「每 5 分鐘 + 每 10 分鐘」雙 trigger 大幅省 quota
  */
 function keepWarm() {
-  Logger.log('[keepWarm] ' + new Date().toISOString());
+  // Firebase is the long-lived shared read layer. This only reconciles the
+  // short-lived CacheService fallback and is not tied to user traffic.
+  Logger.log('[cacheReconcile] ' + new Date().toISOString());
 
   try { _rebuildMemberCache(); Logger.log('[keepWarm] member cache rebuilt'); }
   catch (e) { Logger.log('[keepWarm] member cache rebuild failed: ' + e.message); }
@@ -128,6 +130,11 @@ function keepWarm() {
 
   try { _rebuildGroupConfigCache(); Logger.log('[keepWarm] group config cache rebuilt'); }
   catch (e) { Logger.log('[keepWarm] group config cache rebuild failed: ' + e.message); }
+
+  try {
+    const repaired = firebaseReconcilePendingTopics();
+    Logger.log('[cacheReconcile] Firebase pending topics: ' + repaired.repaired + '/' + repaired.attempted);
+  } catch (e) { Logger.log('[cacheReconcile] Firebase repair failed: ' + e.message); }
 }
 
 /**
@@ -144,7 +151,7 @@ function setupKeepWarmTrigger() {
   });
   ScriptApp.newTrigger('keepWarm')
     .timeBased()
-    .everyHours(4)
+    .everyDays(1)
     .create();
   Logger.log('✅ keepWarm trigger 已建立（每 4 小時，並清除舊版 syncMemberCacheFromSheet trigger）');
 }

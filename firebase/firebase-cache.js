@@ -14,10 +14,11 @@ import { rtdb } from './firebase-config.js';
 import {
   ref, get, set, remove
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
-import { createSingleFlight } from './cache-single-flight.mjs';
+import { CACHE_SCHEMA_VERSION, evaluateCacheEntry } from './cache-entry-contract.mjs';
+import { createReadThrough } from './cache-read-through.mjs';
 
 const ROOT = 'cache';
-const _cacheLoads = createSingleFlight();
+const _cacheLoads = createReadThrough();
 
 function _path(topic, subkey) {
   return `${ROOT}/${topic}/${subkey || '_default'}`;
@@ -54,66 +55,51 @@ function _sanitizeForFirebase(val) {
   return out;
 }
 
-// 取得快取；過期或不存在時回傳 null
-// ♻️ 自我清理：讀到過期 entry 順手 remove，避免長期累積殭屍資料
-//    （不 await 刪除，不影響回應速度）
+// 取得快取；只接受 GAS 寫入的目前 schema/generation。
+// 舊格式安全視為 miss，交由 GAS 讀取並回寫，絕不由瀏覽器修復或刪除。
 export async function cacheGet(topic, subkey) {
   const path = _path(topic, subkey);
   const snap = await get(ref(rtdb, path));
   if (!snap.exists()) return null;
   const data = snap.val();
-  if (data && data.expiresAt && data.expiresAt < Date.now()) {
-    // 過期 → 順手刪掉
-    remove(ref(rtdb, path)).catch(() => {});
-    return null;
-  }
-  if (data && _isInvalidApiResponse(data.value)) {
-    remove(ref(rtdb, path)).catch(() => {});
-    return null;
-  }
-  return data ? data.value : null;
+  const evaluated = evaluateCacheEntry(data);
+  return evaluated.hit ? evaluated.value : null;
 }
 
-// 寫入快取；ttlSeconds 為存活秒數（預設 300，傳 0 或 null 表示永久）
-// 寫入前自動清理不合法的 key（防止 GAS 回傳含空字串 key / 含 . # $ / [ ] 的物件）
+// Browser clients are read-only.  Kept as a backwards-compatible no-op so
+// legacy pages fail safe instead of bypassing GAS ownership of shared cache.
 export async function cacheSet(topic, subkey, value, ttlSeconds = 300) {
-  if (_isInvalidApiResponse(value)) return;
-  const expiresAt = ttlSeconds ? Date.now() + ttlSeconds * 1000 : null;
-  await set(ref(rtdb, _path(topic, subkey)), {
-    value: _sanitizeForFirebase(value),
-    expiresAt: expiresAt,
-    updatedAt: Date.now()
-  });
+  console.warn('[firebase-cache] Client cache writes are disabled; GAS owns shared cache:', topic);
+  return false;
 }
 
 // 刪除單一 subkey 的快取
 export async function cacheDelete(topic, subkey) {
-  await remove(ref(rtdb, _path(topic, subkey)));
+  console.warn('[firebase-cache] Client cache writes are disabled; GAS owns shared cache:', topic);
+  return false;
 }
 
 // 清除整個 topic 下所有 subkey 的快取（給寫入時 invalidate 用）
 export async function cacheDeleteAll(topic) {
-  await remove(ref(rtdb, `${ROOT}/${topic}`));
+  console.warn('[firebase-cache] Client cache writes are disabled; GAS owns shared cache:', topic);
+  return false;
 }
 
-// 高階：先讀快取，沒有或過期時呼叫 loader() 並寫回
+// 高階：先讀 Firebase；miss 時只呼叫 loader 一次。loader 必須是 GAS，
+// 由 GAS 在成功取得資料後 write-through，瀏覽器絕不自行回寫 Firebase。
 export async function cacheGetOrFetch(topic, subkey, loader, ttlSeconds = 300) {
-  const result = await _cacheLoads.run(_path(topic, subkey), async () => {
-    const hit = await cacheGet(topic, subkey);
-    if (hit !== null) return { value: hit, source: 'cache' };
-    const fresh = await loader();
-    await cacheSet(topic, subkey, fresh, ttlSeconds);
-    return { value: fresh, source: 'fresh' };
-  });
+  const result = await _cacheLoads.getOrLoad(
+    _path(topic, subkey),
+    () => cacheGet(topic, subkey),
+    loader
+  );
   return result.value;
 }
 
 export async function cacheGetOrFetchWithMeta(topic, subkey, loader, ttlSeconds = 300) {
-  return _cacheLoads.run(_path(topic, subkey), async () => {
-    const hit = await cacheGet(topic, subkey);
-    if (hit !== null) return { value: hit, source: 'cache' };
-    const fresh = await loader();
-    await cacheSet(topic, subkey, fresh, ttlSeconds);
-    return { value: fresh, source: 'fresh' };
-  });
+  return _cacheLoads.getOrLoad(
+    _path(topic, subkey),
+    () => cacheGet(topic, subkey),
+    loader
+  );
 }

@@ -72,6 +72,32 @@ function doPost(e) {
   }
 }
 
+// Keep external response shapes unchanged while making GAS the only writer of
+// Firebase cache entries. A failed write-through is recorded inside
+// FirebaseSync and deliberately does not trigger another Sheet/GAS read.
+function _captureServerCacheRevision(action) {
+  try {
+    return typeof firebaseCaptureCacheRevision === 'function'
+      ? firebaseCaptureCacheRevision(action)
+      : null;
+  } catch (e) {
+    // Cache metadata must never change the request path or API response.
+    return null;
+  }
+}
+
+function _respondWithServerCache(action, requestData, result, sourceRevision) {
+  try {
+    if (typeof firebaseCacheWriteThrough === 'function') {
+      firebaseCacheWriteThrough(action, requestData || {}, result, sourceRevision);
+    }
+  } catch (e) {
+    // Defensive only: cache ownership must never change the API contract.
+    console.log('[firebase] write-through guard failed: ' + e.message);
+  }
+  return _groupResponseJSON(result);
+}
+
 /**
  * 事工管理路由處理（沿用 { action, token, data } 協定）
  *  - action 一律以 'ministry_' 前綴
@@ -86,6 +112,7 @@ function _handleMinistryRequest(body) {
     return _groupResponseJSON({ success: false, message: "Unauthorized: 金鑰驗證失敗" });
   }
 
+  const cacheRevision = _captureServerCacheRevision(action);
   let result;
   try {
     switch (action) {
@@ -145,7 +172,7 @@ function _handleMinistryRequest(body) {
   } catch (err) {
     result = { status: 'error', message: err.toString() };
   }
-  return _groupResponseJSON(result);
+  return _respondWithServerCache(action, data, result, cacheRevision);
 }
 
 /**
@@ -155,6 +182,7 @@ function _handleAttendanceRequest(body) {
   const action = body.action;
   const payload = body.payload;
 
+  const cacheRevision = _captureServerCacheRevision(action);
   let result;
 
   switch (action) {
@@ -204,9 +232,7 @@ function _handleAttendanceRequest(body) {
       throw new Error('未知操作：' + action);
   }
 
-  return ContentService
-    .createTextOutput(JSON.stringify({ data: result }))
-    .setMimeType(ContentService.MimeType.JSON);
+  return _respondWithServerCache(action, body.data || payload || {}, { data: result }, cacheRevision);
 }
 
 /**
@@ -224,6 +250,7 @@ function _handleGroupRequest(body) {
     return _groupResponseJSON({ success: false, message: "Unauthorized: 金鑰驗證失敗" });
   }
 
+  const cacheRevision = _captureServerCacheRevision(action);
   let result;
 
   switch (action) {
@@ -293,7 +320,7 @@ function _handleGroupRequest(body) {
       result = { success: false, message: '未知小組操作: ' + action };
   }
 
-  return _groupResponseJSON(result);
+  return _respondWithServerCache(action, data, result, cacheRevision);
 }
 
 /**
@@ -364,6 +391,7 @@ function _handleCalendarRequest(body) {
     return _groupResponseJSON({ success: false, message: "Unauthorized: 金鑰驗證失敗" });
   }
 
+  const cacheRevision = _captureServerCacheRevision(action);
   let result = {};
   try {
     switch (action) {
@@ -422,7 +450,7 @@ function _handleCalendarRequest(body) {
   } catch (error) {
     result = { success: false, message: "後端行事曆錯誤: " + error.toString() };
   }
-  return _groupResponseJSON(result);
+  return _respondWithServerCache(action, data, result, cacheRevision);
 }
 
 /**
@@ -437,6 +465,7 @@ function _handleWorshipRequest(body) {
     return _groupResponseJSON({ success: false, message: "Unauthorized: 金鑰驗證失敗" });
   }
 
+  const cacheRevision = _captureServerCacheRevision(actionWithPrefix);
   // 移除 'worship_' 前綴，使之適應敬拜團原有的 switch-case 邏輯
   const action = actionWithPrefix.replace(/^worship_/, '');
 
@@ -522,7 +551,7 @@ function _handleWorshipRequest(body) {
   } catch (error) {
     response = { status: 'error', message: error.toString() };
   }
-  return _groupResponseJSON(response);
+  return _respondWithServerCache(actionWithPrefix, data, response, cacheRevision);
 }
 
 /**

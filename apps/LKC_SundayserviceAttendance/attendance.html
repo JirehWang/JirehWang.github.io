@@ -72,6 +72,31 @@
   }
   .att-item.selected .att-name { color: white !important; }
   .att-item.selected .att-info, .att-item.selected .gender-text { color: rgba(255, 255, 255, 0.85) !important; }
+
+  /* Pending source: manual keeps the existing teal, QR uses the app's deep-blue accent. */
+  .att-item.pending-manual { border-color: var(--color-teal-hover); }
+  .att-item.pending-qr {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+    border-color: transparent !important;
+    color: white !important;
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.24);
+  }
+  .att-item.pending-qr .att-name,
+  .att-item.pending-qr .att-info,
+  .att-item.pending-qr .gender-text { color: white !important; }
+  .att-item.pending-manual::after,
+  .att-item.pending-qr::after {
+    content: "手動";
+    position: absolute;
+    top: 2px;
+    right: 5px;
+    font-size: clamp(8px, 1.5vw, 11px);
+    font-weight: 800;
+    opacity: 0.8;
+  }
+  .att-item.pending-qr::after { content: "QR"; }
+  .att-item.locked.pending-manual::after { content: "🔒 手動"; }
+  .att-item.locked.pending-qr::after { content: "🔒 QR"; }
   
   /* Submitted: Crystalline soft green theme */
   .att-item.submitted { 

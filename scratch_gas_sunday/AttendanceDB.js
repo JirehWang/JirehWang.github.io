@@ -51,9 +51,14 @@ function getSmartAttendanceList(type, userId, dateStr) {
         gender: row[1] || "未知",
         createDate: createDate,
         count: (memberUid && attendanceMap[memberUid]) || 0,
-        isChecked: isSubmitted || temp.checked,
-        isSubmitted: isSubmitted,
-        operatorId: temp.operatorId
+       isChecked: isSubmitted || temp.checked,
+       isSubmitted: isSubmitted,
+       operatorId: temp.operatorId,
+       pendingSource: temp.source || 'manual',
+       pendingOwnerId: temp.ownerId || temp.operatorId || '',
+       pendingRevision: Number(temp.revision || 0),
+       pendingLockedUntil: Number(temp.lockedUntil || 0),
+       pendingExpiresAt: Number(temp.expiresAt || 0)
       });
     });
 
@@ -289,8 +294,19 @@ function getSyncTempData(ss, type) {
     if (data[i][2] === type) {
       const raw = String(data[i][0] || "").trim();
       const uid = /^LK\d+$/i.test(raw) ? raw.toUpperCase() : (lookups.n2u[raw] || raw);
-      const isExpired = (NOW - new Date(data[i][3]).getTime()) > (5 * 60 * 1000);
-      result[uid] = { checked: data[i][1] === "checked", operatorId: isExpired ? "" : data[i][4] };
+      const updatedAt = new Date(data[i][3]).getTime();
+      const lockedUntil = Number(data[i][7] || 0);
+      const expiresAt = updatedAt + 6 * 60 * 60 * 1000;
+      const isExpired = expiresAt <= NOW;
+      result[uid] = {
+        checked: !isExpired && data[i][1] === "checked",
+        operatorId: isExpired ? "" : data[i][4],
+        source: String(data[i][5] || 'manual').trim() === 'qr' ? 'qr' : 'manual',
+        ownerId: isExpired ? '' : String(data[i][8] || data[i][4] || '').trim(),
+        revision: Number(data[i][6] || 0),
+        lockedUntil: lockedUntil,
+        expiresAt: expiresAt
+      };
     }
   }
   return result;
