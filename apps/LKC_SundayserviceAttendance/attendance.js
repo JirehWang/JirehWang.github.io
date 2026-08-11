@@ -11,6 +11,8 @@
   var MAX_ATTENDANCE_UI_QUEUE = 100;
   var attTempFlushInFlight = false;
   var attTempFlushPromise = null;
+  var realtimeAttendanceTempEntries = {};
+  var realtimeAttendanceTempReady = false;
   var remoteStatusSequence = 0;
   var attIsRendering = false; 
   var currentAttType = '';
@@ -197,15 +199,23 @@
   function startAttendanceTempSubscription(scope) {
     if (attTempUnsubscribe) attTempUnsubscribe();
     attTempUnsubscribe = null;
+    realtimeAttendanceTempEntries = {};
+    realtimeAttendanceTempReady = false;
     if (!scope) return;
     getAttendanceTempModule().then(function(store) {
       if (scope !== currentAttType || !store.subscribeAttendanceTemp) return;
       attTempUnsubscribe = store.subscribeAttendanceTemp(scope, function(entries) {
-        if (scope === currentAttType) applyRealtimeAttendanceTemp(entries);
+        if (scope !== currentAttType) return;
+        realtimeAttendanceTempEntries = entries && typeof entries === 'object' ? entries : {};
+        realtimeAttendanceTempReady = true;
+        applyRealtimeAttendanceTemp(realtimeAttendanceTempEntries);
       }, function(error) {
+        realtimeAttendanceTempReady = false;
         console.warn('Firebase 點名即時同步暫時失敗，保留 GAS fallback', error);
       });
+      realtimeAttendanceTempReady = true;
     }).catch(function(error) {
+      realtimeAttendanceTempReady = false;
       console.warn('Firebase 點名即時同步模組載入失敗，保留 GAS fallback', error);
     });
   }
@@ -228,6 +238,8 @@
     if (attTempUnsubscribe) attTempUnsubscribe();
     attTempTimer = null;
     attTempUnsubscribe = null;
+    realtimeAttendanceTempEntries = {};
+    realtimeAttendanceTempReady = false;
   }
 
   function updateBadgeUI(sleepMode) {
@@ -679,6 +691,10 @@ function executeRevoke(uid, displayName) {
                   };
                 })(m.id, m.name);
              }
+           } else if (realtimeAttendanceTempReady || Object.prototype.hasOwnProperty.call(realtimeAttendanceTempEntries, memKey)) {
+              // Firebase owns all non-submitted pending state. A slower GAS response
+              // must never roll a realtime checked value back to its stale Sheet value.
+              return;
            } else if (m.isChecked) {
              checkbox.checked = true;
               if (lockedId && lockedId !== attUserId

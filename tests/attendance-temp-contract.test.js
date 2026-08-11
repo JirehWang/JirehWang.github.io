@@ -56,6 +56,17 @@ test('main attendance page writes temp state to Firebase and schedules a batch f
   assert.match(source, /mode=/);
 });
 
+test('GAS status polling does not overwrite Firebase-owned pending attendance', () => {
+  const source = fs.readFileSync(
+    path.join(repoRoot, 'apps', 'LKC_SundayserviceAttendance', 'attendance.js'),
+    'utf8'
+  );
+  assert.match(source, /realtimeAttendanceTempEntries/);
+  assert.match(source, /realtimeAttendanceTempEntries\s*=\s*entries/);
+  assert.match(source, /else if\s*\(realtimeAttendanceTempReady\s*\|\|/);
+  assert.match(source, /hasOwnProperty\.call\(realtimeAttendanceTempEntries,\s*memKey\)/);
+});
+
 test('attendance cards expose manual and QR pending source styles', () => {
   const source = fs.readFileSync(
     path.join(repoRoot, 'apps', 'LKC_SundayserviceAttendance', 'attendance.html'),
