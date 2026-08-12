@@ -438,6 +438,32 @@
     });
   }
 
+  function showAttendanceLoadError(message, retryFn) {
+    var listBody = document.getElementById('attendanceListBody');
+    if (!listBody) {
+      alert(message);
+      return;
+    }
+    listBody.innerHTML = '';
+    var wrapper = document.createElement('div');
+    wrapper.className = 'full-width-msg';
+    var text = document.createElement('div');
+    text.className = 'h6';
+    text.textContent = message;
+    var retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'btn btn-primary btn-sm mt-2';
+    retry.textContent = '重新載入';
+    retry.addEventListener('click', function() {
+      retry.disabled = true;
+      retry.textContent = '重新載入中...';
+      retryFn();
+    });
+    wrapper.appendChild(text);
+    wrapper.appendChild(retry);
+    listBody.appendChild(wrapper);
+  }
+
   function loadGroupConfig(targetCategory = null, targetGroup = null) {
     google.script.run.withSuccessHandler(config => {
       globalGroupConfig = config;
@@ -445,6 +471,11 @@
       updateGroupSelect(targetGroup);
       startAutoSync();
       checkDateLockStatus();
+    }).withFailureHandler(function(err) {
+      console.warn('場次設定讀取失敗，等待使用者重試', err);
+      showAttendanceLoadError('目前無法讀取場次，請確認網路後重試。', function() {
+        loadGroupConfig(targetCategory, targetGroup);
+      });
     }).getGroupConfig();
   }
 
@@ -517,8 +548,10 @@
       })
       .withFailureHandler(function(err){
         if (requestedType !== currentAttType) return; 
-        alert("讀取名單失敗：" + err.message);
         attIsRendering = false;
+        showAttendanceLoadError('目前無法讀取名單，請確認網路後重試。', function() {
+          switchType(requestedType);
+        });
       })
       .getSmartAttendanceList(requestedType, attUserId, selectedDateStr); 
   }
@@ -1121,8 +1154,10 @@ function executeRevoke(uid, displayName) {
         setTimeout(() => { attIsRendering = false; }, 500);
       })
       .withFailureHandler(err => {
-        alert("讀取名單失敗：" + err.message);
         attIsRendering = false;
+        showAttendanceLoadError('目前無法讀取名單，請確認網路後重試。', function() {
+          window.location.reload();
+        });
       })
       .getSmartAttendanceList(initGrp, attUserId, getAttendanceTempDateValue());
       

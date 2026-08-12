@@ -15,6 +15,55 @@ window.google = {
       }
     },
     run: (function() {
+      const READ_ONLY_ACTIONS = new Set([
+        'getGroupConfig', 'getSmartAttendanceList', 'getQuickSyncData',
+        'getAttendanceStats', 'getAttendanceTrend', 'getAgmSessions',
+        'getAgmSessionById', 'getAgmCheckinState', 'getAgmCategoryCounts',
+        'getAgmQuorumStats', 'getOfficialMembers', 'getViewerStats'
+      ]);
+      const REQUEST_TIMEOUT_MS = 15000;
+      const MAX_READ_ATTEMPTS = 3;
+
+      function wait(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+      }
+
+      function request(apiUrl, body, retryable, attempt) {
+        const controller = typeof AbortController === 'function' ? new AbortController() : null;
+        let timeoutId = null;
+        const options = {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify(body)
+        };
+        if (controller) {
+          options.signal = controller.signal;
+          timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+        }
+        return fetch(apiUrl, options)
+          .then(async response => {
+            const text = await response.text();
+            if (!response.ok) throw new Error('GAS HTTP ' + response.status);
+            let data;
+            try {
+              data = JSON.parse(text);
+            } catch (error) {
+              throw new Error('GAS 回應格式錯誤');
+            }
+            if (data && data.error) throw new Error(data.error);
+            return data;
+          })
+          .catch(error => {
+            const attempts = attempt || 1;
+            if (retryable && attempts < MAX_READ_ATTEMPTS) {
+              return wait(400 * attempts).then(() => request(apiUrl, body, true, attempts + 1));
+            }
+            throw error;
+          })
+          .finally(() => {
+            if (timeoutId) clearTimeout(timeoutId);
+          });
+      }
       // 建立一個帶有 successHandler / failureHandler 的呼叫鏈
       function makeRunner(successHandler, failureHandler) {
         const handler = {
@@ -42,25 +91,17 @@ window.google = {
                 return;
               }
 
-              fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain' },
-                body: JSON.stringify({
-                  action: functionName,
-                  payload: args.length === 1 ? args[0] : args
+              const body = {
+                action: functionName,
+                payload: args.length === 1 ? args[0] : args
+              };
+              request(apiUrl, body, READ_ONLY_ACTIONS.has(String(functionName)), 1)
+                .then(data => {
+                  if (successHandler) successHandler(data && data.data);
                 })
-              })
-              .then(res => res.json())
-              .then(data => {
-                if (data.error) {
-                  if (failureHandler) failureHandler(new Error(data.error));
-                } else {
-                  if (successHandler) successHandler(data.data);
-                }
-              })
-              .catch(err => {
-                if (failureHandler) failureHandler(err);
-              });
+                .catch(err => {
+                  if (failureHandler) failureHandler(err);
+                });
             };
           }
         });
