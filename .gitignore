@@ -1,0 +1,23 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Node
+node_modules/
+npm-debug.log*
+
+# clasp OAuth (should never live in repo, but defensive)
+.clasprc.json
+
+# Local env
+.env
+.env.local
+
+# Tooling state (local only)
+.omc/
+.claude/

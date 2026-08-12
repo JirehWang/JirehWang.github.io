@@ -527,20 +527,19 @@
   }
 
   function calculateNextUid(data) {
-    if (!data || data.length === 0) return "M00001";
+    const PREFIX = "LK";
     let maxNum = 0;
-    let prefix = "M";
-    data.forEach(row => {
-      let uid = String(row[7] || "").trim();
-      if (uid) {
-        let match = uid.match(/^(.*?)(\d+)$/);
+    if (data && data.length > 0) {
+      data.forEach(row => {
+        const uid = String(row[7] || "").trim();
+        const match = uid.match(/^[A-Za-z]*(\d+)$/);
         if (match) {
-          let num = parseInt(match[2], 10);
-          if (num > maxNum) { maxNum = num; prefix = match[1]; }
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) maxNum = num;
         }
-      }
-    });
-    return prefix + (maxNum + 1).toString().padStart(5, '0');
+      });
+    }
+    return PREFIX + (maxNum + 1).toString().padStart(5, '0');
   }
 
   function openMemberModal(row = null) {

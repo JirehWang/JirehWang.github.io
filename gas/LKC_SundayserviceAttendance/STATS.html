@@ -1,0 +1,485 @@
+/* STATS.html */
+<style>
+  /* 統計頁面專用樣式 */
+  .stats-container { padding: 10px; background-color: #fff; border-radius: 8px; }
+  .progress { background-color: #e9ecef; border-radius: 5px; box-shadow: inset 0 1px 2px rgba(0,0,0,.1); }
+  .mode-switch-btn { width: 50%; font-weight: bold; }
+  .stat-card { border-radius: 8px; padding: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); height: 100%; display: flex; flex-direction: column; justify-content: center; border: 1px solid #dee2e6; }
+</style>
+
+<div class="stats-container">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="fw-bold mb-0 text-dark">📊 聚會出席統計</h4>
+  </div>
+  
+  <div class="bg-light p-3 rounded border mb-3">
+    <div class="btn-group w-100 mb-3" role="group">
+      <input type="radio" class="btn-check" name="statMode" id="modeRange" autocomplete="off" checked onclick="toggleStatMode('range')">
+      <label class="btn btn-outline-primary mode-switch-btn" for="modeRange">📅 區間統計</label>
+
+      <input type="radio" class="btn-check" name="statMode" id="modeSingle" autocomplete="off" onclick="toggleStatMode('single')">
+      <label class="btn btn-outline-primary mode-switch-btn" for="modeSingle">📆 單日檢視</label>
+    </div>
+
+    <div class="row g-2 align-items-end" id="rangeInputArea">
+      <div class="col-6">
+        <label class="small text-muted fw-bold">開始日期</label>
+        <input type="date" id="statsStart" class="form-control form-control-sm">
+      </div>
+      <div class="col-6">
+        <label class="small text-muted fw-bold">結束日期</label>
+        <input type="date" id="statsEnd" class="form-control form-control-sm">
+      </div>
+      <div class="col-12 mt-2">
+         <label class="small text-muted fw-bold">出席率門檻 (%)</label>
+         <input type="number" id="threshold" class="form-control form-control-sm" value="100" min="0" max="100" placeholder="顯示低於此%的人">
+      </div>
+    </div>
+
+    <div class="row g-2 align-items-end" id="singleInputArea" style="display: none;">
+      <div class="col-12">
+        <label class="small text-muted fw-bold">選擇日期</label>
+        <input type="date" id="statsSingleDate" class="form-control form-control-sm">
+      </div>
+    </div>
+
+    <div class="row g-2 mt-2">
+      <div class="col-12">
+        <label class="small text-muted fw-bold mb-1">名單過濾基準</label>
+        <select id="baseSheetSource" class="form-select form-select-sm shadow-sm fw-bold">
+          <option value="會友名單">👥 依據全體會友</option>
+          <option value="會員名單">🌟 依據正式會員</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row g-2 mt-2 bg-white p-2 rounded border shadow-sm align-items-end">
+      <div class="col-5">
+        <label class="small text-muted fw-bold mb-1">📂 點名類別</label>
+        <select id="statsCategorySelect" class="form-select form-select-sm fw-bold border-secondary" onchange="updateStatsGroupSelect()">
+          <option value="" disabled selected>載入中...</option>
+        </select>
+      </div>
+      <div class="col-7">
+        <label class="small text-muted fw-bold mb-1">📌 選擇群組</label>
+        <select id="statsGroupSelect" class="form-select form-select-sm fw-bold border-primary text-primary shadow-sm" onchange="fetchStatsData()">
+          <option value="" disabled selected>載入中...</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row g-2 mt-3">
+      <div class="col-6">
+        <button class="btn btn-primary btn-sm w-100 fw-bold shadow-sm" onclick="fetchStatsData()">
+          🔍 開始查詢
+        </button>
+      </div>
+      <div class="col-6">
+        <button class="btn btn-success btn-sm w-100 fw-bold shadow-sm" onclick="exportToCSV()">
+          📥 匯出 Excel
+        </button>
+      </div>
+    </div>
+    
+    <div class="row g-2 mt-2">
+      <div class="col-12">
+        <div class="input-group input-group-sm shadow-sm">
+          <span class="input-group-text bg-white">🔍</span>
+          <input type="text" id="statsNameSearch" class="form-control" placeholder="輸入姓名，快速過濾下方表格..." onkeyup="filterStatsTable()">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mb-3 text-center g-2">
+    <div class="col-4">
+      <div class="stat-card bg-white">
+        <div class="small text-muted fw-bold mb-1" id="lblMainStat">總場次</div>
+        <div class="h4 mb-0 fw-bold text-primary" id="valMainStat">0</div>
+      </div>
+    </div>
+    
+    <div class="col-4">
+      <div class="stat-card" style="background-color: #f1f8f5; border-color: #badbcc;">
+        <div class="small text-muted fw-bold mb-1 text-success">📋 名單出席</div>
+        <div class="h5 mb-1 fw-bold text-dark" id="valMemberStat">0</div>
+        <div class="d-flex justify-content-center gap-2" style="font-size: 0.75rem;">
+          <span class="text-primary fw-bold">👦 <span id="valMemberMale">0</span></span>
+          <span class="text-danger fw-bold">👧 <span id="valMemberFemale">0</span></span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-4">
+      <div class="stat-card" style="background-color: #fffdf2; border-color: #ffecb5;">
+        <div class="small text-muted fw-bold mb-1" style="color: #997404;">👶 新朋友</div>
+        <div class="h5 mb-1 fw-bold text-dark" id="valNewFriendStat">0</div>
+        <div class="d-flex justify-content-center gap-2" style="font-size: 0.75rem;">
+          <span class="text-primary fw-bold">👦 <span id="valNfMale">0</span></span>
+          <span class="text-danger fw-bold">👧 <span id="valNfFemale">0</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-responsive border rounded" style="min-height: 500px; background: white;">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead class="table-light sticky-top" style="z-index: 10; top: 0;"> 
+        <tr class="small text-muted" id="tableHeaderRow">
+          <th class="ps-3">姓名</th>
+          <th class="text-center">性別</th>
+          <th class="text-center">次數</th>
+          <th style="width: 35%;">出席率</th>
+        </tr>
+      </thead>
+      <tbody id="statsTableBody" class="small">
+        <tr><td colspan="4" class="text-center p-5 text-muted">正在載入選單...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  let currentStatsData = null; 
+  let activeTab = '台語'; // 預設值，會被下拉選單覆蓋
+  let currentMode = 'range'; 
+  let globalStatsGroupConfig = {}; // 存放從試算表抓來的分類清單
+  // 🚀 新增：統計頁面的專屬查詢通行證
+  let currentStatsFetchId = 0;
+
+  window.addEventListener('DOMContentLoaded', () => {
+    const now = new Date();
+    const toLocalISO = (d) => {
+        const offset = d.getTimezoneOffset() * 60000;
+        return new Date(d.getTime() - offset).toISOString().split('T')[0];
+    };
+
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    document.getElementById('statsStart').value = toLocalISO(firstDay);
+    document.getElementById('statsEnd').value = toLocalISO(now);
+    document.getElementById('statsSingleDate').value = toLocalISO(now);
+    
+    // 🚀 網頁載入時，去跟後端要「點名系統清單」
+    loadStatsGroupConfig();
+  });
+
+  // ==========================================
+  // 🚀 動態連動選單邏輯
+  // ==========================================
+  function loadStatsGroupConfig() {
+    google.script.run.withSuccessHandler(config => {
+      globalStatsGroupConfig = config;
+      renderStatsCategorySelect();
+      updateStatsGroupSelect();
+    }).getGroupConfig(); // 共用點名系統後端已有的 getGroupConfig 函式！
+  }
+
+  function renderStatsCategorySelect() {
+    const catSelect = document.getElementById('statsCategorySelect');
+    if (!catSelect) return;
+    catSelect.innerHTML = '';
+    
+    for (let cat in globalStatsGroupConfig) {
+      let opt = document.createElement('option');
+      opt.value = cat;
+      opt.text = (cat === '禮拜' ? '⛪ ' : (cat === '主日學' ? '📖 ' : '📂 ')) + cat;
+      catSelect.add(opt);
+    }
+  }
+
+function updateStatsGroupSelect() {
+    const catSelect = document.getElementById('statsCategorySelect');
+    const grpSelect = document.getElementById('statsGroupSelect');
+    if (!catSelect || !grpSelect) return;
+
+    const currentCat = catSelect.value; // 例如：禮拜 或 主日學
+    grpSelect.innerHTML = ''; 
+
+    // 🌟 修正：動態產生合計選項，不再侷限於「禮拜」
+    if (currentCat && globalStatsGroupConfig[currentCat]) {
+       let totalOpt = document.createElement('option');
+       // Value 設為「類別+合計」，例如「禮拜合計」，方便後端判斷
+       totalOpt.value = currentCat + '合計'; 
+       totalOpt.text = `🌟 ${currentCat} 總合計`;
+       grpSelect.add(totalOpt);
+    }
+
+    if (globalStatsGroupConfig[currentCat]) {
+      globalStatsGroupConfig[currentCat].forEach(grp => {
+        let cleanGrp = grp.replace('點名紀錄', '').trim(); 
+        let opt = document.createElement('option');
+        opt.value = cleanGrp;
+        opt.text = cleanGrp;
+        grpSelect.add(opt);
+      });
+    }
+    
+    fetchStatsData();
+  }
+
+  // ==========================================
+  // 📊 統計查詢與 UI 邏輯
+  // ==========================================
+  function toggleStatMode(mode) {
+    currentMode = mode;
+    if (mode === 'range') {
+      document.getElementById('rangeInputArea').style.display = 'flex';
+      document.getElementById('singleInputArea').style.display = 'none';
+    } else {
+      document.getElementById('rangeInputArea').style.display = 'none';
+      document.getElementById('singleInputArea').style.display = 'flex';
+    }
+    document.getElementById('statsTableBody').innerHTML = '<tr><td colspan="4" class="text-center p-5 text-muted">模式已切換，請重新查詢</td></tr>';
+    
+    ['valMainStat', 'valMemberStat', 'valMemberMale', 'valMemberFemale', 'valNewFriendStat', 'valNfMale', 'valNfFemale'].forEach(id => {
+       document.getElementById(id).innerText = '0';
+    });
+    const searchBox = document.getElementById('statsNameSearch');
+    if (searchBox) searchBox.value = '';
+  }
+
+  function getNextDayString(dateStr) {
+    if (!dateStr) return "";
+    var d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr; 
+    d.setDate(d.getDate() + 1);
+    var y = d.getFullYear();
+    var m = ("0" + (d.getMonth() + 1)).slice(-2);
+    var day = ("0" + d.getDate()).slice(-2);
+    return y + "-" + m + "-" + day;
+  }
+
+function fetchStatsData() {
+    const catSelect = document.getElementById('statsCategorySelect');
+    const grpSelect = document.getElementById('statsGroupSelect');
+    if (!grpSelect || !grpSelect.value) return; 
+    
+    activeTab = grpSelect.value; 
+    const currentCat = catSelect.value;
+
+    const req = { 
+      type: activeTab, 
+      mode: currentMode,
+      baseSheet: document.getElementById('baseSheetSource').value || "會友名單",
+      targetGroups: [] // 👈 準備裝載場次名單
+    };
+    
+    // 🌟 核心修正：如果選到的是「合計」，自動把該類別下所有場次塞進 targetGroups
+    if (activeTab.indexOf('合計') !== -1) {
+      // 從全域變數抓出該類別的所有子項目
+      req.targetGroups = globalStatsGroupConfig[currentCat] || [];
+    }
+
+    // 日期處理邏輯保持不變...
+    if (currentMode === 'range') {
+      req.start = document.getElementById('statsStart').value;
+      const rawEnd = document.getElementById('statsEnd').value;
+      if (!req.start || !rawEnd) return alert("請選擇起訖日期");
+      req.end = getNextDayString(rawEnd); 
+    } else {
+      req.date = document.getElementById('statsSingleDate').value;
+      if (!req.date) return alert("請選擇日期");
+    }
+
+    // UI 顯示狀態處理...
+    const tbody = document.getElementById('statsTableBody');
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center p-5"><div class="spinner-border text-primary mb-2"></div><div class="text-muted">正在分析數據...</div></td></tr>';
+    const btn = document.querySelector('button[onclick="fetchStatsData()"]');
+    if(btn) btn.disabled = true;
+
+    currentStatsFetchId++;
+    const myFetchId = currentStatsFetchId;
+
+    google.script.run
+      .withFailureHandler(function(err) {
+          if (myFetchId !== currentStatsFetchId) return;
+          tbody.innerHTML = `<tr><td colspan="4" class="text-center p-4 text-danger">錯誤<br><small>${err.message}</small></td></tr>`;
+          if(btn) btn.disabled = false;
+      })
+      .withSuccessHandler(function(data) {
+          if (myFetchId !== currentStatsFetchId) return;
+          currentStatsData = data;
+          renderStatsTable(data);
+          if(btn) btn.disabled = false;
+      })
+      .getAttendanceStats(req);
+  }
+
+function renderStatsTable(data) {
+    if (!data) return;
+
+    const nfMale = Number(data.nfMale || 0);
+    const nfFemale = Number(data.nfFemale || 0);
+    const presentMale = Number(data.presentMale || 0);
+    const presentFemale = Number(data.presentFemale || 0);
+    const presentCount = Number(data.presentCount || 0);
+    const avgCount = Number(data.avgCount || 0);
+
+    document.getElementById('valNewFriendStat').innerText = nfMale + nfFemale;
+    document.getElementById('valNfMale').innerText = nfMale;
+    document.getElementById('valNfFemale').innerText = nfFemale;
+
+    document.getElementById('valMemberStat').innerText = presentCount;
+    document.getElementById('valMemberMale').innerText = presentMale;
+    document.getElementById('valMemberFemale').innerText = presentFemale;
+
+    if (currentMode === 'range') {
+      document.getElementById('lblMainStat').innerText = "平均總人數"; 
+      document.getElementById('valMainStat').innerText = avgCount; 
+    } else {
+      document.getElementById('lblMainStat').innerText = "總出席人數";
+      document.getElementById('valMainStat').innerText = presentCount + (nfMale + nfFemale);
+    }
+
+    const theadRow = document.getElementById('tableHeaderRow');
+    if (currentMode === 'range') {
+      theadRow.innerHTML = `
+        <th class="ps-3">姓名</th>
+        <th class="text-center">性別</th>
+        <th class="text-center">次數</th>
+        <th style="width: 35%;">出席率</th>
+      `;
+    } else {
+      theadRow.innerHTML = `
+        <th class="ps-3">姓名</th>
+        <th class="text-center">性別</th>
+        <th class="text-center">狀態</th>
+        <th class="text-center">備註</th>
+      `;
+    }
+
+    const tbody = document.getElementById('statsTableBody');
+    let html = '';
+    const thresholdInput = document.getElementById('threshold').value;
+    const threshold = thresholdInput === "" ? 100 : parseInt(thresholdInput);
+
+    if (data.details && data.details.length > 0) {
+      data.details.forEach(row => {
+        const gender = row.gender || '-';
+        const genderColor = gender === '男' ? '#0d6efd' : (gender === '女' ? '#dc3545' : '#6c757d');
+        
+        // 🚀 關鍵新增：如果後端傳來 inGroup 為 true，就加上綠色小組標籤
+        const groupBadge = row.inGroup ? `<span class="badge bg-success ms-1 px-1 shadow-sm" style="font-size: 0.65em;">小組</span>` : '';
+
+        if (currentMode === 'range') {
+          if (row.rate <= threshold) {
+            let barClass = 'bg-danger';
+            if (row.rate > 80) barClass = 'bg-success';
+            else if (row.rate > 50) barClass = 'bg-primary';
+            else if (row.rate > 30) barClass = 'bg-warning';
+
+            html += `
+              <tr class="stat-row">
+                <td class="ps-3 fw-bold stat-name">${row.name}${groupBadge}</td>
+                <td class="text-center fw-bold" style="color:${genderColor}">${gender}</td>
+                <td class="text-center fw-bold text-dark">${row.count}</td>
+                <td class="pe-2">
+                  <div class="d-flex align-items-center">
+                    <div class="progress flex-grow-1" style="height: 10px;">
+                      <div class="progress-bar ${barClass}" style="width: ${row.rate}%"></div>
+                    </div>
+                    <span class="ms-2 small text-muted" style="width: 35px; text-align: right;">${row.rate}%</span>
+                  </div>
+                </td>
+              </tr>`;
+          }
+        } else {
+          const statusBadge = row.attended ? 
+            `<span class="badge bg-success bg-opacity-10 text-success border border-success px-3">已出席</span>` : 
+            `<span class="badge bg-light text-muted border px-3">缺席</span>`;
+            
+          const nameStyle = row.attended ? "fw-bold text-dark" : "text-muted";
+          
+          html += `
+            <tr class="stat-row">
+              <td class="ps-3 ${nameStyle} stat-name">${row.name}${groupBadge}</td>
+              <td class="text-center fw-bold" style="color:${genderColor}">${gender}</td>
+              <td class="text-center">${statusBadge}</td>
+              <td class="text-center small text-muted">-</td>
+            </tr>`;
+        }
+      });
+    } else {
+      html = '<tr><td colspan="4" class="text-center p-4 text-muted">無資料</td></tr>';
+    }
+    tbody.innerHTML = html;
+    filterStatsTable();
+  }
+
+  function filterStatsTable() {
+    const searchInput = document.getElementById('statsNameSearch');
+    if (!searchInput) return;
+    const kw = searchInput.value.trim().toLowerCase();
+    
+    const tbody = document.getElementById('statsTableBody');
+    if (!tbody) return;
+    
+    const rows = tbody.querySelectorAll('tr.stat-row');
+    rows.forEach(row => {
+      const nameCell = row.querySelector('.stat-name');
+      if (nameCell) {
+        const name = nameCell.innerText.trim().toLowerCase();
+        if (kw === "" || name.includes(kw)) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      }
+    });
+  }
+
+function exportToCSV() {
+    if (!currentStatsData || !currentStatsData.details) { alert("請先進行查詢"); return; }
+    
+    const baseSheetSelect = document.getElementById('baseSheetSource');
+    const baseSheetName = baseSheetSelect ? baseSheetSelect.value : "會友名單";
+
+    let csvRows = [];
+    const nfMale = Number(currentStatsData.nfMale || 0);
+    const nfFemale = Number(currentStatsData.nfFemale || 0);
+    const presentMale = Number(currentStatsData.presentMale || 0);
+    const presentFemale = Number(currentStatsData.presentFemale || 0);
+    
+    if (currentMode === 'range') {
+        csvRows.push(['', `統計摘要 (${baseSheetName})`]);
+        csvRows.push(['平均名單出席(男)', presentMale, '平均名單出席(女)', presentFemale]);
+        csvRows.push(['期間新朋友(男)', nfMale, '期間新朋友(女)', nfFemale]);
+        csvRows.push([]);
+        
+        // 🚀 修改表頭：加入「小組」欄位
+        csvRows.push(['姓名', '性別', '小組', '出席次數', '出席率(%)']);
+        currentStatsData.details.forEach(row => {
+            // 🚀 修改內容：利用 row.inGroup 判斷填入「是」或「否」
+            csvRows.push([row.name, row.gender, row.inGroup ? '是' : '否', row.count, row.rate + '%']);
+        });
+    } else {
+        const date = document.getElementById('statsSingleDate').value;
+        csvRows.push(['日期', date, '名單來源', baseSheetName]);
+        csvRows.push(['名單出席(男)', presentMale, '名單出席(女)', presentFemale]);
+        csvRows.push(['新朋友(男)', nfMale, '新朋友(女)', nfFemale]);
+        csvRows.push([]); 
+        
+        // 🚀 修改表頭：加入「小組」欄位
+        csvRows.push(['姓名', '性別', '小組', '出席狀態']);
+        currentStatsData.details.forEach(row => {
+            // 🚀 修改內容：利用 row.inGroup 判斷填入「是」或「否」
+            csvRows.push([row.name, row.gender, row.inGroup ? '是' : '否', row.attended ? '出席' : '缺席']);
+        });
+    }
+
+    const csvString = "\uFEFF" + csvRows.map(row => row.join(",")).join("\n");
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    
+    const fileName = currentMode === 'range' ? 
+        `出席統計_區間_${activeTab}_${baseSheetName}.csv` : 
+        `出席名單_${document.getElementById('statsSingleDate').value}_${activeTab}_${baseSheetName}.csv`;
+
+    link.setAttribute("href", url);
+    link.setAttribute("download", fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+</script>
