@@ -80,6 +80,21 @@ test('Firebase readiness is only true after the first successful listener snapsh
   assert.doesNotMatch(subscriptionBlock, /\}\);\s*realtimeAttendanceTempReady\s*=\s*true;\s*\}\)\.catch/);
 });
 
+test('formal attendance keeps Firebase ACK as the commit gate and defers GAS batch failures', () => {
+  const source = fs.readFileSync(
+    path.join(repoRoot, 'apps', 'LKC_SundayserviceAttendance', 'attendance.js'),
+    'utf8'
+  );
+  const flushBlock = source.slice(
+    source.indexOf('function flushAttendanceTempToBackendAsync'),
+    source.indexOf('function applyPendingSourceClass')
+  );
+  assert.match(flushBlock, /withFailureHandler\(function\(error\)/);
+  assert.match(flushBlock, /deferred:\s*true/);
+  assert.match(flushBlock, /保留 Firebase 暫態/);
+  assert.doesNotMatch(flushBlock, /withFailureHandler\(reject\)/);
+});
+
 test('direct attendance routes pass the selected date to the initial GAS read', () => {
   const source = fs.readFileSync(
     path.join(repoRoot, 'apps', 'LKC_SundayserviceAttendance', 'attendance.js'),

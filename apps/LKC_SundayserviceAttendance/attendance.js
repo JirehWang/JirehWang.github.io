@@ -191,7 +191,13 @@
     return new Promise(function(resolve, reject) {
       google.script.run
         .withSuccessHandler(resolve)
-        .withFailureHandler(reject)
+        .withFailureHandler(function(error) {
+          // Firebase ACK is the user-facing commit. GAS is the 30-second durable batch;
+          // a temporary GAS/service-account failure must not turn a successful staging
+          // write into a false "Firebase ACK missing" error or block formal save.
+          console.warn('GAS 點名暫存批次稍後重試，保留 Firebase 暫態', error);
+          resolve({ ok: false, deferred: true, error: String(error && error.message || error || '') });
+        })
         .flushAttendanceTemp(scope, attUserId);
     });
   }
