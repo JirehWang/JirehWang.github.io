@@ -204,10 +204,25 @@
 
   function applyPendingSourceClass(card, entry) {
     if (!card) return;
+    var source = entry && entry.source;
+    if (source !== 'qr' && source !== 'manual') {
+      source = card.classList.contains('pending-qr') ? 'qr' : 'manual';
+    }
     card.classList.remove('pending-manual', 'pending-qr');
     if (entry && entry.checked === true) {
-      card.classList.add(entry.source === 'qr' ? 'pending-qr' : 'pending-manual');
+      card.classList.add(source === 'qr' ? 'pending-qr' : 'pending-manual');
     }
+  }
+
+  function bindAttendanceCardClick(card) {
+    if (!card) return;
+    card.onclick = function(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      var cb = this.querySelector('input');
+      if (!cb || cb.disabled) return;
+      cb.checked = !cb.checked;
+      toggleCardStyle(cb);
+    };
   }
 
   function clearRealtimeAttendanceTempCard(uid) {
@@ -223,11 +238,7 @@
     card.style.opacity = '1';
     card.style.pointerEvents = 'auto';
     applyPendingSourceClass(card, { checked: false });
-    card.onclick = function(e) {
-      e.preventDefault();
-      var cb = this.querySelector('input');
-      if (cb) { cb.checked = !cb.checked; toggleCardStyle(cb); }
-    };
+    bindAttendanceCardClick(card);
   }
 
   function scheduleRealtimeAttendanceTempExpiry(uid, entry, scope) {
@@ -268,11 +279,8 @@
       applyPendingSourceClass(card, entry);
       card.style.opacity = lockedByOther ? '0.5' : '1';
       card.style.pointerEvents = lockedByOther ? 'none' : 'auto';
-      card.onclick = lockedByOther ? null : function(e) {
-        e.preventDefault();
-        var cb = this.querySelector('input');
-        if (cb) { cb.checked = !cb.checked; toggleCardStyle(cb); }
-      };
+      if (lockedByOther) card.onclick = null;
+      else bindAttendanceCardClick(card);
       if (pending && Number(entry.updatedAt || 0) >= Number(pending.updatedAt || pending.time || 0)) {
         delete localPendingActions[uid];
       }
@@ -613,11 +621,13 @@
     data.forEach(function(m) {
       var label = document.createElement('label');
       label.className = "att-item shadow-sm";
-      var lockedId = m.pendingOwnerId || m.ownerId || m.operatorId || m.userId || m.operator || m.uid;
+      var lockedId = m.pendingOwnerId || m.ownerId || m.operatorId || m.userId || m.operator;
       var isChecked = m.isChecked;
       var pendingLockUntil = Number(m.pendingLockedUntil || m.lockedUntil || 0);
-      var isLocked = (m.isChecked && lockedId && lockedId !== attUserId
-        && (!pendingLockUntil || pendingLockUntil > now));
+      var pendingExpiresAt = Number(m.pendingExpiresAt || m.expiresAt || 0);
+      var isLocked = Boolean(m.isChecked && lockedId && lockedId !== attUserId
+        && pendingLockUntil > now
+        && (!pendingExpiresAt || pendingExpiresAt > now));
       var isSubmitted = m.isSubmitted;
       var memberKey = m.id || m.name;
       label.dataset.scrollKey = encodeURIComponent(String(memberKey || ''));
@@ -653,11 +663,7 @@
         source: m.pendingSource || m.source || 'manual'
       });
       if (!isSubmitted && !isLocked) {
-        label.onclick = function(e) {
-          e.preventDefault();
-          var cb = this.querySelector('input');
-          if (cb) { cb.checked = !cb.checked; toggleCardStyle(cb); }
-        };
+        bindAttendanceCardClick(label);
       }
       var uidString = m.id ? m.id : '';
       var genderString = m.gender ? m.gender : '未知';
@@ -672,13 +678,25 @@
   function toggleCardStyle(checkbox) {
     var isChecked = checkbox.checked;
     var uid = checkbox.dataset.uid || checkbox.value;
-    if (isChecked) checkbox.parentElement.classList.add('selected');
-    else checkbox.parentElement.classList.remove('selected');
-    localPendingActions[uid] = { time: Date.now(), updatedAt: Date.now(), state: isChecked, source: 'manual' };
+    var card = checkbox.parentElement;
+    var previousSource = card && card.classList.contains('pending-qr') ? 'qr' : 'manual';
+    if (isChecked) card.classList.add('selected');
+    else card.classList.remove('selected');
+    applyPendingSourceClass(card, {
+      checked: isChecked,
+      source: isChecked ? 'manual' : previousSource
+    });
+    localPendingActions[uid] = {
+      time: Date.now(),
+      updatedAt: Date.now(),
+      state: isChecked,
+      source: isChecked ? 'manual' : previousSource
+    };
     if (!/^LK\d+$/i.test(String(uid || '').trim())) {
       google.script.run.withFailureHandler(function(err) {
         checkbox.checked = !isChecked;
-        checkbox.parentElement.classList.toggle('selected');
+        card.classList.toggle('selected', !isChecked);
+        applyPendingSourceClass(card, { checked: !isChecked, source: previousSource });
         delete localPendingActions[uid];
       }).syncClickToServer(uid, isChecked, currentAttType, attUserId);
       return;
@@ -688,7 +706,8 @@
       flushAttendanceTempQueue().catch(function(error) { console.warn('點名暫存稍後重試', error); });
     } catch (error) {
       checkbox.checked = !isChecked;
-      checkbox.parentElement.classList.toggle('selected');
+      card.classList.toggle('selected', !isChecked);
+      applyPendingSourceClass(card, { checked: !isChecked, source: previousSource });
       delete localPendingActions[uid];
       console.warn('點名暫存建立失敗', error);
     }
@@ -797,12 +816,7 @@ function executeRevoke(uid, displayName) {
                 checkbox.disabled = false;
                 var nameDiv = card.querySelector('.att-name');
                 if (nameDiv) nameDiv.innerHTML = displayName || uid;
-                card.onclick = function(e) {
-                    e.preventDefault();
-                    var cb = this.querySelector('input');
-                    cb.checked = !cb.checked;
-                    toggleCardStyle(cb);
-                };
+                bindAttendanceCardClick(card);
             }
             localPendingActions[uid] = { time: Date.now(), updatedAt: Date.now(), state: false };
             alert("✅ 撤銷成功！");
@@ -844,17 +858,14 @@ function executeRevoke(uid, displayName) {
            var card = checkbox.parentElement;
            var memKey = m.id || m.name;
            if (localPendingActions[memKey] && Number(localPendingActions[memKey].updatedAt || localPendingActions[memKey].time || 0) >= Number(m.pendingUpdatedAt || 0)) return;
-           var lockedId = m.pendingOwnerId || m.ownerId || m.operatorId || m.userId || m.operator || m.uid;
+           var lockedId = m.pendingOwnerId || m.ownerId || m.operatorId || m.userId || m.operator;
            var pendingLockUntil = Number(m.pendingLockedUntil || m.lockedUntil || 0);
            var pendingExpiresAt = Number(m.pendingExpiresAt || m.expiresAt || 0);
            var pendingSource = m.pendingSource || m.source || 'manual';
-           applyPendingSourceClass(card, {
-             checked: !m.isSubmitted && m.isChecked,
-             source: pendingSource
-           });
            if (m.isSubmitted) {
              if (!card.classList.contains('submitted')) {
                 card.className = "att-item shadow-sm submitted";
+                applyPendingSourceClass(card, { checked: false });
                 checkbox.checked = true; checkbox.disabled = true;
                 card.style.opacity = "1"; card.style.pointerEvents = "auto";
                 var nameDiv = card.querySelector('.att-name');
@@ -873,28 +884,31 @@ function executeRevoke(uid, displayName) {
            } else if (m.isChecked) {
              checkbox.checked = true;
               if (lockedId && lockedId !== attUserId
-                  && (!pendingLockUntil || pendingLockUntil > now)
+                  && pendingLockUntil > now
                   && (!pendingExpiresAt || pendingExpiresAt > now)) {
                card.className = "att-item shadow-sm locked"; 
+               applyPendingSourceClass(card, { checked: true, source: pendingSource });
                checkbox.disabled = true; card.onclick = null;
                card.style.opacity = "0.5"; card.style.pointerEvents = "none";
                var nameDiv = card.querySelector('.att-name');
                if (nameDiv && nameDiv.innerHTML.indexOf('🔒') === -1) nameDiv.innerHTML += ' <span style="font-size:12px;">🔒</span>';
              } else {
                card.className = "att-item shadow-sm selected"; 
+               applyPendingSourceClass(card, { checked: true, source: pendingSource });
                checkbox.disabled = false;
                card.style.opacity = "1"; card.style.pointerEvents = "auto";
                var nameDiv = card.querySelector('.att-name');
                if (nameDiv) nameDiv.innerHTML = m.name;
-               card.onclick = function(e) { e.preventDefault(); var cb=this.querySelector('input'); cb.checked=!cb.checked; toggleCardStyle(cb); };
+               bindAttendanceCardClick(card);
              }
            } else {
              card.className = "att-item shadow-sm"; 
+             applyPendingSourceClass(card, { checked: false });
              checkbox.checked = false; checkbox.disabled = false;
              card.style.opacity = "1"; card.style.pointerEvents = "auto";
              var nameDiv = card.querySelector('.att-name');
              if (nameDiv) nameDiv.innerHTML = m.name;
-             card.onclick = function(e) { e.preventDefault(); var cb = this.querySelector('input'); cb.checked = !cb.checked; toggleCardStyle(cb); };
+             bindAttendanceCardClick(card);
            }
         });
         var submittedCards = container.querySelectorAll('.att-item.submitted').length;
