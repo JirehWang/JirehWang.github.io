@@ -1,0 +1,63 @@
+{
+  "rules": {
+    "attendanceTemp": {
+      "$scope": {
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "auth != null && ((newData.child('schemaVersion').val() == 2 && newData.hasChildren(['schemaVersion', 'uid', 'checked', 'state', 'source', 'ownerId', 'lastActionBy', 'operatorId', 'requestId', 'revision', 'updatedAt', 'lockedUntil', 'expiresAt', 'ownerAuthId', 'lastActionAuthId']) && newData.child('uid').val() == $uid && (newData.child('source').val() == 'manual' || newData.child('source').val() == 'qr') && newData.child('requestId').isString() && newData.child('requestId').val().length <= 240 && newData.child('revision').isNumber() && (!data.exists() ? newData.child('revision').val() == 1 : newData.child('revision').val() == data.child('revision').val() + 1) && newData.child('updatedAt').isNumber() && newData.child('lockedUntil').isNumber() && newData.child('expiresAt').isNumber() && newData.child('expiresAt').val() >= newData.child('updatedAt').val() && newData.child('lastActionAuthId').val() == auth.uid && (newData.child('checked').val() != true || (newData.child('ownerId').val() == newData.child('operatorId').val() && newData.child('ownerAuthId').val() == auth.uid)) && (!data.exists() || data.child('checked').val() != true || !data.child('lockedUntil').exists() || data.child('lockedUntil').val() <= now || data.child('ownerAuthId').val() == auth.uid)) || (newData.child('schemaVersion').exists() == false && (!data.exists() || data.child('schemaVersion').val() != 2) && newData.hasChildren(['uid', 'checked', 'operatorId', 'requestId', 'updatedAt', 'expiresAt']) && newData.child('uid').val() == $uid && newData.child('requestId').isString() && newData.child('requestId').val().length <= 240 && newData.child('updatedAt').isNumber() && newData.child('expiresAt').isNumber() && newData.child('expiresAt').val() >= newData.child('updatedAt').val()))"
+        }
+      }
+    },
+    "worshipPpt": {
+      "layoutConfig": {
+        "shared": {
+          ".read": true,
+          ".write": "auth != null && auth.token.email == 'worship-layout@lkc1958.org'",
+          ".validate": "newData.hasChildren(['schemaVersion', 'updatedAt', 'updatedBy'])",
+          "schemaVersion": { ".validate": "newData.isNumber() && newData.val() == 1" },
+          "layoutState": {
+            "groups": { "$groupId": { ".validate": "newData.hasChildren(['id']) && newData.child('id').val() == $groupId" } },
+            "pageAssignments": { "$pageId": { ".validate": "newData.isString()" } },
+            "hymnOpacityBySection": { "$sectionId": { ".validate": "$sectionId.matches(/^[a-zA-Z0-9-]+$/) && newData.isNumber() && newData.val() >= 40 && newData.val() <= 80" } },
+            "outputScale": {
+              "text": { ".validate": "newData.isNumber() && newData.val() >= 80 && newData.val() <= 120" },
+              "image": { ".validate": "newData.isNumber() && newData.val() >= 80 && newData.val() <= 120" },
+              "$other": { ".validate": false }
+            },
+            "$other": { ".validate": false }
+          },
+          "updatedAt": { ".validate": "newData.isNumber()" },
+          "updatedBy": { ".validate": "newData.isString()" },
+          "$other": { ".validate": false }
+        },
+        "templates": {
+          "$templateId": {
+            ".read": true,
+            ".write": "auth != null && auth.token.email == 'worship-layout@lkc1958.org'",
+            ".validate": "$templateId.matches(/^[a-zA-Z0-9-]+$/) && newData.hasChildren(['schemaVersion', 'updatedAt', 'updatedBy'])",
+            "schemaVersion": { ".validate": "newData.isNumber() && newData.val() == 1" },
+            "layoutState": {
+              "groups": { "$groupId": { ".validate": "newData.hasChildren(['id']) && newData.child('id').val() == $groupId" } },
+              "pageAssignments": { "$pageId": { ".validate": "newData.isString()" } },
+              "hymnOpacityBySection": { "$sectionId": { ".validate": "$sectionId.matches(/^[a-zA-Z0-9-]+$/) && newData.isNumber() && newData.val() >= 40 && newData.val() <= 80" } },
+              "outputScale": {
+                "text": { ".validate": "newData.isNumber() && newData.val() >= 80 && newData.val() <= 120" },
+                "image": { ".validate": "newData.isNumber() && newData.val() >= 80 && newData.val() <= 120" },
+                "$other": { ".validate": false }
+              },
+              "$other": { ".validate": false }
+            },
+            "updatedAt": { ".validate": "newData.isNumber()" },
+            "updatedBy": { ".validate": "newData.isString()" },
+            "$other": { ".validate": false }
+          }
+        }
+      },
+      "content": { ".read": true, ".write": false }
+    },
+    "cache": { ".read": true, ".write": true },
+    "logs": {
+      "$system": { "$date": { "$logId": { ".read": false, ".write": true } } }
+    }
+  }
+}
