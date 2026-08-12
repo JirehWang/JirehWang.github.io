@@ -67,6 +67,27 @@ test('GAS status polling does not overwrite Firebase-owned pending attendance', 
   assert.match(source, /hasOwnProperty\.call\(realtimeAttendanceTempEntries,\s*memKey\)/);
 });
 
+test('Firebase readiness is only true after the first successful listener snapshot', () => {
+  const source = fs.readFileSync(
+    path.join(repoRoot, 'apps', 'LKC_SundayserviceAttendance', 'attendance.js'),
+    'utf8'
+  );
+  const subscriptionBlock = source.slice(
+    source.indexOf('function startAttendanceTempSubscription'),
+    source.indexOf('function startAttendanceTempSync')
+  );
+  assert.match(subscriptionBlock, /realtimeAttendanceTempReady\s*=\s*true;[\s\S]*applyRealtimeAttendanceTemp/);
+  assert.doesNotMatch(subscriptionBlock, /\}\);\s*realtimeAttendanceTempReady\s*=\s*true;\s*\}\)\.catch/);
+});
+
+test('direct attendance routes pass the selected date to the initial GAS read', () => {
+  const source = fs.readFileSync(
+    path.join(repoRoot, 'apps', 'LKC_SundayserviceAttendance', 'attendance.js'),
+    'utf8'
+  );
+  assert.match(source, /\.getSmartAttendanceList\(initGrp,\s*attUserId,\s*getAttendanceTempDateValue\(\)\)/);
+});
+
 test('attendance cards expose manual and QR pending source styles', () => {
   const source = fs.readFileSync(
     path.join(repoRoot, 'apps', 'LKC_SundayserviceAttendance', 'attendance.html'),

@@ -310,7 +310,6 @@
         realtimeAttendanceTempReady = false;
         console.warn('Firebase 點名即時同步暫時失敗，保留 GAS fallback', error);
       });
-      realtimeAttendanceTempReady = true;
     }).catch(function(error) {
       realtimeAttendanceTempReady = false;
       console.warn('Firebase 點名即時同步模組載入失敗，保留 GAS fallback', error);
@@ -910,7 +909,14 @@ function executeRevoke(uid, displayName) {
       await flushAttendanceTempQueue();
       await flushAttendanceTempToBackendAsync(getCurrentAttendanceTempScope());
     } catch (error) {
-      alert('點名暫存尚未取得 Firebase ACK，請確認網路後重試。');
+      var ackMessage = String(error && error.message || error || '');
+      if (/admin-restricted-operation|operation-not-allowed|匿名/.test(ackMessage)) {
+        alert('Firebase 尚未取得 ACK：請先在 Firebase Console 啟用 Anonymous Authentication，再重試。');
+      } else if (/FIREBASE_SERVICE_ACCOUNT/.test(ackMessage)) {
+        alert('Firebase 尚未取得 ACK：GAS 尚未完成 Firebase 服務帳號設定，請稍後重試。');
+      } else {
+        alert('點名暫存尚未取得 Firebase ACK，請確認網路後重試。');
+      }
       if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
       return;
     }
@@ -1112,7 +1118,7 @@ function executeRevoke(uid, displayName) {
         alert("讀取名單失敗：" + err.message);
         attIsRendering = false;
       })
-      .getSmartAttendanceList(initGrp, attUserId);
+      .getSmartAttendanceList(initGrp, attUserId, getAttendanceTempDateValue());
       
     startAutoSync();
   } else {
