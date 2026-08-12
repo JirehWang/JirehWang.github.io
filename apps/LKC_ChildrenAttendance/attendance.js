@@ -5,6 +5,7 @@
   var attSyncTimer = null;
   var attIsRendering = false; 
   var currentAttType = '';
+  var currentFormalRevision = 0;
   var html5QrCode = null; 
   var lastClickTime = 0; 
   var DOUBLE_CLICK_DELAY = 350; 
@@ -41,6 +42,10 @@
   var today = new Date();
   var dateDisplay = document.getElementById('todayDateDisplay');
   if (dateDisplay) dateDisplay.innerText = "📅 " + today.getFullYear() + "/" + (today.getMonth()+1) + "/" + today.getDate();
+
+  function getCurrentAttendanceDateText() {
+    return today.getFullYear() + '/' + (today.getMonth() + 1) + '/' + today.getDate();
+  }
 
   function loadGroupConfig(targetCategory = null, targetGroup = null) {
     google.script.run.withSuccessHandler(config => {
@@ -109,6 +114,7 @@
         var list = result.activeList || result;
         var nfMale = result.nfMale || 0;
         var nfFemale = result.nfFemale || 0;
+        currentFormalRevision = Number(result.formalRevision || 0);
         renderAttendanceList(list, nfMale, nfFemale);
         setTimeout(function() { attIsRendering = false; }, 500);
       })
@@ -117,7 +123,7 @@
         alert("讀取名單失敗：" + err.message);
         attIsRendering = false;
       })
-      .getSmartAttendanceList(requestedType, attUserId); 
+      .getSmartAttendanceList(requestedType, attUserId, getCurrentAttendanceDateText());
   }
 
   function openGroupAddModal() {
@@ -281,9 +287,10 @@
         var list = Array.isArray(result) ? result : (result.activeList || []);
         var nfMale = result.nfMale || 0;
         var nfFemale = result.nfFemale || 0;
+        currentFormalRevision = Number(result.formalRevision || 0);
         renderAttendanceList(list, nfMale, nfFemale);
         attIsRendering = false;
-    }).getSmartAttendanceList(currentAttType, attUserId);
+    }).getSmartAttendanceList(currentAttType, attUserId, getCurrentAttendanceDateText());
   }
 
   function confirmRevoke(uid, displayName) {
@@ -296,7 +303,9 @@ function executeRevoke(uid, displayName) {
     var originalText = "確認送出";
     if (btn) { btn.disabled = true; btn.innerHTML = '正在撤銷...'; }
     google.script.run.withSuccessHandler(function(msg) {
-        if (msg === "OK") {
+        if (msg === "STALE_REVISION") {
+            alert('已被其他裝置更新，畫面將重新整理');
+        } else if (msg === "OK") {
             var container = document.getElementById('attendanceListBody');
             var checkbox = container.querySelector('input[data-uid="' + uid + '"]');
             if (checkbox) {
@@ -328,7 +337,7 @@ function executeRevoke(uid, displayName) {
             alert(msg);
         }
         if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
-    }).revokeAttendance(uid, currentAttType, attUserId);
+    }).revokeAttendance(uid, currentAttType, attUserId, getCurrentAttendanceDateText(), currentFormalRevision);
 }
 
   function fetchRemoteStatus() {
@@ -436,9 +445,9 @@ function executeRevoke(uid, displayName) {
     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 處理中...'; }
     attIsRendering = true; 
     var dateDisplay = document.getElementById('todayDateDisplay');
-    var dateText = dateDisplay ? dateDisplay.innerText.replace('📅 ','') : '';
+    var dateText = getCurrentAttendanceDateText();
     google.script.run.withSuccessHandler(function(msg) {
-        alert(msg); 
+        alert(msg === 'STALE_REVISION' ? '已被其他裝置更新，畫面將重新整理' : msg);
         if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
         attIsRendering = false; 
         switchType(currentAttType); 
@@ -446,7 +455,7 @@ function executeRevoke(uid, displayName) {
         alert("送出失敗：" + err.message);
         if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
         attIsRendering = false;
-      }).saveAttendance(dateText, presentList, currentAttType, maleCount, femaleCount);
+      }).saveAttendance(dateText, presentList, currentAttType, maleCount, femaleCount, currentFormalRevision);
   }
 
   function filterAttList() {
@@ -464,7 +473,7 @@ function executeRevoke(uid, displayName) {
 
   function toggleScanner() {
     if (!attUserId) attUserId = localStorage.getItem('att_uid');
-    var scannerUrl = "https://jirehwang.github.io/LKC1958_June_1.github.io/apps/qrcodescanner.github.io/?userId=" + attUserId;
+    var scannerUrl = "https://jirehwang.github.io/LKC1958_June_1.github.io/apps/qrcodescanner.github.io/?context=children";
     window.open(scannerUrl, '_blank');
     startAutoSync();
   }
@@ -584,6 +593,7 @@ function executeRevoke(uid, displayName) {
         var list = result.activeList || result;
         var nfMale = result.nfMale || 0;
         var nfFemale = result.nfFemale || 0;
+        currentFormalRevision = Number(result.formalRevision || 0);
         renderAttendanceList(list, nfMale, nfFemale);
         setTimeout(() => { attIsRendering = false; }, 500);
       })
@@ -591,7 +601,7 @@ function executeRevoke(uid, displayName) {
         alert("讀取名單失敗：" + err.message);
         attIsRendering = false;
       })
-      .getSmartAttendanceList(initGrp, attUserId);
+      .getSmartAttendanceList(initGrp, attUserId, getCurrentAttendanceDateText());
       
     startAutoSync();
   } else {

@@ -619,8 +619,8 @@ function isOfficialMemberActive(member) {
     }
     const scope = getAgmScope();
     syncAgmDeviceMode();
-    const scannerUrl = 'https://jirehwang.github.io/LKC1958_June_1.github.io/apps/qrcodescanner.github.io/?userId=' +
-      encodeURIComponent(agmScannerUserId) + '&mode=' + encodeURIComponent(scope) + '&context=agm';
+    const scannerUrl = 'https://jirehwang.github.io/LKC1958_June_1.github.io/apps/qrcodescanner.github.io/?mode=' +
+      encodeURIComponent(scope) + '&context=agm';
     const scannerWindow = window.open(scannerUrl, '_blank');
     if (!scannerWindow) alert('⚠️ 瀏覽器阻擋了掃描器視窗，請允許彈出視窗後再試。');
   };

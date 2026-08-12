@@ -12,10 +12,14 @@
   var attTempFlushInFlight = false;
   var attTempFlushPromise = null;
   var realtimeAttendanceTempEntries = {};
+  var realtimeAttendanceTempPreviousEntries = {};
+  var realtimeAttendanceTempDurableUntil = {};
+  var realtimeAttendanceTempExpiryTimers = {};
   var realtimeAttendanceTempReady = false;
   var remoteStatusSequence = 0;
   var attIsRendering = false; 
   var currentAttType = '';
+  var currentFormalRevision = 0;
   var html5QrCode = null; 
   var lastClickTime = 0; 
   var DOUBLE_CLICK_DELAY = 350; 
@@ -48,23 +52,41 @@
     localStorage.setItem(ATTENDANCE_UI_QUEUE_KEY, JSON.stringify(queue.slice(-MAX_ATTENDANCE_UI_QUEUE)));
   }
 
+  function getAttendanceTempDateValue(dateValue) {
+    var dateInput = document.getElementById('attendanceDateInput');
+    var raw = String(dateValue || (dateInput && dateInput.value) || '').trim();
+    if (!raw) raw = formatDateToDash(new Date());
+    return raw.replace(/\//g, '-');
+  }
+
+  function getAttendanceTempScope(scope, dateValue) {
+    var base = String(scope || '').trim();
+    if (!base || base.indexOf('AGM:') === 0 || base.indexOf('|date:') !== -1) return base;
+    return base + '|date:' + getAttendanceTempDateValue(dateValue);
+  }
+
+  function getCurrentAttendanceTempScope() {
+    return getAttendanceTempScope(currentAttType);
+  }
+
   function enqueueAttendanceTemp(uid, checked, source) {
     var normalizedUid = String(uid || '').trim().toUpperCase();
     source = source === 'qr' ? 'qr' : 'manual';
     if (!/^LK\d+$/i.test(normalizedUid)) throw new Error('點名 UID 無效');
-    if (!currentAttType) throw new Error('尚未選擇點名場次');
+    var scope = getCurrentAttendanceTempScope();
+    if (!scope) throw new Error('尚未選擇點名場次');
     var queue = loadAttendanceTempQueue();
-    var item = queue.find(function(entry) { return entry.scope === currentAttType && entry.uid === normalizedUid; });
+    var item = queue.find(function(entry) { return entry.scope === scope && entry.uid === normalizedUid; });
     var now = Date.now();
     if (!item) {
       if (queue.length >= MAX_ATTENDANCE_UI_QUEUE) throw new Error('點名重試佇列已滿');
       var createdAt = now;
       item = {
         id: createdAt + '-' + Math.random().toString(36).slice(2),
-        scope: currentAttType,
+        scope: scope,
         uid: normalizedUid,
         operatorId: attUserId,
-        requestId: currentAttType + ':' + normalizedUid + ':' + attUserId + ':' + createdAt,
+        requestId: scope + ':' + normalizedUid + ':' + attUserId + ':' + createdAt,
         updatedAt: createdAt
       };
       queue.push(item);
@@ -72,7 +94,7 @@
     item.checked = checked === true;
     item.source = source;
     item.updatedAt = now;
-    item.requestId = currentAttType + ':' + normalizedUid + ':' + attUserId + ':' + now;
+    item.requestId = scope + ':' + normalizedUid + ':' + attUserId + ':' + now;
     saveAttendanceTempQueue(queue);
     return item;
   }
@@ -111,8 +133,24 @@
           source: item.source || 'manual',
           requestId: item.requestId,
           updatedAt: writeUpdatedAt
-        }).then(function() {
+        }).then(function(result) {
           successfulWrites++;
+          var finalEntry = result && typeof result === 'object' ? result : null;
+          var durableKey = item.scope + '|' + item.uid;
+          if (finalEntry && finalEntry.committed === false) {
+            delete localPendingActions[item.uid];
+            if (finalEntry.uid && finalEntry.checked !== undefined) {
+              var finalEntries = {};
+              finalEntries[item.uid] = finalEntry;
+              applyRealtimeAttendanceTemp(finalEntries, { force: true });
+            } else {
+              clearRealtimeAttendanceTempCard(item.uid);
+            }
+          } else if (finalEntry && finalEntry.checked === true) {
+            realtimeAttendanceTempDurableUntil[durableKey] = Number(finalEntry.expiresAt || (writeUpdatedAt + 6 * 60 * 60 * 1000));
+          } else {
+            delete realtimeAttendanceTempDurableUntil[durableKey];
+          }
           if (updateAttendanceTempQueueItem(item.id, writeRequestId, writeUpdatedAt, function() { return null; })) {
             acknowledged++;
           }
@@ -166,10 +204,46 @@
     }
   }
 
-  function applyRealtimeAttendanceTemp(entries) {
+  function clearRealtimeAttendanceTempCard(uid) {
+    var container = document.getElementById('attendanceListBody');
+    if (!container) return;
+    var checkbox = container.querySelector('input[data-uid="' + uid + '"]');
+    if (!checkbox) return;
+    var card = checkbox.parentElement;
+    if (!card || card.classList.contains('submitted')) return;
+    checkbox.checked = false;
+    checkbox.disabled = false;
+    card.className = 'att-item shadow-sm';
+    card.style.opacity = '1';
+    card.style.pointerEvents = 'auto';
+    applyPendingSourceClass(card, { checked: false });
+    card.onclick = function(e) {
+      e.preventDefault();
+      var cb = this.querySelector('input');
+      if (cb) { cb.checked = !cb.checked; toggleCardStyle(cb); }
+    };
+  }
+
+  function scheduleRealtimeAttendanceTempExpiry(uid, entry, scope) {
+    var expiresAt = Number(entry && entry.expiresAt || 0);
+    if (!expiresAt) return;
+    if (realtimeAttendanceTempExpiryTimers[uid]) clearTimeout(realtimeAttendanceTempExpiryTimers[uid]);
+    var delay = Math.max(0, expiresAt - Date.now() + 25);
+    realtimeAttendanceTempExpiryTimers[uid] = setTimeout(function() {
+      delete realtimeAttendanceTempExpiryTimers[uid];
+      var current = realtimeAttendanceTempEntries[uid];
+      if (!current || Number(current.expiresAt || 0) <= Date.now()) {
+        delete realtimeAttendanceTempDurableUntil[(scope || getCurrentAttendanceTempScope()) + '|' + uid];
+        clearRealtimeAttendanceTempCard(uid);
+      }
+    }, Math.min(delay, 2147483647));
+  }
+
+  function applyRealtimeAttendanceTemp(entries, options) {
     var container = document.getElementById('attendanceListBody');
     if (!container || !entries || typeof entries !== 'object') return;
     var now = Date.now();
+    var force = options && options.force === true;
     Object.keys(entries).forEach(function(uid) {
       var entry = entries[uid] || {};
       var checkbox = container.querySelector('input[data-uid="' + uid + '"]');
@@ -177,7 +251,7 @@
       var card = checkbox.parentElement;
       if (!card || card.classList.contains('submitted')) return;
       var pending = localPendingActions[uid];
-      if (pending && now - pending.time < 5000) return;
+      if (!force && pending && Number(pending.updatedAt || pending.time || 0) > Number(entry.updatedAt || 0)) return;
       var checked = entry.checked === true;
       var ownerId = entry.ownerId || entry.operatorId;
       var lockActive = Number(entry.lockedUntil || 0) > now && Number(entry.expiresAt || 0) > now;
@@ -193,6 +267,10 @@
         var cb = this.querySelector('input');
         if (cb) { cb.checked = !cb.checked; toggleCardStyle(cb); }
       };
+      if (pending && Number(entry.updatedAt || 0) >= Number(pending.updatedAt || pending.time || 0)) {
+        delete localPendingActions[uid];
+      }
+      scheduleRealtimeAttendanceTempExpiry(uid, entry);
     });
   }
 
@@ -200,13 +278,32 @@
     if (attTempUnsubscribe) attTempUnsubscribe();
     attTempUnsubscribe = null;
     realtimeAttendanceTempEntries = {};
+    realtimeAttendanceTempPreviousEntries = {};
+    realtimeAttendanceTempDurableUntil = {};
+    Object.keys(realtimeAttendanceTempExpiryTimers).forEach(function(uid) {
+      clearTimeout(realtimeAttendanceTempExpiryTimers[uid]);
+    });
+    realtimeAttendanceTempExpiryTimers = {};
     realtimeAttendanceTempReady = false;
     if (!scope) return;
     getAttendanceTempModule().then(function(store) {
-      if (scope !== currentAttType || !store.subscribeAttendanceTemp) return;
+      if (scope !== getCurrentAttendanceTempScope() || !store.subscribeAttendanceTemp) return;
       attTempUnsubscribe = store.subscribeAttendanceTemp(scope, function(entries) {
-        if (scope !== currentAttType) return;
+        if (scope !== getCurrentAttendanceTempScope()) return;
+        var previous = realtimeAttendanceTempEntries || {};
+        var next = entries && typeof entries === 'object' ? entries : {};
+        Object.keys(previous).forEach(function(uid) {
+          if (Object.prototype.hasOwnProperty.call(next, uid)) return;
+          var durableUntil = Number(realtimeAttendanceTempDurableUntil[scope + '|' + uid] || previous[uid].expiresAt || 0);
+          if (durableUntil > Date.now()) {
+            scheduleRealtimeAttendanceTempExpiry(uid, { expiresAt: durableUntil }, scope);
+          } else {
+            clearRealtimeAttendanceTempCard(uid);
+          }
+        });
+        realtimeAttendanceTempPreviousEntries = previous;
         realtimeAttendanceTempEntries = entries && typeof entries === 'object' ? entries : {};
+        next = realtimeAttendanceTempEntries;
         realtimeAttendanceTempReady = true;
         applyRealtimeAttendanceTemp(realtimeAttendanceTempEntries);
       }, function(error) {
@@ -222,13 +319,13 @@
 
   function startAttendanceTempSync() {
     if (attTempTimer) clearInterval(attTempTimer);
-    startAttendanceTempSubscription(currentAttType);
+    startAttendanceTempSubscription(getCurrentAttendanceTempScope());
     flushAttendanceTempQueue().then(function() {
-      return flushAttendanceTempToBackendAsync(currentAttType);
+      return flushAttendanceTempToBackendAsync(getCurrentAttendanceTempScope());
     }).catch(function(error) { console.warn('點名暫存批次同步稍後重試', error); });
     attTempTimer = setInterval(function() {
       flushAttendanceTempQueue().then(function() {
-        return flushAttendanceTempToBackendAsync(currentAttType);
+        return flushAttendanceTempToBackendAsync(getCurrentAttendanceTempScope());
       }).catch(function(error) { console.warn('點名暫存批次同步稍後重試', error); });
     }, ATTENDANCE_TEMP_FLUSH_INTERVAL_MS);
   }
@@ -239,6 +336,12 @@
     attTempTimer = null;
     attTempUnsubscribe = null;
     realtimeAttendanceTempEntries = {};
+    realtimeAttendanceTempPreviousEntries = {};
+    realtimeAttendanceTempDurableUntil = {};
+    Object.keys(realtimeAttendanceTempExpiryTimers).forEach(function(uid) {
+      clearTimeout(realtimeAttendanceTempExpiryTimers[uid]);
+    });
+    realtimeAttendanceTempExpiryTimers = {};
     realtimeAttendanceTempReady = false;
   }
 
@@ -402,8 +505,9 @@
         var list = result.activeList || result;
         var nfMale = result.nfMale || 0;
         var nfFemale = result.nfFemale || 0;
-        renderAttendanceList(list, nfMale, nfFemale);
-        startAttendanceTempSubscription(requestedType);
+        currentFormalRevision = Number(result.formalRevision || 0);
+        renderAttendanceList(list, nfMale, nfFemale, currentFormalRevision);
+        startAttendanceTempSubscription(getAttendanceTempScope(requestedType));
         setTimeout(function() { attIsRendering = false; }, 500);
       })
       .withFailureHandler(function(err){
@@ -447,7 +551,8 @@
       .createAttendanceGroup(category, groupName);
   }
 
-  function renderAttendanceList(data, nfMale, nfFemale) {
+  function renderAttendanceList(data, nfMale, nfFemale, formalRevision) {
+    if (formalRevision !== undefined) currentFormalRevision = Number(formalRevision || 0);
     if (nfMale === undefined) nfMale = 0;
     if (nfFemale === undefined) nfFemale = 0;
     var container = document.getElementById('attendanceListBody');
@@ -478,7 +583,7 @@
       var isSubmitted = m.isSubmitted;
       var memberKey = m.id || m.name;
       label.dataset.scrollKey = encodeURIComponent(String(memberKey || ''));
-      if (localPendingActions[memberKey] && (now - localPendingActions[memberKey].time < 5000)) {
+      if (localPendingActions[memberKey]) {
         isChecked = localPendingActions[memberKey].state;
         isLocked = false;
       }
@@ -531,7 +636,7 @@
     var uid = checkbox.dataset.uid || checkbox.value;
     if (isChecked) checkbox.parentElement.classList.add('selected');
     else checkbox.parentElement.classList.remove('selected');
-    localPendingActions[uid] = { time: Date.now(), state: isChecked, source: 'manual' };
+    localPendingActions[uid] = { time: Date.now(), updatedAt: Date.now(), state: isChecked, source: 'manual' };
     if (!/^LK\d+$/i.test(String(uid || '').trim())) {
       google.script.run.withFailureHandler(function(err) {
         checkbox.checked = !isChecked;
@@ -596,7 +701,8 @@
         var list = Array.isArray(result) ? result : (result.activeList || []);
         var nfMale = result.nfMale || 0;
         var nfFemale = result.nfFemale || 0;
-        renderAttendanceList(list, nfMale, nfFemale);
+        currentFormalRevision = Number(result.formalRevision || 0);
+        renderAttendanceList(list, nfMale, nfFemale, currentFormalRevision);
         attIsRendering = false;
     }).getSmartAttendanceList(currentAttType, attUserId, selectedDateStr);
   }
@@ -606,13 +712,41 @@
     if (confirm("確定要撤銷 [" + (displayName || uid) + "] 的送出紀錄嗎？")) { executeRevoke(uid, displayName); }
   }
 
+  function writeAttendanceTempTombstone(uid, scope) {
+    if (!/^LK\d+$/i.test(String(uid || '').trim())) return Promise.resolve({ committed: true, skipped: true });
+    return getAttendanceTempModule().then(function(store) {
+      return store.writeAttendanceTemp({
+        scope: scope,
+        uid: uid,
+        checked: false,
+        operatorId: attUserId,
+        source: 'manual',
+        requestId: 'revoke:' + scope + ':' + uid + ':' + Date.now(),
+        updatedAt: Date.now()
+      });
+    }).then(function(result) {
+      if (result && result.committed === false) throw new Error('此筆預點名正由其他裝置更新，請稍後再試');
+      return result;
+    });
+  }
+
 function executeRevoke(uid, displayName) {
     var btn = document.getElementById('submitBtn');
     var originalText = "確認送出";
     if (btn) { btn.disabled = true; btn.innerHTML = '正在撤銷...'; }
     var dateInput = document.getElementById('attendanceDateInput');
     var selectedDateStr = dateInput ? formatDateToSlash(dateInput.value) : "";
-    google.script.run.withSuccessHandler(function(msg) {
+    writeAttendanceTempTombstone(uid, getCurrentAttendanceTempScope()).then(function() {
+      return new Promise(function(resolve, reject) {
+        google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)
+          .revokeAttendance(uid, currentAttType, attUserId, selectedDateStr, currentFormalRevision);
+      });
+    }).then(function(msg) {
+        if (msg === 'STALE_REVISION') {
+          alert('已被其他裝置更新，畫面將重新整理');
+          switchType(currentAttType);
+          return;
+        }
         if (msg === "OK") {
             var container = document.getElementById('attendanceListBody');
             var checkbox = container.querySelector('input[data-uid="' + uid + '"]');
@@ -632,7 +766,7 @@ function executeRevoke(uid, displayName) {
                     toggleCardStyle(cb);
                 };
             }
-            localPendingActions[uid] = { time: Date.now(), state: false };
+            localPendingActions[uid] = { time: Date.now(), updatedAt: Date.now(), state: false };
             alert("✅ 撤銷成功！");
             var submittedCards = container.querySelectorAll('.att-item.submitted').length;
             var maleEl = document.getElementById('newFriendsMale');
@@ -645,7 +779,10 @@ function executeRevoke(uid, displayName) {
             alert(msg);
         }
         if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
-    }).revokeAttendance(uid, currentAttType, attUserId, selectedDateStr);
+    }).catch(function(error) {
+      alert(error && error.message ? error.message : error);
+      if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
+    });
 }
 
   function fetchRemoteStatus() {
@@ -668,7 +805,7 @@ function executeRevoke(uid, displayName) {
            if (!checkbox) return;
            var card = checkbox.parentElement;
            var memKey = m.id || m.name;
-           if (localPendingActions[memKey] && (now - localPendingActions[memKey].time < 5000)) return;
+           if (localPendingActions[memKey] && Number(localPendingActions[memKey].updatedAt || localPendingActions[memKey].time || 0) >= Number(m.pendingUpdatedAt || 0)) return;
            var lockedId = m.pendingOwnerId || m.ownerId || m.operatorId || m.userId || m.operator || m.uid;
            var pendingLockUntil = Number(m.pendingLockedUntil || m.lockedUntil || 0);
            var pendingExpiresAt = Number(m.pendingExpiresAt || m.expiresAt || 0);
@@ -771,7 +908,7 @@ function executeRevoke(uid, displayName) {
     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 處理中...'; }
     try {
       await flushAttendanceTempQueue();
-      await flushAttendanceTempToBackendAsync(currentAttType);
+      await flushAttendanceTempToBackendAsync(getCurrentAttendanceTempScope());
     } catch (error) {
       alert('點名暫存尚未取得 Firebase ACK，請確認網路後重試。');
       if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
@@ -780,8 +917,12 @@ function executeRevoke(uid, displayName) {
     attIsRendering = true; 
     var dateInput = document.getElementById('attendanceDateInput');
     var dateText = dateInput ? formatDateToSlash(dateInput.value) : '';
-    google.script.run.withSuccessHandler(function(msg) {
-        alert(msg); 
+      google.script.run.withSuccessHandler(function(msg) {
+        if (msg === 'STALE_REVISION') {
+          alert('已被其他裝置更新，畫面將重新整理');
+        } else {
+          alert(msg);
+        }
         if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
         attIsRendering = false; 
         switchType(currentAttType); 
@@ -789,7 +930,7 @@ function executeRevoke(uid, displayName) {
         alert("送出失敗：" + err.message);
         if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
         attIsRendering = false;
-      }).saveAttendance(dateText, presentList, currentAttType, maleCount, femaleCount);
+      }).saveAttendance(dateText, presentList, currentAttType, maleCount, femaleCount, currentFormalRevision);
   }
 
   function filterAttList() {
@@ -842,7 +983,7 @@ function executeRevoke(uid, displayName) {
   function toggleScanner() {
     if (!attUserId) attUserId = localStorage.getItem('att_uid');
     localStorage.setItem('attendance_scope', currentAttType || '');
-    var scannerUrl = "https://jirehwang.github.io/LKC1958_June_1.github.io/apps/qrcodescanner.github.io/?userId=" + encodeURIComponent(attUserId) + "&mode=" + encodeURIComponent(currentAttType || '') + "&context=attendance";
+    var scannerUrl = "https://jirehwang.github.io/LKC1958_June_1.github.io/apps/qrcodescanner.github.io/?mode=" + encodeURIComponent(currentAttType || '') + "&date=" + encodeURIComponent(getAttendanceTempDateValue()) + "&context=attendance";
     window.open(scannerUrl, '_blank');
     startAutoSync();
   }
@@ -962,8 +1103,9 @@ function executeRevoke(uid, displayName) {
         var list = result.activeList || result;
         var nfMale = result.nfMale || 0;
         var nfFemale = result.nfFemale || 0;
-        renderAttendanceList(list, nfMale, nfFemale);
-        startAttendanceTempSubscription(initGrp);
+        currentFormalRevision = Number(result.formalRevision || 0);
+        renderAttendanceList(list, nfMale, nfFemale, currentFormalRevision);
+        startAttendanceTempSubscription(getAttendanceTempScope(initGrp));
         setTimeout(() => { attIsRendering = false; }, 500);
       })
       .withFailureHandler(err => {

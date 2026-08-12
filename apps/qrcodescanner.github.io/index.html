@@ -78,6 +78,7 @@
     const ATTENDANCE_QR_QUEUE_KEY = 'attendance_qr_pending_v1';
     const MAX_PENDING_SCANS = 100;
     const ATTENDANCE_TEMP_FLUSH_INTERVAL_MS = 30000;
+    const ATTENDANCE_QR_OPERATOR_KEY = 'attendance_qr_operator_v2';
     const MAX_SCAN_WRITE_BATCH = 8;
     const tempModulePromise = import(ATTENDANCE_TEMP_MODULE_URL);
     
@@ -185,12 +186,23 @@
 
     function getScanScope() {
       const params = new URLSearchParams(window.location.search);
-      return params.get('mode') || localStorage.getItem('attendance_scope') || '';
+      const mode = params.get('mode') || localStorage.getItem('attendance_scope') || '';
+      if (!mode || mode.indexOf('AGM:') === 0 || mode.indexOf('|date:') !== -1) return mode;
+      const date = String(params.get('date') || '').trim().replace(/\//g, '-');
+      const now = new Date();
+      const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      return mode + '|date:' + (date || localDate);
     }
 
     function getOperatorId() {
-      const params = new URLSearchParams(window.location.search);
-      return params.get('userId') || params.get('uid') || 'Unknown';
+      let operatorId = '';
+      try { operatorId = localStorage.getItem(ATTENDANCE_QR_OPERATOR_KEY) || ''; } catch (error) {}
+      if (!operatorId) {
+        const random = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        operatorId = `QR_${random}`;
+        try { localStorage.setItem(ATTENDANCE_QR_OPERATOR_KEY, operatorId); } catch (error) {}
+      }
+      return operatorId;
     }
 
     function enqueueScan(uid, scope, operatorId) {
@@ -244,7 +256,7 @@
         await Promise.all(batch.map(async item => {
           item.attempts = Number(item.attempts || 0) + 1;
           try {
-            await store.writeAttendanceTemp({
+            const result = await store.writeAttendanceTemp({
               scope: item.scope,
               uid: item.uid,
               checked: item.checked !== false,
@@ -254,6 +266,9 @@
               updatedAt: item.updatedAt
             });
             successfulWrites++;
+            if (result && result.committed === false) {
+              console.info('QR write was a safe no-op; Firebase final state wins', item.uid);
+            }
             if (updatePendingScanQueueItem(item.id, item.requestId, item.updatedAt, () => null)) {
               acknowledged++;
             }

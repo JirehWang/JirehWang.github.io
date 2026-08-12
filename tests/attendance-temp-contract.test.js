@@ -97,3 +97,61 @@ test('GAS exposes a 30-second Firebase temp flush and idempotent mutation planne
   assert.match(source, /lock\.waitLock[\s\S]*_readAttendanceTempSnapshot/);
   assert.match(fs.readFileSync(path.join(gasRoot, 'Core.js'), 'utf8'), /flushAttendanceTemp/);
 });
+
+test('attendance temp ACKs reconcile committed:false instead of treating every transaction as success', () => {
+  const main = fs.readFileSync(
+    path.join(repoRoot, 'apps', 'LKC_SundayserviceAttendance', 'attendance.js'),
+    'utf8'
+  );
+  const qr = fs.readFileSync(
+    path.join(repoRoot, 'apps', 'qrcodescanner.github.io', 'index.html'),
+    'utf8'
+  );
+  assert.match(main, /committed\s*===\s*false/);
+  assert.match(qr, /committed\s*===\s*false/);
+  assert.match(main, /realtimeAttendanceTempPreviousEntries/);
+  assert.match(main, /expiresAt/);
+});
+
+test('attendance temp scope includes the selected date and QR operator is device-owned', () => {
+  const main = fs.readFileSync(
+    path.join(repoRoot, 'apps', 'LKC_SundayserviceAttendance', 'attendance.js'),
+    'utf8'
+  );
+  const qr = fs.readFileSync(
+    path.join(repoRoot, 'apps', 'qrcodescanner.github.io', 'index.html'),
+    'utf8'
+  );
+  const gasTemp = fs.readFileSync(path.join(gasRoot, 'AttendanceTemp.js'), 'utf8');
+  assert.match(main, /\|date:/);
+  assert.match(main, /date=/);
+  assert.match(qr, /attendance_qr_operator_v2/);
+  assert.match(qr, /localStorage\.getItem\(ATTENDANCE_QR_OPERATOR_KEY\)/);
+  assert.doesNotMatch(qr, /return params\.get\(['"]userId['"]\)/);
+  assert.match(gasTemp, /\|date:/);
+  assert.match(gasTemp, /dateStr/);
+  assert.match(gasTemp, /writeAttendanceTempTombstone/);
+  assert.match(gasTemp, /checked:\s*false/);
+});
+
+test('formal attendance save and revoke use a locked per-date revision contract', () => {
+  const sunday = fs.readFileSync(path.join(gasRoot, 'AttendanceDB.js'), 'utf8');
+  const children = fs.readFileSync(
+    path.join(repoRoot, '..', '..', 'LKC', '兒童出席_GAS', 'AttendanceDB.js'),
+    'utf8'
+  );
+  for (const source of [sunday, children]) {
+    assert.match(source, /LockService\.getScriptLock/);
+    assert.match(source, /ATTENDANCE_REV/);
+    assert.match(source, /expectedRevision/);
+    assert.match(source, /clearTempAfterSubmit/);
+  }
+  assert.match(sunday, /writeAttendanceTempTombstone/);
+});
+
+test('legacy GAS attendance HTML is no longer the active attendance entry point', () => {
+  const index = fs.readFileSync(path.join(gasRoot, 'index.html'), 'utf8');
+  assert.doesNotMatch(index, /include\(['"]attendance['"]\)/);
+  assert.match(index, /LKC_SundayserviceAttendance/);
+  assert.equal(fs.existsSync(path.join(gasRoot, 'attendance.html')), false);
+});
