@@ -195,6 +195,12 @@
     }
 
     function getOperatorId() {
+      const params = new URLSearchParams(window.location.search);
+      const urlOperatorId = String(params.get('operatorId') || params.get('userId') || '').trim();
+      if (urlOperatorId) {
+        try { localStorage.setItem(ATTENDANCE_QR_OPERATOR_KEY, urlOperatorId); } catch (error) {}
+        return urlOperatorId;
+      }
       let operatorId = '';
       try { operatorId = localStorage.getItem(ATTENDANCE_QR_OPERATOR_KEY) || ''; } catch (error) {}
       if (!operatorId) {

@@ -506,7 +506,7 @@ function executeRevoke(uid, displayName) {
 
   function toggleScanner() {
     if (!attUserId) attUserId = localStorage.getItem('att_uid');
-    var scannerUrl = "https://jirehwang.github.io/LKC1958_June_1.github.io/apps/qrcodescanner.github.io/?context=children";
+    var scannerUrl = "https://jirehwang.github.io/LKC1958_June_1.github.io/apps/qrcodescanner.github.io/?context=children&operatorId=" + encodeURIComponent(attUserId || '') + "&userId=" + encodeURIComponent(attUserId || '');
     window.open(scannerUrl, '_blank');
     startAutoSync();
   }
