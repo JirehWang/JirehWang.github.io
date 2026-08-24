@@ -178,6 +178,16 @@
     return pages;
   }
 
+  function composeSermonPages(item, sectionId) {
+    const pastorPages = (Array.isArray(item && item.pastorPptPages) ? item.pastorPptPages : []).map((page, index) => ({
+      ...page,
+      kind: 'ppt-import',
+      id: page.id || `${sectionId}:pastor:${index + 1}`,
+      applyBackground: item.pastorPptApplyBackground !== false
+    }));
+    return [{ kind: 'sermon-title' }, ...pastorPages];
+  }
+
   function applyFixedLibraryDefaults(model) {
     const fixed = [
       ['prayer-song', '261', false],
@@ -411,6 +421,7 @@
     wrapTextForBox,
     buildBiblePages,
     composeLibraryPages,
+    composeSermonPages,
     applyFixedLibraryDefaults,
     buildDeckEntries,
     paginateFixedText,

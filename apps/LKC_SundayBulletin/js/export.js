@@ -130,6 +130,15 @@ const BulletinExport = {
     if (tw.goldenVerseText && !/[(（)）]/.test(twGoldenVerseFull)) {
       twGoldenVerseFull = `${twGoldenVerseFull}（${tw.goldenVerseText}）`;
     }
+    let zhGoldenVerseFull = zh.goldenVerse || '___';
+    if (zh.goldenVerseText && !/[(（)）]/.test(zhGoldenVerseFull)) {
+      zhGoldenVerseFull = `${zhGoldenVerseFull}（${zh.goldenVerseText}）`;
+    }
+
+    const choirDisplay = [
+      tw.choirSong ? `${tw.choirSong} (聖歌隊)` : '',
+      tw.choirLyrics || ''
+    ].filter(Boolean).join('\n') || '(聖歌隊)';
 
     // 左欄 - 台語程序
     const twLines = [
@@ -146,7 +155,7 @@ const BulletinExport = {
       { label: `啟應文第 ${tw.responsivePsalm || '___'} 篇`, value: '(聖詩後面)(會眾)' },
       { label: `祈禱${tw.prayer1Note ? ' ' + tw.prayer1Note : ''}`, value: '(司會者)' },
       { label: `聖經 ${tw.scripture || '___'}`, value: '(司會者)' },
-      { label: '讚美', value: `${tw.choirSong || ''} (聖歌隊)` },
+      { label: '讚美', value: choirDisplay },
       { label: `講道「${tw.sermonTitle || '___'}」`, value: '(主理者)' },
       { label: '祈禱', value: '(主理者)' },
       { label: '', value: '' },
@@ -194,6 +203,7 @@ const BulletinExport = {
       { label: '「回應上帝的話」', value: '', bold: true },
       { label: '回應詩(平安禮)', value: '(敬拜團)' },
       { label: '報告', value: '(司會者)' },
+      { label: `金句 ${zhGoldenVerseFull}`, value: '(會眾)' },
       { label: '奉獻', value: '(會眾)' },
       { label: '祝禱', value: '(主理者)' },
       { label: '', value: '' },

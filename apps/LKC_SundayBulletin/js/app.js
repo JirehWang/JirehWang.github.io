@@ -1,5 +1,38 @@
 // 主應用控制器 - 教會週報管理系統
 
+const UPLOADED_REPORT_FIELD_COUNT = 10;
+
+function normalizeUploadedText(value) {
+  return value == null ? '' : String(value).trim();
+}
+
+function normalizeUploadedPraise(data) {
+  const source = data && typeof data === 'object' ? data : {};
+  return {
+    title: normalizeUploadedText(source.title),
+    lyrics: normalizeUploadedText(source.lyrics)
+  };
+}
+
+function normalizeUploadedReports(data) {
+  const source = data && typeof data === 'object' ? data : {};
+  const prayer = source.prayer && typeof source.prayer === 'object' ? source.prayer : {};
+  const normalizeList = value => {
+    const list = Array.isArray(value) ? value : [];
+    return Array.from({ length: UPLOADED_REPORT_FIELD_COUNT }, (_, index) => normalizeUploadedText(list[index]));
+  };
+
+  return {
+    announcements: normalizeList(source.announcements),
+    churchNews: normalizeList(source.churchNews),
+    prayer: {
+      homeRest: normalizeUploadedText(prayer.homeRest),
+      hospital: normalizeUploadedText(prayer.hospital),
+      other: normalizeUploadedText(prayer.other)
+    }
+  };
+}
+
 const App = {
   _autoSaveTimer: null,
   _els: null,  // 啟動時一次性快取常用 DOM 節點
@@ -66,13 +99,23 @@ const App = {
   },
 
   initFormFields() {
-    document.addEventListener('input',  e => { const f = e.target.dataset.field; if (f) BulletinModel.set(f, e.target.value); });
+    document.addEventListener('input', e => {
+      const f = e.target.dataset.field;
+      if (!f) return;
+      BulletinModel.set(f, e.target.value);
+      if (f === 'taiwanese.goldenVerse' || f === 'mandarin.goldenVerse') {
+        const textField = f.replace('.goldenVerse', '.goldenVerseText');
+        BulletinModel.set(textField, '');
+        const textEl = document.querySelector(`[data-field="${textField}"]`);
+        if (textEl) textEl.value = '';
+      }
+    });
     document.addEventListener('change', e => { const f = e.target.dataset.field; if (f) BulletinModel.set(f, e.target.value); });
     
     // 經文輸入框失去焦點時自動標準化格式
     document.addEventListener('blur', async e => {
       const f = e.target.dataset.field;
-      if (f && (f === 'taiwanese.scripture' || f === 'mandarin.scripture' || f === 'taiwanese.callToWorship' || f === 'taiwanese.goldenVerse')) {
+      if (f && (f === 'taiwanese.scripture' || f === 'mandarin.scripture' || f === 'taiwanese.callToWorship' || f === 'taiwanese.goldenVerse' || f === 'mandarin.goldenVerse')) {
         if (window.BibleFormatter) {
           const formatted = window.BibleFormatter.format(e.target.value);
           if (formatted !== e.target.value) {
@@ -80,7 +123,7 @@ const App = {
             BulletinModel.set(f, formatted);
             this.showToast('經文格式已自動轉換為標準格式', 'success');
           }
-          if (f === 'taiwanese.goldenVerse') {
+          if (f === 'taiwanese.goldenVerse' || f === 'mandarin.goldenVerse') {
             await this.autoFillGoldenVerseText();
           }
         }
@@ -446,117 +489,77 @@ const App = {
   },
 
   async autoFillGoldenVerseText() {
-    const inputEl = document.querySelector('[data-field="taiwanese.goldenVerse"]');
-    if (!inputEl) return;
-    const val = inputEl.value.trim();
-    const textEl = document.querySelector('[data-field="taiwanese.goldenVerseText"]');
-    
-    if (!val) {
-      BulletinModel.set('taiwanese.goldenVerseText', '');
+    await Promise.all([
+      this._autoFillGoldenVerseTextFor('taiwanese', 'tghg'),
+      this._autoFillGoldenVerseTextFor('mandarin', 'unv')
+    ]);
+  },
+
+  async _autoFillGoldenVerseTextFor(language, defaultVersion) {
+    const inputEl = document.querySelector(`[data-field="${language}.goldenVerse"]`);
+    const textEl = document.querySelector(`[data-field="${language}.goldenVerseText"]`);
+    const service = BulletinModel.get()[language] || {};
+    const rawValue = (inputEl?.value || service.goldenVerse || '').trim();
+
+    if (!rawValue) {
+      BulletinModel.set(`${language}.goldenVerseText`, '');
       if (textEl) textEl.value = '';
       return;
     }
-    
-    // Check if it already has parentheses (meaning text is already filled)
-    if (/[(（)）]/.test(val)) {
-      // If it contains parentheses, split it into reference and text
-      const match = val.match(/^([^(（]+)[(（]([^)）]+)[)）]$/);
-      if (match) {
-        const refPart = match[1].trim();
-        const textPart = match[2].trim();
-        
-        inputEl.value = refPart;
-        BulletinModel.set('taiwanese.goldenVerse', refPart);
-        BulletinModel.set('taiwanese.goldenVerseText', textPart);
-        if (textEl) textEl.value = textPart;
-      }
+
+    const inlineTextMatch = rawValue.match(/^([^（(]+)[（(]([^)）]+)[)）]$/);
+    const rawReference = inlineTextMatch ? inlineTextMatch[1].trim() : rawValue;
+    const inlineText = inlineTextMatch ? inlineTextMatch[2].trim() : '';
+    const reference = window.BibleFormatter
+      ? window.BibleFormatter.format(rawReference).trim()
+      : rawReference;
+
+    if (inputEl && inputEl.value !== reference) inputEl.value = reference;
+    BulletinModel.set(`${language}.goldenVerse`, reference);
+    if (inlineText) {
+      BulletinModel.set(`${language}.goldenVerseText`, inlineText);
+      if (textEl) textEl.value = inlineText;
       return;
     }
-    
-    // Format if needed
-    let ref = val;
-    if (window.BibleFormatter) {
-      ref = window.BibleFormatter.format(val);
-      if (ref !== val) {
-        inputEl.value = ref;
-        BulletinModel.set('taiwanese.goldenVerse', ref);
-      }
+
+    if (service.goldenVerseText && service.goldenVerseText.trim()) {
+      if (textEl) textEl.value = service.goldenVerseText;
+      return;
     }
-    
-    // Parse reference using the exposed bookRegexPart, guard if unavailable
-    let book = '';
-    let chap = '';
-    let sec = '';
+
     let bookRegexPart = null;
     if (window.BibleFormatter && typeof window.BibleFormatter.bookRegexPart === 'string') {
       bookRegexPart = window.BibleFormatter.bookRegexPart;
     }
-    
-    let match = null;
-    if (bookRegexPart) {
-      match = ref.match(new RegExp('^(' + bookRegexPart + ')\\s*(\\d+):(\\d+)(?:-(\\d+))?$'));
-    } else {
-      match = ref.match(/^([^\d\s:]+)\s*(\d+):(\d+)(?:-(\\d+))?$/);
-    }
-    
-    if (!match) {
-      // Try no-space match
-      match = ref.match(/^([^\d\s:]+)(\d+):(\d+)(?:-(\\d+))?$/);
-    }
-    
-    if (match) {
-      book = match[1];
-      chap = match[2];
-      const startSec = match[3];
-      const endSec = match[4];
-      sec = endSec ? `${startSec}-${endSec}` : startSec;
-    }
+    const refPattern = bookRegexPart
+      ? new RegExp(`^(${bookRegexPart})\\s*(\\d+):(\\d+)(?:-(\\d+))?$`)
+      : /^([^\d\s:]+)\s*(\d+):(\d+)(?:-(\d+))?$/;
+    const match = reference.match(refPattern);
+    if (!match) return;
 
-    if (book && chap) {
-      try {
-        const isUnited = BulletinModel.get().serviceType?.startsWith('聯合');
-        if (isUnited) {
-          this.showToast('正在自動查詢聯合禮拜雙語金句...', 'info');
-          const [resTw, resZh] = await Promise.all([
-            ChurchAPI.queryBible(book, chap, sec, 'tghg'),
-            ChurchAPI.queryBible(book, chap, sec, 'unv')
-          ]);
-          let twText = '';
-          let zhText = '';
-          if (resTw && resTw.success && resTw.records && resTw.records.length > 0) {
-            twText = resTw.records.map(r => r.text.replace(/<[^>]+>/g, '').trim()).join(' ');
-          }
-          if (resZh && resZh.success && resZh.records && resZh.records.length > 0) {
-            zhText = resZh.records.map(r => r.text.replace(/<[^>]+>/g, '').trim()).join(' ');
-          }
-          if (twText && zhText) {
-            const combinedText = `台：${twText}\n華：${zhText}`;
-            BulletinModel.set('taiwanese.goldenVerseText', combinedText);
-            if (textEl) textEl.value = combinedText;
-            this.showToast('聯合禮拜金句已自動填入（台華語）！', 'success');
-          } else {
-            const text = twText || zhText || '';
-            if (text) {
-              BulletinModel.set('taiwanese.goldenVerseText', text);
-              if (textEl) textEl.value = text;
-              this.showToast('金句已自動填入！', 'success');
-            }
-          }
-        } else {
-          this.showToast('正在自動查詢台語金句經文...', 'info');
-          const res = await ChurchAPI.queryBible(book, chap, sec, 'tghg');
-          if (res && res.success && res.records && res.records.length > 0) {
-            const bibleText = res.records.map(r => r.text.replace(/<[^>]+>/g, '').trim()).join(' ');
-            if (bibleText) {
-              BulletinModel.set('taiwanese.goldenVerseText', bibleText);
-              if (textEl) textEl.value = bibleText;
-              this.showToast('台語金句已自動填入！', 'success');
-            }
-          }
-        }
-      } catch (err) {
-        console.error('[autoFillGoldenVerseText]', err);
+    const book = match[1];
+    const chap = match[2];
+    const startSec = match[3];
+    const sec = match[4] ? `${startSec}-${match[4]}` : startSec;
+
+    try {
+      const isUnited = BulletinModel.get().serviceType?.startsWith('聯合');
+      const versions = isUnited ? ['tghg', 'unv'] : [defaultVersion];
+      const results = await Promise.all(versions.map(version => ChurchAPI.queryBible(book, chap, sec, version)));
+      const texts = results
+        .filter(result => result?.success && Array.isArray(result.records))
+        .map(result => result.records.map(record => String(record.text || '').replace(/<[^>]+>/g, '').trim()).join(' '))
+        .filter(Boolean);
+      const text = isUnited && texts.length > 1
+        ? `台：${texts[0]}\n華：${texts[1]}`
+        : (texts[0] || '');
+      if (text) {
+        BulletinModel.set(`${language}.goldenVerseText`, text);
+        if (textEl) textEl.value = text;
+        if (language === 'taiwanese') this.showToast('金句全文已自動填入！', 'success');
       }
+    } catch (err) {
+      console.error('[autoFillGoldenVerseText]', err);
     }
   },
 
@@ -573,7 +576,8 @@ const App = {
     entries.forEach(([name, count]) => {
       const div = document.createElement('div');
       div.className = 'small-group-item';
-      div.innerHTML = `<label>${name}</label><input type="number" data-group="${name}" min="0" value="${parseInt(count) || 0}" onchange="App._updateGroup('${name}', this.value)">`;
+      const displayValue = count === null || count === undefined || count === '' ? '無資料' : String(count);
+      div.innerHTML = `<label>${name}</label><input type="text" inputmode="numeric" data-group="${name}" value="${displayValue}" onchange="App._updateGroup('${name}', this.value)">`;
       container.appendChild(div);
     });
   },
@@ -626,7 +630,7 @@ const App = {
     
     if (!silent) {
       this.showLoading(true);
-      this.showToast('正在載入上傳的讚美詩名...', 'info');
+      this.showToast('正在載入上傳的讚美詩名與歌詞...', 'info');
     }
     
     const key = `praise_songs_${date}`;
@@ -637,14 +641,15 @@ const App = {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json.success && json.data) {
-        const { title } = json.data;
-        if (title) {
-          BulletinModel.set('taiwanese.choirSong', title);
+        const praise = normalizeUploadedPraise(json.data);
+        if (praise.title || praise.lyrics) {
+          BulletinModel.set('taiwanese.choirSong', praise.title);
+          BulletinModel.set('taiwanese.choirLyrics', praise.lyrics);
           this.syncFormFromModel();
-          if (!silent) this.showToast('🎉 成功載入上傳的讚美詩名！', 'success');
+          if (!silent) this.showToast('🎉 成功載入上傳的讚美詩名與歌詞！', 'success');
           return { failed: [] };
         } else {
-          if (!silent) this.showToast('ℹ️ 該日期上傳記錄中無詩歌名稱', 'warning');
+          if (!silent) this.showToast('ℹ️ 該日期上傳記錄中無讚美詩名或歌詞', 'warning');
           return { failed: [] };
         }
       } else {
@@ -681,29 +686,10 @@ const App = {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json.success && json.data) {
-        const { announcements, churchNews, prayer } = json.data;
-        
-        if (Array.isArray(announcements)) {
-          announcements.forEach((ann, idx) => {
-            if (idx < 10) {
-              BulletinModel.set(`announcements.${idx}`, ann || '');
-            }
-          });
-        }
-
-        if (Array.isArray(churchNews)) {
-          churchNews.forEach((item, idx) => {
-            if (idx < 10) {
-              BulletinModel.set(`churchNews.${idx}`, item || '');
-            }
-          });
-        }
-        
-        if (prayer) {
-          if (prayer.homeRest !== undefined) BulletinModel.set('prayer.homeRest', prayer.homeRest || '');
-          if (prayer.hospital !== undefined) BulletinModel.set('prayer.hospital', prayer.hospital || '');
-          if (prayer.other !== undefined) BulletinModel.set('prayer.other', prayer.other || '');
-        }
+        const reports = normalizeUploadedReports(json.data);
+        BulletinModel.set('announcements', reports.announcements);
+        BulletinModel.set('churchNews', reports.churchNews);
+        BulletinModel.set('prayer', reports.prayer);
         
         this.syncFormFromModel();
         if (!silent) this.showToast('🎉 成功載入上傳的消息與代禱事項！', 'success');
@@ -733,5 +719,9 @@ const App = {
     if (o) o.style.display = show ? 'flex' : 'none';
   }
 };
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = App;
+}
 
 document.addEventListener('DOMContentLoaded', () => App.init());

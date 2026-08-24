@@ -368,20 +368,10 @@
         }
 
         function resolveSermonForEvent(event, sermonList) {
-            const linkType = event["套用講道"];
-            if (!linkType || linkType === "N" || linkType === "") {
-                return;
-            }
-            
-            // 判斷是否需要自動補齊（當前主題或經文為空、待定，或是預設標題）
-            const needsResolve = !event["主題"] || 
-                                 event["主題"] === "待定" || 
-                                 event["主題"] === "主日講道信息" ||
-                                 !event["經文"] ||
-                                 event["經文"] === "待定" ||
-                                 event["經文"] === "";
-            
-            if (!needsResolve) {
+            const rawLinkType = event["套用講道"];
+            if (rawLinkType === undefined || rawLinkType === null) return;
+            const linkStr = String(rawLinkType).trim();
+            if (!linkStr || linkStr === "N" || linkStr.toUpperCase() === "FALSE" || linkStr === "0") {
                 return;
             }
             
@@ -389,11 +379,10 @@
             if (!itemDate) return;
             
             const sundayStr = getSundayStrForDate(itemDate);
-            const sundayEvents = sermonList.filter(ev => ev.date === sundayStr);
+            const sundayEvents = (sermonList || []).filter(ev => ev.date === sundayStr);
             if (sundayEvents.length === 0) {
-                if (!event["主題"] || event["主題"] === "待定") {
-                    event["主題"] = "主日講道信息";
-                }
+                event["主題"] = "主日講道信息";
+                event["經文"] = "";
                 return;
             }
             
@@ -405,13 +394,12 @@
             });
             
             if (sermons.length === 0) {
-                if (!event["主題"] || event["主題"] === "待定") {
-                    event["主題"] = "主日講道信息";
-                }
+                event["主題"] = "主日講道信息";
+                event["經文"] = "";
                 return;
             }
             
-            const sermonType = linkType === "Y" ? "華語/聯合" : linkType;
+            const sermonType = (linkStr === "Y" || linkStr.toUpperCase() === "TRUE" || linkStr === "1") ? "華語/聯合" : linkStr;
             const targetTypes = sermonType.split('/');
             let match = null;
             for (const t of targetTypes) {
@@ -422,16 +410,11 @@
             }
             
             if (match) {
-                if (!event["主題"] || event["主題"] === "待定" || event["主題"] === "主日講道信息") {
-                    event["主題"] = match.title || "主日講道信息";
-                }
-                if (!event["經文"] || event["經文"] === "待定" || event["經文"] === "") {
-                    event["經文"] = match.scripture || "";
-                }
+                event["主題"] = (match.title || "").trim() || "主日講道信息";
+                event["經文"] = (match.scripture || "").trim();
             } else {
-                if (!event["主題"] || event["主題"] === "待定") {
-                    event["主題"] = "主日講道信息";
-                }
+                event["主題"] = "主日講道信息";
+                event["經文"] = "";
             }
         }
 

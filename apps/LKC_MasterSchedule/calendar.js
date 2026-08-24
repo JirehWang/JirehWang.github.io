@@ -11,6 +11,27 @@ let _fieldsByType = {}; // typeId → fields (cache)
 let _currentDetailEvent = null;
 let _isInitialLoad = true;
 
+const SCRIPTURE_FIELD_NAMES = new Set(['經文', '宣召', '金句']);
+
+function formatCalendarFieldValue(fieldName, value) {
+  const text = String(value == null ? '' : value);
+  const name = String(fieldName || '').trim();
+  return SCRIPTURE_FIELD_NAMES.has(name) && window.BibleFormatter
+    ? window.BibleFormatter.format(text)
+    : text;
+}
+
+function formatCalendarEventValues(event) {
+  if (!event || !Array.isArray(event.values)) return event;
+  return {
+    ...event,
+    values: event.values.map(value => ({
+      ...value,
+      value: formatCalendarFieldValue(value.fieldName, value.value)
+    }))
+  };
+}
+
 function showLoading(actionName) {
   const overlay = document.getElementById('loadingOverlay');
   const textEl = document.getElementById('loadingText');
@@ -231,14 +252,15 @@ async function loadEventsForRange(startDate, endDate) {
 
     _calendar.removeAllEvents();
     events.forEach(ev => {
+      const displayEvent = formatCalendarEventValues(ev);
       _calendar.addEvent({
-        id: ev.eventId,
-        title: ev.title || ev.typeName,
-        start: ev.date,
+        id: displayEvent.eventId,
+        title: displayEvent.title || displayEvent.typeName,
+        start: displayEvent.date,
         backgroundColor: 'transparent',
         borderColor: 'transparent',
-        textColor: ev.typeColor || '#334155',
-        extendedProps: { raw: ev }
+        textColor: displayEvent.typeColor || '#334155',
+        extendedProps: { raw: displayEvent }
       });
     });
   } catch (err) {
@@ -377,11 +399,10 @@ function _renderFieldInput(f, value) {
   const label = escapeHtml(f['顯示名稱']);
   const req = f.required ? '<span class="text-danger">*</span>' : '';
   
-  // 載入顯示時，若為經文、宣召或金句欄位則即時格式化
-  const isScriptureField = f['顯示名稱'] === '經文' || f['顯示名稱'] === '宣召' || f['顯示名稱'] === '金句';
-  if (isScriptureField && window.BibleFormatter) {
-    value = window.BibleFormatter.format(value);
-  }
+  // 載入顯示時，經文、宣召、金句共用同一套書卷展開規則。
+  const fieldName = String(f['顯示名稱'] || '').trim();
+  const isScriptureField = SCRIPTURE_FIELD_NAMES.has(fieldName);
+  value = formatCalendarFieldValue(fieldName, value);
   const v = escapeAttr(value);
 
   // 經文/宣召/金句欄位加上 blur 自動標準化屬性
@@ -453,6 +474,7 @@ async function saveEvent() {
   let missing = null;
   inputs.forEach(el => {
     const fid = el.dataset.fid;
+    const field = (_fieldsByType[typeId] || []).find(item => String(item.fieldId) === String(fid));
     const required = el.dataset.req === 'true';
     let val;
     if (el.dataset.multi === '1') {
@@ -460,6 +482,7 @@ async function saveEvent() {
     } else {
       val = el.value;
     }
+    val = formatCalendarFieldValue(field && field['顯示名稱'], val);
     if (required && !val.toString().trim()) missing = el;
     if (val) valuesObj[fid] = val;
   });
@@ -516,7 +539,9 @@ function openEventDetail(event) {
   const valuesHtml = event.values && event.values.length > 0
     ? event.values.map(v => `<div class="field-row-display">
         <span class="label">${escapeHtml(v.fieldName)}：</span>
-        <span>${v.fieldType === 'longtext' ? escapeHtml(v.value).replace(/\n/g, '<br>') : escapeHtml(v.value)}</span>
+        <span>${v.fieldType === 'longtext'
+          ? escapeHtml(formatCalendarFieldValue(v.fieldName, v.value)).replace(/\n/g, '<br>')
+          : escapeHtml(formatCalendarFieldValue(v.fieldName, v.value))}</span>
       </div>`).join('')
     : '<div class="text-muted text-center py-2">沒有填寫任何欄位</div>';
 
@@ -658,6 +683,7 @@ async function confirmBatchAdd() {
   let missing = null;
   inputs.forEach(el => {
     const fid = el.dataset.bfid;
+    const field = (_fieldsByType[typeId] || []).find(item => String(item.fieldId) === String(fid));
     const required = el.dataset.req === 'true';
     let val;
     if (el.dataset.multi === '1') {
@@ -665,6 +691,7 @@ async function confirmBatchAdd() {
     } else {
       val = el.value;
     }
+    val = formatCalendarFieldValue(field && field['顯示名稱'], val);
     if (required && !val.toString().trim()) missing = el;
     if (val) valuesObj[fid] = val;
   });
@@ -846,14 +873,17 @@ function _syncAiEventsFromDom() {
       ev.subTypeName = sub.options[sub.selectedIndex] ? sub.options[sub.selectedIndex].text : '';
     }
     ev.values = {};
+    const fields = _fieldsByType[_aiParseResult.rootTypeId] || [];
     card.querySelectorAll('.ai-card-fields [data-fid]').forEach(el => {
       const fid = el.dataset.fid;
+      const field = fields.find(item => String(item.fieldId) === String(fid));
       let val;
       if (el.dataset.multi === '1') {
         val = Array.from(el.querySelectorAll('input[type="checkbox"]:checked')).map(c => c.value).join(',');
       } else {
         val = el.value;
       }
+      val = formatCalendarFieldValue(field && field['顯示名稱'], val);
       if (val) ev.values[fid] = val;
     });
   });
@@ -996,9 +1026,7 @@ async function handleExcelUpload(ev) {
         const f = fieldByName[col];
         if (f && v !== '' && v !== null && v !== undefined) {
           let val = (v instanceof Date) ? v.toISOString().substring(0,10) : String(v);
-          if ((col === '經文' || col === '宣召' || col === '金句') && window.BibleFormatter) {
-            val = window.BibleFormatter.format(val);
-          }
+          val = formatCalendarFieldValue(col, val);
           values[f.fieldId] = val;
         }
       });
@@ -1166,4 +1194,8 @@ async function downloadSermonTemplate(typeName) {
 
   const fileName = `講道資訊模板_${typeName}_${new Date().toISOString().substring(0,10)}.xlsx`;
   XLSX.writeFile(wb, fileName);
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { formatCalendarFieldValue, formatCalendarEventValues };
 }

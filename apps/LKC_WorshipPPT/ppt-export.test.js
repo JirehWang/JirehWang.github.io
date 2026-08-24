@@ -511,7 +511,7 @@ test('keeps praise and sermon title pages vertically centered and identical to t
   assert.equal(slides[1].texts[1].opts.h, slides[0].texts[1].opts.h);
 
   const previewSource = fs.readFileSync(path.join(__dirname, 'ppt-format-preview.js'), 'utf8');
-  assert.match(previewSource, /item\.type === 'sermon'.*kind:'sermon-title'/s);
+  assert.match(previewSource, /item\.type === 'sermon'.*composeSermonPages/s);
   assert.match(previewSource, /page\.kind === 'praise-title'.*template-section.*class="body"/s);
   assert.match(previewSource, /page\.kind === 'sermon-title'.*template-section.*class="body"/s);
   assert.match(previewSource, /const sermonTitle = \['講道', page\.title \|\| item\.title\][^;]+\.join\('：'\)/);
@@ -563,6 +563,44 @@ test('preserves source bounds for an ungrouped imported PowerPoint slide', async
   assert.equal(opts.w, 9.3331);
   assert.equal(opts.h, 3.75);
   assert.equal(text[0].options.fontSize, 18);
+});
+
+test('uses a white slide background when a pastor slide opts out of the worship background', async () => {
+  const slides = [];
+  class MockPptx {
+    addSlide() {
+      const slide = {
+        background: null,
+        images: [],
+        texts: [],
+        addImage(options) { this.images.push(options); },
+        addText(text, options) { this.texts.push({ text, options }); },
+        addShape() {}
+      };
+      slides.push(slide);
+      return slide;
+    }
+    writeFile() { return Promise.resolve(); }
+  }
+
+  await exportWorshipPPTX({
+    PptxGenJS: MockPptx,
+    getDeckEntries: () => [{
+      kind: 'ppt-import',
+      sectionId: 'sermon',
+      applyBackground: false,
+      rasterized: true,
+      objects: [{ type: 'image', src: 'data:image/png;base64,pastor', x: 0, y: 0, w: 100, h: 100 }]
+    }],
+    layoutState: { groups: {}, pageAssignments: {} },
+    production: { layoutForPage: () => ({}) },
+    model: {},
+    backgroundColor: '#123456',
+    backgroundImage: 'data:image/png;base64,worship-background',
+    serviceDate: '2026-07-12'
+  });
+
+  assert.deepEqual(slides[0].background, { fill: 'FFFFFF' });
 });
 
 test('applies separate centered image and text output percentages', async () => {
@@ -617,6 +655,10 @@ test('the export button forwards the active background and model state', () => {
     /exportWorshipPPTX\(\{model,backgroundColor,backgroundImage\}\)/,
     'app.js must pass its lexical state to the standalone exporter'
   );
+  assert.match(appSource, /pastor-ppt-upload/);
+  assert.match(appSource, /requireSixteenByNine/);
+  assert.match(appSource, /parsePptx/);
+  assert.match(appSource, /pastor-ppt-apply-background/);
 });
 
 test('cleanParagraphProperties removes duplicate a:pPr tags from a:p paragraphs', () => {

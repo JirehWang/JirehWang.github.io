@@ -100,13 +100,14 @@
 
       // 1. Background
       const isDarkTemplatePage = entry.kind === 'offering-guide' || entry.kind === 'thanksgiving';
-      const standardBackground = backgroundImage || templateAssets.background;
+      const applyBackground = entry.applyBackground !== false;
+      const standardBackground = applyBackground ? backgroundImage || templateAssets.background : '';
       if (isDarkTemplatePage) {
         slide.background = { fill: '000000' };
       } else if (standardBackground) {
         slide.background = { data: standardBackground };
       } else {
-        slide.background = { fill: bgFill };
+        slide.background = { fill: applyBackground ? bgFill : 'FFFFFF' };
       }
 
       // 2. White Overlay for hymns

@@ -32,6 +32,11 @@ test('matches library entries by kind and normalized number', () => {
   assert.equal(library.findLibraryEntry(entries, 'response', '第 21 篇').fileId, 'r21');
 });
 
+test('accepts standard wide presentations and rejects non-16:9 presentations', () => {
+  assert.equal(library.isSixteenByNine(12192000, 6858000), true);
+  assert.equal(library.isSixteenByNine(10240000, 7680000), false);
+});
+
 test('composes PowerPoint group transforms into slide coordinates', () => {
   const parent = library.groupTransform({
     offX: 100, offY: 200, extX: 400, extY: 300,

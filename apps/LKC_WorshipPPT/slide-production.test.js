@@ -19,6 +19,7 @@ const {
   defaultLayoutForPage,
   resolvedLayoutForPage,
   composeLibraryPages,
+  composeSermonPages,
   applyFixedLibraryDefaults
 } = require('./slide-production.js');
 
@@ -203,6 +204,18 @@ test('keeps source-deck title pages only for sections that actually have them', 
   assert.deepEqual(pages.map(page => page.kind), ['section', 'ppt-import']);
   assert.equal(pages[0].id, 'hymn-1:section');
   assert.deepEqual(composeLibraryPages({ pptPages: imported, includeSectionTitle: false }).map(page => page.kind), ['ppt-import']);
+});
+
+test('places an uploaded pastor presentation after the sermon title page', () => {
+  const pages = composeSermonPages({
+    title: '信息主題',
+    pastorPptApplyBackground: false,
+    pastorPptPages: [{ kind: 'ppt-import', objects: [] }]
+  }, 'sermon');
+
+  assert.deepEqual(pages.map(page => page.kind), ['sermon-title', 'ppt-import']);
+  assert.equal(pages[1].id, 'sermon:pastor:1');
+  assert.equal(pages[1].applyBackground, false);
 });
 
 test('sets the three fixed library songs required by the source deck', () => {

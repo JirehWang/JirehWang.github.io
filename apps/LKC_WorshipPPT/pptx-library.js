@@ -5,6 +5,14 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function() {
   const PPT_WIDTH_EMU = 12192000;
   const PPT_HEIGHT_EMU = 6858000;
+  const PPT_ASPECT_RATIO = 16 / 9;
+
+  function isSixteenByNine(width, height, tolerance = 0.001) {
+    const slideWidth = Number(width);
+    const slideHeight = Number(height);
+    if (!(slideWidth > 0 && slideHeight > 0)) return false;
+    return Math.abs(slideWidth / slideHeight - PPT_ASPECT_RATIO) <= tolerance;
+  }
 
   function normalizeLibraryNumber(value) {
     const match = String(value || '').toUpperCase().match(/0*(\d+)\s*([A-Z])?/);
@@ -281,7 +289,7 @@
 
   const extensionMime = extension => ({ png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', svg: 'image/svg+xml', emf: 'image/emf', wmf: 'image/wmf' })[extension] || 'application/octet-stream';
 
-  async function parsePptx(arrayBuffer, JSZipImplementation) {
+  async function parsePptx(arrayBuffer, JSZipImplementation, options = {}) {
     if (!JSZipImplementation) throw new Error('PPTX 解析元件尚未載入');
     if (typeof DOMParser === 'undefined') throw new Error('目前瀏覽器不支援 XML 解析');
     const zip = await JSZipImplementation.loadAsync(arrayBuffer);
@@ -294,6 +302,9 @@
     const slideSize = firstDescendant(presentation, 'sldSz');
     const slideWidth = intAttr(slideSize, 'cx', PPT_WIDTH_EMU);
     const slideHeight = intAttr(slideSize, 'cy', PPT_HEIGHT_EMU);
+    if (options.requireSixteenByNine && !isSixteenByNine(slideWidth, slideHeight)) {
+      throw new Error('牧師講道 PPT 必須使用 16:9 格式，這份檔案無法上傳');
+    }
     const themePath = Object.keys(zip.files).find(path => /^ppt\/theme\/theme\d+\.xml$/.test(path));
     const masterPath = Object.keys(zip.files).find(path => /^ppt\/slideMasters\/slideMaster\d+\.xml$/.test(path));
     const themeColors = themePath ? parseThemeColors(await xml(themePath)) : {};
@@ -559,6 +570,7 @@
   }
 
   return {
+    isSixteenByNine,
     normalizeLibraryNumber,
     parseLibraryFilename,
     findLibraryEntry,

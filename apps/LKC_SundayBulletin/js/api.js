@@ -202,6 +202,11 @@ const ChurchAPI = {
         events = Array.isArray(raw) ? raw : [];
       }
 
+      const formatBibleReference = value => {
+        const reference = String(value || '');
+        return window.BibleFormatter ? window.BibleFormatter.format(reference) : reference;
+      };
+
       return {
         success: true, source: 'LKCschedule',
         data: events.map(e => {
@@ -215,15 +220,15 @@ const ChurchAPI = {
             // 若台語或華語單方缺少，則互相 Fallback
             sermonTitle:  twS?.title          || zhS?.title          || e['講題']  || e.sermonTitle  || '',
             speaker:      twS?.speaker        || zhS?.speaker        || e['講員']  || e.speaker      || '',
-            scripture:    twS?.scripture      || zhS?.scripture      || e['經文']  || e.scripture    || '',
-            callToWorship:twS?.callToWorship  || zhS?.callToWorship  || e['宣召']  || e.callToWorship|| '',
-            goldenVerse:  twS?.goldenVerse    || zhS?.goldenVerse    || e['金句']  || e.goldenVerse  || '',
+            scripture:    formatBibleReference(twS?.scripture      || zhS?.scripture      || e['經文']  || e.scripture    || ''),
+            callToWorship:formatBibleReference(twS?.callToWorship  || zhS?.callToWorship  || e['宣召']  || e.callToWorship|| ''),
+            goldenVerse:  formatBibleReference(twS?.goldenVerse    || zhS?.goldenVerse    || e['金句']  || e.goldenVerse  || ''),
             responsivePsalm: twS?.responsiveReading || e.responsiveReading || '',
             hymn:         twS?.hymns          || zhS?.hymns          || e['詩歌']  || e['聖詩'] || e.hymn || '',
             notes:        e['備註']           || e.notes        || '',
             zhSermonTitle: zhS?.title     || twS?.title     || '',
             zhSpeaker:     zhS?.speaker   || twS?.speaker   || '',
-            zhScripture:   zhS?.scripture || twS?.scripture || '',
+            zhScripture:   formatBibleReference(zhS?.scripture || twS?.scripture || ''),
             hasTwSermon: !!twS,
             hasZhSermon: !!zhS,
             raw: e
@@ -413,46 +418,46 @@ const ChurchAPI = {
       const endDate   = formatYMD(prevSatD);
       debug('[LKGroup] 參照主日:', date, '統計區間:', startDate, '~', endDate);
 
-      // Step 1: 取得小組列表
-      let groupNames = [];
-      try {
-        const groupsRes = await this.callGAS(CONFIG.LKGROUP_GAS_URL, 'getGroups', {});
-        debug('[LKGroup] getGroups response:', JSON.stringify(groupsRes).substring(0, 500));
-        if (groupsRes?.success && Array.isArray(groupsRes.groups)) {
-          groupNames = groupsRes.groups.map(g => g.name || g).filter(Boolean);
-          debug('[LKGroup] 小組列表:', groupNames);
-        }
-      } catch (e) {
-        debug('[LKGroup] getGroups 失敗，改用預設列表:', e.message);
+      // Step 1: 取得小組列表。查詢失敗必須回報，不能降級成空資料。
+      const groupsRes = await this.callGAS(CONFIG.LKGROUP_GAS_URL, 'getGroups', {});
+      debug('[LKGroup] getGroups response:', JSON.stringify(groupsRes).substring(0, 500));
+      if (!groupsRes?.success || !Array.isArray(groupsRes.groups)) {
+        throw new Error(groupsRes?.error || '小組清單查詢失敗');
       }
-      if (groupNames.length === 0) groupNames = CONFIG.TW_GROUPS;
+      const groupNames = groupsRes.groups.map(g => g.name || g).filter(Boolean);
+      debug('[LKGroup] 小組列表:', groupNames);
+      if (groupNames.length === 0) throw new Error('小組清單為空');
 
-      // Step 2: 建立小組 map，預設人數 0
+      // Step 2: 成功查詢但沒有該週紀錄時，明確標示本週無聚會。
+      const noMeeting = '本週無聚會';
       const results = {};
-      groupNames.forEach(name => { results[name] = { date: '', attendance: 0, newFriends: '' }; });
+      groupNames.forEach(name => { results[name] = { date: '', attendance: noMeeting, newFriends: '' }; });
 
-      // Step 3: 取得以主日日期為參照的小組人數
-      try {
-        const weeklyRes = await this.callGAS(CONFIG.LKGROUP_GAS_URL, 'getWeeklyReport', {
-          referenceDate: date,
-          startDate,
-          endDate
-        });
-        debug('[LKGroup] getWeeklyReport response:', JSON.stringify(weeklyRes).substring(0, 500));
-        if (weeklyRes?.success && Array.isArray(weeklyRes.data)) {
-          weeklyRes.data.forEach(g => {
-            if (Object.prototype.hasOwnProperty.call(results, g.groupName)) {
-              results[g.groupName] = {
-                date:       weeklyRes.dateRange || '',
-                attendance: Number(g.total)     || 0,
-                newFriends: g.newFriends        || ''
-              };
-            }
-          });
+      // Step 3: 取得以主日日期為參照的小組人數。任何失敗或格式錯誤都往上回報。
+      const weeklyRes = await this.callGAS(CONFIG.LKGROUP_GAS_URL, 'getWeeklyReport', {
+        referenceDate: date,
+        startDate,
+        endDate
+      });
+      debug('[LKGroup] getWeeklyReport response:', JSON.stringify(weeklyRes).substring(0, 500));
+      if (!weeklyRes?.success) throw new Error(weeklyRes?.error || '小組週報查詢失敗');
+      if (!Array.isArray(weeklyRes.data)) throw new Error('小組週報資料格式不符');
+
+      weeklyRes.data.forEach(g => {
+        if (!Object.prototype.hasOwnProperty.call(results, g.groupName)) return;
+        const totalText = String(g.total ?? '').trim();
+        let attendance = noMeeting;
+        if (totalText !== '') {
+          const total = Number(totalText);
+          if (!Number.isFinite(total)) throw new Error(`小組「${g.groupName}」人數格式不符`);
+          attendance = total;
         }
-      } catch (e) {
-        debug('[LKGroup] getWeeklyReport 失敗:', e.message);
-      }
+        results[g.groupName] = {
+          date:       weeklyRes.dateRange || '',
+          attendance,
+          newFriends: g.newFriends || ''
+        };
+      });
 
       return { success: true, source: 'LKGroup', data: results };
     } catch (err) {
@@ -503,4 +508,8 @@ const ChurchAPI = {
     }
   }
 };
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = ChurchAPI;
+}
 

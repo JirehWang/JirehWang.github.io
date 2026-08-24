@@ -1,5 +1,7 @@
 // 資料模型與狀態管理 - 教會週報管理系統
 
+const NO_DATA_LABEL = '無資料';
+
 const BulletinModel = {
 
   defaultData() {
@@ -16,14 +18,14 @@ const BulletinModel = {
         callToWorship: '', openingHymn: '',
         apostlesCreed: true,
         responsivePsalm: '', prayer1Note: '',
-        scripture: '', choirSong: '', sermonTitle: '',
+        scripture: '', choirSong: '', choirLyrics: '', sermonTitle: '',
         responseHymn: '', goldenVerse: '', goldenVerseText: '',
         offeringNote: '', doxologyHymn: '',
         bankAccount: CONFIG.BANK_ACCOUNT
       },
 
       mandarin: {
-        presider: '',
+        presider: '', goldenVerse: '', goldenVerseText: '',
         scripture: '', sermonTitle: '',
         worshipSongs: '',
         upcomingPreview: ''
@@ -119,8 +121,8 @@ const BulletinModel = {
         if (window.BibleFormatter) goldenVerse = window.BibleFormatter.format(goldenVerse);
         this.set('taiwanese.goldenVerse',  goldenVerse);
         let goldenVerseText = tw.goldenVerseText || '';
-        if (window.BibleFormatter) goldenVerseText = window.BibleFormatter.format(goldenVerseText);
         this.set('taiwanese.goldenVerseText', goldenVerseText);
+        let hymns = [];
         if (tw.hymn) {
           let separators = /[,，、\/;；\n\t]+/;
           if (!separators.test(tw.hymn) && /\d+\s+\d+/.test(tw.hymn)) {
@@ -133,12 +135,17 @@ const BulletinModel = {
               const match = h.match(/\d+/);
               return match ? match[0] : h;
             });
-          if (hymns.length > 0) this.set('taiwanese.openingHymn', hymns[0]);
-          if (hymns.length > 1) this.set('taiwanese.responseHymn', hymns[1]);
-          if (hymns.length > 2) this.set('taiwanese.doxologyHymn', hymns[2]);
         }
-        if (tw.responsivePsalm) this.set('taiwanese.responsivePsalm', tw.responsivePsalm);
+        this.set('taiwanese.openingHymn', hymns[0] || NO_DATA_LABEL);
+        this.set('taiwanese.responseHymn', hymns[1] || NO_DATA_LABEL);
+        this.set('taiwanese.doxologyHymn', hymns[2] || NO_DATA_LABEL);
+        this.set('taiwanese.responsivePsalm', tw.responsivePsalm || NO_DATA_LABEL);
         this.set('ministry.thisWeek.tw.presider', tw.speaker || '');
+      } else {
+        this.set('taiwanese.openingHymn', NO_DATA_LABEL);
+        this.set('taiwanese.responseHymn', NO_DATA_LABEL);
+        this.set('taiwanese.doxologyHymn', NO_DATA_LABEL);
+        this.set('taiwanese.responsivePsalm', NO_DATA_LABEL);
       }
       if (zh) {
         this.set('mandarin.presider',    zh.speaker      || '');
@@ -146,9 +153,13 @@ const BulletinModel = {
         let scripture = zh.scripture || '';
         if (window.BibleFormatter) scripture = window.BibleFormatter.format(scripture);
         this.set('mandarin.scripture',   scripture);
-        // Mandarin golden verse text (if available)
+        let goldenVerse = zh.goldenVerse || '';
+        if (window.BibleFormatter) goldenVerse = window.BibleFormatter.format(goldenVerse);
+        this.set('mandarin.goldenVerse', goldenVerse);
+
+        // Mandarin golden verse text (if available). Keep the fetched prose as-is;
+        // BibleFormatter is for references, not the verse content itself.
         let goldenVerseText = zh.goldenVerseText || '';
-        if (window.BibleFormatter) goldenVerseText = window.BibleFormatter.format(goldenVerseText);
         this.set('mandarin.goldenVerseText', goldenVerseText);
         this.set('ministry.thisWeek.zh.presider', zh.speaker || '');
       }
@@ -220,3 +231,7 @@ const BulletinModel = {
     }
   }
 };
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = BulletinModel;
+}

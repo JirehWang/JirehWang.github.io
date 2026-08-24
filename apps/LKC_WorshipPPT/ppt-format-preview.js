@@ -33,7 +33,7 @@ function slidePages(item, sectionId) {
     const lyrics = (item.body || '').split(/\n\s*\n/).filter(Boolean).map(body => ({ kind:'praise-lyrics', body }));
     return [{ kind:'praise-title' }, ...lyrics];
   }
-  if (item.type === 'sermon') return [{ kind:'sermon-title' }];
+  if (item.type === 'sermon') return window.TaiwaneseWorshipSlideProduction.composeSermonPages(item, sectionId || active);
   if (item.type === 'manual') {
     const pages = (item.body || '').split(/\n\s*\n/).filter(Boolean).map(body => ({ kind:'content', body }));
     return [{ kind:'section' }, ...pages];
@@ -53,8 +53,9 @@ preview = function() {
   document.getElementById('preview-name').textContent = item.label;
   document.getElementById('slide-count').textContent = `${previewPage + 1} / ${pages.length}`;
   const isDarkTemplatePage = page.kind === 'offering-guide' || page.kind === 'thanksgiving';
-  background.style.backgroundImage = !isDarkTemplatePage && backgroundImage ? `url("${backgroundImage}")` : 'none';
-  background.style.backgroundColor = isDarkTemplatePage ? '#000000' : backgroundColor;
+  const applyBackground = page.applyBackground !== false;
+  background.style.backgroundImage = !isDarkTemplatePage && applyBackground && backgroundImage ? `url("${backgroundImage}")` : 'none';
+  background.style.backgroundColor = isDarkTemplatePage ? '#000000' : applyBackground ? backgroundColor : '#ffffff';
   background.style.opacity = 1;
   const content = document.getElementById('slide-content');
   const previewEntry = { ...page, sectionId: active, sectionLabel: item.label };

@@ -34,6 +34,9 @@ try {
     ['title', 'kicker', 'body', 'secondaryBody', 'sourceValue'].forEach(key => {
       if (typeof saved[key] === 'string') model[id][key] = saved[key];
     });
+    if (typeof saved.pastorPptApplyBackground === 'boolean') {
+      model[id].pastorPptApplyBackground = saved.pastorPptApplyBackground;
+    }
   });
 } catch (error) {
   console.warn('背景、內容與透明度草稿讀取失敗', error);
@@ -78,6 +81,44 @@ function field(label, key, value = '', type = 'text', hint = '') {
     : `<input data-key="${key}" value="${esc(value)}">`}${hint ? `<small>${hint}</small>` : ''}</label>`;
 }
 
+function setEphemeralModelValue(item, key, value) {
+  Object.defineProperty(item, key, {
+    value,
+    writable: true,
+    configurable: true,
+    enumerable: false
+  });
+}
+
+async function handlePastorPptUpload(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  const item = model.sermon;
+  try {
+    if (!/\.pptx$/i.test(file.name)) {
+      throw new Error('牧師講道 PPT 僅支援 .pptx，且必須是 16:9 格式');
+    }
+    status('正在驗證牧師講道 PPT 格式…');
+    const pages = await window.TaiwaneseWorshipPptxLibrary.parsePptx(
+      await file.arrayBuffer(),
+      window.JSZip,
+      { requireSixteenByNine: true }
+    );
+    if (!pages.length) throw new Error('牧師講道 PPT 沒有可匯入的投影片');
+    status('正在處理牧師講道 PPT 投影片…');
+    const rasterizedPages = await window.TaiwaneseWorshipPptxLibrary.rasterizeImportedPages(pages);
+    setEphemeralModelValue(item, 'pastorPptPages', rasterizedPages);
+    setEphemeralModelValue(item, 'pastorPptFileName', file.name);
+    if (typeof item.pastorPptApplyBackground !== 'boolean') item.pastorPptApplyBackground = true;
+    render();
+    status(`已載入牧師講道 PPT：${file.name}（${rasterizedPages.length} 張）`);
+  } catch (error) {
+    event.target.value = '';
+    status(`牧師講道 PPT 無法上傳：${error.message}`);
+    console.error(error);
+  }
+}
+
 function flow() {
   $('#flow-list').innerHTML = sections.map(([id, label], index) => `<button class="flow-item ${id === active ? 'active' : ''}" data-id="${id}"><span class="flow-number">${String(index + 1).padStart(2, '0')}</span>${label}</button>`).join('');
   document.querySelectorAll('[data-id]').forEach(button => {
@@ -106,7 +147,11 @@ function editor() {
   } else if (item.type === 'praise') {
     html = `${field('詩歌名稱', 'title', item.title)}${field('演唱者／團體（選填）', 'kicker', item.kicker)}${field('歌詞（以空白行分頁）', 'body', item.body, 'textarea', '依你貼入的歌詞分頁，不自動生成歌詞。')}`;
   } else if (item.type === 'sermon') {
-    html = `${field('講道題目', 'title', item.title)}<div class="form-row">${field('講員', 'kicker', item.kicker)}${field('經文', 'body', item.body)}</div><label class="field"><span>牧師講道 PPT（選填）</span><input type="file" accept=".ppt,.pptx"></label>`;
+    const pastorPptPages = Array.isArray(item.pastorPptPages) ? item.pastorPptPages : [];
+    const pastorPptStatus = pastorPptPages.length
+      ? `<small class="file-name-hint">已載入：${esc(item.pastorPptFileName || '牧師講道 PPT')}（${pastorPptPages.length} 張）</small>`
+      : '<small>僅接受 16:9 的 .pptx；不符合比例的檔案無法上傳。</small>';
+    html = `${field('講道題目', 'title', item.title)}<div class="form-row">${field('講員', 'kicker', item.kicker)}${field('經文', 'body', item.body)}</div><label class="field"><span>牧師講道 PPT（選填）</span><input id="pastor-ppt-upload" type="file" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation">${pastorPptStatus}</label><label class="field checkbox-field"><span>牧師 PPT 背景</span><span><input id="pastor-ppt-apply-background" type="checkbox" ${item.pastorPptApplyBackground !== false ? 'checked' : ''}> 套用禮拜背景</span></label>`;
   } else if (item.type === 'manual') {
     html = `${field('標題', 'title', item.title)}${field('報告內容', 'body', item.body, 'textarea', '請直接貼入報告內容。')}`;
   } else {
@@ -122,6 +167,13 @@ function editor() {
   form.querySelectorAll('[data-key]').forEach(element => {
     element.oninput = event => { item[event.target.dataset.key] = event.target.value; preview(); };
   });
+  const pastorPptUpload = $('#pastor-ppt-upload');
+  if (pastorPptUpload) pastorPptUpload.onchange = handlePastorPptUpload;
+  const pastorPptApplyBackground = $('#pastor-ppt-apply-background');
+  if (pastorPptApplyBackground) pastorPptApplyBackground.onchange = event => {
+    item.pastorPptApplyBackground = event.target.checked;
+    preview();
+  };
   const opacity = $('#opacity');
   if (opacity) {
     opacity.oninput = event => {
