@@ -1,6 +1,6 @@
 // ==========================================================================
 // 台語有聲聖經 (LKC Taiwanese Audio Bible) - script.js
-// 長輩友善與銀髮族無障礙核心邏輯
+// 長輩友善與銀髮族無障礙核心邏輯（支援彈出視窗選經與設定）
 // ==========================================================================
 
 // 1. 聖經 66 卷書對照表與全域狀態變數
@@ -21,8 +21,10 @@ let currentFontSize = 'large';
 let currentTheme = 'parchment';
 
 // 2. DOM 元素變數
+let modalPicker, modalSettings;
+let btnOpenPicker, btnClosePicker, btnPlayerChangeBook;
+let btnOpenSettings, btnCloseSettings, btnSaveSettings;
 let bibleVerSelect, audioVerSelect, bookSelect, chapterSelect, btnGoChapter;
-let scriptureSelectorCard, btnToggleSelector, selectorToggleText, selectorCardBody, currentSelectionBadge, btnChangeScripture;
 let catalogBooksContainer, catalogChaptersSection, catalogSelectedBookName, catalogChaptersGrid, testamentTabBtns;
 let manualQueryToggle, manualQueryBody, queryInput, btnQuery;
 let playlistCard, playlistContainer;
@@ -43,31 +45,37 @@ document.addEventListener('DOMContentLoaded', () => {
         NEW_TESTAMENT_BOOKS = BIBLE_BOOKS.slice(39);
     }
 
-    // 獲取 DOM 元素
+    // 獲取彈出視窗與控制按鈕
+    modalPicker = document.getElementById('modal-scripture-picker');
+    modalSettings = document.getElementById('modal-settings');
+    btnOpenPicker = document.getElementById('btn-open-picker');
+    btnClosePicker = document.getElementById('btn-close-picker');
+    btnPlayerChangeBook = document.getElementById('btn-player-change-book');
+    btnOpenSettings = document.getElementById('btn-open-settings');
+    btnCloseSettings = document.getElementById('btn-close-settings');
+    btnSaveSettings = document.getElementById('btn-save-settings');
+
+    // 獲取選經表單元素
     bibleVerSelect = document.getElementById('bible-ver-select');
     audioVerSelect = document.getElementById('audio-ver-select');
     bookSelect = document.getElementById('book-select');
     chapterSelect = document.getElementById('chapter-select');
     btnGoChapter = document.getElementById('btn-go-chapter');
 
-    scriptureSelectorCard = document.getElementById('scripture-selector-card');
-    btnToggleSelector = document.getElementById('btn-toggle-selector');
-    selectorToggleText = document.getElementById('selector-toggle-text');
-    selectorCardBody = document.getElementById('selector-card-body');
-    currentSelectionBadge = document.getElementById('current-selection-badge');
-    btnChangeScripture = document.getElementById('btn-change-scripture');
-
+    // 視覺選經目錄
     catalogBooksContainer = document.getElementById('catalog-books-container');
     catalogChaptersSection = document.getElementById('catalog-chapters-section');
     catalogSelectedBookName = document.getElementById('catalog-selected-book-name');
     catalogChaptersGrid = document.getElementById('catalog-chapters-grid');
     testamentTabBtns = document.querySelectorAll('.tab-btn-lg');
 
+    // 手動查詢
     manualQueryToggle = document.getElementById('manual-query-toggle');
     manualQueryBody = document.getElementById('manual-query-body');
     queryInput = document.getElementById('query-input');
     btnQuery = document.getElementById('btn-query');
 
+    // 清單與播放器
     playlistCard = document.getElementById('playlist-card');
     playlistContainer = document.getElementById('playlist-container');
 
@@ -113,7 +121,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // 3.3 初始化播放器自訂控制事件
     initSeniorAudioPlayer();
 
-    // 3.4 綁定下拉選單事件
+    // 3.4 彈出視窗（Modal）事件綁定
+    initModalControls();
+
+    // 3.5 綁定下拉選單事件
     if (bookSelect) {
         bookSelect.addEventListener('change', () => {
             const eng = bookSelect.value;
@@ -131,6 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const bIdx = BIBLE_BOOKS.findIndex(b => b.eng === eng);
             const chap = chapterSelect ? (parseInt(chapterSelect.value, 10) || 1) : 1;
             if (bIdx !== -1) {
+                closePickerModal();
                 loadBookChapter(bIdx, chap, true);
             }
         });
@@ -142,40 +154,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const bIdx = BIBLE_BOOKS.findIndex(b => b.eng === eng);
             const chap = parseInt(chapterSelect.value, 10) || 1;
             if (bIdx !== -1) {
+                closePickerModal();
                 loadBookChapter(bIdx, chap, true);
             }
         });
     }
 
-    // 3.5 選經卡片展開/收合切換
-    if (btnToggleSelector) {
-        btnToggleSelector.addEventListener('click', () => {
-            const isHidden = selectorCardBody.style.display === 'none';
-            selectorCardBody.style.display = isHidden ? 'flex' : 'none';
-            if (selectorToggleText) {
-                selectorToggleText.textContent = isHidden ? '收合選單' : '展開選單';
-            }
-            const arrow = btnToggleSelector.querySelector('.toggle-arrow');
-            if (arrow) arrow.textContent = isHidden ? '▲' : '▼';
-        });
-    }
-
-    // 3.6 快速更換經文按鈕（自動展開選單並平滑滾動到頂部）
-    if (btnChangeScripture) {
-        btnChangeScripture.addEventListener('click', () => {
-            if (selectorCardBody && selectorCardBody.style.display === 'none') {
-                selectorCardBody.style.display = 'flex';
-                if (selectorToggleText) selectorToggleText.textContent = '收合選單';
-                const arrow = btnToggleSelector.querySelector('.toggle-arrow');
-                if (arrow) arrow.textContent = '▲';
-            }
-            if (scriptureSelectorCard) {
-                scriptureSelectorCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-        });
-    }
-
-    // 3.7 手動進階查詢展開/收合切換
+    // 3.6 手動進階查詢展開/收合切換
     if (manualQueryToggle) {
         manualQueryToggle.addEventListener('click', () => {
             const isHidden = manualQueryBody.style.display === 'none';
@@ -185,17 +170,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 3.8 手動查詢按鈕與 Enter 鍵
-    if (btnQuery) btnQuery.addEventListener('click', performQuery);
+    // 3.7 手動查詢按鈕與 Enter 鍵
+    if (btnQuery) btnQuery.addEventListener('click', () => {
+        closePickerModal();
+        performQuery();
+    });
+
     if (queryInput) {
         queryInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
+                closePickerModal();
                 performQuery();
             }
         });
     }
 
-    // 3.9 上一章 / 下一章按鈕事件
+    // 3.8 上一章 / 下一章按鈕事件
     if (btnPrevChap) btnPrevChap.addEventListener('click', playPrevChapter);
     if (btnNextChap) btnNextChap.addEventListener('click', playNextChapter);
     if (btnHeaderPrev) btnHeaderPrev.addEventListener('click', playPrevChapter);
@@ -203,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnFooterPrev) btnFooterPrev.addEventListener('click', playPrevChapter);
     if (btnFooterNext) btnFooterNext.addEventListener('click', playNextChapter);
 
-    // 3.10 譯本切換
+    // 3.9 譯本切換
     if (bibleVerSelect) {
         bibleVerSelect.addEventListener('change', () => {
             currentBibleVersion = bibleVerSelect.value;
@@ -220,8 +210,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 3.11 鍵盤快捷鍵 (在非輸入框時，按左右鍵可切換章節，空白鍵可播放/暫停)
+    // 3.10 鍵盤快捷鍵 (在非輸入框時，按左右鍵可切換章節，空白鍵可播放/暫停，ESC 關閉彈窗)
     document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closePickerModal();
+            closeSettingsModal();
+            return;
+        }
         if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
         if (e.key === 'ArrowLeft') {
             e.preventDefault();
@@ -235,13 +230,70 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 3.12 解析 URL 參數進行自動查詢或預設載入詩篇 23
+    // 3.11 解析 URL 參數進行自動查詢或預設載入詩篇 23
     parseUrlParamsOrInitDefault();
 });
 
-// 4. 無障礙工具（字級大小與護眼主題記憶）
+// ==========================================================================
+// 4. 彈出視窗（Modal）控制
+// ==========================================================================
+function initModalControls() {
+    // 開啟選經彈窗
+    if (btnOpenPicker) btnOpenPicker.addEventListener('click', openPickerModal);
+    if (btnPlayerChangeBook) btnPlayerChangeBook.addEventListener('click', openPickerModal);
+
+    // 關閉選經彈窗
+    if (btnClosePicker) btnClosePicker.addEventListener('click', closePickerModal);
+    if (modalPicker) {
+        modalPicker.addEventListener('click', (e) => {
+            if (e.target === modalPicker) closePickerModal();
+        });
+    }
+
+    // 開啟設定彈窗
+    if (btnOpenSettings) btnOpenSettings.addEventListener('click', openSettingsModal);
+
+    // 關閉設定彈窗
+    if (btnCloseSettings) btnCloseSettings.addEventListener('click', closeSettingsModal);
+    if (btnSaveSettings) btnSaveSettings.addEventListener('click', () => {
+        closeSettingsModal();
+        showToast("設定已儲存！", "success");
+    });
+    if (modalSettings) {
+        modalSettings.addEventListener('click', (e) => {
+            if (e.target === modalSettings) closeSettingsModal();
+        });
+    }
+}
+
+function openPickerModal() {
+    if (modalPicker) {
+        modalPicker.style.display = 'flex';
+        // 同步選中的書卷與章數
+        const currBook = BIBLE_BOOKS[currentBookIndex];
+        if (currBook) {
+            renderCatalogChapters(currBook);
+        }
+    }
+}
+
+function closePickerModal() {
+    if (modalPicker) modalPicker.style.display = 'none';
+}
+
+function openSettingsModal() {
+    if (modalSettings) modalSettings.style.display = 'flex';
+}
+
+function closeSettingsModal() {
+    if (modalSettings) modalSettings.style.display = 'none';
+}
+
+// ==========================================================================
+// 5. 無障礙工具（字級大小與護眼主題記憶）
+// ==========================================================================
 function initAccessibilitySettings() {
-    // 4.1 字級大小
+    // 5.1 字級大小
     const savedFontSize = localStorage.getItem('lkc_audiobible_fontsize') || 'large';
     setFontSize(savedFontSize);
 
@@ -252,9 +304,9 @@ function initAccessibilitySettings() {
         });
     });
 
-    // 4.2 主題設定
+    // 5.2 主題設定
     const savedTheme = localStorage.getItem('lkc_audiobible_theme') || 'parchment';
-    setTheme(savedTheme);
+    setTheme(['parchment', 'light', 'dark'].includes(savedTheme) ? savedTheme : 'parchment');
 
     themePillBtns.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -284,12 +336,14 @@ function setTheme(theme) {
     });
 }
 
-// 5. 初始化書卷與章數選單 (區分為舊約與新約兩大 optgroup)
+// ==========================================================================
+// 6. 初始化書卷與章數選單 (區分為舊約與新約兩大 optgroup)
+// ==========================================================================
 function initBookAndChapterSelectors() {
     if (!bookSelect) return;
     bookSelect.innerHTML = '';
 
-    // 5.1 舊約群組
+    // 6.1 舊約群組
     const otGroup = document.createElement('optgroup');
     otGroup.label = '📜 舊約聖經 (39卷)';
     OLD_TESTAMENT_BOOKS.forEach(b => {
@@ -300,7 +354,7 @@ function initBookAndChapterSelectors() {
     });
     bookSelect.appendChild(otGroup);
 
-    // 5.2 新約群組
+    // 6.2 新約群組
     const ntGroup = document.createElement('optgroup');
     ntGroup.label = '✝️ 新約聖經 (27卷)';
     NEW_TESTAMENT_BOOKS.forEach(b => {
@@ -319,7 +373,7 @@ function initBookAndChapterSelectors() {
     }
 }
 
-// 6. 更新章數下拉選單
+// 7. 更新章數下拉選單
 function updateChapterDropdown(bookIdx, selectedChap = 1) {
     if (!chapterSelect) return;
     const book = BIBLE_BOOKS[bookIdx];
@@ -337,7 +391,9 @@ function updateChapterDropdown(bookIdx, selectedChap = 1) {
     }
 }
 
-// 7. 初始化視覺化選經目錄
+// ==========================================================================
+// 8. 視覺化選經目錄 (Visual Book & Chapter Picker)
+// ==========================================================================
 function initVisualCatalog() {
     // 舊約/新約 頁籤切換
     testamentTabBtns.forEach(btn => {
@@ -355,7 +411,6 @@ function initVisualCatalog() {
     }
 }
 
-// 8. 切換視覺目錄的舊約/新約
 function switchCatalogTestament(testament) {
     currentCatalogTestament = testament;
     testamentTabBtns.forEach(b => {
@@ -365,7 +420,6 @@ function switchCatalogTestament(testament) {
     renderCatalogBooks(testament);
 }
 
-// 9. 渲染視覺目錄的書卷按鈕
 function renderCatalogBooks(testament) {
     if (!catalogBooksContainer) return;
     catalogBooksContainer.innerHTML = '';
@@ -393,7 +447,6 @@ function renderCatalogBooks(testament) {
     });
 }
 
-// 10. 渲染所選書卷的章數按鈕 (大數字按鈕)
 function renderCatalogChapters(book) {
     if (!book || !catalogChaptersSection || !catalogChaptersGrid) return;
     const bIdx = BIBLE_BOOKS.findIndex(b => b.eng === book.eng);
@@ -416,27 +469,26 @@ function renderCatalogChapters(book) {
         }
 
         chapBtn.addEventListener('click', () => {
+            closePickerModal();
             loadBookChapter(bIdx, c, true);
-            // 平滑捲動至播放器與經文區
-            if (seniorPlayerCard) {
-                seniorPlayerCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
         });
 
         catalogChaptersGrid.appendChild(chapBtn);
     }
 }
 
-// 11. 自製長輩大按鈕語音播放器控制邏輯
+// ==========================================================================
+// 9. 自製長輩大按鈕語音播放器控制邏輯
+// ==========================================================================
 function initSeniorAudioPlayer() {
     if (!bibleAudio) return;
 
-    // 11.1 巨大播放 / 暫停按鈕
+    // 9.1 巨大播放 / 暫停按鈕
     if (btnPlayPause) {
         btnPlayPause.addEventListener('click', togglePlayPause);
     }
 
-    // 11.2 音訊播放中狀態更新
+    // 9.2 音訊播放中狀態更新
     bibleAudio.addEventListener('play', () => {
         updatePlayPauseUI(true);
     });
@@ -445,7 +497,7 @@ function initSeniorAudioPlayer() {
         updatePlayPauseUI(false);
     });
 
-    // 11.3 時間更新與進度條同步
+    // 9.3 時間更新與進度條同步
     bibleAudio.addEventListener('timeupdate', () => {
         const curr = bibleAudio.currentTime;
         const dur = bibleAudio.duration;
@@ -458,7 +510,7 @@ function initSeniorAudioPlayer() {
         }
     });
 
-    // 11.4 載入中與元資料就緒
+    // 9.4 載入中與元資料就緒
     bibleAudio.addEventListener('loadedmetadata', () => {
         if (timeTotal) timeTotal.textContent = formatTime(bibleAudio.duration);
     });
@@ -467,7 +519,7 @@ function initSeniorAudioPlayer() {
         if (timeTotal) timeTotal.textContent = formatTime(bibleAudio.duration);
     });
 
-    // 11.5 進度條拖曳快轉
+    // 9.5 進度條拖曳快轉
     if (audioSeekBar) {
         audioSeekBar.addEventListener('input', () => {
             const dur = bibleAudio.duration;
@@ -478,7 +530,7 @@ function initSeniorAudioPlayer() {
         });
     }
 
-    // 11.6 語速按鈕快速切換
+    // 9.6 語速按鈕快速切換
     speedPillBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             const speed = parseFloat(btn.dataset.speed);
@@ -491,14 +543,14 @@ function initSeniorAudioPlayer() {
         });
     });
 
-    // 11.7 音訊播放結束自動下一首
+    // 9.7 音訊播放結束自動下一首
     bibleAudio.addEventListener('ended', () => {
         if (autoNextCheckbox && autoNextCheckbox.checked) {
             playNextChapter();
         }
     });
 
-    // 11.8 錯誤處理
+    // 9.8 錯誤處理
     bibleAudio.addEventListener('error', (e) => {
         console.error("Audio playback error:", e);
         showToast("此章節暫無音訊檔案，或網路連線異常。", "error");
@@ -511,7 +563,7 @@ function togglePlayPause() {
     if (bibleAudio.paused) {
         bibleAudio.play().catch(err => {
             console.log("Audio play blocked or error:", err);
-            showToast("請點擊開始播放", "info");
+            showToast("請點擊播放鈕開始收聽", "info");
         });
     } else {
         bibleAudio.pause();
@@ -534,7 +586,9 @@ function formatTime(seconds) {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
-// 12. 核心章節載入與切換函式
+// ==========================================================================
+// 10. 核心章節載入與切換函式
+// ==========================================================================
 async function loadBookChapter(bookIdx, chap, autoPlay = true) {
     if (bookIdx < 0 || bookIdx >= BIBLE_BOOKS.length) return;
     const book = BIBLE_BOOKS[bookIdx];
@@ -543,18 +597,17 @@ async function loadBookChapter(bookIdx, chap, autoPlay = true) {
     currentBookIndex = bookIdx;
     currentChapter = chap;
 
-    // 12.1 同步更新下拉選單
+    // 10.1 同步更新下拉選單
     if (bookSelect) bookSelect.value = book.eng;
     updateChapterDropdown(bookIdx, chap);
 
-    // 12.2 同步更新手動查詢框與選經卡片狀態徽章
+    // 10.2 同步更新手動查詢框
     if (queryInput) queryInput.value = `${book.full} ${chap}`;
-    if (currentSelectionBadge) currentSelectionBadge.textContent = `目前：${book.full} 第 ${chap} 章`;
 
-    // 12.3 更新前後章導航按鈕狀態與標籤
+    // 10.3 更新前後章導航按鈕狀態與標籤
     updateNavButtonsState();
 
-    // 12.4 同步更新視覺目錄的高亮狀態
+    // 10.4 同步更新視覺目錄的高亮狀態
     const isNT = bookIdx >= 39;
     if ((isNT && currentCatalogTestament !== 'nt') || (!isNT && currentCatalogTestament !== 'ot')) {
         switchCatalogTestament(isNT ? 'nt' : 'ot');
@@ -563,7 +616,7 @@ async function loadBookChapter(bookIdx, chap, autoPlay = true) {
     }
     renderCatalogChapters(book);
 
-    // 12.5 顯示 Loading 並請求經文資料
+    // 10.5 顯示 Loading 並請求經文資料
     showLoadingState();
 
     try {
@@ -606,7 +659,7 @@ async function loadBookChapter(bookIdx, chap, autoPlay = true) {
     }
 }
 
-// 13. 計算前一章目標 (支援全本聖經 66 卷跨卷銜接)
+// 11. 計算前一章目標 (支援全本聖經 66 卷跨卷銜接)
 function getPrevChapterTarget(bIdx, chap) {
     if (chap > 1) {
         return { bookIndex: bIdx, chap: chap - 1 };
@@ -617,7 +670,7 @@ function getPrevChapterTarget(bIdx, chap) {
     return null; // 已是創世記第 1 章
 }
 
-// 14. 計算後一章目標 (支援全本聖經 66 卷跨卷銜接)
+// 12. 計算後一章目標 (支援全本聖經 66 卷跨卷銜接)
 function getNextChapterTarget(bIdx, chap) {
     const currBook = BIBLE_BOOKS[bIdx];
     if (chap < currBook.chapters) {
@@ -628,7 +681,7 @@ function getNextChapterTarget(bIdx, chap) {
     return null; // 已是啟示錄第 22 章
 }
 
-// 15. 更新上一章 / 下一章按鈕狀態與文字提示
+// 13. 更新上一章 / 下一章按鈕狀態與文字提示
 function updateNavButtonsState() {
     const prevTarget = getPrevChapterTarget(currentBookIndex, currentChapter);
     const nextTarget = getNextChapterTarget(currentBookIndex, currentChapter);
@@ -703,7 +756,7 @@ function updateNavButtonsState() {
     }
 }
 
-// 16. 播放上一章
+// 14. 播放上一章
 function playPrevChapter() {
     if (activePlaylist.length > 1 && currentPlayIndex > 0) {
         playChapter(currentPlayIndex - 1);
@@ -719,7 +772,7 @@ function playPrevChapter() {
     }
 }
 
-// 17. 播放下一章
+// 15. 播放下一章
 function playNextChapter() {
     if (activePlaylist.length > 1 && currentPlayIndex < activePlaylist.length - 1) {
         playChapter(currentPlayIndex + 1);
@@ -735,7 +788,7 @@ function playNextChapter() {
     }
 }
 
-// 18. 請求 API 並載入音訊
+// 16. 請求 API 並載入音訊
 async function loadAudioForChapter(item, autoPlay = true) {
     if (currentChapterTitle) currentChapterTitle.textContent = `【${item.label}】`;
     if (audioSourceName) audioSourceName.textContent = "正在獲取語音...";
@@ -783,7 +836,7 @@ async function loadAudioForChapter(item, autoPlay = true) {
     }
 }
 
-// 19. 執行手動經文範圍查詢
+// 17. 執行手動經文範圍查詢
 async function performQuery() {
     const qStr = queryInput ? queryInput.value.trim() : '';
     if (!qStr) {
@@ -819,7 +872,7 @@ async function performQuery() {
     }
 }
 
-// 20. 建立多章播放清單
+// 18. 建立多章播放清單
 function buildPlaylist(results) {
     activePlaylist = [];
     if (playlistContainer) playlistContainer.innerHTML = '';
@@ -882,7 +935,7 @@ function buildPlaylist(results) {
     playChapter(0);
 }
 
-// 21. 播放指定索引的清單章節
+// 19. 播放指定索引的清單章節
 function playChapter(index) {
     if (index < 0 || index >= activePlaylist.length) return;
     
@@ -912,7 +965,7 @@ function playChapter(index) {
     loadAudioForChapter(chapterItem, true);
 }
 
-// 22. 渲染經文列表到讀經板
+// 20. 渲染經文列表到讀經板
 function renderScripture(results) {
     if (!scriptureBody) return;
     scriptureBody.innerHTML = '';
@@ -958,10 +1011,10 @@ function renderScripture(results) {
         });
     });
 
-    scriptureBody.scrollTop = 0;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// 23. 高亮讀經板對應章節經文
+// 21. 高亮讀經板對應章節經文
 function highlightActiveChapterText(eng, chap) {
     if (!scriptureBody) return;
     const allVerses = scriptureBody.querySelectorAll('.verse-p');
@@ -977,7 +1030,7 @@ function highlightActiveChapterText(eng, chap) {
     });
 }
 
-// 24. 顯示 Loading 與 Error 狀態
+// 22. 顯示 Loading 與 Error 狀態
 function showLoadingState() {
     if (scriptureTitleDisplay) scriptureTitleDisplay.textContent = "讀經板";
     if (scriptureInfoDisplay) scriptureInfoDisplay.textContent = "載入中...";
@@ -1011,7 +1064,7 @@ function showErrorState(msg) {
     if (playlistCard) playlistCard.style.display = 'none';
 }
 
-// 25. 解析 URL 參數或載入預設章節
+// 23. 解析 URL 參數或載入預設章節
 function parseUrlParamsOrInitDefault() {
     const urlParams = new URLSearchParams(window.location.search);
     const queryParam = urlParams.get('query');
@@ -1045,7 +1098,7 @@ function parseUrlParamsOrInitDefault() {
     }
 }
 
-// 26. Toast 提示訊息
+// 24. Toast 提示訊息
 function showToast(msg, type = "success") {
     const toast = document.getElementById('toast-message');
     if (!toast) return;

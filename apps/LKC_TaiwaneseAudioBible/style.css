@@ -3,7 +3,30 @@
    ========================================================================== */
 
 /* 1. 全域色彩變數與主題定義 (預設：☀️ 護眼米紙主題) */
-:root,
+:root {
+    color-scheme: light;
+    --bg-page: #faf7f0;
+    --bg-card: #ffffff;
+    --bg-subcard: #f4eee1;
+    --bg-active: #e6f4f1;
+    --border-main: #e2d8c3;
+    --border-card: #eee6d6;
+    --border-focus: #0f766e;
+    --text-primary: #1c1917;
+    --text-secondary: #44403c;
+    --text-muted: #78716c;
+    --primary: #0f766e;
+    --primary-hover: #115e59;
+    --primary-light: #ccfbf1;
+    --primary-glow: rgba(15, 118, 110, 0.18);
+    --accent: #c2410c;
+    --accent-light: #ffedd5;
+    --danger: #dc2626;
+    --shadow-main: 0 4px 20px rgba(80, 60, 20, 0.07);
+    --shadow-player: 0 8px 30px rgba(15, 118, 110, 0.12);
+    --verse-highlight: rgba(15, 118, 110, 0.08);
+}
+
 [data-theme="parchment"] {
     --bg-page: #faf7f0;
     --bg-card: #ffffff;
@@ -51,6 +74,7 @@
 }
 
 [data-theme="dark"] {
+    color-scheme: dark;
     --bg-page: #0b1120;
     --bg-card: #151f32;
     --bg-subcard: #1e293b;
@@ -73,14 +97,14 @@
     --verse-highlight: rgba(16, 185, 129, 0.1);
 }
 
-/* 2. 基礎字體與重設 */
+/* 2. 基礎重設 */
 * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
 }
 
-body {
+html, body {
     background-color: var(--bg-page);
     color: var(--text-primary);
     font-family: 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
@@ -94,21 +118,21 @@ body {
 /* App Container */
 .app-container {
     width: 100%;
-    max-width: 1360px;
+    max-width: 1100px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 16px;
     flex: 1;
 }
 
-/* 3. 頁首與長輩無障礙控制列 (Header & Accessibility Tools) */
+/* 3. 頁首導覽 (Top Header) */
 .app-header {
     background: var(--bg-card);
     border: 2px solid var(--border-card);
     border-radius: 18px;
-    padding: 16px 24px;
+    padding: 14px 20px;
     box-shadow: var(--shadow-main);
 }
 
@@ -116,22 +140,22 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
     flex-wrap: wrap;
 }
 
 .logo-area {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
 }
 
 .logo-icon {
-    font-size: 28px;
+    font-size: 26px;
     background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
-    width: 52px;
-    height: 52px;
-    border-radius: 14px;
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -140,10 +164,11 @@ body {
 }
 
 .logo-area h1 {
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 900;
     letter-spacing: 0.5px;
     color: var(--text-primary);
+    line-height: 1.2;
 }
 
 .church-sub {
@@ -152,70 +177,66 @@ body {
     color: var(--text-muted);
 }
 
-/* Header Accessibility Tools */
-.header-tools {
+.header-actions {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 10px;
     flex-wrap: wrap;
 }
 
-.tool-group {
-    display: flex;
+/* Action Buttons */
+.btn-action-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 4px 14px var(--primary-glow);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-action-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px var(--primary-glow);
+}
+
+.btn-action-outline {
+    display: inline-flex;
     align-items: center;
     gap: 6px;
-}
-
-.tool-label {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--text-secondary);
-}
-
-.btn-group-pill {
-    display: inline-flex;
+    padding: 10px 16px;
     background: var(--bg-subcard);
-    border: 1px solid var(--border-main);
-    border-radius: 10px;
-    padding: 3px;
-    gap: 2px;
-}
-
-.btn-tool-pill,
-.btn-theme-pill {
-    background: transparent;
-    border: none;
-    padding: 8px 12px;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--text-secondary);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-}
-
-.btn-tool-pill:hover,
-.btn-theme-pill:hover {
+    border: 2px solid var(--border-main);
     color: var(--text-primary);
-    background: rgba(0, 0, 0, 0.05);
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
-.btn-tool-pill.active,
-.btn-theme-pill.active {
-    background: var(--primary);
-    color: #ffffff;
-    box-shadow: 0 2px 8px var(--primary-glow);
+.btn-action-outline:hover {
+    background: var(--primary-light);
+    border-color: var(--primary);
+    color: var(--primary);
+    transform: translateY(-2px);
 }
 
 .btn-back {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 10px 16px;
+    padding: 10px 14px;
     background: var(--bg-subcard);
     border: 1px solid var(--border-main);
-    border-radius: 10px;
-    color: var(--text-primary);
+    border-radius: 12px;
+    color: var(--text-secondary);
     font-size: 14px;
     font-weight: 700;
     text-decoration: none;
@@ -228,474 +249,81 @@ body {
     color: var(--primary);
 }
 
-/* 4. 主要版面佈局 (Main Layout) */
+/* 4. 主要版面佈局 (Main Screen) */
 .app-main-layout {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-/* 5. 步驟 1：選擇經文區塊 (Scripture Selector Banner / Card) */
-.scripture-selector-card {
-    background: var(--bg-card);
-    border: 2px solid var(--border-main);
-    border-radius: 20px;
-    padding: 24px;
-    box-shadow: var(--shadow-main);
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.selector-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 2px solid var(--border-card);
-    padding-bottom: 16px;
-    flex-wrap: wrap;
-    gap: 12px;
-}
-
-.selector-header-title {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.step-num {
-    background: var(--primary);
-    color: #ffffff;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    font-weight: 900;
-    font-family: 'Outfit', sans-serif;
-}
-
-.selector-header-title h2 {
-    font-size: 20px;
-    font-weight: 800;
-    color: var(--text-primary);
-}
-
-.current-badge {
-    background: var(--primary-light);
-    color: var(--primary);
-    font-size: 14px;
-    font-weight: 700;
-    padding: 4px 14px;
-    border-radius: 20px;
-    border: 1px solid var(--primary);
-}
-
-.btn-selector-collapse {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
-    background: var(--bg-subcard);
-    border: 1px solid var(--border-main);
-    border-radius: 10px;
-    color: var(--text-secondary);
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.btn-selector-collapse:hover {
-    background: var(--bg-active);
-    color: var(--primary);
-    border-color: var(--primary);
-}
-
-.selector-card-body {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-/* Dropdowns Quick Bar */
-.dropdowns-bar {
-    display: grid;
-    grid-template-columns: 1.5fr 1.3fr 1.5fr 1fr auto;
-    gap: 12px;
-    align-items: flex-end;
-    background: var(--bg-subcard);
-    padding: 16px 20px;
-    border-radius: 14px;
-    border: 1px solid var(--border-main);
-}
-
-.select-item {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.select-item label {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--text-secondary);
-}
-
-.form-select-lg,
-.form-input-lg {
-    height: 48px;
-    padding: 0 14px;
-    border-radius: 10px;
-    border: 2px solid var(--border-main);
-    background-color: var(--bg-card);
-    color: var(--text-primary);
-    font-size: 15px;
-    font-weight: 600;
-    outline: none;
-    font-family: inherit;
-    transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.form-select-lg optgroup {
-    font-weight: 800;
-    color: var(--primary);
-    background: var(--bg-subcard);
-}
-
-.form-select-lg option {
-    font-weight: normal;
-    color: var(--text-primary);
-    background: var(--bg-card);
-}
-
-.form-select-lg:focus,
-.form-input-lg:focus {
-    border-color: var(--border-focus);
-    box-shadow: 0 0 0 3px var(--primary-glow);
-}
-
-.btn-primary-lg {
-    height: 48px;
-    padding: 0 24px;
-    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
-    color: #ffffff;
-    border: none;
-    border-radius: 10px;
-    font-size: 15px;
-    font-weight: 800;
-    cursor: pointer;
-    box-shadow: 0 4px 14px var(--primary-glow);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    white-space: nowrap;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.btn-primary-lg:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 18px var(--primary-glow);
-}
-
-.btn-primary-lg:active {
-    transform: translateY(1px);
-}
-
-/* 6. 視覺化選經區 (Visual Book & Chapter Picker) */
-.visual-picker-container {
     display: flex;
     flex-direction: column;
     gap: 16px;
 }
 
-/* Testament Tabs (Large & Clear) */
-.testament-tabs-large {
-    display: flex;
-    gap: 12px;
-}
-
-.tab-btn-lg {
-    flex: 1;
-    height: 52px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    font-size: 17px;
-    font-weight: 800;
-    border-radius: 12px;
-    border: 2px solid var(--border-main);
-    background: var(--bg-subcard);
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.tab-btn-lg:hover {
-    color: var(--text-primary);
-    border-color: var(--primary);
-}
-
-.tab-btn-lg.active {
-    background: var(--primary);
-    color: #ffffff;
-    border-color: var(--primary);
-    box-shadow: 0 4px 14px var(--primary-glow);
-}
-
-.tab-icon {
-    font-size: 20px;
-}
-
-/* Books Grid (Large Buttons with Full Names) */
-.catalog-books-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    gap: 8px;
-    max-height: 240px;
-    overflow-y: auto;
-    padding-right: 6px;
-}
-
-.catalog-books-grid::-webkit-scrollbar,
-.catalog-chapters-grid::-webkit-scrollbar {
-    width: 6px;
-}
-
-.catalog-books-grid::-webkit-scrollbar-thumb,
-.catalog-chapters-grid::-webkit-scrollbar-thumb {
-    background: var(--border-main);
-    border-radius: 3px;
-}
-
-.catalog-book-btn {
-    min-height: 46px;
-    padding: 10px 8px;
-    border-radius: 10px;
-    border: 2px solid var(--border-main);
-    background: var(--bg-card);
-    color: var(--text-primary);
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-    text-align: center;
-    transition: all 0.15s ease;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.catalog-book-btn:hover {
-    border-color: var(--primary);
-    background: var(--bg-active);
-    transform: translateY(-2px);
-}
-
-.catalog-book-btn.active {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: #ffffff;
-    box-shadow: 0 4px 12px var(--primary-glow);
-}
-
-/* Chapter Badges Box */
-.catalog-chapters-box {
-    background: var(--bg-subcard);
-    border: 2px solid var(--border-main);
-    border-radius: 14px;
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.chapters-box-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 1px solid var(--border-main);
-    padding-bottom: 8px;
-}
-
-.chapters-header-left {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 16px;
-    font-weight: 800;
-}
-
-.curr-book-title {
-    color: var(--primary);
-    font-size: 18px;
-}
-
-.chap-guide-text {
-    color: var(--text-secondary);
-    font-size: 14px;
-    font-weight: 600;
-}
-
-.catalog-chapters-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
-    gap: 8px;
-    max-height: 180px;
-    overflow-y: auto;
-    padding-right: 6px;
-}
-
-.catalog-chap-btn {
-    height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Outfit', sans-serif;
-    font-size: 16px;
-    font-weight: 800;
-    border-radius: 8px;
-    border: 2px solid var(--border-main);
-    background: var(--bg-card);
-    color: var(--text-primary);
-    cursor: pointer;
-    transition: all 0.15s ease;
-}
-
-.catalog-chap-btn:hover {
-    border-color: var(--primary);
-    background: var(--primary-light);
-    color: var(--primary);
-    transform: scale(1.05);
-}
-
-.catalog-chap-btn.active {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: #ffffff;
-    box-shadow: 0 4px 12px var(--primary-glow);
-}
-
-/* Manual Query Drawer */
-.manual-query-drawer {
-    border-top: 1px dashed var(--border-main);
-    padding-top: 12px;
-}
-
-.manual-query-toggle {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--text-secondary);
-    cursor: pointer;
-    padding: 6px 0;
-    transition: color 0.2s ease;
-}
-
-.manual-query-toggle:hover {
-    color: var(--primary);
-}
-
-.manual-query-body {
-    margin-top: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.query-input-wrap {
-    display: flex;
-    gap: 10px;
-}
-
-.query-input-wrap .form-input-lg {
-    flex: 1;
-}
-
-.input-helper {
-    font-size: 12px;
-    color: var(--text-muted);
-}
-
-/* 7. 專屬長輩大按鈕語音播放器 (Senior Big Player Card) */
+/* 5. 專屬長輩大按鈕語音播放器 (Senior Big Player Card) */
 .senior-player-card {
     background: var(--bg-card);
     border: 2px solid var(--border-card);
     border-top: 4px solid var(--primary);
-    border-radius: 20px;
-    padding: 20px 24px;
+    border-radius: 18px;
+    padding: 16px 20px;
     box-shadow: var(--shadow-player);
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 14px;
     position: sticky;
-    top: 16px;
-    z-index: 100;
+    top: 10px;
+    z-index: 50;
 }
 
 .player-header-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     flex-wrap: wrap;
 }
 
 .player-title-box {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
 }
 
 .sound-wave-icon {
-    font-size: 22px;
+    font-size: 20px;
     color: var(--primary);
-    animation: pulse 1.5s infinite alternate ease-in-out;
-}
-
-@keyframes pulse {
-    from { transform: scale(1); }
-    to { transform: scale(1.15); }
 }
 
 .player-chapter-title {
-    font-size: 22px;
+    font-size: 20px;
     font-weight: 900;
     color: var(--primary);
 }
 
 .audio-ver-badge {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
     background: var(--bg-subcard);
     border: 1px solid var(--border-main);
     color: var(--text-secondary);
-    padding: 4px 12px;
+    padding: 3px 10px;
     border-radius: 20px;
 }
 
-.btn-change-scripture {
+.btn-pill-change {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 8px 16px;
+    padding: 6px 14px;
     background: var(--bg-subcard);
-    border: 2px solid var(--border-main);
+    border: 1px solid var(--border-main);
     border-radius: 10px;
     color: var(--text-primary);
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 800;
     cursor: pointer;
     transition: all 0.2s ease;
 }
 
-.btn-change-scripture:hover {
+.btn-pill-change:hover {
     background: var(--primary-light);
     border-color: var(--primary);
     color: var(--primary);
@@ -706,22 +334,21 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 20px;
-    padding: 4px 0;
+    gap: 18px;
 }
 
 .btn-nav-senior {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    height: 52px;
-    padding: 0 20px;
-    border-radius: 14px;
+    gap: 6px;
+    height: 48px;
+    padding: 0 18px;
+    border-radius: 12px;
     border: 2px solid var(--border-main);
     background: var(--bg-subcard);
     color: var(--text-primary);
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 800;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -742,8 +369,8 @@ body {
 
 /* Giant Circular Play Button */
 .btn-giant-play {
-    width: 68px;
-    height: 68px;
+    width: 64px;
+    height: 64px;
     border-radius: 50%;
     border: none;
     background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
@@ -760,7 +387,7 @@ body {
 }
 
 .btn-giant-play:hover {
-    transform: scale(1.08);
+    transform: scale(1.06);
     box-shadow: 0 8px 24px var(--primary-glow);
 }
 
@@ -784,15 +411,15 @@ body {
 .player-progress-row {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
 }
 
 .time-text {
     font-family: 'Outfit', monospace;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     color: var(--text-secondary);
-    min-width: 48px;
+    min-width: 44px;
 }
 
 .slider-wrap {
@@ -815,8 +442,8 @@ body {
 .senior-range::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
     background: var(--primary);
     border: 3px solid #ffffff;
@@ -829,89 +456,17 @@ body {
     transform: scale(1.2);
 }
 
-/* Speed & Auto Next Row */
-.player-options-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 16px;
-    flex-wrap: wrap;
-    border-top: 1px solid var(--border-card);
-    padding-top: 12px;
-}
-
-.speed-selector-box {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.opt-label {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--text-secondary);
-}
-
-.btn-group-speed {
-    display: inline-flex;
-    background: var(--bg-subcard);
-    border: 1px solid var(--border-main);
-    border-radius: 10px;
-    padding: 3px;
-    gap: 4px;
-}
-
-.btn-speed-pill {
-    background: transparent;
-    border: none;
-    padding: 6px 14px;
-    font-size: 13px;
-    font-weight: 800;
-    color: var(--text-secondary);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-}
-
-.btn-speed-pill:hover {
-    color: var(--text-primary);
-}
-
-.btn-speed-pill.active {
-    background: var(--primary);
-    color: #ffffff;
-    box-shadow: 0 2px 8px var(--primary-glow);
-}
-
-.senior-checkbox-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--text-primary);
-    cursor: pointer;
-    user-select: none;
-}
-
-.senior-checkbox-label input {
-    width: 20px;
-    height: 20px;
-    accent-color: var(--primary);
-    cursor: pointer;
-}
-
-/* 8. 經文閱讀大字板 (Scripture Reading Card) */
+/* 6. 經文閱讀大字板 (Scripture Reading Card) */
 .scripture-container-card {
     background: var(--bg-card);
     border: 2px solid var(--border-card);
     border-radius: 20px;
-    padding: 32px;
+    padding: 24px 28px;
     box-shadow: var(--shadow-main);
     display: flex;
     flex-direction: column;
-    gap: 24px;
-    min-height: 450px;
+    gap: 20px;
+    min-height: 520px;
 }
 
 .scripture-header {
@@ -919,7 +474,7 @@ body {
     justify-content: space-between;
     align-items: center;
     border-bottom: 2px solid var(--border-card);
-    padding-bottom: 18px;
+    padding-bottom: 14px;
     gap: 12px;
     flex-wrap: wrap;
 }
@@ -927,12 +482,12 @@ body {
 .scripture-header-left {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     flex-wrap: wrap;
 }
 
 .scripture-header h2 {
-    font-size: 22px;
+    font-size: 20px;
     font-weight: 900;
     color: var(--primary);
 }
@@ -943,7 +498,7 @@ body {
     color: var(--text-secondary);
     font-size: 14px;
     font-weight: 700;
-    padding: 4px 16px;
+    padding: 3px 14px;
     border-radius: 20px;
 }
 
@@ -980,22 +535,11 @@ body {
 /* 經文主體與字級縮放 (Scripture Body & Font Size Classes) */
 .scripture-content-body {
     flex: 1;
-    overflow-y: auto;
-    max-height: 65vh;
-    padding-right: 12px;
+    padding-right: 8px;
     transition: font-size 0.2s ease, line-height 0.2s ease;
 }
 
-.scripture-content-body::-webkit-scrollbar {
-    width: 8px;
-}
-
-.scripture-content-body::-webkit-scrollbar-thumb {
-    background: var(--border-main);
-    border-radius: 4px;
-}
-
-/* 字級定義 */
+/* 字級定義 (高清晰防跳行) */
 [data-fontsize="standard"] .scripture-content-body {
     font-size: 1.35rem;
     line-height: 2.3rem;
@@ -1022,8 +566,8 @@ body {
 
 /* Verse text layout */
 .scripture-section-header {
-    margin: 28px 0 16px 0;
-    padding-bottom: 10px;
+    margin: 24px 0 14px 0;
+    padding-bottom: 8px;
     border-bottom: 2px dashed var(--border-main);
     font-size: 1.25em;
     color: var(--primary);
@@ -1031,11 +575,11 @@ body {
 }
 
 .verse-p {
-    margin-bottom: 18px;
+    margin-bottom: 16px;
     display: flex;
     align-items: flex-start;
     gap: 14px;
-    padding: 10px 14px;
+    padding: 8px 12px;
     border-radius: 10px;
     transition: background-color 0.2s ease;
 }
@@ -1071,26 +615,26 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 16px;
-    padding-top: 20px;
-    margin-top: 12px;
+    gap: 14px;
+    padding-top: 18px;
+    margin-top: 10px;
     border-top: 2px solid var(--border-card);
 }
 
 .btn-footer-nav-lg {
     flex: 1;
-    max-width: 280px;
-    height: 56px;
+    max-width: 260px;
+    height: 52px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    padding: 0 20px;
+    gap: 8px;
+    padding: 0 16px;
     border-radius: 12px;
     border: 2px solid var(--border-main);
     background: var(--bg-subcard);
     color: var(--text-primary);
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 800;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -1114,7 +658,7 @@ body {
 }
 
 .footer-center-info {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 800;
     color: var(--primary);
     font-family: 'Outfit', sans-serif;
@@ -1142,19 +686,502 @@ body {
     max-width: 360px;
 }
 
+/* 7. 彈出視窗樣式 (Modals / Overlays) */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-card {
+    background: var(--bg-card);
+    border: 2px solid var(--border-card);
+    border-radius: 20px;
+    width: 100%;
+    max-width: 720px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+    animation: slideUp 0.25s ease;
+    overflow: hidden;
+}
+
+@keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 24px;
+    border-bottom: 2px solid var(--border-card);
+    background: var(--bg-subcard);
+}
+
+.modal-title-area {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.modal-icon {
+    font-size: 24px;
+}
+
+.modal-header h3 {
+    font-size: 20px;
+    font-weight: 900;
+    color: var(--text-primary);
+}
+
+.btn-modal-close {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    border: 1px solid var(--border-main);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    font-size: 18px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.btn-modal-close:hover {
+    background: var(--danger);
+    color: #ffffff;
+    border-color: var(--danger);
+}
+
+.modal-body {
+    padding: 20px 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.form-select-lg,
+.form-input-lg {
+    height: 46px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 2px solid var(--border-main);
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 15px;
+    font-weight: 600;
+    outline: none;
+    font-family: inherit;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    width: 100%;
+}
+
+.form-select-lg optgroup {
+    font-weight: 800;
+    color: var(--primary);
+    background: var(--bg-subcard);
+}
+
+.form-select-lg option {
+    font-weight: normal;
+    color: var(--text-primary);
+    background: var(--bg-card);
+}
+
+.form-select-lg:focus,
+.form-input-lg:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+.btn-primary-lg {
+    height: 46px;
+    padding: 0 20px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 4px 14px var(--primary-glow);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-primary-lg:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px var(--primary-glow);
+}
+
+.btn-block {
+    width: 100%;
+    height: 50px;
+    font-size: 17px;
+}
+
+/* Testament Tabs (Large & Clear) */
+.testament-tabs-large {
+    display: flex;
+    gap: 10px;
+}
+
+.tab-btn-lg {
+    flex: 1;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 16px;
+    font-weight: 800;
+    border-radius: 12px;
+    border: 2px solid var(--border-main);
+    background: var(--bg-subcard);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tab-btn-lg:hover {
+    color: var(--text-primary);
+    border-color: var(--primary);
+}
+
+.tab-btn-lg.active {
+    background: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary);
+    box-shadow: 0 4px 14px var(--primary-glow);
+}
+
+.tab-icon {
+    font-size: 18px;
+}
+
+/* Books Grid (Large Buttons with Full Names) */
+.catalog-books-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
+    gap: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.catalog-books-grid::-webkit-scrollbar,
+.catalog-chapters-grid::-webkit-scrollbar {
+    width: 6px;
+}
+
+.catalog-books-grid::-webkit-scrollbar-thumb,
+.catalog-chapters-grid::-webkit-scrollbar-thumb {
+    background: var(--border-main);
+    border-radius: 3px;
+}
+
+.catalog-book-btn {
+    min-height: 44px;
+    padding: 8px 6px;
+    border-radius: 10px;
+    border: 2px solid var(--border-main);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.catalog-book-btn:hover {
+    border-color: var(--primary);
+    background: var(--bg-active);
+    transform: translateY(-2px);
+}
+
+.catalog-book-btn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #ffffff;
+    box-shadow: 0 4px 12px var(--primary-glow);
+}
+
+/* Chapter Badges Box */
+.catalog-chapters-box {
+    background: var(--bg-subcard);
+    border: 2px solid var(--border-main);
+    border-radius: 14px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.chapters-box-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border-main);
+    padding-bottom: 6px;
+}
+
+.chapters-header-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 15px;
+    font-weight: 800;
+}
+
+.curr-book-title {
+    color: var(--primary);
+    font-size: 17px;
+}
+
+.chap-guide-text {
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.catalog-chapters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
+    gap: 6px;
+    max-height: 160px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.catalog-chap-btn {
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Outfit', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    border-radius: 8px;
+    border: 2px solid var(--border-main);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.catalog-chap-btn:hover {
+    border-color: var(--primary);
+    background: var(--primary-light);
+    color: var(--primary);
+    transform: scale(1.05);
+}
+
+.catalog-chap-btn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #ffffff;
+    box-shadow: 0 4px 12px var(--primary-glow);
+}
+
+/* Manual Query Drawer */
+.manual-query-drawer {
+    border-top: 1px dashed var(--border-main);
+    padding-top: 10px;
+}
+
+.manual-query-toggle {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 6px 0;
+    transition: color 0.2s ease;
+}
+
+.manual-query-toggle:hover {
+    color: var(--primary);
+}
+
+.manual-query-body {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.query-input-wrap {
+    display: flex;
+    gap: 8px;
+}
+
+.query-input-wrap .form-input-lg {
+    flex: 1;
+}
+
+/* Settings Modal Body */
+.settings-modal-body {
+    gap: 16px;
+}
+
+.setting-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-card);
+}
+
+.setting-row:last-of-type {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.setting-label {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.btn-group-pill {
+    display: flex;
+    background: var(--bg-subcard);
+    border: 1px solid var(--border-main);
+    border-radius: 12px;
+    padding: 4px;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.btn-tool-pill,
+.btn-theme-pill {
+    flex: 1;
+    min-width: 70px;
+    background: transparent;
+    border: none;
+    padding: 10px 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: center;
+}
+
+.btn-tool-pill:hover,
+.btn-theme-pill:hover {
+    color: var(--text-primary);
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.btn-tool-pill.active,
+.btn-theme-pill.active {
+    background: var(--primary);
+    color: #ffffff;
+    box-shadow: 0 2px 8px var(--primary-glow);
+}
+
+.btn-group-speed {
+    display: flex;
+    background: var(--bg-subcard);
+    border: 1px solid var(--border-main);
+    border-radius: 12px;
+    padding: 4px;
+    gap: 4px;
+}
+
+.btn-speed-pill {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 10px 8px;
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--text-secondary);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: center;
+}
+
+.btn-speed-pill:hover {
+    color: var(--text-primary);
+}
+
+.btn-speed-pill.active {
+    background: var(--primary);
+    color: #ffffff;
+    box-shadow: 0 2px 8px var(--primary-glow);
+}
+
+.senior-checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    cursor: pointer;
+    user-select: none;
+    padding: 6px 0;
+}
+
+.senior-checkbox-label input {
+    width: 22px;
+    height: 22px;
+    accent-color: var(--primary);
+    cursor: pointer;
+}
+
+.modal-footer-btn-wrap {
+    margin-top: 6px;
+}
+
 /* Toast */
 .toast {
     position: fixed;
-    bottom: 28px;
-    right: 28px;
+    bottom: 24px;
+    right: 24px;
     background: var(--bg-card);
     border: 2px solid var(--border-main);
     color: var(--text-primary);
-    padding: 14px 28px;
+    padding: 12px 24px;
     border-radius: 12px;
     font-size: 15px;
     font-weight: 700;
-    z-index: 1000;
+    z-index: 2000;
     opacity: 0;
     transform: translateY(12px);
     transition: opacity 0.3s ease, transform 0.3s ease;
@@ -1175,57 +1202,41 @@ body {
     border-left: 6px solid var(--primary);
 }
 
-/* 9. 響應式排版 (Mobile & Tablet) */
-@media (max-width: 1024px) {
-    .dropdowns-bar {
-        grid-template-columns: 1fr 1fr;
-    }
-    
-    .dropdowns-bar .select-item.btn-item {
-        grid-column: span 2;
-    }
-
-    .senior-player-card {
-        top: 8px;
-    }
-}
-
+/* 8. 響應式排版 (Mobile) */
 @media (max-width: 640px) {
     .app-container {
-        padding: 12px;
-        gap: 14px;
+        padding: 10px;
+        gap: 12px;
     }
 
     .header-main-row {
-        flex-direction: column;
-        align-items: flex-start;
+        gap: 10px;
     }
 
-    .header-tools {
+    .header-actions {
         width: 100%;
         justify-content: space-between;
     }
 
-    .dropdowns-bar {
-        grid-template-columns: 1fr;
-        padding: 12px;
+    .btn-action-primary {
+        flex: 1;
+        justify-content: center;
+        padding: 10px 12px;
+        font-size: 14px;
     }
 
-    .dropdowns-bar .select-item.btn-item {
-        grid-column: span 1;
+    .btn-action-outline {
+        padding: 10px 14px;
+        font-size: 14px;
     }
 
-    .catalog-books-grid {
-        grid-template-columns: repeat(auto-fill, minmax(85px, 1fr));
+    .senior-player-card {
+        padding: 14px;
+        top: 6px;
     }
 
-    .catalog-book-btn {
-        font-size: 13px;
-        padding: 8px 4px;
-    }
-
-    .player-main-controls {
-        gap: 10px;
+    .player-chapter-title {
+        font-size: 18px;
     }
 
     .btn-nav-senior .btn-text {
@@ -1233,25 +1244,54 @@ body {
     }
 
     .btn-nav-senior {
-        padding: 0 12px;
+        padding: 0 14px;
+        height: 44px;
     }
 
     .btn-giant-play {
-        width: 60px;
-        height: 60px;
+        width: 58px;
+        height: 58px;
     }
 
     .scripture-container-card {
-        padding: 18px;
+        padding: 16px;
+        border-radius: 16px;
     }
 
     .scripture-footer-nav {
         flex-direction: column;
-        gap: 10px;
+        gap: 8px;
     }
 
     .btn-footer-nav-lg {
         max-width: 100%;
         width: 100%;
+    }
+
+    .modal-overlay {
+        padding: 8px;
+    }
+
+    .modal-card {
+        max-height: 95vh;
+        border-radius: 16px;
+    }
+
+    .modal-header {
+        padding: 14px 16px;
+    }
+
+    .modal-body {
+        padding: 14px 16px;
+        gap: 14px;
+    }
+
+    .catalog-books-grid {
+        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    }
+
+    .catalog-book-btn {
+        font-size: 13px;
+        padding: 8px 4px;
     }
 }
