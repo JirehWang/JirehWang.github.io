@@ -766,3 +766,69 @@ h1, h2, h3, h4, h5, h6 {
 .dashboard-card.closest-date-card:hover {
     border-color: rgba(0, 96, 48, 0.7) !important;
 }
+
+/* 敬拜團公佈欄複製按鈕 */
+.btn-copy-worship-card {
+    background: #f8fafc;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 3px 9px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.btn-copy-worship-card:hover {
+    background: #006030;
+    color: #ffffff;
+    border-color: #006030;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 96, 48, 0.22);
+}
+.btn-copy-worship-card:active {
+    transform: scale(0.96);
+}
+.btn-copy-worship-card.copied {
+    background: #10b981 !important;
+    color: #ffffff !important;
+    border-color: #10b981 !important;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25) !important;
+}
+
+.btn-copy-worship-table {
+    background: #f8fafc;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+.btn-copy-worship-table:hover {
+    background: #006030;
+    color: #ffffff;
+    border-color: #006030;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 96, 48, 0.18);
+}
+.btn-copy-worship-table:active {
+    transform: scale(0.96);
+}
+.btn-copy-worship-table.copied {
+    background: #10b981 !important;
+    color: #ffffff !important;
+    border-color: #10b981 !important;
+}

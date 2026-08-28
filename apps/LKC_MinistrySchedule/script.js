@@ -22,6 +22,8 @@ const getNotifier   = () => window.userNotification;
 const getUIState    = () => window.uiState;
 const getSessionMgr = () => window.sessionManager;
 
+var _ms_lastFilteredCardsMatrix = [];
+
 function ensureXLSXReady() {
   if (window.XLSX) return Promise.resolve(window.XLSX);
   return new Promise((resolve, reject) => {
@@ -2237,6 +2239,14 @@ function _ms_parseLocalDate(value) {
   return parsed;
 }
 
+function _ms_formatLocalDate(date) {
+  if (!(date instanceof Date) || isNaN(date)) return '';
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 function _ms_rollingWindow() {
   // 預設範圍：往前 1 個月、往後 2 個月
   const today = new Date();
@@ -2297,6 +2307,7 @@ function _ms_buildCardsHtml(matrix) {
   if (!matrix || matrix.length <= 1) {
     return '<p class="text-center text-muted my-4">此範圍內沒有資料，請改選其他季度</p>';
   }
+  _ms_lastFilteredCardsMatrix = matrix;
   const headers = matrix[0];
   const dateColIdx = _ms_getDateColIdx(headers);
   const closestIdx = _ms_findClosestRowIndex(matrix, dateColIdx);
@@ -2366,8 +2377,12 @@ function _ms_buildCardsHtml(matrix) {
           <div class="weekday">${weekDay}</div>
         </div>
         <div class="glass-content">
-          <div class="glass-topic-line">
-            <h3 class="glass-topic">${topic || (currentTemplate === '團契聚會表模板' ? '團契聚會' : '小組聚會')}</h3>
+          <div class="glass-topic-line d-flex justify-content-between align-items-center mb-2">
+            <h3 class="glass-topic m-0">${topic || (currentTemplate === '團契聚會表模板' ? '團契聚會' : '小組聚會')}</h3>
+            <button type="button" class="btn-copy-glass-card" onclick="_ms_copyCardEvent(${i}, this)" title="一鍵複製此日聚會資訊">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              <span>複製</span>
+            </button>
           </div>
           <div class="glass-duties">
             ${dutyItemsHtml || '<div class="text-muted small">一般聚會，無需特別服事</div>'}
@@ -2381,6 +2396,104 @@ function _ms_buildCardsHtml(matrix) {
   cardsHtml += '</div>';
   return cardsHtml;
 }
+
+async function _ms_copyTextToClipboard(text, btn) {
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (e) {
+      console.warn('navigator.clipboard failed, fallback:', e);
+    }
+  }
+  const textArea = document.createElement('textarea');
+  textArea.value = text;
+  textArea.style.position = 'fixed';
+  textArea.style.left = '0';
+  textArea.style.top = '0';
+  textArea.style.opacity = '0.01';
+  textArea.style.zIndex = '999999';
+  const container = (btn && btn.closest('.modal-content')) || document.body;
+  container.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+  textArea.setSelectionRange(0, 99999);
+  let success = false;
+  try {
+    success = document.execCommand('copy');
+  } catch (err) {
+    console.error('execCommand failed:', err);
+  }
+  container.removeChild(textArea);
+  return success;
+}
+
+function _ms_copyCardEvent(rowIdx, btn) {
+  try {
+    if (!_ms_lastFilteredCardsMatrix || !_ms_lastFilteredCardsMatrix[rowIdx]) return;
+    const headers = _ms_lastFilteredCardsMatrix[0] || [];
+    const row = _ms_lastFilteredCardsMatrix[rowIdx] || [];
+
+    const dateColIdx = _ms_getDateColIdx(headers);
+    const topicColIdx = headers.findIndex(h => h === '主題' || h === '聚會名稱');
+    const verseColIdx = headers.findIndex(h => h === '經文');
+    const locColIdx = headers.findIndex(h => h === '地點');
+
+    const dateVal = dateColIdx >= 0 ? row[dateColIdx] : '';
+    const dateObj = _ms_parseLocalDate(dateVal);
+    let dateFormatted = dateVal;
+    if (dateObj) {
+      const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+      dateFormatted = `${_ms_formatLocalDate(dateObj)} (星期${weekDays[dateObj.getDay()]})`;
+    }
+
+    const topic = topicColIdx >= 0 ? row[topicColIdx] : '';
+    const verse = verseColIdx >= 0 ? row[verseColIdx] : '';
+    const location = locColIdx >= 0 ? row[locColIdx] : '';
+    const groupName = activeGroupName || '小組';
+
+    const excludeFields = ['日期', '主題', '經文', '地點', '聚會名稱', '聚會類別', '分頁名稱', '模板類型', '講道連動', '套用講道'];
+    const dutyLines = [];
+    headers.forEach((h, idx) => {
+      if (excludeFields.includes(h)) return;
+      const val = row[idx];
+      if (val && val !== '-' && val !== '') {
+        dutyLines.push(`  • ${h}：${val}`);
+      }
+    });
+
+    let lines = [
+      `🌿【${groupName} 聚會資訊】`,
+      `📅 日期：${dateFormatted}`,
+      `🏷️ 主題：${topic || (currentTemplate === '團契聚會表模板' ? '團契聚會' : '小組聚會')}`
+    ];
+    if (location) lines.push(`📍 地點：${location}`);
+    if (verse) lines.push(`📖 經文：${verse}`);
+    if (dutyLines.length > 0) {
+      lines.push(`👥 服事同工：`);
+      lines.push(...dutyLines);
+    }
+
+    const textToCopy = lines.join('\n');
+    _ms_copyTextToClipboard(textToCopy, btn).then(success => {
+      if (btn) {
+        const origHtml = btn.innerHTML;
+        btn.innerHTML = `
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span>已複製！</span>
+        `;
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.innerHTML = origHtml;
+          btn.classList.remove('copied');
+        }, 1500);
+      }
+    });
+  } catch (err) {
+    console.error('Error in _ms_copyCardEvent:', err);
+  }
+}
+window._ms_copyCardEvent = _ms_copyCardEvent;
 
 /**
  * 在指定容器內渲染「年度+季度」篩選器 + 表格或卡片。

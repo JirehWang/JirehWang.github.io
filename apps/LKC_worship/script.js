@@ -854,7 +854,13 @@ function renderDashboardTable(data) {
               <span class="card-date text-muted" style="text-decoration: line-through;">${row['日期'] || ''}</span>
               <span class="card-meeting-name text-muted">${row['聚會名稱'] || ''}</span>
             </div>
-            <span class="badge bg-danger">聚會停開</span>
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge bg-danger">聚會停開</span>
+              <button type="button" class="btn-copy-worship-card" onclick="copyWorshipEvent(${idx}, this)" title="一鍵複製此日服事資訊">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                <span>複製</span>
+              </button>
+            </div>
           </div>
           
           <div class="text-center py-4 my-2 text-muted fw-bold" style="font-size: 1.05rem; letter-spacing: 1px;">
@@ -884,7 +890,13 @@ function renderDashboardTable(data) {
             </div>
             <span class="card-meeting-name">${row['聚會名稱'] || ''}</span>
           </div>
-          <span class="badge-g">${row['聚會類別'] || '聚會'}</span>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge-g">${row['聚會類別'] || '聚會'}</span>
+            <button type="button" class="btn-copy-worship-card" onclick="copyWorshipEvent(${idx}, this)" title="一鍵複製此日服事資訊">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              <span>複製</span>
+            </button>
+          </div>
         </div>`;
 
     // 渲染服事同工
@@ -958,12 +970,13 @@ function renderDashboardTable(data) {
   
   tableHtml += `
             <th style="min-width: 220px;">敬拜曲目</th>
+            <th style="width: 75px;">複製</th>
           </tr>
         </thead>
         <tbody>
   `;
   
-  data.forEach(row => {
+  data.forEach((row, idx) => {
     const hasWarning = row.hasWarning || false;
     const warningMsg = row.warningMessage || '';
     const isSuspended = row.狀態 === '停開';
@@ -991,7 +1004,9 @@ function renderDashboardTable(data) {
         tableHtml += `<td><span class="text-muted" style="font-style: italic;">－</span></td>`;
       });
       
-      tableHtml += `<td><span class="text-muted" style="font-style: italic;">暫停服事</span></td></tr>`;
+      tableHtml += `<td><span class="text-muted" style="font-style: italic;">暫停服事</span></td>
+        <td><button type="button" class="btn-copy-worship-table" onclick="copyWorshipEvent(${idx}, this)" title="複製此日服事資訊"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg><span>複製</span></button></td>
+      </tr>`;
       return;
     }
     
@@ -1046,6 +1061,7 @@ function renderDashboardTable(data) {
     
     tableHtml += `
       <td>${songsContent}</td>
+      <td><button type="button" class="btn-copy-worship-table" onclick="copyWorshipEvent(${idx}, this)" title="複製此日服事資訊"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg><span>複製</span></button></td>
     </tr>`;
   });
   
@@ -1059,6 +1075,128 @@ function renderDashboardTable(data) {
   // 切換至目前的視圖模式 (同步按鈕狀態與顯隱)
   switchView(currentViewMode);
 }
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (e) {
+      console.warn('navigator.clipboard failed, fallback:', e);
+    }
+  }
+  const textArea = document.createElement('textarea');
+  textArea.value = text;
+  textArea.style.position = 'fixed';
+  textArea.style.left = '0';
+  textArea.style.top = '0';
+  textArea.style.opacity = '0';
+  textArea.style.pointerEvents = 'none';
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+  textArea.setSelectionRange(0, 99999);
+  let success = false;
+  try {
+    success = document.execCommand('copy');
+  } catch (err) {
+    console.error('execCommand failed:', err);
+  }
+  document.body.removeChild(textArea);
+  return success;
+}
+
+function copyWorshipEvent(idx, btn) {
+  const row = (loadedDashboardData && loadedDashboardData[idx]) || null;
+  if (!row) return;
+
+  const isSuspended = row.狀態 === '停開';
+  const meetingName = row['聚會名稱'] || '主日崇拜';
+  const dateStr = row['日期'] || '';
+  const category = row['聚會類別'] || '主日聚會';
+  const preacher = row['牧師'] || '';
+  const title = row['題目'] || '';
+  const scripture = row['經文'] || '';
+
+  let lines = [
+    `🎵【${meetingName} 敬拜服事表】`,
+    `📅 日期：${dateStr}`,
+    `🏷️ 類別：${category}`
+  ];
+
+  if (isSuspended) {
+    lines.push(`📢 本週聚會/服事暫停一次`);
+    if (title && title !== '-') lines.push(`📖 題目：${title}`);
+    if (preacher && preacher !== '-') lines.push(`🎙️ 講道：${preacher}`);
+    if (scripture && scripture !== '-') lines.push(`📜 經文：${scripture}`);
+  } else {
+    if (title && title !== '-') lines.push(`📖 題目：${title}`);
+    if (preacher && preacher !== '-') lines.push(`🎙️ 講道：${preacher}`);
+    if (scripture && scripture !== '-') lines.push(`📜 經文：${scripture}`);
+
+    // 服事同工
+    const positionHeaders = (currentPositions || [])
+      .map(p => p.positionName)
+      .filter(role => role && Object.prototype.hasOwnProperty.call(row, role));
+    const allKeys = Object.keys(row);
+    const fixedHeaders = ['日期', '聚會名稱', '聚會類別', '牧師', '題目', '經文', '敬拜曲目', '狀態'];
+    const excludedHeaders = ['hasWarning', 'warningMessage', '年度', '季度', 'leaves'];
+    const fallbackHeaders = allKeys.filter(k =>
+      !fixedHeaders.includes(k) &&
+      !excludedHeaders.includes(k) &&
+      !positionHeaders.includes(k)
+    );
+    const dynamicHeaders = [...positionHeaders, ...fallbackHeaders];
+    const roleIcons = {
+      '主領': '🎙️', '配唱1': '🎶', '配唱2': '🎶', '配唱3': '🎶',
+      '吉他': '🎸', 'BASS': '🎸', 'Keyboard': '🎹', '鼓': '🥁',
+      '其它': '✨', '音控': '🎚️', '投影': '🖥️'
+    };
+
+    const coworkerLines = [];
+    dynamicHeaders.forEach(role => {
+      let person = (row[role] || '').trim();
+      if (person && person !== '-' && person !== '【待定】' && person !== '待定') {
+        const icon = roleIcons[role] || '•';
+        coworkerLines.push(`  • ${icon} ${role}：${person}`);
+      }
+    });
+
+    if (coworkerLines.length > 0) {
+      lines.push(`👥 服事同工：`);
+      lines.push(...coworkerLines);
+    }
+
+    // 敬拜曲目
+    const songs = row['敬拜曲目'] || '';
+    if (songs && songs !== '-' && songs !== '【待定】') {
+      const songList = songs.split(/[\n\r,，、\/\\|；;]+/).map(s => s.trim()).filter(x => x);
+      if (songList.length > 0) {
+        lines.push(`🎵 敬拜曲目：`);
+        songList.forEach((song, i) => {
+          lines.push(`  ${i + 1}. ${song}`);
+        });
+      }
+    }
+  }
+
+  const textToCopy = lines.join('\n');
+  copyTextToClipboard(textToCopy).then(success => {
+    if (success && btn) {
+      const origHtml = btn.innerHTML;
+      btn.innerHTML = `
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        <span>已複製！</span>
+      `;
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.innerHTML = origHtml;
+        btn.classList.remove('copied');
+      }, 1500);
+    }
+  });
+}
+window.copyWorshipEvent = copyWorshipEvent;
 
 // ==========================================
 // 2. 位置與人員設定

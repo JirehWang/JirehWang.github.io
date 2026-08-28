@@ -66,6 +66,46 @@
             color: #4a5568;
             margin-top: 5px;
         }
+        .card-header-flex {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .btn-copy-card {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #f8fafc;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 3px 9px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+        .btn-copy-card svg {
+            transition: transform 0.2s;
+        }
+        .btn-copy-card:hover {
+            background: #2f855a;
+            color: #ffffff;
+            border-color: #2f855a;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(47, 133, 90, 0.2);
+        }
+        .btn-copy-card:active {
+            transform: scale(0.96);
+        }
+        .btn-copy-card.copied {
+            background: #38a169 !important;
+            color: #ffffff !important;
+            border-color: #38a169 !important;
+            box-shadow: 0 4px 12px rgba(56, 161, 105, 0.25) !important;
+        }
         .card-body {
             padding: 20px;
         }
@@ -180,6 +220,85 @@
     </div>
 
     <script>
+        var _displayedEvents = [];
+
+        async function copyTextToClipboard(text) {
+            if (navigator.clipboard && window.isSecureContext) {
+                try {
+                    await navigator.clipboard.writeText(text);
+                    return true;
+                } catch (e) {
+                    console.warn('navigator.clipboard failed, fallback:', e);
+                }
+            }
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '0';
+            textArea.style.top = '0';
+            textArea.style.opacity = '0';
+            textArea.style.pointerEvents = 'none';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            textArea.setSelectionRange(0, 99999);
+            let success = false;
+            try {
+                success = document.execCommand('copy');
+            } catch (err) {
+                console.error('execCommand failed:', err);
+            }
+            document.body.removeChild(textArea);
+            return success;
+        }
+
+        function copyGroupEvent(idx, btn) {
+            const event = _displayedEvents[idx];
+            if (!event) return;
+
+            const dateObj = parseLocalDate(event["日期"]);
+            const dateStr = event["日期"] || (dateObj ? formatDate(dateObj) : '');
+            const weekDay = dateObj ? ` (星期${['日', '一', '二', '三', '四', '五', '六'][dateObj.getDay()]})` : '';
+            const groupName = event["分頁名稱"] || '小組';
+            const topic = event["主題"] || event["聚會名稱"] || (event["模板類型"] === '團契聚會表模板' ? '團契聚會' : '小組聚會');
+            const location = event["地點"] || '';
+            const scripture = event["經文"] || '';
+
+            const excludeFields = ["日期", "分頁名稱", "模板類型", "聚會名稱", "聚會類別", "地點", "經文", "主題", "講道連動", "套用講道"];
+            const dutyLines = Object.keys(event)
+                .filter(key => !excludeFields.includes(key) && event[key] && event[key] !== "-")
+                .map(key => `  • ${key}：${event[key]}`);
+
+            let lines = [
+                `🌿【${groupName} 聚會資訊】`,
+                `📅 日期：${dateStr}${weekDay}`,
+                `🏷️ 主題：${topic}`
+            ];
+            if (location) lines.push(`📍 地點：${location}`);
+            if (scripture) lines.push(`📖 經文：${scripture}`);
+            if (dutyLines.length > 0) {
+                lines.push(`👥 服事同工：`);
+                lines.push(...dutyLines);
+            }
+
+            const textToCopy = lines.join('\n');
+            copyTextToClipboard(textToCopy).then(success => {
+                if (success && btn) {
+                    const origHtml = btn.innerHTML;
+                    btn.innerHTML = `
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        <span>已複製！</span>
+                    `;
+                    btn.classList.add('copied');
+                    setTimeout(() => {
+                        btn.innerHTML = origHtml;
+                        btn.classList.remove('copied');
+                    }, 1500);
+                }
+            });
+        }
+        window.copyGroupEvent = copyGroupEvent;
+
         document.addEventListener('DOMContentLoaded', fetchAndRenderBoard);
 
         async function fetchAndRenderBoard() {
@@ -244,13 +363,15 @@
                     return itemDate >= today && itemDate <= next7Days;
                 }).sort((a, b) => parseLocalDate(a["日期"]) - parseLocalDate(b["日期"]));
 
+                _displayedEvents = filteredEvents;
+
                 if (filteredEvents.length === 0) {
                     container.innerHTML = '<div class="no-data">✨ 近期小組尚無已排定的聚會資訊</div>';
                     return;
                 }
 
                 // 渲染
-                container.innerHTML = filteredEvents.map(event => {
+                container.innerHTML = filteredEvents.map((event, idx) => {
                     const dateObj = parseLocalDate(event["日期"]);
                     const day = String(dateObj.getDate()).padStart(2, '0');
                     const yearMonth = `${dateObj.getFullYear()}年 ${dateObj.getMonth() + 1}月`;
@@ -276,7 +397,13 @@
                                 <div class="ym">${yearMonth} (星期${weekDay})</div>
                             </div>
                             <div class="card-body">
-                                <div class="text-center"><span class="group-tag ${event["模板類型"] === '團契聚會表模板' ? 'fellowship' : ''}">${event["分頁名稱"]}${event["模板類型"] === '團契聚會表模板' ? ' · 團契' : ''}</span></div>
+                                <div class="card-header-flex">
+                                    <span class="group-tag ${event["模板類型"] === '團契聚會表模板' ? 'fellowship' : ''}">${event["分頁名稱"]}${event["模板類型"] === '團契聚會表模板' ? ' · 團契' : ''}</span>
+                                    <button type="button" class="btn-copy-card" onclick="copyGroupEvent(${idx}, this)" title="一鍵複製此日聚會資訊">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                        <span>複製資訊</span>
+                                    </button>
+                                </div>
                                 <div class="event-name">${event["主題"] || event["聚會名稱"] || (event["模板類型"] === '團契聚會表模板' ? '團契聚會' : '小組聚會')}</div>
                                 
                                 <div class="duty-section">
