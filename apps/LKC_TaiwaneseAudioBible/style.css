@@ -699,12 +699,44 @@ body {
 .player-controls {
     flex: 1;
     display: flex;
+    align-items: center;
     justify-content: flex-end;
+    gap: 8px;
+}
+
+.btn-player-nav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.btn-player-nav:hover:not(:disabled) {
+    background: rgba(16, 185, 129, 0.15);
+    border-color: var(--primary);
+    color: var(--primary-hover);
+    box-shadow: 0 0 10px var(--primary-glow);
+}
+
+.btn-player-nav:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
 }
 
 .player-controls audio {
     width: 100%;
-    max-width: 500px;
+    max-width: 440px;
     height: 40px;
     outline: none;
     background: transparent;
@@ -727,7 +759,7 @@ audio::-webkit-media-controls-enclosure {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 20px;
     min-height: 400px;
 }
 
@@ -737,6 +769,14 @@ audio::-webkit-media-controls-enclosure {
     align-items: center;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     padding-bottom: 16px;
+    gap: 12px;
+}
+
+.scripture-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
 .scripture-header h2 {
@@ -754,6 +794,36 @@ audio::-webkit-media-controls-enclosure {
     font-weight: 500;
     padding: 6px 14px;
     border-radius: 20px;
+}
+
+.scripture-header-nav {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-icon-nav {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.btn-icon-nav:hover:not(:disabled) {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: var(--primary);
+    color: var(--primary-hover);
+}
+
+.btn-icon-nav:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
 }
 
 /* Scripture Content Body */
@@ -810,6 +880,59 @@ audio::-webkit-media-controls-enclosure {
 
 .verse-text {
     flex: 1;
+}
+
+/* Scripture Bottom Navigation Footer */
+.scripture-footer-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding-top: 16px;
+    margin-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.btn-footer-nav {
+    flex: 1;
+    max-width: 240px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.btn-footer-nav strong {
+    color: var(--primary-hover);
+    font-weight: 600;
+}
+
+.btn-footer-nav:hover:not(:disabled) {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: var(--primary);
+    color: var(--primary-hover);
+}
+
+.btn-footer-nav:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.footer-center-info {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-family: var(--font-outfit);
 }
 
 /* Placeholder state */
@@ -900,6 +1023,22 @@ audio::-webkit-media-controls-enclosure {
         justify-content: center;
     }
 
+    .book-chap-select-wrap {
+        flex-wrap: wrap;
+    }
+    
+    .book-select {
+        flex: 1 1 100%;
+    }
+
+    .chapter-select {
+        flex: 1;
+    }
+
+    .btn-go {
+        flex: 1;
+    }
+
     .player-card {
         flex-direction: column;
         align-items: flex-start;
@@ -909,14 +1048,23 @@ audio::-webkit-media-controls-enclosure {
 
     .player-controls {
         width: 100%;
+        justify-content: space-between;
     }
 
     .player-controls audio {
-        max-width: 100%;
+        max-width: calc(100% - 90px);
+    }
+
+    .btn-player-nav .btn-nav-text {
+        display: none;
+    }
+
+    .btn-player-nav {
+        padding: 8px 10px;
     }
 
     .scripture-container-card {
-        padding: 20px;
+        padding: 16px;
     }
 
     .scripture-content-body {
@@ -926,5 +1074,15 @@ audio::-webkit-media-controls-enclosure {
 
     .verse-p {
         padding: 6px 4px;
+    }
+
+    .scripture-footer-nav {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .btn-footer-nav {
+        max-width: 100%;
+        width: 100%;
     }
 }
