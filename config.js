@@ -409,7 +409,20 @@
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(requestBody)
     });
-    const result = await resp.json();
+    let result;
+    if (typeof resp.text === 'function') {
+      const text = await resp.text();
+      try {
+        result = JSON.parse(text);
+      } catch (e) {
+        if (text && (text.includes('<!DOCTYPE') || text.includes('<html'))) {
+          throw new APIError(`後端服務 (GAS) 回傳 HTML 頁面，可能是權限不足或後端執行逾時`, null, 'GAS_HTML_ERROR');
+        }
+        throw e;
+      }
+    } else {
+      result = await resp.json();
+    }
     return {
       result,
       payload: _payloadMeta(requestBody, result),
@@ -422,8 +435,8 @@
       throw new APIError("系統尚未就緒：GAS_URL 為空", null, 'CONFIG_ERROR');
     }
     const startedAt = Date.now();
-    // 已有前綴的 action 不重複加
-    const realAction = (_actionPrefix && action.indexOf(_actionPrefix) !== 0)
+    // 已有前綴或全域跨系統 action（如 cal_ 行事曆）不重複加
+    const realAction = (_actionPrefix && action.indexOf(_actionPrefix) !== 0 && !action.startsWith('cal_'))
       ? _actionPrefix + action
       : action;
     const requestId = _newRequestId(realAction);

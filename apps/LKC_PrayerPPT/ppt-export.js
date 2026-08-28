@@ -8,8 +8,22 @@
   const SLIDE_HEIGHT = 7.5;
   const slideX = percent => (Number(percent) / 100) * SLIDE_WIDTH;
   const slideY = percent => (Number(percent) / 100) * SLIDE_HEIGHT;
+  async function ensurePptxExportReady(options = {}) {
+    if (options.PptxGenJS || root.PptxGenJS) return;
+    if (typeof document === 'undefined') return;
+    const loadScript = src => new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('無法載入模組: ' + src));
+      document.head.appendChild(s);
+    });
+    if (!root.JSZip) await loadScript('../LKC_WorshipPPT/vendor-jszip.min.js?v=3.10.1');
+    if (!root.PptxGenJS) await loadScript('https://cdn.jsdelivr.net/gh/gitbrent/PptxGenJS@3.12.0/dist/pptxgen.bundle.js');
+  }
 
-  function exportPrayerPPTX(options = {}) {
+  async function exportPrayerPPTX(options = {}) {
+    await ensurePptxExportReady(options);
     const PptxGenJSClass = options.PptxGenJS || root.PptxGenJS;
     const getDeckEntriesFn = options.getDeckEntries || root.getDeckEntries;
     const layoutState = options.layoutState || root.worshipLayoutState;

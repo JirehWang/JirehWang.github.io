@@ -22,6 +22,28 @@ const getNotifier   = () => window.userNotification;
 const getUIState    = () => window.uiState;
 const getSessionMgr = () => window.sessionManager;
 
+function ensureXLSXReady() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js';
+    s.onload = () => resolve(window.XLSX);
+    s.onerror = () => reject(new Error('無法載入 Excel 解析模組 (XLSX)'));
+    document.head.appendChild(s);
+  });
+}
+
+function ensureExcelJSReady() {
+  if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+    s.onload = () => resolve(window.ExcelJS);
+    s.onerror = () => reject(new Error('無法載入 ExcelJS 模組'));
+    document.head.appendChild(s);
+  });
+}
+
 // ============================================================
 
 const encryptGroupCode = window.encryptGroupCode || ((s) => s);
@@ -2564,8 +2586,10 @@ window.submitUnlockVerifyCode = submitUnlockVerifyCode;
 // ============================================================
 //  📥 下載 Excel
 // ============================================================
-function downloadExcel() {
+async function downloadExcel() {
   if (window.event) window.event.preventDefault();
+
+  await ensureXLSXReady();
 
   const sermonLinkColIdx = currentTableHeaders.indexOf("套用講道");
   
@@ -3013,8 +3037,10 @@ async function showAggregatedReport(type) {
 // ============================================================
 //  📥 下載彙整報表 Excel
 // ============================================================
-function downloadAggregatedExcel(matrix, fileName) {
+async function downloadAggregatedExcel(matrix, fileName) {
   if (!matrix || matrix.length === 0) return;
+
+  await ensureXLSXReady();
 
   const wb = XLSX.utils.book_new();
   const headers = matrix[0];
@@ -3098,6 +3124,7 @@ async function exportBlankTemplate() {
   getNotifier().showLoading("⏳ 正在產生 Excel 模板...");
 
   try {
+    await ensureExcelJSReady();
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("填寫模板");
 
@@ -3212,6 +3239,7 @@ async function importExcelFile(input) {
   getNotifier().showLoading("⏳ 正在解析 Excel...");
 
   try {
+    await ensureXLSXReady();
     const buffer = await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = e => resolve(e.target.result);

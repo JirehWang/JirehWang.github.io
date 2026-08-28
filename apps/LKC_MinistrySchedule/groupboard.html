@@ -199,11 +199,27 @@
                     throw new Error("系統安全設定 (config.js) 連線超時，請檢查網路或強制重新整理 (Ctrl+F5)。");
                 }
 
-                // 同時抓「小組」與「其他」兩桶資料：團契聚會表模板目前歸在 others 裡，
-                // 但顯示上應視為小組類，所以這裡前端做合併
-                const [smRes, othRes] = await Promise.all([
+                // 處理日期區間：今天 ~ 今天+7天
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const next7Days = new Date();
+                next7Days.setDate(today.getDate() + 6);
+                next7Days.setHours(23, 59, 59, 999);
+
+                // 講道連動查詢區間（前後各14天）
+                const sermonStart = new Date(today);
+                sermonStart.setDate(sermonStart.getDate() - 14);
+                const sermonEnd = new Date(today);
+                sermonEnd.setDate(sermonEnd.getDate() + 14);
+
+                // 🌟 同步平行載入「小組」、「其他團契」與「行事曆講道資訊」（全走快取機制）
+                const [smRes, othRes, sermonList] = await Promise.all([
                     window.churchAPI('getAggregatedReport', { type: 'smallGroup' }),
-                    window.churchAPI('getAggregatedReport', { type: 'others' })
+                    window.churchAPI('getAggregatedReport', { type: 'others' }),
+                    fetchSermonData(formatDate(sermonStart), formatDate(sermonEnd)).catch(se => {
+                        console.warn("無法取得主日講道行事曆，將僅使用 Sheets 本身儲存的資料:", se);
+                        return [];
+                    })
                 ]);
 
                 if (smRes.status !== 'success') throw new Error(smRes.message || "小組資料抓取失敗");
@@ -214,29 +230,9 @@
                     : [];
                 const allRawData = [...smData, ...othData];
 
-                // 處理日期區間：今天 ~ 今天+7天
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const next7Days = new Date();
-                next7Days.setDate(today.getDate() + 6);
-                next7Days.setHours(23, 59, 59, 999);
-
-                // 🌟 4. 同步載入這段期間（前後各14天）的講道資訊來進行動態連動
-                const sermonStart = new Date(today);
-                sermonStart.setDate(sermonStart.getDate() - 14);
-                const sermonEnd = new Date(today);
-                sermonEnd.setDate(sermonEnd.getDate() + 14);
-                
-                let sermonList = [];
-                try {
-                    sermonList = await fetchSermonData(formatDate(sermonStart), formatDate(sermonEnd));
-                } catch (se) {
-                    console.warn("無法取得主日講道行事曆，將僅使用 Sheets 本身儲存的資料:", se);
-                }
-
-                // 🌟 5. 針對每筆小組聚會，若設定了「套用講道」且主題/經文為空白或為「待定」，在前端動態連動最新講道資訊
+                // 🌟 針對每筆小組聚會，若設定了「套用講道」且主題/經文為空白或為「待定」，在前端動態連動最新講道資訊
                 allRawData.forEach(event => {
-                    resolveSermonForEvent(event, sermonList);
+                    resolveSermonForEvent(event, sermonList || []);
                 });
 
                 dateRangeText.innerHTML = `願你們平安，在小組團契裡常存愛的陪伴❤️❤️❤️<br>📅 小組團契聚會預告：${formatDate(today)} ~ ${formatDate(next7Days)}`;
@@ -302,19 +298,7 @@
 
         async function fetchSermonData(startDateStr, endDateStr) {
             try {
-                // 🌟 因為 _GAS_KEY 為 'LKC_MinistrySchedule_TEST'，前端 config.js 會自動在 action 加上 'ministry_' 前綴。
-                // 為了呼叫行事曆專用的 'cal_getEvents'，我們直接 fetch(window.GAS_URL, ...) 發送 POST 請求，繞過前綴處理。
-                const requestBody = {
-                    action: "cal_getEvents",
-                    token: window.AUTH_TOKEN,
-                    data: { startDate: startDateStr, endDate: endDateStr }
-                };
-                const resp = await fetch(window.GAS_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify(requestBody)
-                });
-                const res = await resp.json();
+                const res = await window.churchAPI('cal_getEvents', { startDate: startDateStr, endDate: endDateStr });
                 if (!res || !res.success) return [];
                 
                 const dateMap = {};

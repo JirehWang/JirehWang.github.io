@@ -518,10 +518,23 @@ async function deleteFieldRow(fid, name) {
   }
 }
 
+function ensureXLSXReady() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.onload = () => resolve(window.XLSX);
+    s.onerror = () => reject(new Error('無法載入 Excel 解析模組 (XLSX)'));
+    document.head.appendChild(s);
+  });
+}
+
 // ─── Excel 模板匯出（支援頂層 + 子類型）───
-function exportFieldsTemplate() {
+async function exportFieldsTemplate() {
   const ctx = _currentFieldsContext;
   if (!ctx || !_currentFieldsList) { alert('還沒載入欄位'); return; }
+
+  await ensureXLSXReady();
 
   // 用「使用者按進來的那個類型」當模板主角
   const callerType = _calTypesFlat.find(t => t.typeId === ctx.callerTypeId);

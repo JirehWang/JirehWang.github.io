@@ -163,26 +163,21 @@
     <script>
       // 自動在彈出視窗顯示時鎖定底層 body 捲動
       (function() {
-        var scrollLockObserver = new MutationObserver(function(mutations) {
-          var anyVisible = false;
+        function syncModalScrollLock() {
           var overlays = document.querySelectorAll('.modal, #weeklyModal');
-          overlays.forEach(function(el) {
-            if (window.getComputedStyle(el).display !== 'none') {
+          var anyVisible = false;
+          for (var i = 0; i < overlays.length; i++) {
+            var el = overlays[i];
+            if (el.classList.contains('show') || (el.style && el.style.display !== 'none' && el.style.display !== '')) {
               anyVisible = true;
+              break;
             }
-          });
-          if (anyVisible) {
-            document.body.classList.add('modal-open');
-          } else {
-            document.body.classList.remove('modal-open');
           }
-        });
-        scrollLockObserver.observe(document.body, {
-          childList: true,
-          subtree: true,
-          attributes: true,
-          attributeFilter: ['style']
-        });
+          document.body.classList.toggle('modal-open', anyVisible);
+        }
+        document.addEventListener('show.bs.modal', function() { document.body.classList.add('modal-open'); });
+        document.addEventListener('hidden.bs.modal', function() { syncModalScrollLock(); });
+        window.syncModalScrollLock = syncModalScrollLock;
       })();
     </script>
 </body>

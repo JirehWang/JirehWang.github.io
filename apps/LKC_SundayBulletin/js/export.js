@@ -10,6 +10,19 @@ const BulletinExport = {
   PAGE_HEIGHT: 16838, // A4 高度 (twips)
   MARGIN: 720,        // ~0.5 inch
 
+  async ensureDocxReady() {
+    if (window.docx && window.saveAs) return;
+    const loadScript = src => new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('無法載入模組: ' + src));
+      document.head.appendChild(s);
+    });
+    if (!window.docx) await loadScript('https://unpkg.com/docx@8.5.0/build/index.js');
+    if (!window.saveAs) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js');
+  },
+
   // 共用樣式創建函數
   _para(text, opts = {}) {
     const { docx } = window;
@@ -597,6 +610,7 @@ const BulletinExport = {
   // 主要匯出函數
   // ============================================================
   async generate(data) {
+    await this.ensureDocxReady();
     if (!window.docx) {
       throw new Error('docx 函式庫尚未載入');
     }

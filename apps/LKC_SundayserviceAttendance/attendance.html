@@ -323,6 +323,36 @@
   </div>
 </div>
 
+<!-- 📷 QR Scanner Modal -->
+<div id="qrScannerModal" class="custom-overlay" style="display: none; align-items: center; justify-content: center;">
+  <div class="custom-modal-content" style="max-width: 480px; width: 92%; padding: 20px; border-radius: var(--radius-lg); background: #ffffff;">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h5 class="fw-bold mb-0 text-dark d-flex align-items-center gap-2" style="font-size: 1.15rem;">
+        <span>📷</span> QR Code 掃描報到
+      </h5>
+      <div class="d-flex align-items-center gap-1">
+        <button id="scannerSwitchCamBtn" class="btn btn-sm btn-light border-0 px-2.5 py-1" onclick="switchScannerCamera()" title="切換鏡頭" style="border-radius: 12px; display: none; font-size: 0.9rem;">
+          🔄 切換鏡頭
+        </button>
+        <button id="scannerSoundBtn" class="btn btn-sm btn-light border-0 px-2 py-1" onclick="toggleScannerSound()" title="提示音開關" style="border-radius: 12px; font-size: 0.9rem;">
+          🔔
+        </button>
+        <button type="button" class="btn-close ms-1" onclick="closeScannerModal()"></button>
+      </div>
+    </div>
+    <div id="scannerStatusTip" class="alert py-2 px-3 mb-2 small fw-bold text-center border-0" style="background: #f1f5f9; color: #475569; border-radius: 12px; transition: all 0.3s ease;">
+      請將會友 QR Code 對準鏡頭
+    </div>
+    <div style="position: relative; width: 100%; border-radius: 16px; overflow: hidden; background: #0f172a; min-height: 260px;">
+      <div id="modal-qr-reader" style="width: 100%;"></div>
+      <div id="scannerFlash" style="position: absolute; inset: 0; background: rgba(34, 197, 94, 0.45); display: none; z-index: 10; pointer-events: none;"></div>
+    </div>
+    <div class="text-center mt-3">
+      <button class="btn btn-light px-4 py-2 border-0 fw-bold text-secondary" onclick="closeScannerModal()" style="border-radius: 20px;">關閉相機</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://unpkg.com/html5-qrcode"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
 <script src="attendance.js"></script>

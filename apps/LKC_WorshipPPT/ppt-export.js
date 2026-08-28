@@ -45,7 +45,22 @@
     });
   }
 
-  function exportWorshipPPTX(options = {}) {
+  async function ensurePptxExportReady(options = {}) {
+    if (options.PptxGenJS || root.PptxGenJS) return;
+    if (typeof document === 'undefined') return;
+    const loadScript = src => new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('無法載入模組: ' + src));
+      document.head.appendChild(s);
+    });
+    if (!root.JSZip) await loadScript('vendor-jszip.min.js?v=3.10.1');
+    if (!root.PptxGenJS) await loadScript('https://cdn.jsdelivr.net/gh/gitbrent/PptxGenJS@3.12.0/dist/pptxgen.bundle.js');
+  }
+
+  async function exportWorshipPPTX(options = {}) {
+    await ensurePptxExportReady(options);
     const PptxGenJSClass = options.PptxGenJS || root.PptxGenJS;
     const getDeckEntriesFn = options.getDeckEntries || root.getDeckEntries;
     const layoutState = options.layoutState || root.worshipLayoutState;

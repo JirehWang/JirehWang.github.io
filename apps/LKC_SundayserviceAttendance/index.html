@@ -1,9 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>⛪ 教會主日出席點名系統</title>
@@ -12,7 +9,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="manifest" href="../../manifest.json">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
       --font-sans: 'Plus Jakarta Sans', 'Noto Sans TC', system-ui, -apple-system, sans-serif;
@@ -323,13 +319,13 @@
   <script src="../../config.js"></script>
   <script src="config.js"></script>
   <script src="api.js?v=8b3d34d"></script>
-  <script src="official_members_data.js"></script>
   <script src="list-scroll-anchor.js"></script>
   <script src="attendance-search-scroll.js"></script>
 
 <script>
   var autoJumpConfig = { cat: null, grp: null, active: false };
   var pageLoaded = { ATTENDANCE: false, AGM_ATTENDANCE: false, AGM_VIEWER: false, MEMBERS: false, STATS: false, TREND_CHART: false };
+  var _appVer = '20260826_camera_modal_2';
 
   /**
    * 動態載入子頁面 HTML
@@ -340,27 +336,34 @@
     const container = document.getElementById('page-' + pageId);
     container.innerHTML = '<div id="page-loading" class="d-flex flex-column align-items-center justify-content-center py-5"><div class="water-ripple mb-3"><div></div><div></div></div><div class="fw-bold" style="color: var(--text-secondary);">清泉流淌中...</div></div>';
     try {
-      const res = await fetch(filename + '.html?v=' + Date.now());
+      const res = await fetch(filename + '.html?v=' + _appVer);
       if (!res.ok) throw new Error('找不到 ' + filename + '.html');
       container.innerHTML = await res.text();
       pageLoaded[pageId] = true;
 
-      container.querySelectorAll('script').forEach(oldScript => {
-        const newScript = document.createElement('script');
-        if (oldScript.src) {
-          const separator = oldScript.src.includes('?') ? '&' : '?';
-          // Only bypass cache for local project scripts
-          if (!oldScript.src.startsWith('http') || oldScript.src.startsWith(window.location.origin) || oldScript.src.includes('localhost') || oldScript.src.includes('127.0.0.1')) {
-            newScript.src = oldScript.src + separator + 'v=' + Date.now();
+      const scripts = Array.from(container.querySelectorAll('script'));
+      for (let i = 0; i < scripts.length; i++) {
+        const oldScript = scripts[i];
+        await new Promise((resolve) => {
+          const newScript = document.createElement('script');
+          if (oldScript.src) {
+            const separator = oldScript.src.includes('?') ? '&' : '?';
+            if (!oldScript.src.startsWith('http') || oldScript.src.startsWith(window.location.origin) || oldScript.src.includes('localhost') || oldScript.src.includes('127.0.0.1')) {
+              newScript.src = oldScript.src + separator + 'v=' + _appVer;
+            } else {
+              newScript.src = oldScript.src;
+            }
+            newScript.onload = () => resolve();
+            newScript.onerror = () => resolve();
           } else {
-            newScript.src = oldScript.src;
+            newScript.textContent = oldScript.textContent;
+            resolve();
           }
-        } else {
-          newScript.textContent = oldScript.textContent;
-        }
-        document.body.appendChild(newScript);
-        oldScript.remove();
-      });
+          document.body.appendChild(newScript);
+          oldScript.remove();
+          if (!oldScript.src) resolve();
+        });
+      }
     } catch (e) {
       container.innerHTML = '<div class="alert alert-danger m-3">❌ 頁面載入失敗：' + e.message + '</div>';
     }
@@ -469,26 +472,21 @@
       loadPageContent('ATTENDANCE', 'attendance');
     }
 
-    var scrollLockObserver = new MutationObserver(function(mutations) {
-      var anyVisible = false;
+    function syncModalScrollLock() {
       var overlays = document.querySelectorAll('.custom-overlay, .custom-modal-backdrop, .modal');
-      overlays.forEach(function(el) {
-        if (window.getComputedStyle(el).display !== 'none') {
+      var anyVisible = false;
+      for (var i = 0; i < overlays.length; i++) {
+        var el = overlays[i];
+        if (el.classList.contains('show') || (el.style && el.style.display !== 'none' && el.style.display !== '')) {
           anyVisible = true;
+          break;
         }
-      });
-      if (anyVisible) {
-        document.body.classList.add('modal-open');
-      } else {
-        document.body.classList.remove('modal-open');
       }
-    });
-    scrollLockObserver.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['style']
-    });
+      document.body.classList.toggle('modal-open', anyVisible);
+    }
+    document.addEventListener('show.bs.modal', function() { document.body.classList.add('modal-open'); });
+    document.addEventListener('hidden.bs.modal', function() { syncModalScrollLock(); });
+    window.syncModalScrollLock = syncModalScrollLock;
   };
 </script>
 </body>

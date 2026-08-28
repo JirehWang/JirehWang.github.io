@@ -32,7 +32,15 @@ function formatCalendarEventValues(event) {
   };
 }
 
+const _eventsCache = new Map();
+
+function clearEventsCache() {
+  _eventsCache.clear();
+}
+
+let _loadingCount = 0;
 function showLoading(actionName) {
+  _loadingCount++;
   const overlay = document.getElementById('loadingOverlay');
   const textEl = document.getElementById('loadingText');
   const subtextEl = document.getElementById('loadingSubtext');
@@ -47,6 +55,12 @@ function showLoading(actionName) {
   } else if (actionName === 'cal_getEvents') {
     textEl.innerText = "正在讀取行事曆事項...";
     subtextEl.innerText = "正在加載最新行程數據";
+  } else if (actionName === 'cal_getTypes') {
+    textEl.innerText = "正在載入事項類型...";
+    subtextEl.innerText = "正在加載分類設定";
+  } else if (actionName === 'cal_getFields') {
+    textEl.innerText = "正在載入欄位設定...";
+    subtextEl.innerText = "正在讀取欄位定義";
   } else if (actionName === 'cal_deleteEvent') {
     textEl.innerText = "正在刪除事項...";
     subtextEl.innerText = "正在自試算表中移除該行程";
@@ -56,6 +70,9 @@ function showLoading(actionName) {
   } else if (actionName === 'cal_setupSchema') {
     textEl.innerText = "正在升級資料結構...";
     subtextEl.innerText = "正在為您無損升級現有 Google 試算表欄位";
+  } else if (actionName === 'excel_parse') {
+    textEl.innerText = "正在解析 Excel 內容...";
+    subtextEl.innerText = "正在檢查欄位格式與資料";
   } else {
     textEl.innerText = "正在處理中...";
     subtextEl.innerText = "系統正在處理中，請稍候";
@@ -67,11 +84,15 @@ function showLoading(actionName) {
 }
 
 function hideLoading() {
+  _loadingCount = Math.max(0, _loadingCount - 1);
+  if (_loadingCount > 0) return;
   const overlay = document.getElementById('loadingOverlay');
   if (!overlay) return;
   overlay.classList.remove('show');
   setTimeout(() => {
-    overlay.style.display = 'none';
+    if (_loadingCount === 0) {
+      overlay.style.display = 'none';
+    }
   }, 250);
 }
 
@@ -86,13 +107,21 @@ async function callAPI(action, data) {
   }
 }
 
-window.addEventListener('DOMContentLoaded', async () => {
-  // 並行發送這兩個請求（不等待類型載完就讓月曆先發抓事項的請求）
+function bootstrapCalendar() {
   const typesPromise = loadTypesAndChips();
   initCalendar();
-  await typesPromise;
-  _isInitialLoad = false;
-});
+  typesPromise.finally(() => {
+    _isInitialLoad = false;
+  });
+}
+
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootstrapCalendar);
+  } else {
+    bootstrapCalendar();
+  }
+}
 
 // ─────────────────────────────────────────────────────────────
 // 1. 初始化 FullCalendar
@@ -236,35 +265,56 @@ function toggleAllChips(on) {
 // ─────────────────────────────────────────────────────────────
 // 3. 拉事項 → 餵給 FullCalendar
 // ─────────────────────────────────────────────────────────────
+function renderCalendarEvents(events) {
+  if (!_calendar) return;
+  _calendar.removeAllEvents();
+  (events || []).forEach(ev => {
+    const displayEvent = formatCalendarEventValues(ev);
+    _calendar.addEvent({
+      id: displayEvent.eventId,
+      title: displayEvent.title || displayEvent.typeName,
+      start: displayEvent.date,
+      backgroundColor: 'transparent',
+      borderColor: 'transparent',
+      textColor: displayEvent.typeColor || '#334155',
+      extendedProps: { raw: displayEvent }
+    });
+  });
+}
+
 async function loadEventsForRange(startDate, endDate) {
+  const cacheKey = `${startDate}_${endDate}`;
+  const isCustomFilter = _activeTypeIds.size > 0 && _activeTypeIds.size < _selectableTypes.length;
+
   try {
     const req = { startDate, endDate };
-    if (_activeTypeIds.size > 0 && _activeTypeIds.size < _selectableTypes.length) {
+    if (isCustomFilter) {
       req.typeIds = Array.from(_activeTypeIds);
     } else if (_activeTypeIds.size === 0 && !_isInitialLoad) {
       // 全不選 → 清空
       _calendar.removeAllEvents();
       return;
     }
+
+    // 快取命中（未自訂篩選時直接秒顯）
+    if (!isCustomFilter && _eventsCache.has(cacheKey)) {
+      renderCalendarEvents(_eventsCache.get(cacheKey));
+      return;
+    }
+
     const res = await callAPI('cal_getEvents', req);
     if (!res.success) throw new Error(res.message);
     const events = res.data || [];
 
-    _calendar.removeAllEvents();
-    events.forEach(ev => {
-      const displayEvent = formatCalendarEventValues(ev);
-      _calendar.addEvent({
-        id: displayEvent.eventId,
-        title: displayEvent.title || displayEvent.typeName,
-        start: displayEvent.date,
-        backgroundColor: 'transparent',
-        borderColor: 'transparent',
-        textColor: displayEvent.typeColor || '#334155',
-        extendedProps: { raw: displayEvent }
-      });
-    });
+    if (!isCustomFilter) {
+      _eventsCache.set(cacheKey, events);
+    }
+    renderCalendarEvents(events);
   } catch (err) {
     console.error('載入事項失敗', err);
+    if (window.userNotification) {
+      window.userNotification.error('事項載入失敗：' + err.message);
+    }
   }
 }
 
@@ -502,6 +552,7 @@ async function saveEvent() {
       res = await callAPI('cal_addEvent', data);
     }
     if (!res.success) throw new Error(res.message);
+    clearEventsCache();
     bootstrap.Modal.getOrCreateInstance(document.getElementById('eventModal')).hide();
     // 重新拉當前範圍
     const view = _calendar.view;
@@ -518,6 +569,7 @@ async function deleteEvent() {
   try {
     const res = await callAPI('cal_deleteEvent', { eventId });
     if (!res.success) throw new Error(res.message);
+    clearEventsCache();
     bootstrap.Modal.getOrCreateInstance(document.getElementById('eventModal')).hide();
     const view = _calendar.view;
     loadEventsForRange(window.formatYMD(view.activeStart), window.formatYMD(view.activeEnd));
@@ -566,6 +618,7 @@ async function confirmDeleteFromDetail() {
   try {
     const res = await callAPI('cal_deleteEvent', { eventId: _currentDetailEvent.eventId });
     if (!res.success) throw new Error(res.message);
+    clearEventsCache();
     bootstrap.Modal.getOrCreateInstance(document.getElementById('eventDetailModal')).hide();
     const view = _calendar.view;
     loadEventsForRange(window.formatYMD(view.activeStart), window.formatYMD(view.activeEnd));
@@ -703,6 +756,7 @@ async function confirmBatchAdd() {
     const res = await callAPI('cal_addEventsBatch', { events });
     if (!res.success) throw new Error(res.message || '建立失敗');
     alert(`✅ ${res.message}`);
+    clearEventsCache();
     bootstrap.Modal.getOrCreateInstance(document.getElementById('batchModal')).hide();
     const view = _calendar.view;
     loadEventsForRange(view.activeStart.toISOString().substring(0,10), view.activeEnd.toISOString().substring(0,10));
@@ -925,12 +979,24 @@ async function confirmAiBatchAdd() {
     const res = await callAPI('cal_addEventsBatch', { events: payload });
     if (!res.success) throw new Error(res.message);
     alert(`✅ ${res.message}`);
+    clearEventsCache();
     bootstrap.Modal.getOrCreateInstance(document.getElementById('aiModal')).hide();
     const view = _calendar.view;
     loadEventsForRange(view.activeStart.toISOString().substring(0,10), view.activeEnd.toISOString().substring(0,10));
   } catch (err) {
     alert('❌ ' + err.message);
   }
+}
+
+function ensureXLSXReady() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.onload = () => resolve(window.XLSX);
+    s.onerror = () => reject(new Error('無法載入 Excel 解析模組 (XLSX)'));
+    document.head.appendChild(s);
+  });
 }
 
 // ═════════════════════════════════════════════════════════════
@@ -943,6 +1009,7 @@ async function handleExcelUpload(ev) {
   if (!file) return;
 
   try {
+    await ensureXLSXReady();
     const data = await file.arrayBuffer();
     const wb = XLSX.read(data);
     const sheetName = wb.SheetNames[0];
@@ -1089,6 +1156,7 @@ async function confirmExcelImport() {
     const res = await callAPI('cal_addEventsBatch', { events });
     if (!res.success) throw new Error(res.message);
     alert(`✅ ${res.message}`);
+    clearEventsCache();
     bootstrap.Modal.getOrCreateInstance(document.getElementById('excelPreviewModal')).hide();
     const view = _calendar.view;
     loadEventsForRange(view.activeStart.toISOString().substring(0,10), view.activeEnd.toISOString().substring(0,10));
@@ -1115,6 +1183,8 @@ async function downloadSermonTemplate(typeName) {
   if (modalEl) {
     bootstrap.Modal.getOrCreateInstance(modalEl).hide();
   }
+
+  await ensureXLSXReady();
 
   // 找對應類型
   if (!_types || !_types.flat) {

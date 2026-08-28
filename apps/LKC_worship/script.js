@@ -180,27 +180,37 @@ async function openMainMemberDropdown(anchorEl) {
 }
 
 // --- 初始化 ---
-window.onload = () => {
-  const syncTimeEl = document.getElementById('syncTime');
+var _worshipInitialized = false;
+function initWorshipPage() {
+  if (_worshipInitialized) return;
+  _worshipInitialized = true;
+  var syncTimeEl = document.getElementById('syncTime');
   if (syncTimeEl) syncTimeEl.innerText = new Date().toLocaleTimeString();
 
   // 根據當前日期設定預設季度
-  const today = new Date();
-  const currentYear = today.getFullYear();
-  const currentMonth = today.getMonth(); // 0-11
-  const currentQuarter = 'Q' + (Math.floor(currentMonth / 3) + 1);
+  var today = new Date();
+  var currentYear = today.getFullYear();
+  var currentMonth = today.getMonth(); // 0-11
+  var currentQuarter = 'Q' + (Math.floor(currentMonth / 3) + 1);
 
-  const yearSelect = document.getElementById('yearSelect');
-  const quarterSelect = document.getElementById('quarterSelect');
-  if (yearSelect && Array.from(yearSelect.options).some(opt => opt.value === String(currentYear))) {
+  var yearSelect = document.getElementById('yearSelect');
+  var quarterSelect = document.getElementById('quarterSelect');
+  if (yearSelect && Array.from(yearSelect.options).some(function(opt) { return opt.value === String(currentYear); })) {
     yearSelect.value = String(currentYear);
   }
-  if (quarterSelect && Array.from(quarterSelect.options).some(opt => opt.value === currentQuarter)) {
+  if (quarterSelect && Array.from(quarterSelect.options).some(function(opt) { return opt.value === currentQuarter; })) {
     quarterSelect.value = currentQuarter;
   }
 
   loadDashboard();
-};
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initWorshipPage);
+} else {
+  initWorshipPage();
+}
+window.onload = initWorshipPage;
 
 function formatDateSafe(dateObj) {
   if (!dateObj || isNaN(dateObj.getTime())) return "";
@@ -230,16 +240,23 @@ async function callAPI(action, payload) {
   }
 }
 
+var _positionsPromise = null;
 async function ensurePositionsLoaded() {
-  if (currentPositions && currentPositions.length > 0) return;
-  const result = await callAPI('getPositions', {});
-  if (result && result.status === 'success') {
-    currentPositions = result.data || [];
-    // Populate uniquePersonnel from currentPositions
-    let nameSet = new Set();
-    currentPositions.forEach(pos => (pos.personnel || '').split(',').forEach(n => n.trim() && nameSet.add(n.trim())));
-    uniquePersonnel = Array.from(nameSet).sort();
-  }
+  if (currentPositions && currentPositions.length > 0) return currentPositions;
+  if (_positionsPromise) return _positionsPromise;
+  _positionsPromise = callAPI('getPositions', {}).then(result => {
+    if (result && result.status === 'success') {
+      currentPositions = result.data || [];
+      let nameSet = new Set();
+      currentPositions.forEach(pos => (pos.personnel || '').split(',').forEach(n => n.trim() && nameSet.add(n.trim())));
+      uniquePersonnel = Array.from(nameSet).sort();
+    }
+    return currentPositions;
+  }).catch(err => {
+    _positionsPromise = null;
+    throw err;
+  });
+  return _positionsPromise;
 }
 
 function switchTab(tabId) {
@@ -743,14 +760,16 @@ async function loadDashboard() {
   container.innerHTML = `<div class="text-center p-5 text-primary"><div class="spinner-border"></div><div class="mt-2">同步 ${year}-${quarter} 資料中...</div></div>`;
 
   try {
-    await ensurePositionsLoaded();
-    const result = await callAPI('getSchedule', { year, quarter });
-    if (result.status === 'success') {
+    const [_, result] = await Promise.all([
+      ensurePositionsLoaded(),
+      callAPI('getSchedule', { year, quarter })
+    ]);
+    if (result && result.status === 'success') {
       const syncTimeEl = document.getElementById('syncTime');
       if (syncTimeEl) syncTimeEl.innerText = new Date().toLocaleTimeString();
       renderDashboardTable(result.data);
     } else {
-      container.innerHTML = `<div class="alert alert-warning text-center m-4">⚠️ ${result.message || '查無資料'}</div>`;
+      container.innerHTML = `<div class="alert alert-warning text-center m-4">⚠️ ${(result && result.message) || '查無資料'}</div>`;
     }
   } catch (error) {
     container.innerHTML = `<div class="alert alert-danger text-center m-4">❌ 連線失敗<br><small>${error.message}</small></div>`;
@@ -1235,15 +1254,19 @@ async function loadScheduleByQuarter() {
   placeholder.innerHTML = `<div class="p-4 text-center text-success"><div class="spinner-border spinner-border-sm"></div> 從外部載入 ${year} ${quarter} 框架中...</div>`;
   
   try {
-    const result = await callAPI('getSchedule', { year, quarter });
-    if (result.status === 'success' && result.data.length > 0) {
+    const [_, result] = await Promise.all([
+      ensurePositionsLoaded(),
+      callAPI('getSchedule', { year, quarter })
+    ]);
+    if (result && result.status === 'success' && result.data && result.data.length > 0) {
       generatedScheduleData = result.data;
       renderPreviewTable(generatedScheduleData);
     } else {
-      placeholder.innerHTML = `<div class="alert alert-warning m-4">查無 ${year} ${quarter} 資料，且外部也無此季度的聚會紀錄。</div>`;
+      placeholder.innerHTML = `<div class="alert alert-warning m-4">${(result && result.message) || `查無 ${year} ${quarter} 資料，且外部也無此季度的聚會紀錄。`}</div>`;
     }
   } catch (error) { 
-    placeholder.innerHTML = `<div class="alert alert-danger m-4">❌ 讀取失敗，請確認網路連線。</div>`;
+    console.error("loadScheduleByQuarter error:", error);
+    placeholder.innerHTML = `<div class="alert alert-danger m-4">❌ 讀取失敗：${error.message || '請確認網路連線'}</div>`;
   }
 }
 
@@ -1263,15 +1286,19 @@ async function loadScheduleByDateRange() {
   placeholder.innerHTML = '<div class="p-4 text-center text-primary"><div class="spinner-border spinner-border-sm"></div> 區間資料讀取中...</div>';
   
   try {
-    const result = await callAPI('getScheduleByDateRange', { startDate: start, endDate: end });
-    if (result.status === 'success' && result.data && result.data.length > 0) {
+    const [_, result] = await Promise.all([
+      ensurePositionsLoaded(),
+      callAPI('getScheduleByDateRange', { startDate: start, endDate: end })
+    ]);
+    if (result && result.status === 'success' && result.data && result.data.length > 0) {
       generatedScheduleData = result.data;
       renderPreviewTable(generatedScheduleData);
     } else {
       placeholder.innerHTML = `<div class="alert alert-info m-4">${start} 至 ${end} 無存檔資料。</div>`;
     }
   } catch (error) { 
-    placeholder.innerHTML = `<div class="alert alert-danger m-4">❌ 區間讀取失敗。</div>`;
+    console.error("loadScheduleByDateRange error:", error);
+    placeholder.innerHTML = `<div class="alert alert-danger m-4">❌ 區間讀取失敗：${error.message || '請確認網路連線'}</div>`;
   }
 }
 
@@ -1537,8 +1564,8 @@ function renderPreviewTable(data) {
   };
   // 職位欄預設寬度
   const posColWidth = '110px';
-
-  let headers = ['請假/狀態', '日期', '聚會名稱', '聚會類別', ...currentPositions.map(p => p.positionName)];
+  const posList = Array.isArray(currentPositions) ? currentPositions : [];
+  let headers = ['請假/狀態', '日期', '聚會名稱', '聚會類別', ...posList.map(p => p.positionName).filter(Boolean)];
 
   // --- 表頭 ---
   let trH = document.createElement('tr');

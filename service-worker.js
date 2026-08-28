@@ -1,13 +1,12 @@
-const CACHE_NAME = 'lkc-pwa-safe-v20260609';
+const CACHE_NAME = 'lkc-pwa-safe-v20260826';
 const STATIC_CACHE_EXTENSIONS = /\.(?:css|png|jpg|jpeg|webp|gif|svg|ico|woff2?)$/i;
-const STATIC_CACHE_PATHS = [
-  '/LKC1958_June_1.github.io/manifest.json'
-];
+const isGitHub = typeof self !== 'undefined' && self.location && self.location.hostname.includes('github.io');
+const STATIC_CACHE_PATHS = isGitHub ? ['/LKC1958_June_1.github.io/manifest.json'] : ['/manifest.json'];
 
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(STATIC_CACHE_PATHS))
+      .then(cache => cache.addAll(STATIC_CACHE_PATHS).catch(err => console.warn('Cache addAll ignored:', err)))
       .then(() => self.skipWaiting())
   );
 });

@@ -80,10 +80,22 @@
         refreshBtn.disabled = false;
         statusText.innerHTML = `<span class="text-danger">❌ 載入失敗：${err.message}</span>`;
       })
-      .getCategoryChartData(category, startDate, endDate); 
+      .getCategoryChartData(category, startDate, endDate);
   }
 
-  function renderComboChart(data) {
+  function ensureChartJSReady() {
+    if (window.Chart) return Promise.resolve(window.Chart);
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+      s.onload = () => resolve(window.Chart);
+      s.onerror = () => reject(new Error('無法載入 Chart.js 模組'));
+      document.head.appendChild(s);
+    });
+  }
+
+  async function renderComboChart(data) {
+    await ensureChartJSReady();
     const canvas = document.getElementById('attendanceChart');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');

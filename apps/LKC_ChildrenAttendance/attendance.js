@@ -504,42 +504,245 @@ function executeRevoke(uid, displayName) {
     });
   }
 
+  var scannerHtml5QrCode = null;
+  var scannerCameraList = [];
+  var scannerCurrentCamIndex = 0;
+  var scannerIsProcessing = false;
+  var scannerLastScanned = '';
+  var scannerLastScannedTime = 0;
+  var scannerSoundEnabled = true;
+
   function toggleScanner() {
+    openScannerModal();
+  }
+
+  function openScannerModal() {
     if (!attUserId) attUserId = localStorage.getItem('att_uid');
-    var scannerUrl = "https://jirehwang.github.io/LKC1958_June_1.github.io/apps/qrcodescanner.github.io/?context=children&operatorId=" + encodeURIComponent(attUserId || '') + "&userId=" + encodeURIComponent(attUserId || '');
-    window.open(scannerUrl, '_blank');
+    localStorage.setItem('attendance_scope', currentAttType || '');
+    var modal = document.getElementById('qrScannerModal');
+    if (modal) {
+      modal.style.display = 'flex';
+      if (window.syncModalScrollLock) window.syncModalScrollLock();
+      else document.body.classList.add('modal-open');
+    }
+    startModalScanner();
     startAutoSync();
   }
 
-  function startScanning() {
-    html5QrCode = new Html5Qrcode("reader");
-    Html5Qrcode.getCameras().then(function(devices) {
-      if (devices && devices.length > 0) {
-        var cameraId = devices.length > 1 ? devices[devices.length - 1].id : devices[0].id;
-        html5QrCode.start(
-          cameraId, { fps: 10, qrbox: { width: 250, height: 250 } }, 
-          function(decodedText) { handleQrCodeResult(decodedText.trim()); }
-        ).catch(function(err) { alert("相機啟動失敗：" + err); toggleScanner(); });
-      } else { alert("找不到攝影機設備！"); toggleScanner(); }
-    }).catch(function(err) { alert("無法取得相機權限：" + err); toggleScanner(); });
+  function closeScannerModal() {
+    stopModalScanner();
+    var modal = document.getElementById('qrScannerModal');
+    if (modal) {
+      modal.style.display = 'none';
+      if (window.syncModalScrollLock) window.syncModalScrollLock();
+      else document.body.classList.remove('modal-open');
+    }
   }
 
-  function stopScanning() { if (html5QrCode && html5QrCode.isScanning) { html5QrCode.stop().then(function(){ html5QrCode.clear(); }); } }
+  function toggleScannerSound() {
+    scannerSoundEnabled = !scannerSoundEnabled;
+    var btn = document.getElementById('scannerSoundBtn');
+    if (btn) btn.innerText = scannerSoundEnabled ? '🔔' : '🔕';
+  }
 
-  function handleQrCodeResult(scannedText) {
-    wakeUp(); 
+  function switchScannerCamera() {
+    if (scannerCameraList.length < 2) return;
+    if (scannerHtml5QrCode && scannerHtml5QrCode.isScanning) {
+      scannerHtml5QrCode.stop().then(function() {
+        scannerCurrentCamIndex = (scannerCurrentCamIndex + 1) % scannerCameraList.length;
+        startScannerWithCurrentCamera();
+      }).catch(function(err) {
+        console.warn('Switch camera stop failed', err);
+      });
+    } else {
+      scannerCurrentCamIndex = (scannerCurrentCamIndex + 1) % scannerCameraList.length;
+      startScannerWithCurrentCamera();
+    }
+  }
+
+  function playScanBeep() {
+    if (!scannerSoundEnabled) return;
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.15);
+    } catch (e) {}
+  }
+
+  function extractUidFromScannedText(text) {
+    if (!text) return '';
+    text = String(text).trim();
+    if (text.includes('http://') || text.includes('https://')) {
+      try {
+        var url = new URL(text);
+        if (url.searchParams.has('uid')) return url.searchParams.get('uid').trim().toUpperCase();
+        if (url.searchParams.has('id')) return url.searchParams.get('id').trim().toUpperCase();
+        if (url.hash && url.hash.length > 1) return url.hash.substring(1).trim().toUpperCase();
+      } catch (e) {}
+    }
+    var lkMatch = text.match(/\b(LK\d+)\b/i);
+    if (lkMatch) return lkMatch[1].toUpperCase();
+    return text.toUpperCase();
+  }
+
+  function startModalScanner() {
+    var tip = document.getElementById('scannerStatusTip');
+    if (tip) {
+      tip.innerText = '正在啟動相機...';
+      tip.style.background = '#f1f5f9';
+      tip.style.color = '#475569';
+    }
+    if (typeof Html5Qrcode === 'undefined') {
+      if (tip) {
+        tip.innerText = '❌ 相機模組尚未載入，請稍候重試';
+        tip.style.background = '#fee2e2';
+        tip.style.color = '#dc2626';
+      }
+      return;
+    }
+    if (!scannerHtml5QrCode) {
+      scannerHtml5QrCode = new Html5Qrcode('modal-qr-reader');
+    }
+    Html5Qrcode.getCameras().then(function(devices) {
+      if (devices && devices.length > 0) {
+        scannerCameraList = devices;
+        scannerCurrentCamIndex = devices.length > 1 ? devices.length - 1 : 0;
+        var switchBtn = document.getElementById('scannerSwitchCamBtn');
+        if (switchBtn) switchBtn.style.display = devices.length > 1 ? 'inline-block' : 'none';
+        startScannerWithCurrentCamera();
+      } else {
+        if (tip) {
+          tip.innerText = '❌ 找不到相機設備！';
+          tip.style.background = '#fee2e2';
+          tip.style.color = '#dc2626';
+        }
+      }
+    }).catch(function(err) {
+      if (tip) {
+        tip.innerText = '❌ 無法取得相機權限：' + (err.message || err);
+        tip.style.background = '#fee2e2';
+        tip.style.color = '#dc2626';
+      }
+    });
+  }
+
+  function startScannerWithCurrentCamera() {
+    if (!scannerCameraList[scannerCurrentCamIndex]) return;
+    var cameraId = scannerCameraList[scannerCurrentCamIndex].id;
+    var tip = document.getElementById('scannerStatusTip');
+    if (tip) {
+      tip.innerText = '請將會友 QR Code 對準鏡頭';
+      tip.style.background = '#f1f5f9';
+      tip.style.color = '#475569';
+    }
+    var config = {
+      fps: 15,
+      qrbox: function(w, h) { var s = Math.min(w, h) * 0.75; return { width: s, height: s }; }
+    };
+    scannerHtml5QrCode.start(cameraId, config, function(decodedText) {
+      onModalQrScanned(decodedText.trim());
+    }).catch(function(err) {
+      console.warn('Fallback scanner config', err);
+      scannerHtml5QrCode.start(cameraId, { fps: 10, qrbox: 250 }, function(decodedText) {
+        onModalQrScanned(decodedText.trim());
+      }).catch(function(err2) {
+        if (tip) {
+          tip.innerText = '❌ 相機啟動失敗：' + (err2.message || err2);
+          tip.style.background = '#fee2e2';
+          tip.style.color = '#dc2626';
+        }
+      });
+    });
+  }
+
+  function stopModalScanner() {
+    if (scannerHtml5QrCode && scannerHtml5QrCode.isScanning) {
+      scannerHtml5QrCode.stop().then(function() {
+        try { scannerHtml5QrCode.clear(); } catch (e) {}
+      }).catch(function(err) { console.warn('stop scanner error', err); });
+    }
+  }
+
+  function onModalQrScanned(scannedText) {
+    var now = Date.now();
+    if (scannedText === scannerLastScanned && (now - scannerLastScannedTime) < 3000) return;
+    if (scannerIsProcessing) return;
+    scannerIsProcessing = true;
+    scannerLastScanned = scannedText;
+    scannerLastScannedTime = now;
+
+    var flash = document.getElementById('scannerFlash');
+    if (flash) {
+      flash.style.display = 'block';
+      setTimeout(function() { flash.style.display = 'none'; }, 300);
+    }
+    playScanBeep();
+    if (navigator.vibrate) navigator.vibrate(100);
+
+    var tip = document.getElementById('scannerStatusTip');
+    var rawUid = extractUidFromScannedText(scannedText);
+    wakeUp();
+
     var found = false;
+    var foundName = '';
     var checkboxes = document.querySelectorAll('#attendanceListBody input[type="checkbox"]');
     for (var i = 0; i < checkboxes.length; i++) {
       var cb = checkboxes[i];
-      if ((cb.dataset.uid === scannedText || cb.value === scannedText) && !cb.disabled) {
-        if (!cb.checked) { cb.checked = true; toggleCardStyle(cb); cb.parentElement.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-        if (navigator.vibrate) navigator.vibrate(100); 
-        found = true; break;
+      var cbUid = (cb.dataset.uid || '').toUpperCase();
+      var cbVal = (cb.value || '').toUpperCase();
+      if ((cbUid === rawUid || cbVal === rawUid || cbUid === scannedText.toUpperCase() || cbVal === scannedText.toUpperCase()) && !cb.disabled) {
+        foundName = cb.value;
+        if (!cb.checked) {
+          cb.checked = true;
+          var card = cb.parentElement;
+          if (card) {
+            card.classList.add('selected');
+          }
+          if (typeof toggleCardStyle === 'function') {
+            toggleCardStyle(cb);
+          }
+          if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        found = true;
+        break;
       }
     }
-    if (!found) console.log("⚠️ 掃描成功但名單中找不到此人：" + scannedText);
+
+    if (found) {
+      if (tip) {
+        tip.innerHTML = '✅ <b>' + (foundName || rawUid) + '</b> 報到成功！';
+        tip.style.background = '#dcfce7';
+        tip.style.color = '#166534';
+      }
+    } else {
+      if (tip) {
+        tip.innerHTML = '⚠️ 找不到符合名單：<b>' + (rawUid || scannedText) + '</b>';
+        tip.style.background = '#fef3c7';
+        tip.style.color = '#92400e';
+      }
+    }
+
+    setTimeout(function() {
+      scannerIsProcessing = false;
+      if (tip && tip.innerText.includes('報到成功')) {
+        tip.innerText = '請將下一位會友 QR Code 對準鏡頭';
+        tip.style.background = '#f1f5f9';
+        tip.style.color = '#475569';
+      }
+    }, 2000);
   }
+
+  function startScanning() { openScannerModal(); }
+  function stopScanning() { closeScannerModal(); }
+  function handleQrCodeResult(scannedText) { onModalQrScanned(scannedText); }
 
   function downloadVenueJumpCard(cat, grp) {
     const canvas = document.createElement('canvas');
