@@ -2468,7 +2468,11 @@ function _ms_copyCardEvent(rowIdx, btn) {
       `🏷️ 主題：${topic || (currentTemplate === '團契聚會表模板' ? '團契聚會' : '小組聚會')}`
     ];
     if (location) lines.push(`📍 地點：${location}`);
-    if (verse) lines.push(`📖 經文：${verse}`);
+    if (verse) {
+      const verseUrl = new URL(`verse_view.html?q=${encodeURIComponent(verse)}`, window.location.href).href;
+      lines.push(`📖 經文：${verse}`);
+      lines.push(`🔗 經文連結：${verseUrl}`);
+    }
     if (dutyLines.length > 0) {
       lines.push(`👥 服事同工：`);
       lines.push(...dutyLines);

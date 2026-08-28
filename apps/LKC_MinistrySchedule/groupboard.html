@@ -275,7 +275,11 @@
                 `🏷️ 主題：${topic}`
             ];
             if (location) lines.push(`📍 地點：${location}`);
-            if (scripture) lines.push(`📖 經文：${scripture}`);
+            if (scripture) {
+                const verseUrl = new URL(`verse_view.html?q=${encodeURIComponent(scripture)}`, window.location.href).href;
+                lines.push(`📖 經文：${scripture}`);
+                lines.push(`🔗 經文連結：${verseUrl}`);
+            }
             if (dutyLines.length > 0) {
                 lines.push(`👥 服事同工：`);
                 lines.push(...dutyLines);

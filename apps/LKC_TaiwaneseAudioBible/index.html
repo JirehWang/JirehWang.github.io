@@ -36,9 +36,9 @@
         <main class="app-main">
             <!-- Left Side: Control Panel & Playlist/Chapters -->
             <section class="left-column">
-                <!-- Scripture Query Card -->
+                <!-- Scripture Query & Book/Chapter Selection Card -->
                 <div class="panel-card">
-                    <h2 class="panel-title"><span class="title-num">1</span> 選擇經文段落</h2>
+                    <h2 class="panel-title"><span class="title-num">1</span> 選擇聖經卷章</h2>
                     
                     <div class="form-group">
                         <label for="bible-ver-select">聖經譯本</label>
@@ -53,13 +53,67 @@
                         </select>
                     </div>
 
+                    <!-- Direct Book & Chapter Selection -->
                     <div class="form-group">
-                        <label for="query-input">經文範圍</label>
-                        <div class="query-input-wrap">
-                            <input type="text" id="query-input" placeholder="例如: 詩篇 23 或 弗 5:1-4" class="form-input" value="詩篇 23">
-                            <button id="btn-query" class="btn-primary">查詢</button>
+                        <label>選擇書卷與章數</label>
+                        <div class="book-chap-select-wrap">
+                            <select id="book-select" class="form-select book-select" aria-label="選擇書卷">
+                                <!-- Populated dynamically by script.js with Old & New Testament optgroups -->
+                            </select>
+                            <select id="chapter-select" class="form-select chapter-select" aria-label="選擇章數">
+                                <!-- Populated dynamically based on selected book -->
+                            </select>
+                            <button id="btn-go-chapter" class="btn-primary btn-go" title="前往該章">前往</button>
                         </div>
-                        <span class="input-helper">支援格式：以弗所書 5:1-4、弗5:1-4、Eph 5:1-4 等</span>
+                    </div>
+
+                    <!-- Catalog Toggle Button & Visual Picker -->
+                    <div class="catalog-toggle-wrap">
+                        <button id="btn-toggle-catalog" class="btn-outline-action" type="button">
+                            <span class="btn-icon">📖</span>
+                            <span id="catalog-toggle-text">展開目錄快速選章</span>
+                            <span class="dropdown-arrow">▼</span>
+                        </button>
+                    </div>
+
+                    <!-- Visual Catalog Panel (Expandable) -->
+                    <div id="catalog-panel" class="catalog-panel" style="display: none;">
+                        <!-- Testaments Tab Switcher -->
+                        <div class="testament-tabs">
+                            <button type="button" class="tab-btn active" data-testament="ot">📜 舊約聖經 (39卷)</button>
+                            <button type="button" class="tab-btn" data-testament="nt">✝️ 新約聖經 (27卷)</button>
+                        </div>
+
+                        <!-- Book Badges Grid (OT or NT) -->
+                        <div class="catalog-books-container" id="catalog-books-container">
+                            <!-- Populated by JavaScript -->
+                        </div>
+
+                        <!-- Chapter Badges Grid for currently focused book in catalog -->
+                        <div class="catalog-chapters-section" id="catalog-chapters-section" style="display: none;">
+                            <div class="catalog-chapters-header">
+                                <span id="catalog-selected-book-name" class="catalog-book-name-label">詩篇</span>
+                                <span class="catalog-chap-hint">請點選章數：</span>
+                            </div>
+                            <div class="catalog-chapters-grid" id="catalog-chapters-grid">
+                                <!-- Populated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Manual Range Search (Collapsible / Advanced) -->
+                    <div class="manual-query-section">
+                        <div class="manual-query-toggle" id="manual-query-toggle">
+                            <span>手動輸入指定經文範圍 (如：弗 5:1-4)</span>
+                            <span class="toggle-icon">＋</span>
+                        </div>
+                        <div class="manual-query-body" id="manual-query-body" style="display: none;">
+                            <div class="query-input-wrap">
+                                <input type="text" id="query-input" placeholder="例如: 詩篇 23 或 弗 5:1-4" class="form-input" value="詩篇 23">
+                                <button id="btn-query" class="btn-primary">查詢</button>
+                            </div>
+                            <span class="input-helper">支援格式：以弗所書 5:1-4、弗5:1-4、Eph 5:1-4 等</span>
+                        </div>
                     </div>
                 </div>
 
@@ -112,22 +166,66 @@
                     </div>
                     
                     <div class="player-controls">
+                        <!-- Previous Chapter Button -->
+                        <button id="btn-prev-chap" class="btn-player-nav" title="上一章" aria-label="上一章">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="19 20 9 12 19 4 19 20"></polygon>
+                                <line x1="5" y1="19" x2="5" y2="5"></line>
+                            </svg>
+                            <span class="btn-nav-text">上一章</span>
+                        </button>
+
                         <!-- Standard Audio element -->
                         <audio id="bible-audio" controls preload="auto"></audio>
+
+                        <!-- Next Chapter Button -->
+                        <button id="btn-next-chap" class="btn-player-nav" title="下一章" aria-label="下一章">
+                            <span class="btn-nav-text">下一章</span>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="5 4 15 12 5 20 5 4"></polygon>
+                                <line x1="19" y1="5" x2="19" y2="19"></line>
+                            </svg>
+                        </button>
                     </div>
                 </div>
 
                 <!-- Scripture Content Card -->
                 <div class="scripture-container-card">
                     <div class="scripture-header">
-                        <h2 id="scripture-title-display">讀經板</h2>
-                        <span id="scripture-info-display" class="scripture-badge">請輸入經文並點擊查詢</span>
+                        <div class="scripture-header-left">
+                            <h2 id="scripture-title-display">讀經板</h2>
+                            <span id="scripture-info-display" class="scripture-badge">請選擇或輸入經文</span>
+                        </div>
+                        <div class="scripture-header-nav">
+                            <button id="btn-header-prev" class="btn-icon-nav" title="上一章" aria-label="上一章">◀ 上一章</button>
+                            <button id="btn-header-next" class="btn-icon-nav" title="下一章" aria-label="下一章">下一章 ▶</button>
+                        </div>
                     </div>
+                    
                     <div class="scripture-content-body" id="scripture-body">
                         <div class="placeholder-msg">
                             <span class="placeholder-icon">📖</span>
-                            <p>請在左側輸入想要閱讀與聆聽的聖經段落，然後點選「查詢」。</p>
+                            <p>請在左側選擇想聆聽與閱讀的書卷章節，或輸入經文範圍後點選查詢。</p>
                         </div>
+                    </div>
+
+                    <!-- Scripture Bottom Navigation Footer -->
+                    <div class="scripture-footer-nav" id="scripture-footer-nav">
+                        <button id="btn-footer-prev" class="btn-footer-nav">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M15 18l-6-6 6-6"/>
+                            </svg>
+                            <span>上一章：<strong id="footer-prev-label">--</strong></span>
+                        </button>
+                        <div class="footer-center-info">
+                            <span id="footer-current-label">第 -- 章</span>
+                        </div>
+                        <button id="btn-footer-next" class="btn-footer-nav">
+                            <span>下一章：<strong id="footer-next-label">--</strong></span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 18l6-6-6-6"/>
+                            </svg>
+                        </button>
                     </div>
                 </div>
             </section>
