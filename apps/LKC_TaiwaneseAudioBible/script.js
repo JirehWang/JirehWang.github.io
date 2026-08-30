@@ -58,6 +58,11 @@ let currentSpeed = 1.0;
 let currentFontSize = 'large';
 let currentTheme = 'parchment';
 
+// 經節時間戳與卡拉OK高亮狀態變數
+let currentVerseTimestamps = []; // [{ sec: 1, start: 0.0, end: 7.2 }, ...]
+let activePlayingVerseSec = null;
+let currentChapterRecords = []; // 當前章節文字記錄（用於時間估算備援）
+
 // 2. DOM 元素變數
 let modalPicker, modalSettings;
 let btnOpenPicker, btnClosePicker, btnPlayerChangeBook;
@@ -491,7 +496,7 @@ function initSeniorAudioPlayer() {
         updatePlayPauseUI(false);
     });
 
-    // 7.3 時間更新與進度條同步
+    // 7.3 時間更新與進度條同步 + 卡拉OK即時經節高亮伴讀
     bibleAudio.addEventListener('timeupdate', () => {
         const curr = bibleAudio.currentTime;
         const dur = bibleAudio.duration;
@@ -502,15 +507,25 @@ function initSeniorAudioPlayer() {
             const percent = (curr / dur) * 100;
             audioSeekBar.value = percent;
         }
+
+        // 即時經節伴讀高亮
+        syncPlayingVerseHighlight(curr);
     });
 
     // 7.4 載入中與元資料就緒
     bibleAudio.addEventListener('loadedmetadata', () => {
         if (timeTotal) timeTotal.textContent = formatTime(bibleAudio.duration);
+        // 若當前沒有精準時間戳檔案，於元資料就緒時執行字數加權初估
+        if (currentVerseTimestamps.length === 0 && currentChapterRecords.length > 0) {
+            generateHeuristicTimestamps(currentChapterRecords, bibleAudio.duration);
+        }
     });
 
     bibleAudio.addEventListener('durationchange', () => {
         if (timeTotal) timeTotal.textContent = formatTime(bibleAudio.duration);
+        if (currentVerseTimestamps.length === 0 && currentChapterRecords.length > 0) {
+            generateHeuristicTimestamps(currentChapterRecords, bibleAudio.duration);
+        }
     });
 
     // 7.5 進度條拖曳快轉
@@ -536,6 +551,8 @@ function initSeniorAudioPlayer() {
 
     // 7.7 音訊播放結束自動下一首
     bibleAudio.addEventListener('ended', () => {
+        // 清除經節高亮
+        clearVerseHighlight();
         if (autoNextCheckbox && autoNextCheckbox.checked) {
             playNextChapter();
         }
@@ -578,7 +595,174 @@ function formatTime(seconds) {
 }
 
 // ==========================================================================
-// 8. 核心章節載入與切換函式
+// 8. 經節時間戳管理與點擊跳轉播放核心 (Verse Timestamp Sync & Seeking)
+// ==========================================================================
+
+/**
+ * 載入指定書卷與章數的經節時間戳檔案
+ * 若存在精準 JSON 檔案（如 timestamps/19_23.json），則使用精準切點
+ * 若尚無檔案，則透過經文字數比例進行動態加權估算
+ */
+async function loadVerseTimestamps(bid, chap, audioVer, records = []) {
+    currentVerseTimestamps = [];
+    activePlayingVerseSec = null;
+    currentChapterRecords = records;
+
+    const timestampUrl = `./timestamps/${bid}_${chap}.json?t=${Date.now()}`;
+
+    try {
+        const res = await fetch(timestampUrl);
+        if (res.ok) {
+            const data = await res.json();
+            if (data && Array.isArray(data.verses) && data.verses.length > 0) {
+                currentVerseTimestamps = data.verses;
+                console.log(`[Timestamp] 成功載入第 ${bid} 卷第 ${chap} 章之精準時間戳記 (共 ${data.verses.length} 節)`);
+                return;
+            }
+        }
+    } catch (e) {
+        // 忽略 404，進入動態估算
+    }
+
+    // 若無靜態時間戳檔，且音訊長度已知，即時產生估算時間戳
+    if (bibleAudio && !isNaN(bibleAudio.duration) && bibleAudio.duration > 0 && records.length > 0) {
+        generateHeuristicTimestamps(records, bibleAudio.duration);
+    }
+}
+
+/**
+ * 字數加權時間戳初估演算法（Fallback Heuristic）
+ */
+function generateHeuristicTimestamps(records, totalDuration) {
+    if (!records || records.length === 0 || !totalDuration || totalDuration <= 0) return;
+
+    // 清理 HTML 標籤後的純文字長度加總
+    const cleanTexts = records.map(r => (r.text || '').replace(/<[^>]*>/g, '').trim());
+    const totalChars = cleanTexts.reduce((sum, t) => sum + Math.max(t.length, 5), 0);
+
+    const introOffset = 2.2; // 片頭報讀「第幾章/大衛的詩」緩衝秒數
+    const availableDur = Math.max(totalDuration - introOffset, records.length * 1.5);
+
+    let currTime = introOffset;
+    const list = [];
+
+    records.forEach((rec, idx) => {
+        const charLen = Math.max(cleanTexts[idx].length, 5);
+        const ratio = charLen / totalChars;
+        const verseDur = availableDur * ratio;
+        const startTime = idx === 0 ? introOffset : Math.round(currTime * 100) / 100;
+        const endTime = Math.min(Math.round((currTime + verseDur) * 100) / 100, totalDuration);
+
+        list.push({
+            sec: parseInt(rec.sec, 10),
+            start: startTime,
+            end: endTime,
+            text: cleanTexts[idx]
+        });
+
+        currTime += verseDur;
+    });
+
+    currentVerseTimestamps = list;
+    console.log(`[Timestamp] 動態生成第 ${records[0].chap || ''} 章之估算時間戳 (共 ${list.length} 節)`);
+}
+
+/**
+ * 點擊經節：音檔自動跳轉至該節時間點並立即播放
+ */
+async function seekToVerse(sec) {
+    if (!bibleAudio) return;
+
+    const secNum = parseInt(sec, 10);
+
+    // 若時間戳尚未就緒，即時嘗試非同步獲取
+    if (!currentVerseTimestamps || currentVerseTimestamps.length === 0) {
+        const bIdx = currentBookIndex !== -1 ? currentBookIndex + 1 : 19;
+        await loadVerseTimestamps(bIdx, currentChapter, currentAudioVersion, currentChapterRecords);
+    }
+
+    let vItem = currentVerseTimestamps ? currentVerseTimestamps.find(v => Number(v.sec) === secNum) : null;
+    let targetSec = 0;
+
+    if (vItem) {
+        targetSec = Math.max(0, vItem.start);
+    } else if (bibleAudio.duration && currentChapterRecords && currentChapterRecords.length > 0) {
+        targetSec = Math.max(0, ((secNum - 1) / currentChapterRecords.length) * bibleAudio.duration);
+    }
+
+    // 設定目標播放時間
+    try {
+        bibleAudio.currentTime = targetSec;
+    } catch (e) {
+        console.warn("Could not set currentTime immediately:", e);
+    }
+
+    // 啟動播放（合規於瀏覽器直接使用者互動信任鏈）
+    const playPromise = bibleAudio.play();
+    if (playPromise !== undefined) {
+        playPromise.then(() => {
+            try {
+                bibleAudio.currentTime = targetSec;
+            } catch (e) {}
+            updatePlayPauseUI(true);
+        }).catch(err => {
+            console.warn("Play error / blocked:", err);
+            updatePlayPauseUI(false);
+            showToast("請點擊下方播放鈕開始收聽", "info");
+        });
+    }
+
+    // 即時手動高亮該節
+    highlightSpecificVerse(secNum, true);
+    showToast(`🎵 跳轉至第 ${secNum} 節 (${formatTime(targetSec)})`, "success");
+}
+
+/**
+ * 播放中同步高亮當前朗讀經節 (卡拉OK伴讀模式)
+ */
+function syncPlayingVerseHighlight(currentTime) {
+    if (!currentVerseTimestamps || currentVerseTimestamps.length === 0) return;
+
+    // 尋找當前秒數落在哪一節
+    const activeItem = currentVerseTimestamps.find(v => currentTime >= v.start && currentTime < v.end);
+    if (activeItem) {
+        if (activePlayingVerseSec !== activeItem.sec) {
+            activePlayingVerseSec = activeItem.sec;
+            highlightSpecificVerse(activeItem.sec, false);
+        }
+    }
+}
+
+/**
+ * 高亮特定經節 DOM 並可平滑捲動
+ */
+function highlightSpecificVerse(sec, smoothScroll = false) {
+    if (!scriptureBody) return;
+
+    const allVerses = scriptureBody.querySelectorAll('.verse-p');
+    allVerses.forEach(el => {
+        const elSec = parseInt(el.dataset.sec, 10);
+        if (elSec === sec) {
+            el.classList.add('verse-playing-active');
+            if (smoothScroll) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        } else {
+            el.classList.remove('verse-playing-active');
+        }
+    });
+}
+
+function clearVerseHighlight() {
+    activePlayingVerseSec = null;
+    if (scriptureBody) {
+        const activeEls = scriptureBody.querySelectorAll('.verse-playing-active');
+        activeEls.forEach(el => el.classList.remove('verse-playing-active'));
+    }
+}
+
+// ==========================================================================
+// 9. 核心章節載入與切換函式
 // ==========================================================================
 async function loadBookChapter(bookIdx, chap, autoPlay = true) {
     if (bookIdx < 0 || bookIdx >= BIBLE_BOOKS.length) return;
@@ -588,17 +772,17 @@ async function loadBookChapter(bookIdx, chap, autoPlay = true) {
     currentBookIndex = bookIdx;
     currentChapter = chap;
 
-    // 8.1 儲存最後閱讀書卷與章節到 Cookie/Storage
+    // 9.1 儲存最後閱讀書卷與章節到 Cookie/Storage
     StorageHelper.set('lkc_audiobible_last_book', bookIdx);
     StorageHelper.set('lkc_audiobible_last_chap', chap);
 
-    // 8.2 同步更新手動查詢框
+    // 9.2 同步更新手動查詢框
     if (queryInput) queryInput.value = `${book.full} ${chap}`;
 
-    // 8.3 更新前後章導航按鈕狀態與標籤
+    // 9.3 更新前後章導航按鈕狀態與標籤
     updateNavButtonsState();
 
-    // 8.4 同步更新視覺目錄的高亮狀態
+    // 9.4 同步更新視覺目錄的高亮狀態
     const isNT = bookIdx >= 39;
     if ((isNT && currentCatalogTestament !== 'nt') || (!isNT && currentCatalogTestament !== 'ot')) {
         switchCatalogTestament(isNT ? 'nt' : 'ot');
@@ -607,7 +791,7 @@ async function loadBookChapter(bookIdx, chap, autoPlay = true) {
     }
     renderCatalogChapters(book);
 
-    // 8.5 顯示 Loading 並請求經文資料
+    // 9.5 顯示 Loading 並請求經文資料
     showLoadingState();
 
     try {
@@ -630,6 +814,9 @@ async function loadBookChapter(bookIdx, chap, autoPlay = true) {
         // 渲染經文
         renderScripture(results);
 
+        // 載入經節時間戳檔案或準備初估
+        await loadVerseTimestamps(bookIdx + 1, chap, currentAudioVersion, res.records);
+
         // 建立單章播放清單
         activePlaylist = [{
             eng: book.eng,
@@ -650,7 +837,7 @@ async function loadBookChapter(bookIdx, chap, autoPlay = true) {
     }
 }
 
-// 9. 計算前一章目標 (支援全本聖經 66 卷跨卷銜接)
+// 10. 計算前一章目標 (支援全本聖經 66 卷跨卷銜接)
 function getPrevChapterTarget(bIdx, chap) {
     if (chap > 1) {
         return { bookIndex: bIdx, chap: chap - 1 };
@@ -661,7 +848,7 @@ function getPrevChapterTarget(bIdx, chap) {
     return null; // 已是創世記第 1 章
 }
 
-// 10. 計算後一章目標 (支援全本聖經 66 卷跨卷銜接)
+// 11. 計算後一章目標 (支援全本聖經 66 卷跨卷銜接)
 function getNextChapterTarget(bIdx, chap) {
     const currBook = BIBLE_BOOKS[bIdx];
     if (chap < currBook.chapters) {
@@ -672,7 +859,7 @@ function getNextChapterTarget(bIdx, chap) {
     return null; // 已是啟示錄第 22 章
 }
 
-// 11. 更新上一章 / 下一章按鈕狀態與文字提示
+// 12. 更新上一章 / 下一章按鈕狀態與文字提示
 function updateNavButtonsState() {
     const prevTarget = getPrevChapterTarget(currentBookIndex, currentChapter);
     const nextTarget = getNextChapterTarget(currentBookIndex, currentChapter);
@@ -747,7 +934,7 @@ function updateNavButtonsState() {
     }
 }
 
-// 12. 播放上一章
+// 13. 播放上一章
 function playPrevChapter() {
     if (activePlaylist.length > 1 && currentPlayIndex > 0) {
         playChapter(currentPlayIndex - 1);
@@ -763,7 +950,7 @@ function playPrevChapter() {
     }
 }
 
-// 13. 播放下一章
+// 14. 播放下一章
 function playNextChapter() {
     if (activePlaylist.length > 1 && currentPlayIndex < activePlaylist.length - 1) {
         playChapter(currentPlayIndex + 1);
@@ -779,7 +966,7 @@ function playNextChapter() {
     }
 }
 
-// 14. 請求 API 並載入音訊
+// 15. 請求 API 並載入音訊
 async function loadAudioForChapter(item, autoPlay = true) {
     if (currentChapterTitle) currentChapterTitle.textContent = `【${item.label}】`;
     if (audioSourceName) audioSourceName.textContent = "正在獲取語音...";
@@ -827,7 +1014,7 @@ async function loadAudioForChapter(item, autoPlay = true) {
     }
 }
 
-// 15. 執行手動經文範圍查詢
+// 16. 執行手動經文範圍查詢
 async function performQuery() {
     const qStr = queryInput ? queryInput.value.trim() : '';
     if (!qStr) {
@@ -853,6 +1040,10 @@ async function performQuery() {
         }
 
         renderScripture(results);
+        
+        const bid = bIdx !== -1 ? bIdx + 1 : 19;
+        await loadVerseTimestamps(bid, firstQObj.chap, currentAudioVersion, results[0].records);
+
         buildPlaylist(results);
         showToast("經文查詢成功！", "success");
     } catch (err) {
@@ -861,7 +1052,7 @@ async function performQuery() {
     }
 }
 
-// 16. 建立多章播放清單
+// 17. 建立多章播放清單
 function buildPlaylist(results) {
     activePlaylist = [];
     if (playlistContainer) playlistContainer.innerHTML = '';
@@ -924,7 +1115,7 @@ function buildPlaylist(results) {
     playChapter(0);
 }
 
-// 17. 播放指定索引的清單章節
+// 18. 播放指定索引的清單章節
 function playChapter(index) {
     if (index < 0 || index >= activePlaylist.length) return;
     
@@ -952,7 +1143,7 @@ function playChapter(index) {
     loadAudioForChapter(chapterItem, true);
 }
 
-// 18. 渲染經文列表到讀經板
+// 19. 渲染經文列表到讀經板（支援經節點擊跳轉與即時伴讀高亮）
 function renderScripture(results) {
     if (!scriptureBody) return;
     scriptureBody.innerHTML = '';
@@ -983,6 +1174,8 @@ function renderScripture(results) {
             const verseDiv = document.createElement('div');
             verseDiv.className = 'verse-p';
             verseDiv.dataset.verseId = `${qObj.eng}_${rec.chap}_${rec.sec}`;
+            verseDiv.dataset.sec = rec.sec;
+            verseDiv.title = `點擊此節：跳轉並朗讀第 ${rec.sec} 節`;
             
             const numSpan = document.createElement('span');
             numSpan.className = 'verse-num';
@@ -994,6 +1187,12 @@ function renderScripture(results) {
 
             verseDiv.appendChild(numSpan);
             verseDiv.appendChild(textSpan);
+
+            // 綁定經節點擊事件：跳轉音訊時間
+            verseDiv.addEventListener('click', () => {
+                seekToVerse(parseInt(rec.sec, 10));
+            });
+
             scriptureBody.appendChild(verseDiv);
         });
     });
@@ -1001,15 +1200,14 @@ function renderScripture(results) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// 19. 高亮讀經板對應章節經文
+// 20. 高亮讀經板對應章節經文
 function highlightActiveChapterText(eng, chap) {
     if (!scriptureBody) return;
     const allVerses = scriptureBody.querySelectorAll('.verse-p');
     allVerses.forEach(el => {
         const id = el.dataset.verseId;
         if (id && id.startsWith(`${eng}_${chap}_`)) {
-            el.style.borderLeft = "4px solid var(--primary)";
-            el.style.backgroundColor = "var(--verse-highlight)";
+            // Keep normal borders for verse seeking
         } else {
             el.style.borderLeft = "none";
             el.style.backgroundColor = "transparent";
@@ -1017,7 +1215,7 @@ function highlightActiveChapterText(eng, chap) {
     });
 }
 
-// 20. 顯示 Loading 與 Error 狀態
+// 21. 顯示 Loading 與 Error 狀態
 function showLoadingState() {
     if (scriptureTitleDisplay) scriptureTitleDisplay.textContent = "讀經板";
     if (scriptureInfoDisplay) scriptureInfoDisplay.textContent = "載入中...";
@@ -1051,7 +1249,7 @@ function showErrorState(msg) {
     if (playlistCard) playlistCard.style.display = 'none';
 }
 
-// 21. 解析 URL 參數或載入上次記憶/預設章節
+// 22. 解析 URL 參數或載入上次記憶/預設章節
 function parseUrlParamsOrInitDefault() {
     const urlParams = new URLSearchParams(window.location.search);
     const queryParam = urlParams.get('query');
@@ -1091,7 +1289,7 @@ function parseUrlParamsOrInitDefault() {
     }
 }
 
-// 22. Toast 提示訊息
+// 23. Toast 提示訊息
 function showToast(msg, type = "success") {
     const toast = document.getElementById('toast-message');
     if (!toast) return;

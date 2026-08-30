@@ -693,51 +693,60 @@ function executeRevoke(uid, displayName) {
 
     var found = false;
     var foundName = '';
-    var checkboxes = document.querySelectorAll('#attendanceListBody input[type="checkbox"]');
-    for (var i = 0; i < checkboxes.length; i++) {
-      var cb = checkboxes[i];
-      var cbUid = (cb.dataset.uid || '').toUpperCase();
-      var cbVal = (cb.value || '').toUpperCase();
-      if ((cbUid === rawUid || cbVal === rawUid || cbUid === scannedText.toUpperCase() || cbVal === scannedText.toUpperCase()) && !cb.disabled) {
-        foundName = cb.value;
-        if (!cb.checked) {
-          cb.checked = true;
-          var card = cb.parentElement;
-          if (card) {
-            card.classList.add('selected');
+    try {
+      var checkboxes = document.querySelectorAll('#attendanceListBody input[type="checkbox"]');
+      for (var i = 0; i < checkboxes.length; i++) {
+        var cb = checkboxes[i];
+        var cbUid = (cb.dataset.uid || '').toUpperCase();
+        var cbVal = (cb.value || '').toUpperCase();
+        if ((cbUid === rawUid || cbVal === rawUid || cbUid === scannedText.toUpperCase() || cbVal === scannedText.toUpperCase()) && !cb.disabled) {
+          foundName = cb.value;
+          if (!cb.checked) {
+            cb.checked = true;
+            var card = cb.parentElement;
+            if (card) {
+              card.classList.add('selected');
+            }
+            if (typeof toggleCardStyle === 'function') {
+              toggleCardStyle(cb);
+            }
+            if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
           }
-          if (typeof toggleCardStyle === 'function') {
-            toggleCardStyle(cb);
-          }
-          if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          found = true;
+          break;
         }
-        found = true;
-        break;
       }
-    }
 
-    if (found) {
-      if (tip) {
-        tip.innerHTML = '✅ <b>' + (foundName || rawUid) + '</b> 報到成功！';
-        tip.style.background = '#dcfce7';
-        tip.style.color = '#166534';
+      if (found) {
+        if (tip) {
+          tip.innerHTML = '✅ <b>' + (foundName || rawUid) + '</b> 報到成功！';
+          tip.style.background = '#dcfce7';
+          tip.style.color = '#166534';
+        }
+      } else {
+        if (tip) {
+          tip.innerHTML = '⚠️ 找不到符合名單：<b>' + (rawUid || scannedText) + '</b>';
+          tip.style.background = '#fef3c7';
+          tip.style.color = '#92400e';
+        }
       }
-    } else {
+    } catch (err) {
+      console.error('QR 掃描處理錯誤', err);
       if (tip) {
-        tip.innerHTML = '⚠️ 找不到符合名單：<b>' + (rawUid || scannedText) + '</b>';
-        tip.style.background = '#fef3c7';
-        tip.style.color = '#92400e';
+        tip.innerHTML = '❌ 掃描處理發生錯誤，請重試';
+        tip.style.background = '#fee2e2';
+        tip.style.color = '#dc2626';
       }
+    } finally {
+      setTimeout(function() {
+        scannerIsProcessing = false;
+        if (tip && (tip.innerText.includes('報到成功') || tip.innerText.includes('請重試') || tip.innerText.includes('找不到符合名單'))) {
+          tip.innerText = '請將下一位會友 QR Code 對準鏡頭';
+          tip.style.background = '#f1f5f9';
+          tip.style.color = '#475569';
+        }
+      }, 1500);
     }
-
-    setTimeout(function() {
-      scannerIsProcessing = false;
-      if (tip && tip.innerText.includes('報到成功')) {
-        tip.innerText = '請將下一位會友 QR Code 對準鏡頭';
-        tip.style.background = '#f1f5f9';
-        tip.style.color = '#475569';
-      }
-    }, 2000);
   }
 
   function startScanning() { openScannerModal(); }

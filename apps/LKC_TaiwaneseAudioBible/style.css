@@ -502,6 +502,20 @@ html, body {
     border-radius: 20px;
 }
 
+.scripture-hint-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--bg-subcard);
+    border: 1px solid var(--border-main);
+    color: var(--primary);
+    font-size: 13px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 12px;
+    cursor: default;
+}
+
 .scripture-header-nav {
     display: flex;
     align-items: center;
@@ -564,7 +578,7 @@ html, body {
     letter-spacing: 1.2px;
 }
 
-/* Verse text layout */
+/* Verse text layout (可點擊跳轉 & 播放即時高亮伴讀) */
 .scripture-section-header {
     margin: 24px 0 14px 0;
     padding-bottom: 8px;
@@ -575,17 +589,55 @@ html, body {
 }
 
 .verse-p {
-    margin-bottom: 16px;
+    margin-bottom: 14px;
     display: flex;
     align-items: flex-start;
     gap: 14px;
-    padding: 8px 12px;
-    border-radius: 10px;
-    transition: background-color 0.2s ease;
+    padding: 10px 14px;
+    border-radius: 12px;
+    border-left: 4px solid transparent;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+    user-select: text;
 }
 
 .verse-p:hover {
-    background-color: var(--bg-subcard);
+    background-color: var(--verse-highlight);
+    border-left-color: var(--primary);
+    transform: translateX(4px);
+}
+
+.verse-p:hover .verse-num {
+    background: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary);
+}
+
+/* 播放中即時伴讀高亮 (Active Playing Highlight) */
+.verse-p.verse-playing-active {
+    background-color: var(--verse-highlight) !important;
+    border-left: 6px solid var(--primary) !important;
+    box-shadow: 0 3px 14px rgba(0, 85, 68, 0.12);
+    transform: translateX(6px);
+}
+
+.verse-p.verse-playing-active .verse-num {
+    background: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary);
+    box-shadow: 0 0 10px rgba(0, 85, 68, 0.4);
+    animation: pulseNum 2s infinite ease-in-out;
+}
+
+.verse-p.verse-playing-active .verse-text {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+@keyframes pulseNum {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
 }
 
 .verse-num {
@@ -603,11 +655,13 @@ html, body {
     justify-content: center;
     flex-shrink: 0;
     margin-top: 4px;
+    transition: all 0.2s ease;
 }
 
 .verse-text {
     flex: 1;
     font-weight: 500;
+    transition: font-weight 0.2s ease;
 }
 
 /* Scripture Bottom Large Navigation Footer */
