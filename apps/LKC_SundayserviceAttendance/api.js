@@ -1,5 +1,5 @@
 /**
- * api.js - GAS API 橋接層
+ * api.js - GAS API 橋接層 (整合 Supabase 熱響應服務)
  */
 if (typeof window.GAS_CONFIG === 'undefined') {
   console.error('❌ 找不到 config.js');
@@ -64,6 +64,7 @@ window.google = {
             if (timeoutId) clearTimeout(timeoutId);
           });
       }
+
       // 建立一個帶有 successHandler / failureHandler 的呼叫鏈
       function makeRunner(successHandler, failureHandler) {
         const handler = {
@@ -81,8 +82,23 @@ window.google = {
             // 如果是 withSuccessHandler / withFailureHandler 就直接回傳
             if (functionName in target) return target[functionName];
 
-            // 否則視為 GAS 函式名稱，回傳一個可以呼叫的函式
-            return function(...args) {
+            // 否則視為 API 函式名稱，回傳一個可以呼叫的函式
+            return async function(...args) {
+              const argPayload = args.length === 1 ? args[0] : args;
+
+              // ⚡ 優先嘗試 Supabase 熱響應服務 (<50ms)
+              if (window.AttendanceSupabaseService && typeof window.AttendanceSupabaseService[functionName] === 'function') {
+                try {
+                  const sbRes = await window.AttendanceSupabaseService[functionName](argPayload);
+                  if (successHandler) {
+                    successHandler(sbRes);
+                  }
+                  return;
+                } catch (sbErr) {
+                  console.warn(`[Supabase Service] ${functionName} 執行失敗，切換至 GAS:`, sbErr.message);
+                }
+              }
+
               const apiUrl = window.GAS_CONFIG && window.GAS_CONFIG.apiUrl;
               if (!apiUrl || apiUrl.includes('YOUR_SCRIPT_ID')) {
                 const err = new Error('❌ 請先設定 config.js 中的 GAS Web App URL！');
@@ -93,7 +109,7 @@ window.google = {
 
               const body = {
                 action: functionName,
-                payload: args.length === 1 ? args[0] : args
+                payload: argPayload
               };
               request(apiUrl, body, READ_ONLY_ACTIONS.has(String(functionName)), 1)
                 .then(data => {

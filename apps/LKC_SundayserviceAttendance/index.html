@@ -318,14 +318,18 @@
   <script>window._GAS_KEY = 'LKC_SundayserviceAttendance_TEST';</script>
   <script src="../../config.js"></script>
   <script src="config.js"></script>
-  <script src="api.js?v=8b3d34d"></script>
+  <!-- ⚡ Supabase 熱響應服務模組 (<50ms) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../../supabase/supabase-config.js"></script>
+  <script src="attendance-supabase.js?v=20260830_v2"></script>
+  <script src="api.js?v=20260830_v2"></script>
   <script src="list-scroll-anchor.js"></script>
   <script src="attendance-search-scroll.js"></script>
 
 <script>
   var autoJumpConfig = { cat: null, grp: null, active: false };
   var pageLoaded = { ATTENDANCE: false, AGM_ATTENDANCE: false, AGM_VIEWER: false, MEMBERS: false, STATS: false, TREND_CHART: false };
-  var _appVer = '20260826_camera_modal_2';
+  var _appVer = '20260830_supabase_v2';
 
   /**
    * 動態載入子頁面 HTML
