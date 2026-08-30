@@ -67,9 +67,12 @@
       return (eventsRes.data || []).map(e => {
         const typeName = (typeById[e.type_id] && typeById[e.type_id].name) || '';
         const vals = valuesByEvent[e.event_id] || {};
-        const sTitle = vals['講題'] || vals['題目'] || vals['主題'] || e.title || '';
-        const sSpeaker = vals['講員'] || '';
-        const sScripture = vals['經文'] || '';
+        const fieldVals = e.field_values || {};
+
+        const sTitle = vals['講題'] || vals['題目'] || vals['主題'] || fieldVals['3ac284d2-34d0-4a9f-862c-d57cb9cea0fe'] || e.title || '';
+        const sSpeaker = vals['講員'] || fieldVals['642f029e-8af1-4eae-80e2-4480c14bd858'] || '';
+        const sScripture = vals['經文'] || fieldVals['e088899b-4779-477d-8072-4b5339f9c7f0'] || fieldVals['2d4ca2b1-ee8a-4fef-99f9-768127760fc9'] || '';
+
         return {
           date: String(e.date).slice(0, 10),
           name: e.title || typeName,
