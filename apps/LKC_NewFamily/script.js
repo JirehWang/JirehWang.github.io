@@ -312,6 +312,9 @@ editCaseForm.addEventListener('submit', saveTrackingCase);
 async function callApi(action, data = {}) {
   showGlobalLoading();
   try {
+    if (window.NewFamilySupabaseService && typeof window.NewFamilySupabaseService[action] === 'function') {
+      return await window.NewFamilySupabaseService[action](data);
+    }
     await window.ensureAPIReady();
     const result = await window.churchAPI(action, data);
     if (!result.success) {
@@ -324,6 +327,9 @@ async function callApi(action, data = {}) {
 }
 
 async function callCachedListApi(action, data = {}) {
+  if (window.NewFamilySupabaseService && typeof window.NewFamilySupabaseService[action] === 'function') {
+    return await window.NewFamilySupabaseService[action](data);
+  }
   if (!newFamilyListActions.has(action)) {
     return callApi(action, data);
   }
@@ -341,8 +347,6 @@ async function callCachedListApi(action, data = {}) {
       newFamilyCacheTtl
     );
   } catch (error) {
-    // If GAS was already the cache loader, preserve its failure instead of
-    // retrying the same request because Firebase/write-through failed.
     if (gasCalled) throw error;
     console.warn('[new-family-cache] Firebase read failed; direct GAS once', error);
     return callApi(action, data);
@@ -357,6 +361,9 @@ function getFirebaseCacheModule() {
 }
 
 async function callSundayAttendanceApi(action, data = {}) {
+  if (window.AttendanceSupabaseService && typeof window.AttendanceSupabaseService[action] === 'function') {
+    return await window.AttendanceSupabaseService[action](data);
+  }
   const apiUrl = window.SUNDAY_ATTENDANCE_API_URL || '';
   const token = window.NEW_FAMILY_AUTH_TOKEN || '';
 
@@ -383,6 +390,9 @@ async function callSundayAttendanceApi(action, data = {}) {
 }
 
 async function callSundayAttendancePayloadApi(action, payload) {
+  if (window.AttendanceSupabaseService && typeof window.AttendanceSupabaseService[action] === 'function') {
+    return await window.AttendanceSupabaseService[action](payload);
+  }
   const apiUrl = window.SUNDAY_ATTENDANCE_API_URL || '';
 
   if (!apiUrl) {
