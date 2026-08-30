@@ -8,7 +8,7 @@
     <!-- ⚡ Supabase 本地熱響應服務 (<50ms) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../../supabase/supabase-config.js"></script>
-    <script src="ministry-supabase.js?v=20260831_v6_data"></script>
+    <script src="ministry-supabase.js?v=20260831_v7_board"></script>
     <style>
         /* 佈告欄專屬的 CSS 風格 */
         body {
@@ -537,13 +537,23 @@
         }
 
         function matrixToObjects(matrix) {
-            if (!matrix || matrix.length < 2) return [];
-            const headers = matrix[0];
-            return matrix.slice(1).map(row => {
-                let obj = {};
-                headers.forEach((h, i) => obj[h] = row[i]);
-                return obj;
-            });
+            if (!matrix) return [];
+            if (Array.isArray(matrix)) {
+                if (matrix.length < 2) return [];
+                const headers = matrix[0];
+                if (!Array.isArray(headers)) return matrix; // already array of objects
+                return matrix.slice(1).map(row => {
+                    let obj = {};
+                    headers.forEach((h, i) => obj[h] = row[i]);
+                    return obj;
+                });
+            }
+            if (typeof matrix === 'object') {
+                if (Array.isArray(matrix.matrix)) return matrixToObjects(matrix.matrix);
+                if (Array.isArray(matrix.reports)) return matrix.reports;
+                if (Array.isArray(matrix.data)) return matrixToObjects(matrix.data);
+            }
+            return [];
         }
 
         function formatDate(date) {

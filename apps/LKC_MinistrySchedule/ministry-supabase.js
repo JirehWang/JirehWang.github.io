@@ -371,24 +371,58 @@
       const sb = getSupabase();
       if (!sb) return null;
 
-      const todayStr = new Date().toISOString().slice(0, 10);
+      const reportType = (payload && payload.type) || 'smallGroup';
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const minDate = new Date(today.getTime() - 14 * 86400000).toISOString().slice(0, 10);
+      const maxDate = new Date(today.getTime() + 60 * 86400000).toISOString().slice(0, 10);
 
+      // 查詢分頁
+      const { data: pages } = await sb.from('ministry_pages').select('*');
+      const pageMap = {};
+      (pages || []).forEach(p => { pageMap[p.page_name] = p; });
+
+      // 查詢排班紀錄
       const { data: schedules, error } = await sb
         .from('ministry_schedules')
         .select('*')
-        .gte('date', todayStr)
-        .order('date', { ascending: true })
-        .limit(50);
+        .gte('date', minDate)
+        .lte('date', maxDate)
+        .order('date', { ascending: true });
 
       if (error) throw error;
 
-      const report = (schedules || []).map(s => ({
-        groupName: s.page_name,
-        date: String(s.date).slice(0, 10),
-        assignments: s.assignments || {}
-      }));
+      // 查詢所有欄位
+      const { data: allFields } = await sb.from('ministry_fields').select('*').order('sort_order');
+      const fieldNamesSet = new Set(['破冰', '敬拜', '話語分享', '主題', '經文', '地點', '套用講道']);
+      (allFields || []).forEach(f => {
+        if (f.field_name && f.field_name !== '日期') fieldNamesSet.add(f.field_name);
+      });
+      const extraCols = Array.from(fieldNamesSet);
 
-      return { status: 'success', data: { reports: report } };
+      const headerRow = ['分頁名稱', '模板類型', '日期', ...extraCols];
+      const matrix = [headerRow];
+
+      (schedules || []).forEach(s => {
+        const page = pageMap[s.page_name];
+        const rawType = (page && page.template_type) ? page.template_type : '小組聚會表模板';
+        const tType = rawType === 'gathering' ? '小組聚會表模板' : (rawType === 'ministry' ? '事工型模板' : rawType);
+
+        if (reportType === 'smallGroup') {
+          if (tType.includes('事工') && !tType.includes('小組') && !tType.includes('團契')) return;
+        }
+
+        const dateStr = String(s.date).slice(0, 10);
+        const assignments = s.assignments || {};
+
+        const row = [s.page_name, tType, dateStr];
+        for (const col of extraCols) {
+          row.push(assignments[col] || '');
+        }
+        matrix.push(row);
+      });
+
+      return { status: 'success', data: matrix, matrix: matrix };
     }
   };
 
