@@ -603,11 +603,12 @@ async function loadAdminData() {
   try {
     getNotifier().showLoading("⏳ 整理儀表板中...");
 
-    const [groups, templates] = await Promise.all([
+    const [rawGroups, rawTemplates] = await Promise.all([
       fetchAPI('getGroups', {}),
       fetchAPI('getTemplates', {})
     ]);
-    availableMinistryTemplates = Array.isArray(templates) ? templates : [];
+    const groups = Array.isArray(rawGroups) ? rawGroups : (rawGroups && Array.isArray(rawGroups.groups) ? rawGroups.groups : []);
+    availableMinistryTemplates = Array.isArray(rawTemplates) ? rawTemplates : (rawTemplates && Array.isArray(rawTemplates.templates) ? rawTemplates.templates : []);
 
     const div = document.getElementById('groupButtons');
     const base = window.location.href.split('?')[0];

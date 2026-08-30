@@ -1,4 +1,4 @@
-// ⚡ apps/LKC_MinistrySchedule/ministry-supabase.js
+﻿// ⚡ apps/LKC_MinistrySchedule/ministry-supabase.js
 // 事工排班管理系統 Supabase 本地熱響應服務模組 (<50ms)
 // 包含排班分頁配置、動態欄位定義、季度排班二維矩陣讀寫、同工名單快搜與佈告欄總表
 
@@ -85,13 +85,16 @@
       const coreMembers = groupMembers.filter(m => m.role === '核心同工' || m.role === '福長').map(m => m.name);
       const generalMembers = groupMembers.map(m => m.name);
 
+      const templateName = page.template_type === 'ministry' ? '事工型模板' : (page.template_type || '聚會型模板');
+
       return {
         status: 'success',
         data: {
           id: page.page_id || page.uuid,
           groupName: effectivePageName,
           pageName: effectivePageName,
-          templateType: page.template_type || 'gathering',
+          template: templateName,
+          templateType: templateName,
           status: page.status || '顯示',
           prompt: page.prompt || '',
           scheduleTarget: page.schedule_target || '',
@@ -117,15 +120,30 @@
         uuid: p.uuid,
         name: p.page_name,
         id: p.page_id || p.uuid,
-        templateType: p.template_type || 'gathering',
+        template: p.template_type === 'ministry' ? '事工型模板' : (p.template_type || '聚會型模板'),
+        templateType: p.template_type === 'ministry' ? '事工型模板' : '聚會型模板',
         status: p.status || '顯示',
         scheduleTarget: p.schedule_target || ''
       }));
 
-      return { status: 'success', data: { groups } };
+      return { status: 'success', data: groups, groups: groups };
     },
 
-    // ── 3. 儲存排班二維表格資料 (saveSheetData) ───────────────────
+    // ── 3. 取得模板清單 (getTemplates) ───────────────────────────
+    async getTemplates(payload) {
+      const templates = ['聚會型模板', '事工型模板'];
+      return { status: 'success', data: templates, templates: templates };
+    },
+
+    // ── 4. 取得牧區與群組 (getDistrictsAndClusters) ──────────────
+    async getDistrictsAndClusters(payload) {
+      return {
+        status: 'success',
+        data: { districts: [], clusters: [] }
+      };
+    },
+
+    // ── 5. 儲存排班二維表格資料 (saveSheetData) ───────────────────
     async saveSheetData(payload) {
       const sb = getSupabase();
       if (!sb) return null;
@@ -133,7 +151,6 @@
       const groupName = String(payload.groupName || payload.pageName || '').trim();
       const matrix = Array.isArray(payload.matrix) ? payload.matrix : [];
 
-      // matrix: [ [ '日期', '破冰', '敬拜', ... ], [ '2026-09-06', '小明', '小華' ], ... ]
       if (matrix.length > 1) {
         const headers = matrix[0];
         const dateIdx = 0;
@@ -178,7 +195,7 @@
       return { status: 'success', data: { message: '排班表已成功儲存' } };
     },
 
-    // ── 4. 儲存欄位配置 (savePageFieldConfig) ────────────────────
+    // ── 6. 儲存欄位配置 (savePageFieldConfig) ────────────────────
     async savePageFieldConfig(payload) {
       const sb = getSupabase();
       if (!sb) return null;
@@ -195,7 +212,6 @@
       const pageName = page ? page.page_name : pageId;
 
       if (pageName && fields.length > 0) {
-        // 先清除原欄位再寫入
         await sb.from('ministry_fields').delete().eq('page_name', pageName);
 
         const fieldRows = fields.map((f, idx) => ({
@@ -223,7 +239,31 @@
       return { status: 'success', data: { message: '欄位配置已更新' } };
     },
 
-    // ── 5. 會友大名單建議 (getMemberSuggestions) ──────────────────
+    // ── 7. 切換分頁狀態 (toggleGroupStatus) ──────────────────────
+    async toggleGroupStatus(payload) {
+      const sb = getSupabase();
+      if (!sb) return null;
+      const id = String(payload.id || '');
+      const newStatus = payload.status === '顯示' ? '停用' : '顯示';
+      await sb.from('ministry_pages')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .or(`page_id.eq.${id},uuid.eq.${id},page_name.eq.${id}`);
+      return { status: 'success', data: { status: newStatus } };
+    },
+
+    // ── 8. 儲存 AI 提示詞 (saveGroupPrompt) ──────────────────────
+    async saveGroupPrompt(payload) {
+      const sb = getSupabase();
+      if (!sb) return null;
+      const id = String(payload.id || '');
+      const prompt = payload.prompt || '';
+      await sb.from('ministry_pages')
+        .update({ prompt: prompt, updated_at: new Date().toISOString() })
+        .or(`page_id.eq.${id},uuid.eq.${id},page_name.eq.${id}`);
+      return { status: 'success', data: { prompt } };
+    },
+
+    // ── 9. 會友大名單建議 (getMemberSuggestions) ──────────────────
     async getMemberSuggestions(payload) {
       const sb = getSupabase();
       if (!sb) return null;
@@ -248,7 +288,7 @@
       };
     },
 
-    // ── 6. 聚合未來 7 天服事總表 (getAggregatedReport) ────────────
+    // ── 10. 聚合未來 7 天服事總表 (getAggregatedReport) ───────────
     async getAggregatedReport(payload) {
       const sb = getSupabase();
       if (!sb) return null;
