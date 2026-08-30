@@ -64,18 +64,28 @@
 
       const todayYMD = formatDate(dateVal);
 
-      // 併發讀取：會友名冊、近 90 天出席計數、今日送出紀錄
+      // 併發讀取：會友名冊、該場次專屬近 90 天出席計數、今日送出紀錄
+      let countQuery;
+      if (type === '聯合') {
+        countQuery = sb.from('view_attendance_90days_by_service').select('uid, count_90d');
+      } else {
+        countQuery = sb.from('view_attendance_90days_by_service').select('uid, count_90d').eq('service_type', type);
+      }
+
       const [membersRes, countsRes, todayRes] = await Promise.all([
         sb.from('church_members').select('*').order('name', { ascending: true }),
-        sb.from('view_attendance_90days').select('*'),
+        countQuery,
         sb.from('attendance_records').select('*').eq('service_type', type).eq('date', todayYMD).maybeSingle()
       ]);
 
       if (membersRes.error) throw membersRes.error;
 
-      // 建立 90 天計數字典
+      // 建立該場次專屬的 90 天計數字典
       const countMap = {};
-      (countsRes.data || []).forEach(r => { countMap[r.uid] = parseInt(r.count_90d, 10) || 0; });
+      (countsRes.data || []).forEach(r => { 
+        const c = parseInt(r.count_90d, 10) || 0;
+        countMap[r.uid] = (countMap[r.uid] || 0) + c;
+      });
 
       // 今日已送出 UID 集合
       const submittedUids = new Set(
@@ -116,7 +126,7 @@
         });
       });
 
-      // 依 90 天出席次數 (降冪) 排序，次數相同按姓名繁體中文排序
+      // 依該場次 90 天出席次數 (降冪) 排序，次數相同按姓名繁體中文排序
       activeList.sort((a, b) => {
         if (b.count !== a.count) return b.count - a.count;
         return a.name.localeCompare(b.name, 'zh-Hant');
