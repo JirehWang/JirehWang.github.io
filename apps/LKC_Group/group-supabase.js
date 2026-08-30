@@ -1,8 +1,47 @@
-// ⚡ apps/LKC_Group/group-supabase.js
+﻿// ⚡ apps/LKC_Group/group-supabase.js
 // 小組點名與名冊系統 Supabase 本地熱響應服務模組 (<50ms)
 // 包含小組登入驗證、組員名冊讀取、每週點名送出、名冊拖曳排序、週報與統計中心
 
 (function() {
+  const ADMIN_CODE = 'LK31';
+  const OBFUSCATION_KEY = 'LKC-Secure-2026';
+  const ENC_PREFIX = 'enc_';
+
+  function decryptId(str) {
+    if (typeof window.decryptGroupCode === 'function') {
+      return window.decryptGroupCode(str);
+    }
+    const safeStr = String(str || '');
+    if (!safeStr || safeStr.indexOf(ENC_PREFIX) !== 0) return safeStr;
+    try {
+      var hex = safeStr.substring(ENC_PREFIX.length);
+      var plainText = '';
+      for (var i = 0; i < hex.length; i += 2) {
+        var charCode = parseInt(hex.substring(i, i + 2), 16);
+        var decCharCode = charCode ^ OBFUSCATION_KEY.charCodeAt((i / 2) % OBFUSCATION_KEY.length);
+        plainText += String.fromCharCode(decCharCode);
+      }
+      return plainText;
+    } catch (e) {
+      return safeStr;
+    }
+  }
+
+  function encryptId(str) {
+    if (typeof window.encryptGroupCode === 'function') {
+      return window.encryptGroupCode(str);
+    }
+    const safeStr = String(str || '');
+    if (!safeStr || safeStr.indexOf(ENC_PREFIX) === 0) return safeStr;
+    var hex = '';
+    for (var i = 0; i < safeStr.length; i++) {
+      var charCode = safeStr.charCodeAt(i) ^ OBFUSCATION_KEY.charCodeAt(i % OBFUSCATION_KEY.length);
+      var hexByte = charCode.toString(16).padStart(2, '0');
+      hex += hexByte;
+    }
+    return ENC_PREFIX + hex;
+  }
+
   function getSupabase() {
     if (window._supabase) return window._supabase;
     const config = window._SUPABASE_CONFIG || window.SUPABASE_CONFIG;
@@ -31,7 +70,7 @@
         uuid: g.uuid,
         name: g.name,
         code: g.code,
-        encryptedCode: g.encrypted_code || g.code,
+        encryptedCode: g.encrypted_code || encryptId(g.code),
         status: g.status || '顯示',
         type: g.group_type || '一般小組',
         groupType: g.group_type || '一般小組',
@@ -49,8 +88,13 @@
       const sb = getSupabase();
       if (!sb) return null;
 
-      const code = String(payload.groupCode || payload.code || '').trim().toUpperCase();
+      const rawCode = String(payload.groupCode || payload.code || '').trim();
+      const code = decryptId(rawCode).trim().toUpperCase();
       if (!code) return { success: false, message: '請提供小組代碼' };
+
+      if (code === ADMIN_CODE) {
+        return { success: true, groupName: "ADMIN", isAdmin: true, encryptedCode: encryptId(ADMIN_CODE) };
+      }
 
       const { data, error } = await sb
         .from('groups')
@@ -60,7 +104,8 @@
 
       const match = (data || []).find(g => 
         (g.code && g.code.toUpperCase() === code) || 
-        (g.encrypted_code && g.encrypted_code === code)
+        (g.encrypted_code && g.encrypted_code === rawCode) ||
+        (g.code && g.code.toUpperCase() === rawCode.toUpperCase())
       );
 
       if (!match) {
@@ -70,7 +115,7 @@
       return {
         success: true,
         groupName: match.name,
-        encryptedCode: match.encrypted_code || match.code,
+        encryptedCode: match.encrypted_code || encryptId(match.code),
         groupType: match.group_type || '一般小組'
       };
     },
@@ -81,30 +126,99 @@
       if (!sb) return null;
 
       const groupName = String(payload.groupName || '').trim();
-      const code = String(payload.groupCode || payload.code || '').trim().toUpperCase();
+      const rawCode = String(payload.groupCode || payload.code || '').trim();
+      const code = decryptId(rawCode).trim().toUpperCase();
 
-      const { data, error } = await sb
-        .from('groups')
-        .select('*')
-        .eq('name', groupName)
-        .maybeSingle();
+      if (code === ADMIN_CODE) {
+        return { success: true, message: '管理員授權', isAdmin: true, encryptedCode: encryptId(ADMIN_CODE) };
+      }
 
-      if (error || !data) return { success: false, message: '查無此小組' };
+      const res = await this.findGroupByCode(payload);
+      if (res.success && (res.groupName === groupName || res.isAdmin)) {
+        return { success: true, message: '驗證成功', encryptedCode: res.encryptedCode };
+      }
 
-      const isMatch = (data.code && data.code.toUpperCase() === code) || 
-                      (data.encrypted_code && data.encrypted_code === code);
+      return { success: false, message: res.message || '驗證失敗' };
+    },
 
-      if (!isMatch) {
-        return { success: false, message: '小組代碼錯誤' };
+    // ── 4. 後台管理清單 (getAdminGroupsList) ─────────────────────
+    async getAdminGroupsList(payload) {
+      const sb = getSupabase();
+      if (!sb) return null;
+
+      const rawCode = String(payload.authCode || payload.groupCode || '').trim();
+      const code = decryptId(rawCode).trim().toUpperCase();
+      const isAdmin = (code === ADMIN_CODE);
+
+      const { data, error } = await sb.from('groups').select('*').order('name');
+      if (error) throw error;
+
+      let groups = (data || []).map(g => ({
+        uuid: g.uuid,
+        name: g.name,
+        code: g.code,
+        status: g.status || '顯示',
+        type: g.group_type || '一般小組',
+        associatedGroup: g.associated_group || '',
+        districtUuid: g.district_uuid || '',
+        clusterUuid: g.cluster_uuid || '',
+        date: g.date || ''
+      }));
+
+      if (!isAdmin) {
+        groups = groups.filter(g => (g.code && g.code.toUpperCase() === code));
+        if (groups.length === 0) {
+          return { success: false, message: '權限不足或輸入代碼錯誤' };
+        }
       }
 
       return {
         success: true,
-        encryptedCode: data.encrypted_code || data.code
+        groups: groups,
+        isAdmin: isAdmin,
+        districts: [],
+        clusters: []
       };
     },
 
-    // ── 4. 檢查小組狀態與名單 (checkGroupStatus) ──────────────────
+    // ── 5. 更新小組資訊 (updateGroupInfo) ────────────────────────
+    async updateGroupInfo(payload) {
+      const sb = getSupabase();
+      if (!sb) return null;
+
+      const groupName = String(payload.groupName || '').trim();
+      const uuid = payload.uuid;
+      const status = payload.status;
+      const type = payload.type;
+      const associatedGroup = payload.associatedGroup;
+
+      let query = sb.from('groups').update({
+        status: status,
+        group_type: type,
+        associated_group: associatedGroup,
+        updated_at: new Date().toISOString()
+      });
+
+      if (uuid) {
+        query = query.eq('uuid', uuid);
+      } else {
+        query = query.eq('name', groupName);
+      }
+
+      await query;
+
+      setTimeout(() => {
+        try {
+          if (typeof window.churchAPI_original === 'function') {
+            window.churchAPI_original('updateGroupInfo', payload).catch(e => console.warn('[Group Backup] GAS sync:', e.message));
+          }
+        } catch (e) {}
+      }, 10);
+
+      return { success: true, message: '小組資訊已成功更新' };
+    },
+
+    // ── 6. 檢查小組狀態與名單 (checkGroupStatus) ──────────────────
     async checkGroupStatus(payload) {
       const sb = getSupabase();
       if (!sb) return null;
@@ -118,156 +232,113 @@
 
       const group = groupRes.data || {};
       const members = (membersRes.data || []).map(m => ({
-        uid: m.uid || '',
-        name: m.name || '',
-        role: m.role || '小羊',
-        nickname: m.nickname || ''
+        name: m.name,
+        role: m.role || '組員',
+        sortOrder: m.sort_order || 0
       }));
 
       return {
         success: true,
-        isInitialized: members.length > 0,
+        status: group.status || '顯示',
         type: group.group_type || '一般小組',
-        groupType: group.group_type || '一般小組',
-        members
+        associatedGroup: group.associated_group || '',
+        members: members
       };
     },
 
-    // ── 5. 每週點名送出 (submitAttendance) ──────────────────────
-    async submitAttendance(payload) {
-      const sb = getSupabase();
-      if (!sb) return null;
-
-      const groupName = String(payload.groupName || '').trim();
-      const date = String(payload.date || '').slice(0, 10);
-      const present = Array.isArray(payload.present) ? payload.present : [];
-      const absent = Array.isArray(payload.absent) ? payload.absent : [];
-      const newFriends = payload.newFriends || '';
-      const offering = Number(payload.offering || 0) || 0;
-      const notes = payload.notes || '';
-
-      const record = {
-        group_name: groupName,
-        date: date,
-        present_uids: present,
-        absent_uids: absent,
-        new_friends: newFriends,
-        offering: offering,
-        notes: notes,
-        updated_at: new Date().toISOString()
-      };
-
-      const { error } = await sb
-        .from('group_attendance_records')
-        .upsert(record, { onConflict: 'group_name,date' });
-
-      if (error) throw error;
-
-      // 背景非同步雙寫同步至 Google Sheets
-      setTimeout(() => {
-        try {
-          if (typeof window.churchAPI_original === 'function') {
-            window.churchAPI_original('submitAttendance', payload).catch(e => console.warn('[Group Backup] GAS sync error:', e.message));
-          }
-        } catch (e) {}
-      }, 10);
-
-      return { success: true, message: '點名紀錄已成功儲存' };
-    },
-
-    // ── 6. 取得點名統計與歷史紀錄 (getStats) ────────────────────
+    // ── 7. 取得統計報表 (getStats / getAllGroupsStats) ────────────
     async getStats(payload) {
       const sb = getSupabase();
       if (!sb) return null;
 
       const groupName = String(payload.groupName || '').trim();
 
-      const [recordsRes, membersRes] = await Promise.all([
-        sb.from('group_attendance_records').select('*').eq('group_name', groupName).order('date', { ascending: false }).limit(20),
-        sb.from('group_members').select('*').eq('group_name', groupName).order('sort_order', { ascending: true })
-      ]);
+      let query = sb.from('group_attendance_records').select('*').order('date', { ascending: false });
+      if (groupName) {
+        query = query.eq('group_name', groupName);
+      }
 
-      const records = recordsRes.data || [];
-      const members = membersRes.data || [];
-      const memberMap = new Map();
-      members.forEach(m => {
-        if (m.uid) memberMap.set(m.uid, m.name);
-      });
-
-      const formattedRecords = records.map(r => {
-        const presentNames = (r.present_uids || []).map(uid => memberMap.get(uid) || uid);
-        const absentNames = (r.absent_uids || []).map(uid => memberMap.get(uid) || uid);
-        return {
-          date: r.date,
-          count: presentNames.length,
-          presentNames: presentNames.join(', '),
-          absentNames: absentNames.join(', '),
-          presentUids: r.present_uids || [],
-          absentUids: r.absent_uids || [],
-          newFriends: r.new_friends || '',
-          offering: r.offering || 0,
-          notes: r.notes || ''
-        };
-      });
+      const { data: records, error } = await query;
+      if (error) throw error;
 
       return {
         success: true,
-        groupName,
-        headers: ['日期', '出席人數', '出席名單', '缺席名單', '新朋友', '奉獻金額'],
-        records: formattedRecords
+        records: (records || []).map(r => ({
+          groupName: r.group_name,
+          date: String(r.date).slice(0, 10),
+          attendees: r.present_members || [],
+          newFriends: r.new_friends || [],
+          offering: Number(r.offering || 0),
+          notes: r.notes || ''
+        }))
       };
     },
 
-    // ── 7. 更新出席紀錄 (updateAttendanceRecord) ────────────────
-    async updateAttendanceRecord(payload) {
+    async getAllGroupsStats(payload) {
+      return this.getStats({});
+    },
+
+    // ── 8. 儲存小組點名 (submitAttendance) ───────────────────────
+    async submitAttendance(payload) {
       const sb = getSupabase();
       if (!sb) return null;
 
       const groupName = String(payload.groupName || '').trim();
-      const originalDate = String(payload.originalDate || '').slice(0, 10);
-      const newDate = String(payload.newDate || originalDate).slice(0, 10);
-      const present = Array.isArray(payload.present) ? payload.present : [];
-      const absent = Array.isArray(payload.absent) ? payload.absent : [];
-      const newFriends = payload.newFriends || '';
+      const dateStr = String(payload.date || '').slice(0, 10);
+      const attendees = Array.isArray(payload.attendees) ? payload.attendees : [];
+      const newFriends = Array.isArray(payload.newFriends) ? payload.newFriends : [];
+      const offering = Number(payload.offering || 0);
+      const notes = String(payload.notes || '').trim();
 
-      const { error } = await sb
-        .from('group_attendance_records')
-        .update({
-          date: newDate,
-          present_uids: present,
-          absent_uids: absent,
-          new_friends: newFriends,
-          updated_at: new Date().toISOString()
-        })
-        .eq('group_name', groupName)
-        .eq('date', originalDate);
+      if (!groupName || !dateStr) {
+        return { success: false, message: '小組名稱與日期不可為空' };
+      }
+
+      const record = {
+        group_name: groupName,
+        date: dateStr,
+        present_members: attendees,
+        new_friends: newFriends,
+        offering: offering,
+        notes: notes,
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await sb.from('group_attendance_records').upsert(record, {
+        onConflict: 'group_name,date'
+      });
 
       if (error) throw error;
 
       setTimeout(() => {
         try {
           if (typeof window.churchAPI_original === 'function') {
-            window.churchAPI_original('updateAttendanceRecord', payload).catch(e => console.warn('[Group Backup] GAS sync:', e.message));
+            window.churchAPI_original('submitAttendance', payload).catch(e => console.warn('[Group Backup] GAS sync:', e.message));
           }
         } catch (e) {}
       }, 10);
 
-      return { success: true, message: '紀錄已更新' };
+      return { success: true, message: '小組點名已成功送出！' };
     },
 
-    // ── 8. 刪除出席紀錄 (deleteAttendanceRecord) ────────────────
+    // ── 9. 更新點名紀錄 (updateAttendanceRecord) ─────────────────
+    async updateAttendanceRecord(payload) {
+      return this.submitAttendance(payload);
+    },
+
+    // ── 10. 刪除點名紀錄 (deleteAttendanceRecord) ────────────────
     async deleteAttendanceRecord(payload) {
       const sb = getSupabase();
       if (!sb) return null;
 
       const groupName = String(payload.groupName || '').trim();
-      const originalDate = String(payload.originalDate || '').slice(0, 10);
+      const dateStr = String(payload.date || '').slice(0, 10);
 
       const { error } = await sb
         .from('group_attendance_records')
         .delete()
         .eq('group_name', groupName)
-        .eq('date', originalDate);
+        .eq('date', dateStr);
 
       if (error) throw error;
 
@@ -279,10 +350,10 @@
         } catch (e) {}
       }, 10);
 
-      return { success: true, message: '紀錄已刪除' };
+      return { success: true, message: '點名紀錄已成功刪除' };
     },
 
-    // ── 9. 組員名冊更新 (updateMemberList / initGroup) ───────────
+    // ── 11. 更新組員名冊 (updateMemberList) ──────────────────────
     async updateMemberList(payload) {
       const sb = getSupabase();
       if (!sb) return null;
@@ -290,20 +361,19 @@
       const groupName = String(payload.groupName || '').trim();
       const members = Array.isArray(payload.members) ? payload.members : [];
 
-      // 刪除原組員並重新寫入排定順序的組員名單
+      if (!groupName) return { success: false, message: '小組名稱不可為空' };
+
       await sb.from('group_members').delete().eq('group_name', groupName);
 
-      const rows = members.map((m, idx) => ({
-        group_name: groupName,
-        uid: m.uid || '',
-        name: m.name || '',
-        role: m.role || '小羊',
-        nickname: m.nickname || '',
-        sort_order: idx + 1,
-        updated_at: new Date().toISOString()
-      }));
+      if (members.length > 0) {
+        const rows = members.map((m, idx) => ({
+          group_name: groupName,
+          name: typeof m === 'string' ? m : m.name,
+          role: (typeof m === 'object' && m.role) ? m.role : '組員',
+          sort_order: idx + 1,
+          updated_at: new Date().toISOString()
+        }));
 
-      if (rows.length > 0) {
         const { error } = await sb.from('group_members').insert(rows);
         if (error) throw error;
       }
@@ -316,14 +386,33 @@
         } catch (e) {}
       }, 10);
 
-      return { success: true, message: '小組名單已更新' };
+      return { success: true, message: '名冊已成功更新！' };
     },
 
-    initGroup(payload) {
-      return this.updateMemberList(payload);
+    // ── 12. 初始化新小組 (initGroup) ──────────────────────────────
+    async initGroup(payload) {
+      const sb = getSupabase();
+      if (!sb) return null;
+
+      const groupName = String(payload.groupName || '').trim();
+      const type = payload.type || '一般小組';
+      const associatedGroup = payload.associatedGroup || '';
+
+      const { data, error } = await sb.from('groups').insert([{
+        name: groupName,
+        code: ('LK' + Math.floor(10 + Math.random() * 90)),
+        group_type: type,
+        associated_group: associatedGroup,
+        status: '顯示',
+        updated_at: new Date().toISOString()
+      }]).select().single();
+
+      if (error) throw error;
+
+      return { success: true, group: data };
     },
 
-    // ── 10. 會友大名單快搜建議 (getMemberSuggestions) ─────────────
+    // ── 13. 會友名冊建議 (getMemberSuggestions) ──────────────────
     async getMemberSuggestions(payload) {
       const sb = getSupabase();
       if (!sb) return null;
@@ -346,36 +435,33 @@
       };
     },
 
-    // ── 11. 本週出席人數週報 (getWeeklyReport) ───────────────────
+    // ── 14. 每週統計週報 (getWeeklyReport) ────────────────────────
     async getWeeklyReport(payload) {
       const sb = getSupabase();
       if (!sb) return null;
 
-      // 取得所有小組以及最近一週各組點名紀錄
+      const dateStr = String(payload.date || '').slice(0, 10);
+
       const [groupsRes, recordsRes] = await Promise.all([
-        sb.from('groups').select('name, group_type, status').order('name'),
-        sb.from('group_attendance_records').select('*').order('date', { ascending: false }).limit(100)
+        sb.from('groups').select('*').eq('status', '顯示').order('name'),
+        sb.from('group_attendance_records').select('*').eq('date', dateStr)
       ]);
 
       const groups = groupsRes.data || [];
       const records = recordsRes.data || [];
-
-      // 找出各組最新一筆紀錄
-      const latestByGroup = new Map();
-      records.forEach(r => {
-        if (!latestByGroup.has(r.group_name)) {
-          latestByGroup.set(r.group_name, r);
-        }
-      });
+      const recordMap = {};
+      records.forEach(r => { recordMap[r.group_name] = r; });
 
       const report = groups.map(g => {
-        const rec = latestByGroup.get(g.name);
+        const r = recordMap[g.name];
         return {
           groupName: g.name,
-          date: rec ? rec.date : '',
-          presentCount: rec ? (rec.present_uids || []).length : 0,
-          newFriendsCount: rec ? (rec.new_friends ? rec.new_friends.split(',').length : 0) : 0,
-          offering: rec ? rec.offering || 0 : 0
+          groupType: g.group_type || '一般小組',
+          isSubmitted: Boolean(r),
+          attendeeCount: r ? (r.present_members || []).length : 0,
+          newFriendCount: r ? (r.new_friends || []).length : 0,
+          offering: r ? Number(r.offering || 0) : 0,
+          notes: r ? r.notes : ''
         };
       });
 

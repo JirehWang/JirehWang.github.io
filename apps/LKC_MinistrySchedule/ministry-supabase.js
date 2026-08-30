@@ -120,16 +120,37 @@
         useMemberList: f.use_member_list !== false
       }));
 
-      const events = (schedulesRes.data || []).map(s => ({
-        date: String(s.date).slice(0, 10),
-        ...(s.assignments || {})
-      }));
+      // 建構 2D Matrix (matrix[0] 為標題列，matrix[1..N] 為各日期資料列)
+      let headerNames = fields.map(f => f.name);
+      if (headerNames.length === 0) {
+        headerNames = ['破冰', '敬拜', '話語分享', '主題', '經文', '地點', '套用講道'];
+      }
+      if (!headerNames.includes('套用講道')) {
+        headerNames.push('套用講道');
+      }
+
+      const fullHeaders = ['日期', ...headerNames];
+      const matrix = [fullHeaders];
+      const eventData = {};
+
+      (schedulesRes.data || []).forEach(s => {
+        const dateStr = String(s.date).slice(0, 10);
+        const assignments = s.assignments || {};
+        eventData[dateStr] = assignments;
+
+        const row = [dateStr];
+        for (let i = 1; i < fullHeaders.length; i++) {
+          const h = fullHeaders[i];
+          row.push(assignments[h] || '');
+        }
+        matrix.push(row);
+      });
 
       const groupMembers = membersRes.data || [];
       const coreMembers = groupMembers.filter(m => m.role === '核心同工' || m.role === '福長').map(m => m.name);
       const generalMembers = groupMembers.map(m => m.name);
 
-      const templateName = page.template_type === 'ministry' ? '事工型模板' : (page.template_type || '聚會型模板');
+      const templateName = page.template_type || '小組聚會表模板';
 
       return {
         status: 'success',
@@ -141,10 +162,20 @@
           templateType: templateName,
           status: page.status || '顯示',
           prompt: page.prompt || '',
-          scheduleTarget: page.schedule_target || '',
+          groupPrompt: page.prompt || '',
+          scheduleTarget: page.schedule_target || 'members',
           customMembers: page.custom_members || [],
-          fields: fields.length > 0 ? fields : undefined,
-          events: events,
+          pageFieldConfig: {
+            fields: fields.length > 0 ? fields : undefined,
+            fieldTemplateType: templateName.includes('事工') ? '事工型模板' : '聚會型模板',
+            requiredFields: ['日期']
+          },
+          matrix: matrix,
+          eventData: eventData,
+          events: (schedulesRes.data || []).map(s => ({
+            date: String(s.date).slice(0, 10),
+            ...(s.assignments || {})
+          })),
           members: generalMembers,
           coreMembers: coreMembers,
           generalMembers: generalMembers
