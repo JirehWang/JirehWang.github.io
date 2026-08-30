@@ -135,6 +135,19 @@ function keepWarm() {
     const repaired = firebaseReconcilePendingTopics();
     Logger.log('[cacheReconcile] Firebase pending topics: ' + repaired.repaired + '/' + repaired.attempted);
   } catch (e) { Logger.log('[cacheReconcile] Firebase repair failed: ' + e.message); }
+
+  // ⚡ Supabase 自動保活（雙重防護：防止超過 7 天無流量進入休眠）
+  try {
+    const sbUrl = "https://ioxlptzwpmczsxboggct.supabase.co/rest/v1/worship_positions?select=id&limit=1";
+    UrlFetchApp.fetch(sbUrl, {
+      headers: {
+        "apikey": "sb_publishable_By6SrH7lHFwdOCgw8srvUg_swLAM3cz",
+        "Authorization": "Bearer sb_publishable_By6SrH7lHFwdOCgw8srvUg_swLAM3cz"
+      },
+      muteHttpExceptions: true
+    });
+    Logger.log('[keepWarm] Supabase keep-warm pinged successfully');
+  } catch (e) { Logger.log('[keepWarm] Supabase ping failed: ' + e.message); }
 }
 
 /**

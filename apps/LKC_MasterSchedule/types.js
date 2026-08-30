@@ -10,6 +10,9 @@ let _currentFieldsRootTypeId = null;
 let _currentFieldsList = [];
 
 async function callAPI(action, data) {
+  if (window.CalendarSupabaseService && typeof window.CalendarSupabaseService[action] === 'function') {
+    return await window.CalendarSupabaseService[action](data || {});
+  }
   if (typeof window.churchAPI !== 'function') {
     throw new Error('config.js 尚未載入');
   }

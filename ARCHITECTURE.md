@@ -24,13 +24,13 @@
 
 # 🏛️ 教會系統架構文件（測試版）
 
-## 2026-08 Supabase 熱響應架構更新 (敬拜團試點)
+## 2026-08 Supabase 熱響應架構更新 (敬拜團 + 教會行事曆系統)
 
-- 敬拜團系統（`LKC_worship`）正式將熱響應後端遷移至 **Supabase (PostgreSQL + PostgREST)**。
+- 敬拜團系統（`LKC_worship`）與教會行事曆系統（`LKC_MasterSchedule`）正式將熱響應後端遷移至 **Supabase (PostgreSQL + PostgREST)**。
 - **冷熱分流架構**：
-  - **熱資料（Hot Tier，>= 2025 年）**：直連 Supabase，讀寫延遲縮短至 **<100ms**，提供極速排班、曲目編輯與團員管理。
+  - **熱資料（Hot Tier，>= 2025 年）**：直連 Supabase，讀寫延遲縮短至 **<100ms**，提供極速月曆翻頁、篩選、事項動態欄位渲染、批次建立、排班與曲目管理。
   - **冷資料（Cold Tier，< 2025 年）**：前端透明 fallback 走原有 GAS 讀取 Google Sheets 歷史存檔。
-- 前端透過 `apps/LKC_worship/worship-supabase.js` 適配器接管 `callAPI`，UI 畫面與業務邏輯無縫相容。
+- 前端透過 `apps/LKC_worship/worship-supabase.js` 與 `apps/LKC_MasterSchedule/calendar-supabase.js` 適配器接管 `callAPI`，UI 畫面與業務邏輯無縫相容。
 
 ## 2026-07 快取協調更新
 

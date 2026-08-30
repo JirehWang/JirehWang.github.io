@@ -97,9 +97,12 @@ function hideLoading() {
 }
 
 async function callAPI(action, data) {
-  if (typeof window.churchAPI !== 'function') throw new Error('config.js 尚未載入');
   showLoading(action);
   try {
+    if (window.CalendarSupabaseService && typeof window.CalendarSupabaseService[action] === 'function') {
+      return await window.CalendarSupabaseService[action](data || {});
+    }
+    if (typeof window.churchAPI !== 'function') throw new Error('config.js 尚未載入');
     const res = await window.churchAPI(action, data || {});
     return res;
   } finally {
