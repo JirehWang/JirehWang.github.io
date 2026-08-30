@@ -1,11 +1,17 @@
-﻿// ⚡ apps/LKC_NewFamily/new-family-supabase.js
+// ⚡ apps/LKC_NewFamily/new-family-supabase.js
 // 新家人管理系統 Supabase 本地熱響應服務模組 (<50ms)
 // 包含追蹤中/已結案個案讀取、留名卡登錄、個案更新、轉會友標記與結案操作
 
 (function() {
   function getSupabase() {
-    return window._supabase || (typeof supabase !== 'undefined' && window.SUPABASE_CONFIG ? 
-      supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.anonKey) : null);
+    if (window._supabase) return window._supabase;
+    const config = window._SUPABASE_CONFIG || window.SUPABASE_CONFIG;
+    const create = (window.supabase && window.supabase.createClient) || (typeof supabase !== 'undefined' && supabase.createClient);
+    if (config && create) {
+      window._supabase = create(config.url, config.anonKey);
+      return window._supabase;
+    }
+    return null;
   }
 
   function mapDbToCase(r, idx) {

@@ -376,6 +376,19 @@ function isMalformedCachedResult(result) {
  * 此函式只回傳 data 部分；非 success 就拋 APIError
  */
 async function fetchAPI(action, data = {}) {
+  // ⚡ 0. 優先嘗試 Supabase 熱響應服務 (<50ms)
+  const cleanAction = action.replace(/^ministry_/, '');
+  if (window.MinistrySupabaseService && typeof window.MinistrySupabaseService[cleanAction] === 'function') {
+    try {
+      const res = await window.MinistrySupabaseService[cleanAction](data);
+      if (res && res.status === 'success') {
+        return res.data;
+      }
+    } catch (sbErr) {
+      console.warn('[MinistrySupabase] Direct call error, falling back to churchAPI/GAS:', sbErr);
+    }
+  }
+
   // ── 優先路徑：中央 churchAPI（含 Firebase cache + 自動加前綴） ──
   if (typeof window.churchAPI === 'function') {
     try {

@@ -68,6 +68,14 @@ window.onload = async () => {
 
 // --- API 呼叫 ---
 async function callAPI(action, data = {}) {
+    if (window.GroupSupabaseService && typeof window.GroupSupabaseService[action] === 'function') {
+        try {
+            const res = await window.GroupSupabaseService[action](data);
+            if (res !== null && typeof res === 'object') return res;
+        } catch (e) {
+            console.warn('[GroupSupabase] Direct call error, fallback:', e);
+        }
+    }
     if (typeof window.churchAPI !== 'function') {
         userNotification.error("⚠️ 系統錯誤：安全路由尚未載入！");
         throw new Error("安全路由尚未載入");

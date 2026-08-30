@@ -1,4 +1,4 @@
-﻿// ⚡ Supabase 前端設定檔 (供 GitHub Pages 前端使用)
+// ⚡ Supabase 前端設定檔 (供 GitHub Pages 前端使用)
 // Project URL 與公開 anon public key 是安全公開於前端的
 
 const SUPABASE_URL = "https://ioxlptzwpmczsxboggct.supabase.co";
@@ -9,6 +9,10 @@ if (typeof window !== 'undefined') {
     url: SUPABASE_URL,
     anonKey: SUPABASE_ANON_KEY
   };
+  window.SUPABASE_CONFIG = window._SUPABASE_CONFIG;
+  if (window.supabase && typeof window.supabase.createClient === 'function') {
+    window._supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
 }
 
 if (typeof exports !== 'undefined') {

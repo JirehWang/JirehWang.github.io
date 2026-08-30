@@ -1,11 +1,17 @@
-﻿// ⚡ apps/LKC_MinistrySchedule/ministry-supabase.js
+// ⚡ apps/LKC_MinistrySchedule/ministry-supabase.js
 // 事工排班管理系統 Supabase 本地熱響應服務模組 (<50ms)
 // 包含排班分頁配置、動態欄位定義、季度排班二維矩陣讀寫、同工名單快搜與佈告欄總表
 
 (function() {
   function getSupabase() {
-    return window._supabase || (typeof supabase !== 'undefined' && window.SUPABASE_CONFIG ? 
-      supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.anonKey) : null);
+    if (window._supabase) return window._supabase;
+    const config = window._SUPABASE_CONFIG || window.SUPABASE_CONFIG;
+    const create = (window.supabase && window.supabase.createClient) || (typeof supabase !== 'undefined' && supabase.createClient);
+    if (config && create) {
+      window._supabase = create(config.url, config.anonKey);
+      return window._supabase;
+    }
+    return null;
   }
 
   const MinistrySupabaseService = {
