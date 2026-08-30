@@ -37,6 +37,57 @@
     }
   }
 
+  async function getSermonEventData(sb) {
+    try {
+      const { data: types } = await sb.from('calendar_types').select('*');
+      const typeById = {};
+      (types || []).forEach(t => { typeById[t.type_id] = t; });
+
+      const sermonRoot = (types || []).find(t => !t.parent_type_id && (t.name === '講道資訊' || t.name.includes('講道')));
+      const sermonSubIds = new Set(
+        (types || []).filter(t => t.parent_type_id === sermonRoot?.type_id || t.type_id === sermonRoot?.type_id).map(t => t.type_id)
+      );
+
+      const [eventsRes, fieldsRes, valuesRes] = await Promise.all([
+        sb.from('calendar_events').select('*').in('type_id', Array.from(sermonSubIds)).order('date', { ascending: true }),
+        sb.from('calendar_fields').select('*'),
+        sb.from('calendar_event_values').select('*')
+      ]);
+
+      const fieldById = {};
+      (fieldsRes.data || []).forEach(f => { fieldById[f.field_id] = f.name; });
+
+      const valuesByEvent = {};
+      (valuesRes.data || []).forEach(v => {
+        if (!valuesByEvent[v.event_id]) valuesByEvent[v.event_id] = {};
+        const fName = fieldById[v.field_id];
+        if (fName) valuesByEvent[v.event_id][fName] = v.value;
+      });
+
+      return (eventsRes.data || []).map(e => {
+        const typeName = (typeById[e.type_id] && typeById[e.type_id].name) || '';
+        const vals = valuesByEvent[e.event_id] || {};
+        const sTitle = vals['講題'] || vals['題目'] || vals['主題'] || e.title || '';
+        const sSpeaker = vals['講員'] || '';
+        const sScripture = vals['經文'] || '';
+        return {
+          date: String(e.date).slice(0, 10),
+          name: e.title || typeName,
+          category: typeName,
+          sermons: [{
+            type: typeName,
+            title: sTitle,
+            speaker: sSpeaker,
+            scripture: sScripture
+          }]
+        };
+      });
+    } catch (err) {
+      console.warn('[MinistrySupabase] Failed to fetch sermon events:', err);
+      return [];
+    }
+  }
+
   const MinistrySupabaseService = {
     // ── 1. 取得排班分頁與二維矩陣配置 (getPageConfig) ──────────────
     async getPageConfig(payload) {
@@ -105,11 +156,12 @@
 
       const effectivePageName = page.page_name;
 
-      // 平行查詢欄位、排班矩陣與組員名冊
-      const [fieldsRes, schedulesRes, membersRes] = await Promise.all([
+      // 平行查詢欄位、排班矩陣、組員名冊與講道行事曆
+      const [fieldsRes, schedulesRes, membersRes, sermonEvents] = await Promise.all([
         sb.from('ministry_fields').select('*').eq('page_name', effectivePageName).order('sort_order', { ascending: true }),
         sb.from('ministry_schedules').select('*').eq('page_name', effectivePageName).order('date', { ascending: true }),
-        sb.from('group_members').select('*').eq('group_name', effectivePageName).order('sort_order', { ascending: true })
+        sb.from('group_members').select('*').eq('group_name', effectivePageName).order('sort_order', { ascending: true }),
+        getSermonEventData(sb)
       ]);
 
       const fields = (fieldsRes.data || []).map(f => ({
@@ -131,15 +183,10 @@
 
       const fullHeaders = ['日期', ...headerNames];
       const matrix = [fullHeaders];
-      const eventData = [];
 
       (schedulesRes.data || []).forEach(s => {
         const dateStr = String(s.date).slice(0, 10);
         const assignments = s.assignments || {};
-        eventData.push({
-          date: dateStr,
-          ...assignments
-        });
 
         const row = [dateStr];
         for (let i = 1; i < fullHeaders.length; i++) {
@@ -174,11 +221,12 @@
             requiredFields: ['日期']
           },
           matrix: matrix,
-          eventData: eventData,
-          events: (schedulesRes.data || []).map(s => ({
-            date: String(s.date).slice(0, 10),
-            ...(s.assignments || {})
-          })),
+          eventData: sermonEvents || [],
+          events: sermonEvents || [],
+          sermonSettings: {
+            useSermon: true,
+            sermonType: "華語/聯合"
+          },
           members: generalMembers,
           coreMembers: coreMembers,
           generalMembers: generalMembers
@@ -426,6 +474,14 @@
       });
 
       return { status: 'success', data: matrix, matrix: matrix };
+    },
+
+    // ── 11. 強制重整講道行事曆 (forceRefreshEvents) ─────────────
+    async forceRefreshEvents(payload) {
+      const sb = getSupabase();
+      if (!sb) return null;
+      const events = await getSermonEventData(sb);
+      return { status: 'success', count: events.length, data: events };
     }
   };
 
