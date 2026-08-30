@@ -1,4 +1,4 @@
-﻿// ⚡ apps/LKC_MasterSchedule/calendar-supabase.js
+// ⚡ apps/LKC_MasterSchedule/calendar-supabase.js
 // 教會行事曆 Supabase 熱響應服務模組 (含冷熱資料自動分流與完整雙語屬性相容)
 
 (function(window) {
@@ -373,24 +373,34 @@
           goldenVerse: (evValues.find(v => v.fieldName === '金句' || v['顯示名稱'] === '金句') || {}).value || ''
         } : null;
 
+        const eventIcon = (type && type.icon) || (rootType && rootType.icon) || '📌';
+        const eventColor = (type && type.color) || (rootType && rootType.color) || '#667eea';
+        const typeFullName = type ? (rootType && rootType.type_id !== type.type_id ? `${rootType.name} - ${type.name}` : (type.name || '')) : '';
+
         return {
           eventId: e.event_id,
           id: e.event_id,
           typeId: e.type_id,
           typeName: type.name || '',
           '類型名稱': type.name || '',
-          rootTypeId: rootType.type_id || e.type_id,
-          rootTypeName: rootType.name || '',
+          typeFullName: typeFullName,
+          '完整類型名稱': typeFullName,
+          typeIcon: eventIcon,
+          icon: eventIcon,
+          typeColor: eventColor,
+          color: eventColor,
           date: e.date,
           '日期': e.date,
           name: e.title,
           '聚會名稱': e.title,
           title: e.title,
           '顯示標題': e.title,
-          icon: rootType.icon || '📌',
-          color: rootType.color || '#5b8def',
+          rootTypeId: rootType.type_id || e.type_id,
+          rootTypeName: rootType.name || '',
           createdBy: e.created_by || '',
           '建立者': e.created_by || '',
+          createdAt: e.created_at,
+          updatedAt: e.updated_at,
           values: evValues,
           fields: evValues,
           sermons: sermonObj ? [sermonObj] : []
