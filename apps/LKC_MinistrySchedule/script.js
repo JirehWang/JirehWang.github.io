@@ -727,9 +727,8 @@ function renderTable(data) {
   currentGroupMembers = data.members || [];
   currentCoreMembers = data.coreMembers || [];
   currentGeneralMembers = data.generalMembers || [];
-  currentGroupPrompt = data.groupPrompt || "";
-  currentAutoRoleRules = data.autoRoleRules || "";
-  currentEventData = (data.eventData || []).map(ev => {
+  const rawEvents = Array.isArray(data.eventData) ? data.eventData : (Array.isArray(data.events) ? data.events : (typeof data.eventData === 'object' && data.eventData !== null ? Object.keys(data.eventData).map(d => ({ date: d, ...(data.eventData[d] || {}) })) : []));
+  currentEventData = rawEvents.map(ev => {
     if (ev.date) {
       const normalized = parseGregorianDate(String(ev.date));
       if (normalized) {

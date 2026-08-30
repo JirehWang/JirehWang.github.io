@@ -131,12 +131,15 @@
 
       const fullHeaders = ['日期', ...headerNames];
       const matrix = [fullHeaders];
-      const eventData = {};
+      const eventData = [];
 
       (schedulesRes.data || []).forEach(s => {
         const dateStr = String(s.date).slice(0, 10);
         const assignments = s.assignments || {};
-        eventData[dateStr] = assignments;
+        eventData.push({
+          date: dateStr,
+          ...assignments
+        });
 
         const row = [dateStr];
         for (let i = 1; i < fullHeaders.length; i++) {
