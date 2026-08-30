@@ -1,0 +1,27 @@
+﻿name: Keep Supabase Active
+
+on:
+  schedule:
+    # 每週一與週四 04:00 UTC (台灣時間中午 12:00) 自動執行一次
+    - cron: '0 4 * * 1,4'
+  workflow_dispatch: # 支援在 GitHub 介面手動點擊觸發
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        run: |
+          echo "Sending keep-warm ping to Supabase..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: sb_publishable_By6SrH7lHFwdOCgw8srvUg_swLAM3cz" \
+            -H "Authorization: Bearer sb_publishable_By6SrH7lHFwdOCgw8srvUg_swLAM3cz" \
+            "https://ioxlptzwpmczsxboggct.supabase.co/rest/v1/worship_positions?select=id&limit=1")
+          
+          echo "Supabase Response HTTP Status: $STATUS"
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 300 ]; then
+            echo "✅ Supabase is active and healthy!"
+          else
+            echo "⚠️ Unexpected response: $STATUS"
+            exit 1
+          fi
