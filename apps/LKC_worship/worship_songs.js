@@ -3,8 +3,11 @@
 let songsData = [];        // 目前載入的資料
 let dirtyRows = new Set(); // 已修改但未存的列索引
 
-// --- API 橋接 ---
+// --- API 橋接 (Supabase 熱響應 + GAS 冷歷史自動分流) ---
 async function callAPI(action, payload) {
+  if (window.WorshipSupabaseService && typeof window.WorshipSupabaseService[action] === 'function') {
+    return await window.WorshipSupabaseService[action](payload);
+  }
   if (typeof window.churchAPI !== 'function') {
     throw new Error("中央安全設定檔 (config.js) 尚未載入");
   }

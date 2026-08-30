@@ -227,9 +227,12 @@ function parseDateSafe(dateStr) {
   return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
 }
 
-// --- 🌟 安全網橋接設定 ---
+// --- 🌟 安全網橋接設定 (Supabase 熱響應 + GAS 冷歷史自動分流) ---
 async function callAPI(action, payload) {
   try {
+    if (window.WorshipSupabaseService && typeof window.WorshipSupabaseService[action] === 'function') {
+      return await window.WorshipSupabaseService[action](payload);
+    }
     if (typeof window.churchAPI !== 'function') {
       throw new Error("中央安全設定檔 (config.js) 尚未載入，請檢查 HTML 引用路徑。");
     }
