@@ -1,4 +1,4 @@
-﻿// ⚡ apps/LKC_MinistrySchedule/ministry-supabase.js
+// ⚡ apps/LKC_MinistrySchedule/ministry-supabase.js
 // 事工排班管理系統 Supabase 本地熱響應服務模組 (<50ms)
 // 包含排班分頁配置、動態欄位定義、季度排班二維矩陣讀寫、同工名單快搜與佈告欄總表
 
@@ -14,20 +14,47 @@
     return null;
   }
 
+  const OBFUSCATION_KEY = 'LKC-Secure-2026';
+  const ENC_PREFIX = 'enc_';
+
+  function decryptId(str) {
+    if (typeof window.decryptGroupCode === 'function') {
+      return window.decryptGroupCode(str);
+    }
+    const safeStr = String(str || '');
+    if (!safeStr || safeStr.indexOf(ENC_PREFIX) !== 0) return safeStr;
+    try {
+      var hex = safeStr.substring(ENC_PREFIX.length);
+      var plainText = '';
+      for (var i = 0; i < hex.length; i += 2) {
+        var charCode = parseInt(hex.substring(i, i + 2), 16);
+        var decCharCode = charCode ^ OBFUSCATION_KEY.charCodeAt((i / 2) % OBFUSCATION_KEY.length);
+        plainText += String.fromCharCode(decCharCode);
+      }
+      return plainText;
+    } catch (e) {
+      return safeStr;
+    }
+  }
+
   const MinistrySupabaseService = {
     // ── 1. 取得排班分頁與二維矩陣配置 (getPageConfig) ──────────────
     async getPageConfig(payload) {
       const sb = getSupabase();
       if (!sb) return null;
 
-      const pageId = String(payload.id || payload.groupCode || '').trim();
-      const pageName = String(payload.groupName || payload.name || '').trim();
+      const rawId = String(payload.id || payload.groupCode || '').trim();
+      const pageId = decryptId(rawId).trim();
+      const rawName = String(payload.groupName || payload.name || '').trim();
+      const pageName = decryptId(rawName).trim();
 
       let pageQuery = sb.from('ministry_pages').select('*');
-      if (pageId) {
-        pageQuery = pageQuery.or(`page_id.eq.${pageId},uuid.eq.${pageId},page_name.eq.${pageId}`);
+      if (pageId && pageName) {
+        pageQuery = pageQuery.or(`page_id.eq.${pageId},uuid.eq.${pageId},page_name.eq.${pageName},page_name.eq.${pageId}`);
+      } else if (pageId) {
+        pageQuery = pageQuery.or(`page_id.eq.${pageId},uuid.eq.${pageId},page_name.eq.${pageId},page_id.eq.${rawId}`);
       } else if (pageName) {
-        pageQuery = pageQuery.eq('page_name', pageName);
+        pageQuery = pageQuery.or(`page_name.eq.${pageName},page_id.eq.${pageName}`);
       }
 
       const { data: pageList, error: pageErr } = await pageQuery;
@@ -39,7 +66,7 @@
       if (!page && (pageName || pageId)) {
         const { data: group } = await sb.from('groups')
           .select('*')
-          .or(`code.eq.${pageId},name.eq.${pageName || pageId}`)
+          .or(`code.eq.${pageId},name.eq.${pageName || pageId},uuid.eq.${pageId}`)
           .maybeSingle();
 
         if (group) {
@@ -52,7 +79,24 @@
             schedule_target: '',
             custom_members: []
           };
+          await sb.from('ministry_pages').upsert(page, { onConflict: 'page_name' });
         }
+      }
+
+      // 若仍然未找到且允許 autoCreate
+      if (!page && payload.autoCreate && (pageName || pageId)) {
+        const newPageName = pageName || pageId;
+        const newPageId = pageId || pageName;
+        page = {
+          uuid: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ('page_' + Date.now()),
+          page_name: newPageName,
+          page_id: newPageId,
+          template_type: 'gathering',
+          status: '顯示',
+          schedule_target: '',
+          custom_members: []
+        };
+        await sb.from('ministry_pages').upsert(page, { onConflict: 'page_name' });
       }
 
       if (!page) {
@@ -200,7 +244,8 @@
       const sb = getSupabase();
       if (!sb) return null;
 
-      const pageId = String(payload.id || '').trim();
+      const rawId = String(payload.id || '').trim();
+      const pageId = decryptId(rawId).trim();
       const pageFieldConfig = payload.pageFieldConfig || {};
       const fields = Array.isArray(pageFieldConfig.fields) ? pageFieldConfig.fields : [];
 
@@ -243,7 +288,8 @@
     async toggleGroupStatus(payload) {
       const sb = getSupabase();
       if (!sb) return null;
-      const id = String(payload.id || '');
+      const rawId = String(payload.id || '');
+      const id = decryptId(rawId).trim();
       const newStatus = payload.status === '顯示' ? '停用' : '顯示';
       await sb.from('ministry_pages')
         .update({ status: newStatus, updated_at: new Date().toISOString() })
@@ -255,7 +301,8 @@
     async saveGroupPrompt(payload) {
       const sb = getSupabase();
       if (!sb) return null;
-      const id = String(payload.id || '');
+      const rawId = String(payload.id || '');
+      const id = decryptId(rawId).trim();
       const prompt = payload.prompt || '';
       await sb.from('ministry_pages')
         .update({ prompt: prompt, updated_at: new Date().toISOString() })
