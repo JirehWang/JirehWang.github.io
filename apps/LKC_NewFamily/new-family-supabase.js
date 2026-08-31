@@ -65,7 +65,8 @@
         .from('new_family_cases')
         .select('*')
         .eq('status', 'closed')
-        .order('closed_date', { ascending: false });
+        .order('first_visit_date', { ascending: false, nullsFirst: false })
+        .order('closed_date', { ascending: false, nullsFirst: false });
 
       if (error) throw error;
       return { success: true, data: (data || []).map(mapDbToCase) };

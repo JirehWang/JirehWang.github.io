@@ -69,6 +69,15 @@
   }
 
   async function read(action, data) {
+    if (root.WorshipPptSupabaseService && typeof root.WorshipPptSupabaseService[action] === 'function') {
+      try {
+        const res = await root.WorshipPptSupabaseService[action](data || {});
+        if (res !== null) return res;
+      } catch (err) {
+        console.warn(`[WorshipSupabase] Error calling ${action}, falling back:`, err);
+      }
+    }
+
     if (!root.GAS_URL) throw new Error('行事曆雲端網址尚未就緒');
     const useJsonpFirst = shouldPreferJsonp(action);
     let jsonpError = null;

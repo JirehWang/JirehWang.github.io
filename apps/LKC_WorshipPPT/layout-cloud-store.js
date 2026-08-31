@@ -129,6 +129,15 @@
     }
 
     async function load() {
+      if (root.WorshipPptSupabaseService && typeof root.WorshipPptSupabaseService.loadLayout === 'function') {
+        try {
+          const sbLayout = await root.WorshipPptSupabaseService.loadLayout(options.templateId || 'taiwanese');
+          if (sbLayout) return normalizeLayoutState(sbLayout);
+        } catch (err) {
+          console.warn('[LayoutCloud] Supabase load failed, falling back to Firebase:', err);
+        }
+      }
+
       const templateLayout = await loadFromPath(layoutPath);
       if (templateLayout || !fallbackLayoutPath || fallbackLayoutPath === layoutPath) return templateLayout;
       const fallbackLayout = await loadFromPath(fallbackLayoutPath);
@@ -158,12 +167,24 @@
     }
 
     async function save(layoutState) {
+      const normalized = normalizeLayoutState(layoutState);
       const sdk = await firebase();
       const user = sdk.auth.currentUser;
       if (!user || user.email !== AUTH_EMAIL) throw new Error('版面配置尚未解鎖');
+
+      // ⚡ 優先儲存至 Supabase
+      if (root.WorshipPptSupabaseService && typeof root.WorshipPptSupabaseService.saveLayout === 'function') {
+        try {
+          await root.WorshipPptSupabaseService.saveLayout(options.templateId || 'taiwanese', normalized, user.uid);
+        } catch (err) {
+          console.warn('[LayoutCloud] Supabase save error:', err);
+        }
+      }
+
+      // 同步寫入 Firebase
       await sdk.set(sdk.ref(sdk.database, layoutPath), {
         schemaVersion: 1,
-        layoutState: normalizeLayoutState(layoutState),
+        layoutState: normalized,
         updatedAt: sdk.serverTimestamp(),
         updatedBy: user.uid
       });

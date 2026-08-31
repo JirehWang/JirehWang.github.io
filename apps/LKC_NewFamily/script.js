@@ -796,6 +796,15 @@ async function loadClosedCases() {
 }
 
 function renderClosedCases(rows) {
+  // 依首次來訪日（越新越前面）排序，若無則依結案日期排序
+  rows.sort((a, b) => {
+    const dateA = String(a['首次來訪日'] || a['結案日期'] || '').trim();
+    const dateB = String(b['首次來訪日'] || b['結案日期'] || '').trim();
+    if (dateA && dateB) return dateB.localeCompare(dateA);
+    if (dateA) return -1;
+    if (dateB) return 1;
+    return 0;
+  });
   closedCasesBase = rows;
   renderFilteredClosedCases();
 }
