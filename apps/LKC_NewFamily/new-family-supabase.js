@@ -16,6 +16,7 @@
 
   function mapDbToCase(r, idx) {
     return {
+      id: r.id,
       rowNumber: r.row_number || (idx + 2),
       '姓名': r.name || '',
       '聚會別': r.service_type || '',
@@ -123,42 +124,57 @@
       return { success: true, message: '新家人登錄成功', formNumber };
     },
 
-    // ── 4. 更新追蹤中案件 (updateTrackingCase) ───────────────────
+    // ── 4. 更新個案 (updateTrackingCase / updateClosedCase) ─────
     async updateTrackingCase(payload) {
       const sb = getSupabase();
       if (!sb) return await window.churchAPI('updateTrackingCase', payload);
 
-      const formNumber = String(payload['表單號'] || payload.formNumber || '').trim();
-      const rowNumber = Number(payload.rowNumber || payload.row_number || 0);
+      const vals = payload.values || payload;
+      const id = payload.id;
+      const formNumber = String(payload['表單號'] || payload.formNumber || payload.form_number || (vals && (vals.formNumber || vals['表單號'])) || '').trim();
+      const rowNumber = Number(payload.rowNumber || payload.row_number || (vals && vals.rowNumber) || 0);
+      const name = String(payload.name || payload['姓名'] || (vals && vals['姓名']) || '').trim();
 
-      let query = sb.from('new_family_cases').update({
-        name: payload['姓名'],
-        gender: payload['性別'],
-        service_type: payload['聚會別'],
-        occupation: payload['職業'],
-        age_group: payload['年齡'],
-        contacted_church_before: payload['是否曾接觸教會'],
-        visit_reason: payload['來訪原因'],
-        assigned_staff: payload['關懷同工'],
-        address: payload['地址'],
-        tel: payload['市話'],
-        phone: payload['手機'],
-        first_visit_date: payload['首次來訪日'],
-        settlement_status: payload['落戶狀態'],
-        inviter: payload['邀約人'],
-        notes: payload['備註'],
-        member_status: payload['會友狀態'],
-        member_code: payload['點名編號'],
-        current_group: payload['現行小組'],
+      const updateData = {
         updated_at: new Date().toISOString()
+      };
+
+      const fieldMap = {
+        '姓名': 'name',
+        '性別': 'gender',
+        '聚會別': 'service_type',
+        '職業': 'occupation',
+        '年齡': 'age_group',
+        '是否曾接觸教會': 'contacted_church_before',
+        '來訪原因': 'visit_reason',
+        '關懷同工': 'assigned_staff',
+        '地址': 'address',
+        '市話': 'tel',
+        '手機': 'phone',
+        '首次來訪日': 'first_visit_date',
+        '結案日期': 'closed_date',
+        '落戶狀態': 'settlement_status',
+        '邀約人': 'inviter',
+        '備註': 'notes',
+        '會友狀態': 'member_status',
+        '點名編號': 'member_code',
+        '現行小組': 'current_group'
+      };
+
+      Object.entries(fieldMap).forEach(([formKey, dbCol]) => {
+        if (vals[formKey] !== undefined) updateData[dbCol] = vals[formKey];
       });
 
-      if (formNumber) {
+      let query = sb.from('new_family_cases').update(updateData);
+
+      if (id) {
+        query = query.eq('id', id);
+      } else if (formNumber) {
         query = query.eq('form_number', formNumber);
+      } else if (name) {
+        query = query.eq('name', name);
       } else if (rowNumber) {
         query = query.eq('row_number', rowNumber);
-      } else {
-        query = query.eq('name', payload['姓名']);
       }
 
       const { error } = await query;
@@ -176,17 +192,32 @@
       return { success: true, message: '更新成功' };
     },
 
+    async updateClosedCase(payload) {
+      return this.updateTrackingCase(payload);
+    },
+
     // ── 5. 刪除追蹤中案件 (deleteTrackingCase) ───────────────────
     async deleteTrackingCase(payload) {
       const sb = getSupabase();
       if (!sb) return await window.churchAPI('deleteTrackingCase', payload);
 
-      const formNumber = String(payload.formNumber || payload['表單號'] || '').trim();
+      const id = payload.id;
+      const formNumber = String(payload.formNumber || payload.form_number || payload['表單號'] || '').trim();
       const rowNumber = Number(payload.rowNumber || 0);
+      const name = String(payload.name || payload['姓名'] || '').trim();
 
       let query = sb.from('new_family_cases').delete();
-      if (formNumber) query = query.eq('form_number', formNumber);
-      else if (rowNumber) query = query.eq('row_number', rowNumber);
+      if (id) {
+        query = query.eq('id', id);
+      } else if (formNumber) {
+        query = query.eq('form_number', formNumber);
+      } else if (name) {
+        query = query.eq('name', name);
+      } else if (rowNumber) {
+        query = query.eq('row_number', rowNumber);
+      } else {
+        throw new Error('未提供欲刪除案件之識別資料');
+      }
 
       const { error } = await query;
       if (error) throw error;
@@ -217,7 +248,8 @@
         if (item.status) updateData.member_status = item.status;
 
         let query = sb.from('new_family_cases').update(updateData);
-        if (item.formNumber) query = query.eq('form_number', String(item.formNumber));
+        if (item.id) query = query.eq('id', item.id);
+        else if (item.formNumber) query = query.eq('form_number', String(item.formNumber));
         else if (item.name) query = query.eq('name', item.name);
 
         await query;
@@ -241,6 +273,16 @@
 
       const rowNumbers = Array.isArray(payload.rowNumbers) ? payload.rowNumbers : [];
       const formNumbers = Array.isArray(payload.formNumbers) ? payload.formNumbers : [];
+      const ids = Array.isArray(payload.ids) ? payload.ids : [];
+      const items = Array.isArray(payload.items) ? payload.items : [];
+
+      const allFormNumbers = [...formNumbers];
+      const allIds = [...ids];
+      items.forEach(it => {
+        if (it.formNumber || it['表單號']) allFormNumbers.push(String(it.formNumber || it['表單號']));
+        if (it.id) allIds.push(it.id);
+      });
+
       const todayStr = new Date().toISOString().slice(0, 10);
 
       let query = sb.from('new_family_cases').update({
@@ -249,8 +291,10 @@
         updated_at: new Date().toISOString()
       });
 
-      if (formNumbers.length > 0) {
-        query = query.in('form_number', formNumbers.map(String));
+      if (allIds.length > 0) {
+        query = query.in('id', allIds);
+      } else if (allFormNumbers.length > 0) {
+        query = query.in('form_number', allFormNumbers);
       } else if (rowNumbers.length > 0) {
         query = query.in('row_number', rowNumbers);
       }
@@ -267,8 +311,53 @@
       }, 10);
 
       return { success: true, message: '已成功結案' };
+    },
+
+    // ── 8. 小組與教區選單 (getDistrictsAndClusters / getGroups) ──
+    async getDistrictsAndClusters() {
+      const sb = getSupabase();
+      if (!sb) return null;
+
+      const { data: pages } = await sb.from('ministry_pages').select('page_name, template_type');
+      const groups = (pages || []).map(p => ({
+        name: p.page_name,
+        cluster: p.template_type
+      }));
+      return { success: true, clusters: groups, groups: groups };
+    },
+
+    async getGroups() {
+      const sb = getSupabase();
+      if (!sb) return null;
+
+      const { data: pages } = await sb.from('ministry_pages').select('page_name, template_type');
+      const groups = (pages || []).map(p => ({
+        name: p.page_name,
+        cluster: p.template_type
+      }));
+      return { success: true, groups: groups };
     }
   };
 
+  // 🎯 自動劫持 / 增強 window.churchAPI（支援 newfamily 路由）
+  function setupNewFamilyRouter() {
+    if (typeof window.churchAPI === 'function' && !window.churchAPI_original_nf) {
+      window.churchAPI_original_nf = window.churchAPI;
+      window.churchAPI = async function(action, data = {}) {
+        if (NewFamilySupabaseService[action] && typeof NewFamilySupabaseService[action] === 'function') {
+          try {
+            const res = await NewFamilySupabaseService[action](data);
+            if (res !== null) return res;
+          } catch (err) {
+            console.warn(`[NewFamilySupabase] Action ${action} handling error, falling back to GAS:`, err);
+          }
+        }
+        return await window.churchAPI_original_nf(action, data);
+      };
+    }
+  }
+
   window.NewFamilySupabaseService = NewFamilySupabaseService;
+  setupNewFamilyRouter();
+  window.addEventListener('DOMContentLoaded', setupNewFamilyRouter);
 })();

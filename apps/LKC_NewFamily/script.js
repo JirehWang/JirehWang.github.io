@@ -418,6 +418,15 @@ async function callSundayAttendancePayloadApi(action, payload) {
 }
 
 async function callGroupAttendanceApi(action, data = {}) {
+  if (window.NewFamilySupabaseService && typeof window.NewFamilySupabaseService[action] === 'function') {
+    try {
+      const sbRes = await window.NewFamilySupabaseService[action](data);
+      if (sbRes !== null) return sbRes;
+    } catch (e) {
+      console.warn('[NewFamily] Supabase group attendance fallback:', e);
+    }
+  }
+
   const apiUrl = window.GROUP_ATTENDANCE_API_URL || '';
   const token = window.NEW_FAMILY_AUTH_TOKEN || '';
 
@@ -2165,7 +2174,11 @@ async function saveTrackingCase(event) {
 
   try {
     const result = await callApi(action, {
+      id: editingCase.id,
       rowNumber: editingCase.rowNumber,
+      formNumber: editingCase['表單號'],
+      form_number: editingCase['表單號'],
+      name: editingCase['姓名'],
       values: Object.fromEntries(new FormData(editCaseForm).entries())
     });
     setNotice(noticeElement, result.message, 'success');
@@ -2183,20 +2196,30 @@ async function saveTrackingCase(event) {
 }
 
 async function closeSelectedCases() {
-  const selected = getSelectedTrackingCases().map(item => item.rowNumber);
+  const selectedCases = getSelectedTrackingCases();
+  const selected = selectedCases.map(item => item.rowNumber);
 
-  if (!selected.length) {
+  if (!selectedCases.length) {
     setNotice(trackingNotice, '請先勾選要結案的資料', 'error');
     return;
   }
 
-  if (!confirm(`確認將 ${selected.length} 筆資料移到「已結案」嗎？`)) return;
+  if (!confirm(`確認將 ${selectedCases.length} 筆資料移到「已結案」嗎？`)) return;
 
   setNotice(trackingNotice, '結案處理中...');
   closeBtn.disabled = true;
 
   try {
-    const result = await callApi('closeCases', { rowNumbers: selected });
+    const result = await callApi('closeCases', {
+      rowNumbers: selected,
+      items: selectedCases.map(item => ({
+        id: item.id,
+        rowNumber: item.rowNumber,
+        formNumber: item['表單號'],
+        form_number: item['表單號'],
+        name: item['姓名']
+      }))
+    });
     setNotice(trackingNotice, result.message, 'success');
     await loadTrackingCases();
   } catch (error) {
@@ -2215,7 +2238,13 @@ async function deleteSingleCase(item) {
   setNotice(trackingNotice, '刪除中...');
   
   try {
-    const result = await callApi('deleteTrackingCase', { rowNumber: item.rowNumber });
+    const result = await callApi('deleteTrackingCase', {
+      id: item.id,
+      rowNumber: item.rowNumber,
+      formNumber: item['表單號'],
+      form_number: item['表單號'],
+      name: item['姓名']
+    });
     setNotice(trackingNotice, result.message, 'success');
     await loadTrackingCases();
   } catch (error) {
