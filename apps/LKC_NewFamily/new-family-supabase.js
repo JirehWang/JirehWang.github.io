@@ -25,6 +25,9 @@
     }, 100);
   }
 
+  let _lastSubmitName = '';
+  let _lastSubmitTimestamp = 0;
+
   function mapDbToCase(r, idx) {
     return {
       id: r.id,
@@ -87,6 +90,15 @@
     async submitNewFamily(payload) {
       const sb = getSupabase();
       if (!sb) return null;
+
+      const name = String(payload['姓名'] || '').trim();
+      const nowMs = Date.now();
+      if (name && name === _lastSubmitName && (nowMs - _lastSubmitTimestamp < 2500)) {
+        console.warn('[NewFamilySupabase] Duplicate submission blocked:', name);
+        return { success: true, message: '重複送出已攔截' };
+      }
+      _lastSubmitName = name;
+      _lastSubmitTimestamp = nowMs;
 
       const now = new Date();
       const datePrefix = now.toISOString().slice(0, 10).replace(/-/g, '');
