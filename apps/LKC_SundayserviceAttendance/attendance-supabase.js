@@ -173,7 +173,21 @@
         nfFemale = parseInt(payload.nfFemale || '0', 10) || 0;
       }
 
-      const incomingUids = Array.from(new Set(presentList.map(u => String(u).trim()).filter(Boolean)));
+      // 支援傳入 UID 或 姓名，若為姓名則自動對映至 UID
+      const { data: allMembers } = await sb.from('church_members').select('uid, name');
+      const nameToUid = new Map();
+      const uidSet = new Set();
+      (allMembers || []).forEach(m => {
+        if (m.name) nameToUid.set(m.name.trim(), m.uid);
+        if (m.uid) uidSet.add(m.uid);
+      });
+
+      const incomingUids = Array.from(new Set(presentList.map(item => {
+        const str = String(item || '').trim();
+        if (uidSet.has(str)) return str;
+        if (nameToUid.has(str)) return nameToUid.get(str);
+        return str;
+      }).filter(Boolean)));
 
       // 讀取當天已有的出席 UID 並進行聯集合併
       const { data: existingRec } = await sb
@@ -204,13 +218,14 @@
       // 2. 背景非同步同步至 Google Sheets 歷史存檔
       setTimeout(() => {
         try {
-          if (typeof window.churchAPI === 'function') {
-            window.churchAPI('saveAttendance', payload).catch(e => {
+          const gasFn = window.churchAPI_original || window.churchAPI;
+          if (typeof gasFn === 'function') {
+            gasFn('saveAttendance', payload).catch(e => {
               console.warn('[Attendance Backup] GAS sync:', e.message);
             });
           }
         } catch (e) {}
-      }, 10);
+      }, 100);
 
       return `✅ 同步成功 (出席: ${finalUids.length} 人, 新朋友: 男 ${nfMale} 人, 女 ${nfFemale} 人)`;
     },
@@ -432,7 +447,7 @@
         m.updated_at ? new Date(m.updated_at).toISOString().slice(0, 10).replace(/-/g, '/') : '',
         '',
         m.uid,
-        '',
+        m.group_name || '',
         m.group_name || '',
         m.role || '小羊'
       ]);
@@ -469,7 +484,7 @@
           m.updated_at ? new Date(m.updated_at).toISOString().slice(0, 10).replace(/-/g, '/') : '',
           '',
           m.uid,
-          '',
+          m.group_name || '',
           m.group_name || '',
           m.role || '小羊'
         ];
@@ -487,6 +502,17 @@
 
       const name = String(payload.name || '').trim();
       if (!name) throw new Error('會友姓名為必填');
+
+      // 檢查是否已存在
+      const { data: existing } = await sb
+        .from('church_members')
+        .select('uid, name')
+        .eq('name', name)
+        .maybeSingle();
+
+      if (existing) {
+        return `⚠️ 會友姓名「${name}」已存在（編號：${existing.uid}）`;
+      }
 
       // 取得最大 UID
       const { data: allMems } = await sb.from('church_members').select('uid');
@@ -517,13 +543,14 @@
 
       setTimeout(() => {
         try {
-          if (typeof window.churchAPI === 'function') {
-            window.churchAPI('addMember', payload).catch(e => console.warn('[Member Add Backup]:', e.message));
+          const gasFn = window.churchAPI_original || window.churchAPI;
+          if (typeof gasFn === 'function') {
+            gasFn('addMember', payload).catch(e => console.warn('[Member Add Backup]:', e.message));
           }
         } catch (e) {}
-      }, 10);
+      }, 100);
 
-      return '✅ 成功新增會友：' + name;
+      return `✅ 成功新增會友：${name}（編號：${newUid}）`;
     },
 
     async updateMember(oldName, newData) {

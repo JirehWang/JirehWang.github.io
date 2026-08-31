@@ -311,24 +311,29 @@
       const sb = getSupabase();
       if (!sb) return null;
 
-      const { data: pages } = await sb.from('ministry_pages').select('page_name, template_type');
-      const groups = (pages || []).map(p => ({
-        name: p.page_name,
-        cluster: p.template_type
+      const [pagesRes, gmRes] = await Promise.all([
+        sb.from('ministry_pages').select('page_name, template_type'),
+        sb.from('group_members').select('group_name')
+      ]);
+
+      const groupNames = new Set();
+      (pagesRes.data || []).forEach(p => {
+        if (p.page_name) groupNames.add(p.page_name.trim());
+      });
+      (gmRes.data || []).forEach(g => {
+        if (g.group_name) groupNames.add(g.group_name.trim());
+      });
+
+      const groups = Array.from(groupNames).sort().map(name => ({
+        name,
+        cluster: 'group'
       }));
+
       return { success: true, clusters: groups, groups: groups };
     },
 
     async getGroups() {
-      const sb = getSupabase();
-      if (!sb) return null;
-
-      const { data: pages } = await sb.from('ministry_pages').select('page_name, template_type');
-      const groups = (pages || []).map(p => ({
-        name: p.page_name,
-        cluster: p.template_type
-      }));
-      return { success: true, groups: groups };
+      return this.getDistrictsAndClusters();
     }
   };
 

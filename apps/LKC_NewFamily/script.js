@@ -634,6 +634,8 @@ async function addSelectedMembers(sessionName) {
       if (!memberCode && duplicate) memberCode = existingMember.memberCode;
       const sundayGroup = existingMember.sundayGroup || '';
       results.push({
+        id: item.id,
+        formNumber: item['表單號'],
         ok: message.includes('成功'),
         duplicate,
         rowNumber: item.rowNumber,
@@ -676,6 +678,9 @@ async function addSelectedMembers(sessionName) {
     const memberStatuses = results
       .filter(item => item.ok || item.duplicate)
       .map(item => ({
+        id: item.id,
+        formNumber: item.formNumber,
+        name: item.name,
         rowNumber: item.rowNumber,
         status: item.ok ? '已加入' : '已存在',
         memberCode: item.memberCode || '',
