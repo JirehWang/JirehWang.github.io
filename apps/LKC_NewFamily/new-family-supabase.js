@@ -14,6 +14,17 @@
     return null;
   }
 
+  function syncToGasBackup(action, payload) {
+    setTimeout(() => {
+      try {
+        const gasFn = window.churchAPI_original_nf || window.churchAPI_original;
+        if (typeof gasFn === 'function') {
+          gasFn(action, payload).catch(e => console.warn('[NewFamily Backup] GAS sync:', e.message));
+        }
+      } catch (e) {}
+    }, 100);
+  }
+
   function mapDbToCase(r, idx) {
     return {
       id: r.id,
@@ -45,7 +56,7 @@
     // ── 1. 讀取追蹤中案件 (getTrackingCases) ──────────────────────
     async getTrackingCases() {
       const sb = getSupabase();
-      if (!sb) return await window.churchAPI('getTrackingCases');
+      if (!sb) return null;
 
       const { data, error } = await sb
         .from('new_family_cases')
@@ -60,7 +71,7 @@
     // ── 2. 讀取已結案案件 (getClosedCases) ───────────────────────
     async getClosedCases() {
       const sb = getSupabase();
-      if (!sb) return await window.churchAPI('getClosedCases');
+      if (!sb) return null;
 
       const { data, error } = await sb
         .from('new_family_cases')
@@ -75,7 +86,7 @@
     // ── 3. 新增新家人留名卡 (submitNewFamily) ───────────────────
     async submitNewFamily(payload) {
       const sb = getSupabase();
-      if (!sb) return await window.churchAPI('submitNewFamily', payload);
+      if (!sb) return null;
 
       const now = new Date();
       const datePrefix = now.toISOString().slice(0, 10).replace(/-/g, '');
@@ -112,14 +123,8 @@
 
       if (error) throw error;
 
-      // 背景雙寫至 Google Sheets
-      setTimeout(() => {
-        try {
-          if (typeof window.churchAPI === 'function') {
-            window.churchAPI('submitNewFamily', payload).catch(e => console.warn('[NewFamily Backup] GAS sync:', e.message));
-          }
-        } catch (e) {}
-      }, 10);
+      // 安全背景雙寫至 Google Sheets（避免遞迴）
+      syncToGasBackup('submitNewFamily', payload);
 
       return { success: true, message: '新家人登錄成功', formNumber };
     },
@@ -127,7 +132,7 @@
     // ── 4. 更新個案 (updateTrackingCase / updateClosedCase) ─────
     async updateTrackingCase(payload) {
       const sb = getSupabase();
-      if (!sb) return await window.churchAPI('updateTrackingCase', payload);
+      if (!sb) return null;
 
       const vals = payload.values || payload;
       const id = payload.id;
@@ -180,14 +185,8 @@
       const { error } = await query;
       if (error) throw error;
 
-      // 背景雙寫
-      setTimeout(() => {
-        try {
-          if (typeof window.churchAPI === 'function') {
-            window.churchAPI('updateTrackingCase', payload).catch(e => console.warn('[NewFamily Backup] GAS sync:', e.message));
-          }
-        } catch (e) {}
-      }, 10);
+      // 安全背景雙寫
+      syncToGasBackup('updateTrackingCase', payload);
 
       return { success: true, message: '更新成功' };
     },
@@ -199,7 +198,7 @@
     // ── 5. 刪除追蹤中案件 (deleteTrackingCase) ───────────────────
     async deleteTrackingCase(payload) {
       const sb = getSupabase();
-      if (!sb) return await window.churchAPI('deleteTrackingCase', payload);
+      if (!sb) return null;
 
       const id = payload.id;
       const formNumber = String(payload.formNumber || payload.form_number || payload['表單號'] || '').trim();
@@ -222,13 +221,7 @@
       const { error } = await query;
       if (error) throw error;
 
-      setTimeout(() => {
-        try {
-          if (typeof window.churchAPI === 'function') {
-            window.churchAPI('deleteTrackingCase', payload).catch(e => console.warn('[NewFamily Backup] GAS sync:', e.message));
-          }
-        } catch (e) {}
-      }, 10);
+      syncToGasBackup('deleteTrackingCase', payload);
 
       return { success: true, message: '刪除成功' };
     },
@@ -236,7 +229,7 @@
     // ── 6. 批次標記會友狀態 (markTrackingMemberStatuses) ─────────
     async markTrackingMemberStatuses(payload) {
       const sb = getSupabase();
-      if (!sb) return await window.churchAPI('markTrackingMemberStatuses', payload);
+      if (!sb) return null;
 
       const items = Array.isArray(payload.items) ? payload.items : (Array.isArray(payload) ? payload : []);
       for (const item of items) {
@@ -255,13 +248,7 @@
         await query;
       }
 
-      setTimeout(() => {
-        try {
-          if (typeof window.churchAPI === 'function') {
-            window.churchAPI('markTrackingMemberStatuses', payload).catch(e => console.warn('[NewFamily Backup] GAS sync:', e.message));
-          }
-        } catch (e) {}
-      }, 10);
+      syncToGasBackup('markTrackingMemberStatuses', payload);
 
       return { success: true, message: '標記完成' };
     },
@@ -269,7 +256,7 @@
     // ── 7. 批次結案 (closeCases) ──────────────────────────────
     async closeCases(payload) {
       const sb = getSupabase();
-      if (!sb) return await window.churchAPI('closeCases', payload);
+      if (!sb) return null;
 
       const rowNumbers = Array.isArray(payload.rowNumbers) ? payload.rowNumbers : [];
       const formNumbers = Array.isArray(payload.formNumbers) ? payload.formNumbers : [];
@@ -302,13 +289,7 @@
       const { error } = await query;
       if (error) throw error;
 
-      setTimeout(() => {
-        try {
-          if (typeof window.churchAPI === 'function') {
-            window.churchAPI('closeCases', payload).catch(e => console.warn('[NewFamily Backup] GAS sync:', e.message));
-          }
-        } catch (e) {}
-      }, 10);
+      syncToGasBackup('closeCases', payload);
 
       return { success: true, message: '已成功結案' };
     },
