@@ -50,7 +50,7 @@
         .from('new_family_cases')
         .select('*')
         .eq('status', 'tracking')
-        .order('first_visit_date', { ascending: false });
+        .order('form_number', { ascending: false });
 
       if (error) throw error;
       return { success: true, data: (data || []).map(mapDbToCase) };
@@ -65,8 +65,7 @@
         .from('new_family_cases')
         .select('*')
         .eq('status', 'closed')
-        .order('first_visit_date', { ascending: false, nullsFirst: false })
-        .order('closed_date', { ascending: false, nullsFirst: false });
+        .order('form_number', { ascending: false });
 
       if (error) throw error;
       return { success: true, data: (data || []).map(mapDbToCase) };

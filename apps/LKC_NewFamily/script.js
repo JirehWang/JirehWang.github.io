@@ -549,6 +549,15 @@ async function loadTrackingCases() {
 }
 
 function renderTrackingCases(rows) {
+  // 依表單號降冪排序（越新越前面）
+  rows.sort((a, b) => {
+    const fnA = String(a['表單號'] || '').trim();
+    const fnB = String(b['表單號'] || '').trim();
+    if (fnA && fnB) return fnB.localeCompare(fnA);
+    const dateA = String(a['首次來訪日'] || '').trim();
+    const dateB = String(b['首次來訪日'] || '').trim();
+    return dateB.localeCompare(dateA);
+  });
   trackingCases = rows;
   caseCount.textContent = `共 ${rows.length} 筆`;
 
@@ -796,8 +805,11 @@ async function loadClosedCases() {
 }
 
 function renderClosedCases(rows) {
-  // 依首次來訪日（越新越前面）排序，若無則依結案日期排序
+  // 依表單號降冪排序（越新越前面）
   rows.sort((a, b) => {
+    const fnA = String(a['表單號'] || '').trim();
+    const fnB = String(b['表單號'] || '').trim();
+    if (fnA && fnB) return fnB.localeCompare(fnA);
     const dateA = String(a['首次來訪日'] || a['結案日期'] || '').trim();
     const dateB = String(b['首次來訪日'] || b['結案日期'] || '').trim();
     if (dateA && dateB) return dateB.localeCompare(dateA);
