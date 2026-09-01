@@ -34,6 +34,27 @@
     return dStr;
   }
 
+  function syncToGasBackup(action, payload) {
+    setTimeout(async () => {
+      try {
+        const gasFn = window.churchAPI_original || window.churchAPI;
+        if (typeof gasFn === 'function') {
+          gasFn(action, payload).catch(e => console.warn(`[Attendance Backup] GAS sync (${action}):`, e.message));
+          return;
+        }
+
+        const apiUrl = (window.GAS_CONFIG && window.GAS_CONFIG.apiUrl) || window.GAS_URL;
+        if (apiUrl) {
+          fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: action, data: payload, payload: payload })
+          }).catch(e => console.warn(`[Attendance Backup] Fetch sync (${action}):`, e.message));
+        }
+      } catch (e) {}
+    }, 50);
+  }
+
   const AttendanceSupabaseService = {
     // ── 1. 場次分類 (getGroupConfig) ──────────────────────────
     async getGroupConfig() {
@@ -216,16 +237,7 @@
       if (error) throw error;
 
       // 2. 背景非同步同步至 Google Sheets 歷史存檔
-      setTimeout(() => {
-        try {
-          const gasFn = window.churchAPI_original || window.churchAPI;
-          if (typeof gasFn === 'function') {
-            gasFn('saveAttendance', payload).catch(e => {
-              console.warn('[Attendance Backup] GAS sync:', e.message);
-            });
-          }
-        } catch (e) {}
-      }, 100);
+      syncToGasBackup('saveAttendance', payload);
 
       return `✅ 同步成功 (出席: ${finalUids.length} 人, 新朋友: 男 ${nfMale} 人, 女 ${nfFemale} 人)`;
     },
@@ -541,14 +553,7 @@
       const { error } = await sb.from('church_members').insert(row);
       if (error) throw error;
 
-      setTimeout(() => {
-        try {
-          const gasFn = window.churchAPI_original || window.churchAPI;
-          if (typeof gasFn === 'function') {
-            gasFn('addMember', payload).catch(e => console.warn('[Member Add Backup]:', e.message));
-          }
-        } catch (e) {}
-      }, 100);
+      syncToGasBackup('addMember', payload);
 
       return `✅ 成功新增會友：${name}（編號：${newUid}）`;
     },
@@ -575,13 +580,7 @@
       const { error } = await sb.from('church_members').update(updates).eq('name', oldName);
       if (error) throw error;
 
-      setTimeout(() => {
-        try {
-          if (typeof window.churchAPI === 'function') {
-            window.churchAPI('updateMember', oldName, newData).catch(e => console.warn('[Member Update Backup]:', e.message));
-          }
-        } catch (e) {}
-      }, 10);
+      syncToGasBackup('updateMember', { oldName, ...newData });
 
       return '✅ 成功更新會友：' + updates.name;
     },
@@ -607,13 +606,7 @@
       const { error } = await sb.from('church_members').delete().eq('uid', mem.uid);
       if (error) throw error;
 
-      setTimeout(() => {
-        try {
-          if (typeof window.churchAPI === 'function') {
-            window.churchAPI('deleteMember', name).catch(e => console.warn('[Member Delete Backup]:', e.message));
-          }
-        } catch (e) {}
-      }, 10);
+      syncToGasBackup('deleteMember', name);
 
       return '✅ 成功刪除會友：' + name;
     },

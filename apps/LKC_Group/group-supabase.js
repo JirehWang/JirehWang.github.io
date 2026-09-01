@@ -53,6 +53,27 @@
     return null;
   }
 
+  function syncToGasBackup(action, payload) {
+    setTimeout(async () => {
+      try {
+        const gasFn = window.churchAPI_original || window.churchAPI;
+        if (typeof gasFn === 'function') {
+          gasFn(action, payload).catch(e => console.warn(`[Group Backup] GAS sync (${action}):`, e.message));
+          return;
+        }
+
+        const apiUrl = window.GAS_URL;
+        if (apiUrl) {
+          fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: action, data: payload, payload: payload })
+          }).catch(e => console.warn(`[Group Backup] Fetch sync (${action}):`, e.message));
+        }
+      } catch (e) {}
+    }, 50);
+  }
+
   const GroupSupabaseService = {
     // ── 1. 取得小組清單 (getGroups) ──────────────────────────────
     async getGroups(payload) {
@@ -207,13 +228,7 @@
 
       await query;
 
-      setTimeout(() => {
-        try {
-          if (typeof window.churchAPI_original === 'function') {
-            window.churchAPI_original('updateGroupInfo', payload).catch(e => console.warn('[Group Backup] GAS sync:', e.message));
-          }
-        } catch (e) {}
-      }, 10);
+      syncToGasBackup('updateGroupInfo', payload);
 
       return { success: true, message: '小組資訊已成功更新' };
     },
@@ -439,13 +454,7 @@
 
       if (error) throw error;
 
-      setTimeout(() => {
-        try {
-          if (typeof window.churchAPI_original === 'function') {
-            window.churchAPI_original('submitAttendance', payload).catch(e => console.warn('[Group Backup] GAS sync:', e.message));
-          }
-        } catch (e) {}
-      }, 10);
+      syncToGasBackup('submitAttendance', payload);
 
       return { success: true, message: '小組點名已成功送出！' };
     },
@@ -471,13 +480,7 @@
 
       if (error) throw error;
 
-      setTimeout(() => {
-        try {
-          if (typeof window.churchAPI_original === 'function') {
-            window.churchAPI_original('deleteAttendanceRecord', payload).catch(e => console.warn('[Group Backup] GAS sync:', e.message));
-          }
-        } catch (e) {}
-      }, 10);
+      syncToGasBackup('deleteAttendanceRecord', payload);
 
       return { success: true, message: '點名紀錄已成功刪除' };
     },
@@ -507,13 +510,7 @@
         if (error) throw error;
       }
 
-      setTimeout(() => {
-        try {
-          if (typeof window.churchAPI_original === 'function') {
-            window.churchAPI_original('updateMemberList', payload).catch(e => console.warn('[Group Backup] GAS sync:', e.message));
-          }
-        } catch (e) {}
-      }, 10);
+      syncToGasBackup('updateMemberList', payload);
 
       return { success: true, message: '名冊已成功更新！' };
     },
