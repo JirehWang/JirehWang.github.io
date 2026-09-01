@@ -1,4 +1,4 @@
-﻿// ⚡ apps/LKC_Group/group-supabase.js
+// ⚡ apps/LKC_Group/group-supabase.js
 // 小組點名與名冊系統 Supabase 本地熱響應服務模組 (<50ms)
 // 包含小組登入驗證、組員名冊讀取、每週點名送出、名冊拖曳排序、週報與統計中心
 
@@ -246,36 +246,165 @@
       };
     },
 
-    // ── 7. 取得統計報表 (getStats / getAllGroupsStats) ────────────
-    async getStats(payload) {
+    // ── 7. 取得統計報表 (getStats / getAllGroupsStats / getAllGroupMembers) ─
+    async getStats(payload = {}) {
       const sb = getSupabase();
-      if (!sb) return null;
+      if (!sb) {
+        const gasFn = window.churchAPI_original || window.churchAPI;
+        if (typeof gasFn === 'function') return await gasFn('getStats', payload);
+        return null;
+      }
 
       const groupName = String(payload.groupName || '').trim();
+      const isRawMode = (payload.startDate === 'RAW_MODE');
+      const isAll = (!groupName || groupName === 'ALL' || groupName === '小組清單');
 
       let query = sb.from('group_attendance_records').select('*').order('date', { ascending: false });
-      if (groupName) {
+      if (!isAll) {
         query = query.eq('group_name', groupName);
       }
 
-      const { data: records, error } = await query;
-      if (error) throw error;
+      const { data: records } = await query;
+
+      // 若 Supabase 尚無該小組的歷史紀錄，回退至 GAS 讀取歷史試算表
+      if (!records || records.length === 0) {
+        const gasFn = window.churchAPI_original || window.churchAPI;
+        if (typeof gasFn === 'function') {
+          try {
+            const gasRes = await gasFn('getStats', payload);
+            if (gasRes && gasRes.success) return gasRes;
+          } catch (e) {
+            console.warn('[GroupSupabase] getStats GAS fallback:', e);
+          }
+        }
+      }
+
+      // 建立會友 UID -> 姓名反查表
+      const { data: mems } = await sb.from('church_members').select('uid, name, group_name, role');
+      const nameDirectory = {};
+      (mems || []).forEach(m => {
+        if (m.uid) nameDirectory[m.uid.toUpperCase()] = m.name;
+      });
+
+      if (isRawMode) {
+        return {
+          success: true,
+          groupName: groupName,
+          isSingleDay: false,
+          data: (records || []).map(r => [
+            r.date ? String(r.date).slice(0, 10).replace(/-/g, '/') : '',
+            Array.isArray(r.present_members) ? r.present_members.join(', ') : String(r.present_members || ''),
+            r.offering || 0,
+            Array.isArray(r.new_friends) ? r.new_friends.join(', ') : String(r.new_friends || '')
+          ]),
+          nameDirectory: nameDirectory
+        };
+      }
+
+      // 組員出席率分析模式
+      const sDate = payload.startDate ? new Date(payload.startDate) : null;
+      const eDate = payload.endDate ? new Date(payload.endDate) : null;
+      const isSingleDay = (payload.startDate === payload.endDate && payload.startDate !== '' && payload.startDate !== undefined);
+
+      const groupMembers = (mems || []).filter(m => {
+        if (isAll) return Boolean(m.group_name);
+        return String(m.group_name || '').includes(groupName);
+      });
+
+      const filteredRecords = (records || []).filter(r => {
+        if (!r.date) return false;
+        const t = new Date(r.date).getTime();
+        if (sDate && t < sDate.getTime()) return false;
+        if (eDate && t > eDate.getTime()) return false;
+        return true;
+      });
+
+      const { data: sundayRecs } = await sb.from('attendance_records').select('*');
+      const filteredSunday = (sundayRecs || []).filter(sr => {
+        if (!sr.date) return false;
+        const t = new Date(sr.date).getTime();
+        if (sDate && t < sDate.getTime()) return false;
+        if (eDate && t > eDate.getTime()) return false;
+        return true;
+      });
+
+      const totalCellSessions = filteredRecords.length;
+      const worshipSessions = filteredSunday.filter(sr => ['台語', '華語', '聯合'].includes(sr.service_type)).length;
+      const schoolSessions = filteredSunday.filter(sr => String(sr.service_type || '').includes('主日學')).length;
+
+      const data = groupMembers.map(m => {
+        const uid = m.uid;
+        const cellCount = filteredRecords.filter(r => (r.present_members || []).includes(uid) || (r.present_members || []).includes(m.name)).length;
+        const sundayCount = filteredSunday.filter(sr => ['台語', '華語', '聯合'].includes(sr.service_type) && (sr.present_uids || []).includes(uid)).length;
+        const schoolCount = filteredSunday.filter(sr => String(sr.service_type || '').includes('主日學') && (sr.present_uids || []).includes(uid)).length;
+
+        if (isSingleDay) {
+          return {
+            name: m.name,
+            uid: m.uid,
+            group: m.group_name || groupName,
+            cell: cellCount > 0,
+            sunday: sundayCount > 0,
+            school: schoolCount > 0
+          };
+        }
+
+        return {
+          name: m.name,
+          uid: m.uid,
+          group: m.group_name || groupName,
+          cellRate: totalCellSessions > 0 ? ((cellCount / totalCellSessions) * 100).toFixed(1) : 0,
+          cellStr: `${cellCount}/${totalCellSessions}`,
+          sundayRate: worshipSessions > 0 ? ((sundayCount / worshipSessions) * 100).toFixed(1) : 0,
+          sundayStr: `${sundayCount}/${worshipSessions}`,
+          schoolRate: schoolSessions > 0 ? ((schoolCount / schoolSessions) * 100).toFixed(1) : 0,
+          schoolStr: `${schoolCount}/${schoolSessions}`
+        };
+      });
+
+      if (!isSingleDay) {
+        data.sort((a, b) => parseFloat(b.cellRate) - parseFloat(a.cellRate));
+      }
 
       return {
         success: true,
-        records: (records || []).map(r => ({
-          groupName: r.group_name,
-          date: String(r.date).slice(0, 10),
-          attendees: r.present_members || [],
-          newFriends: r.new_friends || [],
-          offering: Number(r.offering || 0),
-          notes: r.notes || ''
-        }))
+        groupName: groupName,
+        isSingleDay: isSingleDay,
+        data: data
       };
     },
 
-    async getAllGroupsStats(payload) {
-      return this.getStats({});
+    async getAllGroupsStats(payload = {}) {
+      return this.getStats({ ...payload, groupName: 'ALL' });
+    },
+
+    async getAllGroupMembers(payload = {}) {
+      const sb = getSupabase();
+      if (!sb) {
+        const gasFn = window.churchAPI_original || window.churchAPI;
+        if (typeof gasFn === 'function') return await gasFn('getAllGroupMembers', payload);
+        return null;
+      }
+
+      const { data: mems, error } = await sb
+        .from('church_members')
+        .select('uid, name, gender, group_name, role')
+        .order('uid', { ascending: true });
+
+      if (error) throw error;
+
+      const filtered = (mems || []).filter(m => Boolean(m.group_name));
+
+      return {
+        success: true,
+        data: filtered.map(m => ({
+          name: m.name,
+          gender: m.gender || '',
+          uid: m.uid || '',
+          group: m.group_name || '',
+          role: m.role || '小羊'
+        }))
+      };
     },
 
     // ── 8. 儲存小組點名 (submitAttendance) ───────────────────────

@@ -179,8 +179,20 @@
       };
 
       Object.entries(fieldMap).forEach(([formKey, dbCol]) => {
-        if (vals[formKey] !== undefined) updateData[dbCol] = vals[formKey];
+        if (vals[formKey] !== undefined) {
+          if (dbCol === 'first_visit_date') {
+            updateData[dbCol] = vals[formKey] ? String(vals[formKey]).slice(0, 10) : null;
+          } else if (dbCol === 'closed_date') {
+            updateData[dbCol] = vals[formKey] ? String(vals[formKey]).slice(0, 10) : null;
+          } else {
+            updateData[dbCol] = String(vals[formKey] || '').trim();
+          }
+        }
       });
+
+      if (vals['表單號'] !== undefined && vals['表單號'] !== '') {
+        updateData['form_number'] = String(vals['表單號']).trim();
+      }
 
       let query = sb.from('new_family_cases').update(updateData);
 
