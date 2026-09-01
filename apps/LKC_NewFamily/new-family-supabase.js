@@ -1,20 +1,50 @@
 // ⚡ apps/LKC_NewFamily/new-family-supabase.js
 // 新家人管理系統 Supabase 本地熱響應服務模組 (<50ms)
-// 包含追蹤中/已結案個案讀取、留名卡登錄、個案更新、轉會友標記與結案操作
+// 包含追蹤中/已結案個案讀取、留名卡登錄、個案更新、轉會友標記與結案操作（支援冷熱分流）
 
-(function() {
+(function(root) {
+  const HOT_YEAR_THRESHOLD = 2025; // 2025 年及以後走 Supabase (熱響應 <50ms)
+
   function getSupabase() {
-    if (window._supabase) return window._supabase;
-    const config = window._SUPABASE_CONFIG || window.SUPABASE_CONFIG;
-    const create = (window.supabase && window.supabase.createClient) || (typeof supabase !== 'undefined' && supabase.createClient);
-    if (config && create) {
-      window._supabase = create(config.url, config.anonKey);
-      return window._supabase;
+    if (typeof window !== 'undefined' && window._supabase) return window._supabase;
+    const config = (typeof window !== 'undefined' && (window._SUPABASE_CONFIG || window.SUPABASE_CONFIG)) || {};
+    const create = (typeof window !== 'undefined' && window.supabase && window.supabase.createClient) || (typeof supabase !== 'undefined' && supabase.createClient);
+    if (config && config.url && config.anonKey && create) {
+      const client = create(config.url, config.anonKey);
+      if (typeof window !== 'undefined') window._supabase = client;
+      return client;
     }
     return null;
   }
 
+  function isHotYear(year) {
+    const y = parseInt(year, 10);
+    return !isNaN(y) && y >= HOT_YEAR_THRESHOLD;
+  }
+
+  function isHotDate(dateStr) {
+    if (!dateStr) return true;
+    const y = parseInt(String(dateStr).slice(0, 4), 10);
+    return isHotYear(y);
+  }
+
+  function isColdCase(caseObj) {
+    if (!caseObj) return false;
+    const fvd = caseObj['首次來訪日'] || caseObj.first_visit_date || '';
+    const fn = String(caseObj['表單號'] || caseObj.form_number || '').trim();
+    if (fvd && fvd.length >= 4) {
+      const y = parseInt(fvd.slice(0, 4), 10);
+      if (!isNaN(y)) return y < HOT_YEAR_THRESHOLD;
+    }
+    if (fn && fn.length >= 4) {
+      const y = parseInt(fn.slice(0, 4), 10);
+      if (!isNaN(y)) return y < HOT_YEAR_THRESHOLD;
+    }
+    return false;
+  }
+
   function syncToGasBackup(action, payload = {}) {
+    if (typeof window === 'undefined') return;
     setTimeout(async () => {
       try {
         const apiUrl = window.NEW_FAMILY_API_URL || (window.GAS_URL_MAP && window.GAS_URL_MAP['LKC_NewFamily']) || window.GAS_URL;
@@ -111,19 +141,92 @@
       return { success: true, data: (data || []).map(mapDbToCase) };
     },
 
-    // ── 2. 讀取已結案案件 (getClosedCases) ───────────────────────
-    async getClosedCases() {
+    // ── 2. 讀取已結案案件 (getClosedCases，支援冷熱分流與透明合併) ─────
+    async getClosedCases(payload = {}) {
       const sb = getSupabase();
-      if (!sb) return null;
+      const startDate = payload && payload.startDate;
+      const endDate = payload && payload.endDate;
 
-      const { data, error } = await sb
-        .from('new_family_cases')
-        .select('*')
-        .eq('status', 'closed')
-        .order('form_number', { ascending: false });
+      // 情況 A：純冷查詢（若指定之結束日期小於 HOT_YEAR_THRESHOLD 年初，例如 2024 年）
+      if (endDate && !isHotDate(endDate)) {
+        if (typeof window !== 'undefined' && typeof window.churchAPI_original_nf === 'function') {
+          return await window.churchAPI_original_nf('getClosedCases', payload);
+        }
+        return { success: true, data: [] };
+      }
 
-      if (error) throw error;
-      return { success: true, data: (data || []).map(mapDbToCase) };
+      // 情況 B：純熱查詢（若指定之起始日期大於等於 HOT_YEAR_THRESHOLD 年初，例如 2025-01-01 以後）
+      if (startDate && isHotDate(startDate)) {
+        if (!sb) {
+          if (typeof window !== 'undefined' && typeof window.churchAPI_original_nf === 'function') {
+            return await window.churchAPI_original_nf('getClosedCases', payload);
+          }
+          return null;
+        }
+        let query = sb
+          .from('new_family_cases')
+          .select('*')
+          .eq('status', 'closed')
+          .gte('first_visit_date', startDate);
+        if (endDate) query = query.lte('first_visit_date', endDate);
+        const { data, error } = await query.order('form_number', { ascending: false });
+        if (error) throw error;
+        return { success: true, data: (data || []).map(mapDbToCase) };
+      }
+
+      // 情況 C：全量或跨年份查詢（包含 < HOT_YEAR_THRESHOLD 的冷歷史與 >= HOT_YEAR_THRESHOLD 的熱資料）
+      let hotData = [];
+      if (sb) {
+        try {
+          const { data, error } = await sb
+            .from('new_family_cases')
+            .select('*')
+            .eq('status', 'closed')
+            .gte('first_visit_date', `${HOT_YEAR_THRESHOLD}-01-01`)
+            .order('form_number', { ascending: false });
+          if (!error && data) {
+            hotData = data.map(mapDbToCase);
+          }
+        } catch (e) {
+          console.warn('[NewFamilySupabase] Fetch hot closed cases failed:', e);
+        }
+      }
+
+      let coldData = [];
+      if (typeof window !== 'undefined' && typeof window.churchAPI_original_nf === 'function') {
+        try {
+          const coldRes = await window.churchAPI_original_nf('getClosedCases', payload);
+          if (coldRes && coldRes.data && Array.isArray(coldRes.data)) {
+            coldData = coldRes.data.filter(isColdCase);
+          }
+        } catch (e) {
+          console.warn('[NewFamilySupabase] Fetch cold closed cases failed:', e);
+        }
+      }
+
+      // 合併與去重（熱資料優先）
+      const map = new Map();
+      hotData.forEach(item => {
+        const key = String(item['表單號'] || item.form_number || item['姓名'] || item.id).trim();
+        map.set(key, item);
+      });
+      coldData.forEach(item => {
+        const key = String(item['表單號'] || item.form_number || item['姓名'] || item.id).trim();
+        if (!map.has(key)) {
+          map.set(key, item);
+        }
+      });
+
+      const merged = Array.from(map.values()).sort((a, b) => {
+        const fnA = String(a['表單號'] || a.form_number || '').trim();
+        const fnB = String(b['表單號'] || b.form_number || '').trim();
+        if (fnA && fnB) return fnB.localeCompare(fnA);
+        const dateA = String(a['首次來訪日'] || a.first_visit_date || '').trim();
+        const dateB = String(b['首次來訪日'] || b.first_visit_date || '').trim();
+        return dateB.localeCompare(dateA);
+      });
+
+      return { success: true, data: merged };
     },
 
     // ── 3. 新增新家人留名卡 (submitNewFamily) ───────────────────
@@ -458,7 +561,21 @@
     }
   }
 
-  window.NewFamilySupabaseService = NewFamilySupabaseService;
-  setupNewFamilyRouter();
-  window.addEventListener('DOMContentLoaded', setupNewFamilyRouter);
-})();
+  if (typeof window !== 'undefined') {
+    window.NewFamilySupabaseService = NewFamilySupabaseService;
+    setupNewFamilyRouter();
+    window.addEventListener('DOMContentLoaded', setupNewFamilyRouter);
+  }
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+      NewFamilySupabaseService,
+      HOT_YEAR_THRESHOLD,
+      isHotYear,
+      isHotDate,
+      isColdCase,
+      mapDbToCase
+    };
+  }
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+

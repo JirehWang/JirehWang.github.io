@@ -807,7 +807,7 @@ async function loadClosedCases() {
       startDate: document.getElementById('closedStartDate').value,
       endDate: document.getElementById('closedEndDate').value
     };
-    const result = await callCachedListApi('getClosedCases');
+    const result = await callCachedListApi('getClosedCases', filters);
     const rows = await enrichRowsWithSundayMemberData(filterCases(result.data || [], filters));
     renderClosedCases(rows);
   } catch (error) {
@@ -1702,11 +1702,11 @@ const crc32Table = (() => {
 })();
 
 async function getAnalysisDateRows() {
-  const result = await callCachedListApi('getClosedCases');
   const filters = {
     startDate: analysisStartDate.value,
     endDate: analysisEndDate.value
   };
+  const result = await callCachedListApi('getClosedCases', filters);
   return enrichRowsWithSundayMemberData(filterCases(result.data || [], filters));
 }
 
