@@ -166,8 +166,24 @@
         formNumber = `${basePrefix}${nextSeqStr}`;
       }
 
+      let nextRowNumber = 2;
+      try {
+        const { data: maxRowCase } = await sb
+          .from('new_family_cases')
+          .select('row_number')
+          .not('row_number', 'is', null)
+          .order('row_number', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (maxRowCase && maxRowCase.row_number) {
+          nextRowNumber = Number(maxRowCase.row_number) + 1;
+        }
+      } catch (e) {}
+
       const newRecord = {
         form_number: String(formNumber),
+        row_number: nextRowNumber,
         name: String(payload['姓名'] || '').trim(),
         gender: String(payload['性別'] || '').trim(),
         service_type: serviceType,
@@ -196,8 +212,9 @@
 
       if (error) throw error;
 
-      // 同步設定表單號後安全非同步雙寫至 Google Sheets
+      // 同步設定表單號與行號後安全非同步雙寫至 Google Sheets
       payload['表單號'] = formNumber;
+      payload.rowNumber = nextRowNumber;
       syncToGasBackup('submitNewFamily', payload);
 
       return { success: true, message: '新家人登錄成功', formNumber };
