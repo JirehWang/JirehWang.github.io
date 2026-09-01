@@ -14,15 +14,37 @@
     return null;
   }
 
-  function syncToGasBackup(action, payload) {
-    setTimeout(() => {
+  function syncToGasBackup(action, payload = {}) {
+    setTimeout(async () => {
       try {
-        const gasFn = window.churchAPI_original_nf || window.churchAPI_original;
-        if (typeof gasFn === 'function') {
-          gasFn(action, payload).catch(e => console.warn('[NewFamily Backup] GAS sync:', e.message));
+        const apiUrl = window.NEW_FAMILY_API_URL || (window.GAS_URL_MAP && window.GAS_URL_MAP['LKC_NewFamily']) || window.GAS_URL;
+        const token = window.NEW_FAMILY_AUTH_TOKEN || 'ChurchApp-2026';
+        if (!apiUrl) {
+          console.warn('[NewFamily Backup] No API URL available for backup');
+          return;
         }
-      } catch (e) {}
-    }, 100);
+
+        const body = {
+          action: action,
+          token: token,
+          rowNumber: payload.rowNumber || payload.row_number,
+          formNumber: payload.formNumber || payload.form_number || payload['表單號'],
+          name: payload.name || payload['姓名'],
+          values: payload.values || payload,
+          data: payload
+        };
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(body)
+        });
+        const res = await response.json();
+        console.log(`[NewFamily Backup] GAS sync (${action}) succeeded:`, res);
+      } catch (e) {
+        console.warn(`[NewFamily Backup] GAS sync (${action}) failed:`, e.message);
+      }
+    }, 50);
   }
 
   function getTaiwanDateParts(dateInput) {
@@ -249,8 +271,20 @@
       const { error } = await query;
       if (error) throw error;
 
+      let targetRowNumber = rowNumber;
+      if (!targetRowNumber && (id || formNumber || name)) {
+        try {
+          let q = sb.from('new_family_cases').select('row_number');
+          if (id) q = q.eq('id', id);
+          else if (formNumber) q = q.eq('form_number', formNumber);
+          else if (name) q = q.eq('name', name);
+          const { data: found } = await q.limit(1).maybeSingle();
+          if (found && found.row_number) targetRowNumber = found.row_number;
+        } catch (e) {}
+      }
+
       // 安全背景雙寫
-      syncToGasBackup('updateTrackingCase', payload);
+      syncToGasBackup('updateTrackingCase', { ...payload, rowNumber: targetRowNumber, row_number: targetRowNumber });
 
       return { success: true, message: '更新成功' };
     },
