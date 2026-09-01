@@ -25,6 +25,24 @@
     }, 100);
   }
 
+  function getTaiwanDateParts(dateInput) {
+    const d = dateInput ? new Date(dateInput) : new Date();
+    const formatter = new Intl.DateTimeFormat('zh-TW', {
+      timeZone: 'Asia/Taipei',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    const parts = formatter.formatToParts(d);
+    const year = parts.find(p => p.type === 'year').value;
+    const month = parts.find(p => p.type === 'month').value;
+    const day = parts.find(p => p.type === 'day').value;
+    return {
+      ymd: `${year}-${month}-${day}`,
+      prefix: `${year}${month}${day}`
+    };
+  }
+
   let _lastSubmitName = '';
   let _lastSubmitTimestamp = 0;
 
@@ -100,16 +118,37 @@
       _lastSubmitName = name;
       _lastSubmitTimestamp = nowMs;
 
-      const now = new Date();
-      const datePrefix = now.toISOString().slice(0, 10).replace(/-/g, '');
-      const randomSuffix = Math.floor(100 + Math.random() * 900);
-      const formNumber = payload['表單號'] || `${datePrefix}${randomSuffix}`;
+      const visitDateRaw = payload['首次來訪日'];
+      const { ymd: firstVisitDate, prefix: datePrefix } = getTaiwanDateParts(visitDateRaw);
+      const serviceType = String(payload['聚會別'] || '').trim();
+      const serviceCode = serviceType === '華語' ? '2' : (serviceType === '台語' ? '1' : (serviceType.includes('學') || serviceType.includes('青') ? '3' : '1'));
+      const basePrefix = `${datePrefix}${serviceCode}`;
+
+      let formNumber = payload['表單號'];
+      if (!formNumber) {
+        const { data: matches } = await sb
+          .from('new_family_cases')
+          .select('form_number')
+          .like('form_number', `${basePrefix}%`);
+
+        let maxSeq = 0;
+        (matches || []).forEach(m => {
+          const fn = String(m.form_number || '');
+          if (fn.startsWith(basePrefix)) {
+            const seqStr = fn.slice(basePrefix.length);
+            const seq = parseInt(seqStr, 10);
+            if (!isNaN(seq) && seq > maxSeq) maxSeq = seq;
+          }
+        });
+        const nextSeqStr = String(maxSeq + 1).padStart(2, '0');
+        formNumber = `${basePrefix}${nextSeqStr}`;
+      }
 
       const newRecord = {
         form_number: String(formNumber),
         name: String(payload['姓名'] || '').trim(),
         gender: String(payload['性別'] || '').trim(),
-        service_type: String(payload['聚會別'] || '').trim(),
+        service_type: serviceType,
         occupation: String(payload['職業'] || '').trim(),
         age_group: String(payload['年齡'] || '').trim(),
         contacted_church_before: String(payload['是否曾接觸教會'] || '').trim(),
@@ -118,7 +157,7 @@
         address: String(payload['地址'] || '').trim(),
         tel: String(payload['市話'] || '').trim(),
         phone: String(payload['手機'] || '').trim(),
-        first_visit_date: payload['首次來訪日'] ? String(payload['首次來訪日']).slice(0, 10) : now.toISOString().slice(0, 10),
+        first_visit_date: firstVisitDate,
         settlement_status: String(payload['落戶狀態'] || '').trim(),
         inviter: String(payload['邀約人'] || '').trim(),
         notes: String(payload['備註'] || '').trim(),
@@ -135,7 +174,8 @@
 
       if (error) throw error;
 
-      // 安全背景雙寫至 Google Sheets（避免遞迴）
+      // 同步設定表單號後安全非同步雙寫至 Google Sheets
+      payload['表單號'] = formNumber;
       syncToGasBackup('submitNewFamily', payload);
 
       return { success: true, message: '新家人登錄成功', formNumber };
