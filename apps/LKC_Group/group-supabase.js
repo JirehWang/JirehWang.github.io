@@ -104,6 +104,80 @@
       return { success: true, groups };
     },
 
+    // ── 1.5. 建立新小組 (createGroup) ───────────────────────────
+    async createGroup(payload) {
+      const sb = getSupabase();
+      if (!sb) {
+        const gasFn = window.churchAPI_original || window.churchAPI;
+        if (typeof gasFn === 'function') return await gasFn('createGroup', payload);
+        return null;
+      }
+
+      const groupName = String(payload.groupName || '').trim();
+      const groupCode = String(payload.groupCode || '').trim();
+      const groupType = payload.groupType || '一般小組';
+      const associatedGroup = payload.associatedGroup || '';
+
+      if (!groupName || !groupCode) {
+        return { success: false, message: '請填寫小組名稱與代碼' };
+      }
+
+      // 檢查是否重名
+      const { data: exist } = await sb.from('groups').select('*').eq('name', groupName).maybeSingle();
+      if (exist) {
+        return { success: false, message: '此小組名稱已存在！' };
+      }
+
+      const uuid = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ('grp_' + Date.now());
+      const newGroup = {
+        uuid: uuid,
+        name: groupName,
+        code: groupCode,
+        encrypted_code: encryptId(groupCode),
+        group_type: groupType,
+        associated_group: associatedGroup,
+        status: '顯示',
+        date: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await sb.from('groups').insert([newGroup]);
+      if (error) {
+        const gasFn = window.churchAPI_original || window.churchAPI;
+        if (typeof gasFn === 'function') return await gasFn('createGroup', payload);
+        throw error;
+      }
+
+      // 若為幸福小組且選擇繼承同工名單，自 church_members 撈出該組成員寫入 group_members
+      if (groupType === '幸福小組' && associatedGroup) {
+        try {
+          const { data: assocMems } = await sb.from('church_members').select('*');
+          if (assocMems && assocMems.length > 0) {
+            const inherited = assocMems
+              .filter(m => String(m.group_name || '').includes(associatedGroup))
+              .map((m, idx) => ({
+                group_name: groupName,
+                uid: m.uid || '',
+                name: m.name,
+                role: '同工',
+                nickname: (m.metadata && m.metadata.nickname) || '',
+                sort_order: idx + 1,
+                updated_at: new Date().toISOString()
+              }));
+            if (inherited.length > 0) {
+              await sb.from('group_members').insert(inherited);
+            }
+          }
+        } catch (e) {
+          console.warn('[GroupSupabase] Inherit workers failed:', e);
+        }
+      }
+
+      syncToGasBackup('createGroup', payload);
+
+      return { success: true, message: '小組創建成功！', groupUuid: uuid };
+    },
+
     // ── 2. 代碼反查小組 (findGroupByCode) ────────────────────────
     async findGroupByCode(payload) {
       const sb = getSupabase();
