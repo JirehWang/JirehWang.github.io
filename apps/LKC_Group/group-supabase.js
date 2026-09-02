@@ -236,7 +236,11 @@
     // ── 6. 檢查小組狀態與名單 (checkGroupStatus) ──────────────────
     async checkGroupStatus(payload) {
       const sb = getSupabase();
-      if (!sb) return null;
+      if (!sb) {
+        const gasFn = window.churchAPI_original || window.churchAPI;
+        if (typeof gasFn === 'function') return await gasFn('checkGroupStatus', payload);
+        return null;
+      }
 
       const groupName = String(payload.groupName || '').trim();
 
@@ -246,16 +250,68 @@
       ]);
 
       const group = groupRes.data || {};
-      const members = (membersRes.data || []).map(m => ({
+      let members = (membersRes.data || []).map(m => ({
         name: m.name,
-        role: m.role || '組員',
+        uid: m.uid || '',
+        role: m.role || '小羊',
+        nickname: m.nickname || '',
         sortOrder: m.sort_order || 0
       }));
 
+      // 若 group_members 尚未建立該組，從主日會友大名單 (church_members) 依 group_name 撈取
+      if (members.length === 0) {
+        const { data: churchMems } = await sb.from('church_members').select('*').order('name', { ascending: true });
+        if (churchMems && churchMems.length > 0) {
+          members = churchMems
+            .filter(cm => {
+              const grpStr = cm.group_name || '';
+              return grpStr.split(/[、,，/ ]/).map(s => s.trim()).some(s => s.includes(groupName));
+            })
+            .map(cm => {
+              let role = cm.role || '小羊';
+              const grpStr = cm.group_name || '';
+              const parts = grpStr.split(/[、,，]/);
+              for (const part of parts) {
+                const match = part.trim().match(/^(.+?)\((.+?)\)$/);
+                if (match && match[2].trim() === groupName) {
+                  role = match[1].trim();
+                  break;
+                }
+              }
+              return {
+                name: cm.name,
+                uid: cm.uid || '',
+                role: role,
+                nickname: (cm.metadata && cm.metadata.nickname) || '',
+                sortOrder: 0
+              };
+            });
+        }
+      }
+
+      // 若 Supabase 兩張表皆完全無名單資料，回退至 GAS 讀取歷史試算表
+      if (members.length === 0) {
+        const gasFn = window.churchAPI_original || window.churchAPI;
+        if (typeof gasFn === 'function') {
+          try {
+            const gasRes = await gasFn('checkGroupStatus', payload);
+            if (gasRes && (gasRes.isInitialized || (gasRes.members && gasRes.members.length > 0))) {
+              return gasRes;
+            }
+          } catch (e) {
+            console.warn('[GroupSupabase] checkGroupStatus GAS fallback:', e);
+          }
+        }
+      }
+
+      const isHappy = (group.group_type === '幸福小組');
+      const isInitialized = members.length > 0 || Boolean(group.name);
+
       return {
         success: true,
+        isInitialized: isInitialized,
         status: group.status || '顯示',
-        type: group.group_type || '一般小組',
+        type: group.group_type || (isHappy ? '幸福小組' : '一般小組'),
         associatedGroup: group.associated_group || '',
         members: members
       };
@@ -429,8 +485,14 @@
 
       const groupName = String(payload.groupName || '').trim();
       const dateStr = String(payload.date || '').slice(0, 10);
-      const attendees = Array.isArray(payload.attendees) ? payload.attendees : [];
-      const newFriends = Array.isArray(payload.newFriends) ? payload.newFriends : [];
+      const attendees = Array.isArray(payload.present) ? payload.present : (Array.isArray(payload.attendees) ? payload.attendees : []);
+      const absent = Array.isArray(payload.absent) ? payload.absent : [];
+      let newFriends = [];
+      if (Array.isArray(payload.newFriends)) {
+        newFriends = payload.newFriends;
+      } else if (typeof payload.newFriends === 'string') {
+        newFriends = payload.newFriends.split(/[^\u4e00-\u9fa5a-zA-Z0-9\s]+/).map(s => s.trim()).filter(Boolean);
+      }
       const offering = Number(payload.offering || 0);
       const notes = String(payload.notes || '').trim();
 
@@ -461,7 +523,18 @@
 
     // ── 9. 更新點名紀錄 (updateAttendanceRecord) ─────────────────
     async updateAttendanceRecord(payload) {
-      return this.submitAttendance(payload);
+      const sb = getSupabase();
+      if (!sb) return null;
+
+      const groupName = String(payload.groupName || '').trim();
+      const originalDate = String(payload.originalDate || '').slice(0, 10);
+      const newDate = String(payload.newDate || payload.date || originalDate).slice(0, 10);
+
+      if (originalDate && newDate && originalDate !== newDate) {
+        await sb.from('group_attendance_records').delete().eq('group_name', groupName).eq('date', originalDate);
+      }
+
+      return this.submitAttendance({ ...payload, date: newDate });
     },
 
     // ── 10. 刪除點名紀錄 (deleteAttendanceRecord) ────────────────
@@ -470,7 +543,11 @@
       if (!sb) return null;
 
       const groupName = String(payload.groupName || '').trim();
-      const dateStr = String(payload.date || '').slice(0, 10);
+      const dateStr = String(payload.originalDate || payload.date || '').slice(0, 10);
+
+      if (!groupName || !dateStr) {
+        return { success: false, message: '小組名稱與日期不可為空' };
+      }
 
       const { error } = await sb
         .from('group_attendance_records')
@@ -500,8 +577,10 @@
       if (members.length > 0) {
         const rows = members.map((m, idx) => ({
           group_name: groupName,
+          uid: (typeof m === 'object' && m.uid) ? m.uid : '',
           name: typeof m === 'string' ? m : m.name,
-          role: (typeof m === 'object' && m.role) ? m.role : '組員',
+          role: (typeof m === 'object' && m.role) ? m.role : '小羊',
+          nickname: (typeof m === 'object' && m.nickname) ? m.nickname : '',
           sort_order: idx + 1,
           updated_at: new Date().toISOString()
         }));
@@ -521,77 +600,148 @@
       if (!sb) return null;
 
       const groupName = String(payload.groupName || '').trim();
-      const type = payload.type || '一般小組';
+      const type = payload.type || payload.groupType || '一般小組';
       const associatedGroup = payload.associatedGroup || '';
+      const members = Array.isArray(payload.members) ? payload.members : [];
 
-      const { data, error } = await sb.from('groups').insert([{
-        name: groupName,
-        code: ('LK' + Math.floor(10 + Math.random() * 90)),
-        group_type: type,
-        associated_group: associatedGroup,
-        status: '顯示',
-        updated_at: new Date().toISOString()
-      }]).select().single();
+      // 檢查小組是否存在，不存在則建立
+      const { data: existingGroup } = await sb.from('groups').select('*').eq('name', groupName).maybeSingle();
+      if (!existingGroup) {
+        await sb.from('groups').insert([{
+          name: groupName,
+          code: ('LK' + Math.floor(10 + Math.random() * 90)),
+          group_type: type,
+          associated_group: associatedGroup,
+          status: '顯示',
+          updated_at: new Date().toISOString()
+        }]);
+      }
 
-      if (error) throw error;
+      // 若有傳入初始成員名單，寫入 group_members
+      if (members.length > 0) {
+        await sb.from('group_members').delete().eq('group_name', groupName);
+        const rows = members.map((m, idx) => ({
+          group_name: groupName,
+          uid: (typeof m === 'object' && m.uid) ? m.uid : '',
+          name: typeof m === 'string' ? m : m.name,
+          role: (typeof m === 'object' && m.role) ? m.role : '小羊',
+          nickname: (typeof m === 'object' && m.nickname) ? m.nickname : '',
+          sort_order: idx + 1,
+          updated_at: new Date().toISOString()
+        }));
+        await sb.from('group_members').insert(rows);
+      }
 
-      return { success: true, group: data };
+      syncToGasBackup('initGroup', payload);
+
+      return { success: true, message: '小組與名冊已成功初始化！' };
     },
 
     // ── 13. 會友名冊建議 (getMemberSuggestions) ──────────────────
-    async getMemberSuggestions(payload) {
+    async getMemberSuggestions(payload = {}) {
       const sb = getSupabase();
-      if (!sb) return null;
+      if (!sb) {
+        const gasFn = window.churchAPI_original || window.churchAPI;
+        if (typeof gasFn === 'function') return await gasFn('getMemberSuggestions', payload);
+        return null;
+      }
 
       const { data, error } = await sb
         .from('church_members')
-        .select('uid, name, phone, group_name')
+        .select('uid, name, phone, group_name, role')
         .order('name');
 
-      if (error) throw error;
+      if (error || !data || data.length === 0) {
+        const gasFn = window.churchAPI_original || window.churchAPI;
+        if (typeof gasFn === 'function') {
+          try {
+            const gasRes = await gasFn('getMemberSuggestions', payload);
+            if (gasRes && gasRes.success) return gasRes;
+          } catch (e) {}
+        }
+        if (error) throw error;
+      }
+
+      const list = (data || []).map(m => ({
+        uid: m.uid,
+        name: m.name,
+        phone: m.phone,
+        groupName: m.group_name,
+        role: m.role || '小羊'
+      }));
 
       return {
         success: true,
-        members: (data || []).map(m => ({
-          uid: m.uid,
-          name: m.name,
-          phone: m.phone,
-          groupName: m.group_name
-        }))
+        data: list,
+        members: list
       };
     },
 
     // ── 14. 每週統計週報 (getWeeklyReport) ────────────────────────
-    async getWeeklyReport(payload) {
+    async getWeeklyReport(payload = {}) {
       const sb = getSupabase();
-      if (!sb) return null;
+      if (!sb) {
+        const gasFn = window.churchAPI_original || window.churchAPI;
+        if (typeof gasFn === 'function') return await gasFn('getWeeklyReport', payload);
+        return null;
+      }
 
-      const dateStr = String(payload.date || '').slice(0, 10);
+      // 計算本週區間 (週一至週日)
+      const now = new Date();
+      const day = now.getDay();
+      const diffToMon = now.getDate() - (day === 0 ? 6 : day - 1);
+      const mon = new Date(now.setDate(diffToMon));
+      const sun = new Date(mon);
+      sun.setDate(mon.getDate() + 6);
+      const monStr = mon.toISOString().slice(0, 10);
+      const sunStr = sun.toISOString().slice(0, 10);
+      const dateRangeStr = `${monStr} ~ ${sunStr}`;
 
       const [groupsRes, recordsRes] = await Promise.all([
         sb.from('groups').select('*').eq('status', '顯示').order('name'),
-        sb.from('group_attendance_records').select('*').eq('date', dateStr)
+        sb.from('group_attendance_records').select('*').gte('date', monStr).lte('date', sunStr)
       ]);
 
       const groups = groupsRes.data || [];
       const records = recordsRes.data || [];
+
+      // 若 Supabase 本週尚無紀錄，回退至 GAS 讀取
+      if (records.length === 0) {
+        const gasFn = window.churchAPI_original || window.churchAPI;
+        if (typeof gasFn === 'function') {
+          try {
+            const gasRes = await gasFn('getWeeklyReport', payload);
+            if (gasRes && gasRes.success) return gasRes;
+          } catch (e) {}
+        }
+      }
+
       const recordMap = {};
       records.forEach(r => { recordMap[r.group_name] = r; });
 
-      const report = groups.map(g => {
+      const reportData = [];
+      groups.forEach(g => {
         const r = recordMap[g.name];
-        return {
-          groupName: g.name,
-          groupType: g.group_type || '一般小組',
-          isSubmitted: Boolean(r),
-          attendeeCount: r ? (r.present_members || []).length : 0,
-          newFriendCount: r ? (r.new_friends || []).length : 0,
-          offering: r ? Number(r.offering || 0) : 0,
-          notes: r ? r.notes : ''
-        };
+        if (r) {
+          const presentCount = Array.isArray(r.present_members) ? r.present_members.length : 0;
+          const newFriendsCount = Array.isArray(r.new_friends) ? r.new_friends.length : 0;
+          reportData.push({
+            groupName: g.name,
+            groupType: g.group_type || '一般小組',
+            total: presentCount + newFriendsCount,
+            attendees: presentCount,
+            newFriends: newFriendsCount,
+            offering: Number(r.offering || 0)
+          });
+        }
       });
 
-      return { success: true, report };
+      return {
+        success: true,
+        data: reportData,
+        report: reportData,
+        dateRange: dateRangeStr
+      };
     }
   };
 

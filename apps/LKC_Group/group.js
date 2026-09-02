@@ -78,11 +78,13 @@ async function checkGroupStatus() {
             document.getElementById('concludeBtn').style.display = 'none';
         }
 
-        if (res.isInitialized) {
-            currentMembers = res.members;
+        const isInit = res.isInitialized || (res.success && Array.isArray(res.members) && res.members.length > 0);
+
+        if (isInit) {
+            currentMembers = res.members || [];
             document.getElementById('attendance-panel').style.display = 'block';
             document.getElementById('init-panel').style.display = 'none'; 
-            renderMemberList(res.members);
+            renderMemberList(currentMembers);
             
             if (groupCode) {
                 document.getElementById('scheduleBtn').style.display = 'inline-block';
@@ -395,9 +397,10 @@ async function loadMemberSuggestions() {
 
     try {
         const res = await callAPI('getMemberSuggestions', {});
-        if (res && res.success && res.data) {
-            _memberSuggestionsCache = res.data;
-            buildOptions(res.data);
+        const list = (res && res.success && (res.data || res.members)) || null;
+        if (list) {
+            _memberSuggestionsCache = list;
+            buildOptions(list);
         }
     } catch (e) {
         console.warn('載入會友建議清單失敗', e);
