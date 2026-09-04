@@ -37,6 +37,11 @@
     }
   }
 
+  let _cachedPages = null;
+  let _cachedPagesTime = 0;
+  let _cachedFields = null;
+  let _cachedFieldsTime = 0;
+
   async function getSermonEventData(sb) {
     try {
       const { data: types } = await sb.from('calendar_types').select('*');
@@ -431,10 +436,21 @@
       const minDate = new Date(today.getTime() - 14 * 86400000).toISOString().slice(0, 10);
       const maxDate = new Date(today.getTime() + 60 * 86400000).toISOString().slice(0, 10);
 
-      // 查詢分頁
-      const { data: pages } = await sb.from('ministry_pages').select('*');
+      // 查詢分頁與欄位（支援 30 秒記憶體快取避免並發重複查詢）
+      const now = Date.now();
+      if (!_cachedPages || (now - _cachedPagesTime > 30000)) {
+        const { data: pages } = await sb.from('ministry_pages').select('*');
+        _cachedPages = pages || [];
+        _cachedPagesTime = now;
+      }
+      if (!_cachedFields || (now - _cachedFieldsTime > 30000)) {
+        const { data: allFields } = await sb.from('ministry_fields').select('*').order('sort_order');
+        _cachedFields = allFields || [];
+        _cachedFieldsTime = now;
+      }
+
       const pageMap = {};
-      (pages || []).forEach(p => { pageMap[p.page_name] = p; });
+      (_cachedPages || []).forEach(p => { pageMap[p.page_name] = p; });
 
       // 查詢排班紀錄
       const { data: schedules, error } = await sb
@@ -446,10 +462,9 @@
 
       if (error) throw error;
 
-      // 查詢所有欄位
-      const { data: allFields } = await sb.from('ministry_fields').select('*').order('sort_order');
+      // 整理所有欄位
       const fieldNamesSet = new Set(['破冰', '敬拜', '話語分享', '主題', '經文', '地點', '套用講道']);
-      (allFields || []).forEach(f => {
+      (_cachedFields || []).forEach(f => {
         if (f.field_name && f.field_name !== '日期') fieldNamesSet.add(f.field_name);
       });
       const extraCols = Array.from(fieldNamesSet);
@@ -485,6 +500,87 @@
       if (!sb) return null;
       const events = await getSermonEventData(sb);
       return { status: 'success', count: events.length, data: events };
+    },
+
+    // ── 12. 取得行事曆與主日講道事件 (cal_getEvents) ───────────────
+    async cal_getEvents(data = {}) {
+      const sb = getSupabase();
+      if (!sb) return null;
+
+      const startDate = data.startDate ? String(data.startDate).slice(0, 10) : '';
+      const endDate = data.endDate ? String(data.endDate).slice(0, 10) : startDate;
+
+      const { data: types } = await sb.from('calendar_types').select('*');
+      const typeById = {};
+      (types || []).forEach(t => { typeById[t.type_id] = t; });
+
+      let query = sb.from('calendar_events').select('*');
+      if (startDate && endDate) {
+        query = query.gte('date', startDate).lte('date', endDate);
+      } else if (startDate) {
+        query = query.eq('date', startDate);
+      }
+      query = query.order('date', { ascending: true });
+
+      const { data: events, error: eventsErr } = await query;
+      if (eventsErr) throw eventsErr;
+
+      const eventIds = (events || []).map(e => e.event_id);
+      const [fieldsRes, valuesRes] = await Promise.all([
+        sb.from('calendar_fields').select('*'),
+        eventIds.length > 0 ? sb.from('calendar_event_values').select('*').in('event_id', eventIds) : { data: [] }
+      ]);
+
+      const fieldById = {};
+      (fieldsRes.data || []).forEach(f => { fieldById[f.field_id] = f.name; });
+
+      const valuesByEvent = {};
+      (valuesRes.data || []).forEach(v => {
+        if (!valuesByEvent[v.event_id]) valuesByEvent[v.event_id] = [];
+        const fName = fieldById[v.field_id] || v.field_id;
+        valuesByEvent[v.event_id].push({
+          fieldId: v.field_id,
+          fieldName: fName,
+          name: fName,
+          value: v.value || ''
+        });
+      });
+
+      const formattedEvents = (events || []).map(e => {
+        const type = typeById[e.type_id] || {};
+        let values = valuesByEvent[e.event_id] || [];
+
+        if (e.field_values && typeof e.field_values === 'object') {
+          Object.keys(e.field_values).forEach(fId => {
+            if (!values.some(v => v.fieldId === fId)) {
+              const fName = fieldById[fId] || fId;
+              values.push({
+                fieldId: fId,
+                fieldName: fName,
+                name: fName,
+                value: e.field_values[fId] || ''
+              });
+            }
+          });
+        }
+
+        return {
+          eventId: e.event_id,
+          typeId: e.type_id,
+          typeName: type.name || '',
+          typeFullName: type.parent_type_id ? '講道資訊 - ' + type.name : (type.name || ''),
+          typeIcon: type.icon || '📌',
+          typeColor: type.color || '#5b8def',
+          date: String(e.date).slice(0, 10),
+          title: e.title || '',
+          values: values
+        };
+      });
+
+      return {
+        success: true,
+        data: formattedEvents
+      };
     }
   };
 
