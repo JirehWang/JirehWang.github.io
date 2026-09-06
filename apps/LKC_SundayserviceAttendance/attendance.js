@@ -673,6 +673,11 @@
         '<div class="att-info"><b class="gender-text" style="color: ' + statusColor + ';">' + genderString + '</b></div>';
       container.appendChild(label);
     });
+
+    var searchInput = document.getElementById('attSearchInput');
+    if (searchInput && searchInput.value.trim()) {
+      filterAttList();
+    }
   }
 
   function toggleCardStyle(checkbox) {
@@ -1401,3 +1406,40 @@ function executeRevoke(uid, displayName) {
     // 正常模式：載入選單與設定
     loadGroupConfig();
   }
+
+  // ── 外部 SPA 路由切換重新進入點名頁時的刷新鉤子 ──────────────────────────
+  window.initAttendancePage = function(type) {
+    var grpSelect = document.getElementById('groupSelect');
+    var catSelect = document.getElementById('categorySelect');
+    var targetType = type || (grpSelect && grpSelect.value) || currentAttType || '華語';
+
+    if (grpSelect && grpSelect.options.length > 0) {
+      if (type) {
+        var found = false;
+        for (var i = 0; i < grpSelect.options.length; i++) {
+          if (grpSelect.options[i].value === type) {
+            grpSelect.selectedIndex = i;
+            found = true;
+            break;
+          }
+        }
+        if (!found && catSelect && globalGroupConfig) {
+          for (var cat in globalGroupConfig) {
+            var match = (globalGroupConfig[cat] || []).some(function(g) {
+              return g.replace('點名紀錄', '').trim() === type;
+            });
+            if (match) {
+              catSelect.value = cat;
+              updateGroupSelect(type);
+              found = true;
+              break;
+            }
+          }
+        }
+      }
+      attIsRendering = false;
+      switchType(grpSelect.value || targetType);
+    } else {
+      loadGroupConfig(null, targetType);
+    }
+  };

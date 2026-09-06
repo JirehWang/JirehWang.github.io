@@ -756,7 +756,7 @@
     } else {
       google.script.run
         .withSuccessHandler(onSuccess)
-        .updateMember(oldName, { name, gender, note, isExcluded });
+        .updateMember(oldName, { name, gender, note, isExcluded, uid: memberUid });
     }
   }
 

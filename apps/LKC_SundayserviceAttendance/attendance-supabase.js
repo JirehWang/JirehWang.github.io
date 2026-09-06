@@ -37,12 +37,6 @@
   function syncToGasBackup(action, payload) {
     setTimeout(async () => {
       try {
-        const gasFn = window.churchAPI_original || window.churchAPI;
-        if (typeof gasFn === 'function') {
-          gasFn(action, payload).catch(e => console.warn(`[Attendance Backup] GAS sync (${action}):`, e.message));
-          return;
-        }
-
         const apiUrl = (window.GAS_CONFIG && window.GAS_CONFIG.apiUrl) || window.GAS_URL;
         if (apiUrl) {
           fetch(apiUrl, {
@@ -50,6 +44,12 @@
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action: action, data: payload, payload: payload })
           }).catch(e => console.warn(`[Attendance Backup] Fetch sync (${action}):`, e.message));
+          return;
+        }
+
+        const gasFn = window.churchAPI_original || window.churchAPI;
+        if (typeof gasFn === 'function') {
+          gasFn(action, payload).catch(e => console.warn(`[Attendance Backup] GAS sync (${action}):`, e.message));
         }
       } catch (e) {}
     }, 50);
@@ -512,6 +512,9 @@
       const sb = getSupabase();
       if (!sb) return await window.churchAPI('addMember', payload);
 
+      if (Array.isArray(payload)) payload = payload[0] || {};
+      payload = payload || {};
+
       const name = String(payload.name || '').trim();
       if (!name) throw new Error('會友姓名為必填');
 
@@ -562,8 +565,21 @@
       const sb = getSupabase();
       if (!sb) return await window.churchAPI('updateMember', oldName, newData);
 
+      // 支援 api.js 傳入陣列 [oldName, newData] 或單一物件或多參數呼叫
+      if (Array.isArray(oldName)) {
+        newData = oldName[1] || {};
+        oldName = oldName[0];
+      } else if (oldName && typeof oldName === 'object' && !newData) {
+        newData = oldName;
+        oldName = newData.oldName || newData.name;
+      }
+      newData = newData || {};
+
+      const targetName = String(oldName || newData.oldName || newData.name || '').trim();
+      const targetUid = String(newData.uid || newData.id || '').trim();
+
       const updates = {
-        name: String(newData.name || oldName).trim(),
+        name: String(newData.name || targetName).trim(),
         gender: newData.gender || '',
         is_excluded: Boolean(newData.isExcluded),
         metadata: { note: newData.note || '' },
@@ -577,10 +593,17 @@
         updates.role = newData.role;
       }
 
-      const { error } = await sb.from('church_members').update(updates).eq('name', oldName);
+      let query = sb.from('church_members').update(updates);
+      if (targetUid && /^LK\d+$/i.test(targetUid)) {
+        query = query.eq('uid', targetUid);
+      } else {
+        query = query.eq('name', targetName);
+      }
+
+      const { error } = await query;
       if (error) throw error;
 
-      syncToGasBackup('updateMember', { oldName, ...newData });
+      syncToGasBackup('updateMember', [targetName, newData]);
 
       return '✅ 成功更新會友：' + updates.name;
     },
@@ -588,6 +611,11 @@
     async deleteMember(name) {
       const sb = getSupabase();
       if (!sb) return await window.churchAPI('deleteMember', name);
+
+      if (Array.isArray(name)) name = name[0];
+      else if (name && typeof name === 'object') name = name.name;
+      name = String(name || '').trim();
+      if (!name) throw new Error('請指定要刪除的會友姓名');
 
       const { data: mem } = await sb.from('church_members').select('uid').eq('name', name).maybeSingle();
       if (!mem) throw new Error('找不到會友：' + name);
