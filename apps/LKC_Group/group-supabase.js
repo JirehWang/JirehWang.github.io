@@ -39,8 +39,10 @@
       var hexByte = charCode.toString(16).padStart(2, '0');
       hex += hexByte;
     }
-    return ENC_PREFIX + hex;
   }
+
+  let _cachedNameDirectory = null;
+  let _cachedNameDirectoryTime = 0;
 
   function getSupabase() {
     if (window._supabase) return window._supabase;
@@ -424,24 +426,33 @@
         }
       }
 
-      // 建立會友 UID -> 姓名反查表
-      const { data: mems } = await sb.from('church_members').select('uid, name, group_name, role');
-      const nameDirectory = {};
-      (mems || []).forEach(m => {
-        if (m.uid) nameDirectory[m.uid.toUpperCase()] = m.name;
-      });
+      // 建立會友 UID -> 姓名反查表（5分鐘快取加速）
+      const now = Date.now();
+      if (!_cachedNameDirectory || (now - _cachedNameDirectoryTime > 300000)) {
+        const { data: mems } = await sb.from('church_members').select('uid, name, group_name, role');
+        const dir = {};
+        (mems || []).forEach(m => {
+          if (m.uid) dir[m.uid.toUpperCase()] = m.name;
+        });
+        _cachedNameDirectory = dir;
+        _cachedNameDirectoryTime = now;
+      }
+      const nameDirectory = _cachedNameDirectory;
 
       if (isRawMode) {
         return {
           success: true,
           groupName: groupName,
           isSingleDay: false,
-          data: (records || []).map(r => [
-            r.date ? String(r.date).slice(0, 10).replace(/-/g, '/') : '',
-            Array.isArray(r.present_members) ? r.present_members.join(', ') : String(r.present_members || ''),
-            r.offering || 0,
-            Array.isArray(r.new_friends) ? r.new_friends.join(', ') : String(r.new_friends || '')
-          ]),
+          data: (records || []).map(r => {
+            const uids = r.present_uids || r.present_members || [];
+            return [
+              r.date ? String(r.date).slice(0, 10).replace(/-/g, '/') : '',
+              Array.isArray(uids) ? uids.join(', ') : String(uids || ''),
+              r.offering || 0,
+              Array.isArray(r.new_friends) ? r.new_friends.join(', ') : String(r.new_friends || '')
+            ];
+          }),
           nameDirectory: nameDirectory
         };
       }
@@ -479,7 +490,10 @@
 
       const data = groupMembers.map(m => {
         const uid = m.uid;
-        const cellCount = filteredRecords.filter(r => (r.present_members || []).includes(uid) || (r.present_members || []).includes(m.name)).length;
+        const cellCount = filteredRecords.filter(r => {
+          const uList = r.present_uids || r.present_members || [];
+          return uList.includes(uid) || uList.includes(m.name);
+        }).length;
         const sundayCount = filteredSunday.filter(sr => ['台語', '華語', '聯合'].includes(sr.service_type) && (sr.present_uids || []).includes(uid)).length;
         const schoolCount = filteredSunday.filter(sr => String(sr.service_type || '').includes('主日學') && (sr.present_uids || []).includes(uid)).length;
 
@@ -577,8 +591,10 @@
       const record = {
         group_name: groupName,
         date: dateStr,
-        present_members: attendees,
+        present_uids: attendees,
+        absent_uids: absent,
         new_friends: newFriends,
+        new_friends_raw: Array.isArray(newFriends) ? newFriends.join(', ') : String(newFriends || ''),
         offering: offering,
         notes: notes,
         updated_at: new Date().toISOString()
@@ -797,7 +813,8 @@
       groups.forEach(g => {
         const r = recordMap[g.name];
         if (r) {
-          const presentCount = Array.isArray(r.present_members) ? r.present_members.length : 0;
+          const list = r.present_uids || r.present_members || [];
+          const presentCount = Array.isArray(list) ? list.length : 0;
           const newFriendsCount = Array.isArray(r.new_friends) ? r.new_friends.length : 0;
           reportData.push({
             groupName: g.name,
