@@ -39,9 +39,11 @@
       var hexByte = charCode.toString(16).padStart(2, '0');
       hex += hexByte;
     }
+    return ENC_PREFIX + hex;
   }
 
   let _cachedNameDirectory = null;
+  let _cachedMembersList = null;
   let _cachedNameDirectoryTime = 0;
 
   function getSupabase() {
@@ -428,16 +430,18 @@
 
       // 建立會友 UID -> 姓名反查表（5分鐘快取加速）
       const now = Date.now();
-      if (!_cachedNameDirectory || (now - _cachedNameDirectoryTime > 300000)) {
-        const { data: mems } = await sb.from('church_members').select('uid, name, group_name, role');
+      if (!_cachedNameDirectory || !_cachedMembersList || (now - _cachedNameDirectoryTime > 300000)) {
+        const { data: churchMems } = await sb.from('church_members').select('uid, name, group_name, role');
         const dir = {};
-        (mems || []).forEach(m => {
+        (churchMems || []).forEach(m => {
           if (m.uid) dir[m.uid.toUpperCase()] = m.name;
         });
         _cachedNameDirectory = dir;
+        _cachedMembersList = churchMems || [];
         _cachedNameDirectoryTime = now;
       }
       const nameDirectory = _cachedNameDirectory;
+      const mems = _cachedMembersList;
 
       if (isRawMode) {
         return {
