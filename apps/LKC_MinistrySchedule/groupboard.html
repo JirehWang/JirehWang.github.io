@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script>window._GAS_KEY = 'LKC_MinistrySchedule_TEST';</script>
-    <script src="../../config.js?v=20260904_v1_boardfast"></script>
+    <script src="../../config.js?v=20260906_v2_gatheringonly"></script>
     <!-- ⚡ Supabase 本地熱響應服務 (<50ms) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="../../supabase/supabase-config.js?v=20260904_v1_boardfast"></script>
-    <script src="ministry-supabase.js?v=20260904_v1_boardfast"></script>
+    <script src="../../supabase/supabase-config.js?v=20260906_v2_gatheringonly"></script>
+    <script src="ministry-supabase.js?v=20260906_v2_gatheringonly"></script>
     <style>
         /* 佈告欄專屬的 CSS 風格 */
         body {
@@ -354,7 +354,10 @@
                 const othData = (othRes && othRes.status === 'success')
                     ? matrixToObjects(othRes.data).filter(r => r['模板類型'] === '團契聚會表模板')
                     : [];
-                const allRawData = [...smData, ...othData];
+                // 🛡️ 雙重防護：嚴格限定僅保留小組與團契聚會型模板，杜絕事工服事排班混入
+                const allRawData = [...smData, ...othData].filter(r => 
+                    r['模板類型'] === '小組聚會表模板' || r['模板類型'] === '團契聚會表模板' || r['模板類型'] === '聚會型模板'
+                );
 
                 // 🌟 針對每筆小組聚會，若設定了「套用講道」且主題/經文為空白或為「待定」，在前端動態連動最新講道資訊
                 allRawData.forEach(event => {

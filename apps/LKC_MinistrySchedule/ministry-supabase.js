@@ -474,11 +474,23 @@
 
       (schedules || []).forEach(s => {
         const page = pageMap[s.page_name];
-        const rawType = (page && page.template_type) ? page.template_type : '小組聚會表模板';
-        const tType = rawType === 'gathering' ? '小組聚會表模板' : (rawType === 'ministry' ? '事工型模板' : rawType);
+        // 判斷是否為聚會型分頁 (小組/團契) 或 事工型排班
+        let isGathering = false;
+        let tType = '事工型模板';
+
+        if (page) {
+          if (page.status === '隱藏') return;
+          const isFellowship = page.page_name.includes('團契');
+          if (page.template_type === 'gathering' || page.template_type === '小組聚會表模板' || page.template_type === '團契聚會表模板' || page.template_type === '聚會型模板') {
+            isGathering = true;
+            tType = isFellowship ? '團契聚會表模板' : '小組聚會表模板';
+          }
+        }
 
         if (reportType === 'smallGroup') {
-          if (tType.includes('事工') && !tType.includes('小組') && !tType.includes('團契')) return;
+          if (!isGathering) return;
+        } else if (reportType === 'others') {
+          if (isGathering) return;
         }
 
         const dateStr = String(s.date).slice(0, 10);
